@@ -1,0 +1,2 @@
+class SteepestDescent(object):
+    pass
