@@ -1,20 +1,53 @@
 import numpy as np
+import scipy.interpolate
+
+from . import environment
 
 class RDF(object):
-    def __init__(self, env):
-        self.env = env
+    def __init__(self, dr, policy):
+        self.dr = dr
+        self.policy = policy
 
-    def __call__(self, trajectory, pair, dr, rcut):
+    def __call__(self, env, trajectory, pair, rcut):
         raise NotImplementedError()
 
-class AllPairsRDF(RDF):
-    def __init__(self, env):
-        super(AllPairsRDF, self).__init__(env)
+class RDFInterpolator(object):
+    def __init__(self, r, gr):
+        self.rmin = r[0]
+        self.rmax = r[-1]
+        self._spline = scipy.interpolate.Akima1DInterpolator(x=r, y=gr)
 
-    def __call__(self, trajectory, pair, dr, rcut):
+    def __call__(self, r):
+        return self._spline(r)
+
+class MockRDF(RDF):
+    def __init__(self, dr, potential, policy=environment.Policy()):
+        super(MockRDF, self).__init__(dr, policy)
+        self.potential = potential
+
+    def __call__(self, env, trajectory, pair, rcut):
         # r with requested spacing (accounting for possible last fractional bin)
-        nbins = np.ceil(rcut/dr).astype(int)
-        r = dr*np.arange(nbins+1)
+        nbins = np.ceil(rcut/self.dr).astype(int)
+        r = self.dr*np.arange(nbins+1)
+        r[-1] = rcut
+
+        # center r on the bins
+        r = 0.5*(r[:-1] + r[1:])
+
+        # use dilute g(r) approximation
+        u = self.potential(r, pair)
+        gr = np.exp(-u)
+
+        return np.column_stack((r,gr))
+
+class AllPairsRDF(RDF):
+    def __init__(self, dr, policy=environment.Policy()):
+        super(AllPairsRDF, self).__init__(dr, policy)
+
+    def __call__(self, env, trajectory, pair, rcut):
+        # r with requested spacing (accounting for possible last fractional bin)
+        nbins = np.ceil(rcut/self.dr).astype(int)
+        r = self.dr*np.arange(nbins+1)
         r[-1] = rcut
 
         # volume of spherical shell bins
@@ -68,4 +101,4 @@ class AllPairsRDF(RDF):
             gr += counts*s.box.volume/((N_i*N_j-overlap)*vbins)
         gr /= len(trajectory)
 
-        return r,gr
+        return np.column_stack((r,gr))

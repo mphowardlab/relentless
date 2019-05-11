@@ -12,6 +12,10 @@ class TemporaryWorkingDirectory(object):
         self.current = os.getcwd()
         self.directory = directory
 
+        # ensure directory exists
+        if not os.path.exists(self.directory):
+            os.makedirs(self.directory)
+
     def __enter__(self):
         os.chdir(self.directory)
         return self.directory

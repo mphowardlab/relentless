@@ -4,21 +4,22 @@ import warnings
 
 import numdifftools
 import numpy as np
+import scipy.optimize
 
-class CoefficientMatrix(object):
+from .core import CoefficientMatrix
+
+class PairCoefficientMatrix(CoefficientMatrix):
     """ Pair coefficient matrix.
     """
     def __init__(self, types, params, default={}):
-        self.types = tuple(types)
+        super(PairCoefficientMatrix, self).__init__(types)
+
         self.params = tuple(params)
 
-        self._data = {}
-        for i in types:
-            for j in types:
-                self._data[i,j] = {}
-                for p in self.params:
-                    v = default[p] if p in default else None
-                    self._data[i,j][p] = v
+        for key in self._data:
+            for p in self.params:
+                v = default[p] if p in default else None
+                self._data[key][p] = v
 
     def evaluate(self, pair):
         i,j = self._check_key(pair)
@@ -34,8 +35,8 @@ class CoefficientMatrix(object):
 
     def perturb(self, pair, key, param, value):
         # check keys now to bypass later checks
-        self._check_key(pair)
-        self._check_key(key)
+        pair = self._check_key(pair)
+        key = self._check_key(key)
 
         if param not in self.params:
             raise KeyError('Parameter {} is not part of the coefficient matrix.'.format(param))
@@ -58,30 +59,6 @@ class CoefficientMatrix(object):
 
         return new_params, old_params
 
-    def copy(self):
-        coeff = CoefficientMatrix(types=self.types, params=self.params)
-        coeff._data = self._data.copy()
-        return coeff
-
-    def _check_key(self, key):
-        """ Check that a pair key is valid.
-        """
-        if len(key) != 2:
-            raise KeyError('Coefficient matrix requires a pair of types.')
-
-        if key[0] not in self.types:
-            raise KeyError('Type {} is not in coefficient matrix.'.format(key[0]))
-        elif key[1] not in self.types:
-            raise KeyError('Type {} is not in coefficient matrix.'.format(key[1]))
-
-        return key
-
-    def __getitem__(self, key):
-        """ Get all coefficients for the (i,j) pair.
-        """
-        self._check_key(key)
-        return self._data[key]
-
     def __setitem__(self, key, value):
         """ Set coefficients for the (i,j) pair.
         """
@@ -91,25 +68,20 @@ class CoefficientMatrix(object):
             if p not in self.params:
                 raise KeyError('Only the known parameters can be set in coefficient matrix.')
             self._data[i,j][p] = value[p]
-            if i != j:
-                self._data[j,i][p] = value[p]
-
-    def __iter__(self):
-        return iter(self._data)
-
-    def __next__(self):
-        return next(self._data)
-
-    def __str__(self):
-        return str(self._data)
 
 class PairPotential(object):
     """ Generic pair potential evaluator.
     """
     _id = 0
 
-    def __init__(self, types, params, default={}):
-        self.coeff = CoefficientMatrix(types, params, default)
+    def __init__(self, types, params, default={}, shift=False):
+        assert 'rmin' in params, 'rmin must be in PairPotential parameters'
+        assert 'rmax' in params, 'rmax must be in PairPotential parameters'
+
+        self.coeff = PairCoefficientMatrix(types, params, default)
+        self.free = CoefficientMatrix(types)
+        self.shift = shift
+
         self.id = PairPotential._id
         PairPotential._id += 1
 
@@ -117,10 +89,23 @@ class PairPotential(object):
         """ Evaluate energy for a (i,j) pair.
         """
         params = self.coeff.evaluate(pair)
-        return self.energy(r, **params)
+        u = self.energy(r, **params)
+        if self.shift:
+            u[np.atleast_1d(r) <= params['rmax']] -= self.energy(params['rmax'], **params)
+        return u
+
+    def force(self, r, pair):
+        """ Evaluate the force for a (i,j) pair.
+        """
+        params = self.coeff.evaluate(pair)
+        dudr = numdifftools.Derivative(lambda x: self.energy(x, **params))
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", FutureWarning)
+            f = -dudr(r)
+        return f
 
     def derivative(self, r, pair, key, param):
-        """ Evaluate derivative for a (i,j) pair with respect to a key,param parameter.
+        """ Evaluate derivative for a (i,j) pair with respect to a key parameter.
         """
         if callable(self.coeff[key][param]):
             raise KeyError('Cannot differentiate a callable parameter; it is chained.')
@@ -140,13 +125,8 @@ class PairPotential(object):
 
         return deriv
 
-    def energy(self, r):
+    def energy(self, r, **kwargs):
         """ Evaluate the potential energy.
-        """
-        raise NotImplementedError()
-
-    def force(self, r):
-        """ Evaluate the force.
         """
         raise NotImplementedError()
 
@@ -157,74 +137,130 @@ class PairPotential(object):
             raise TypeError('Expecting 1D array for r')
         return r,np.zeros_like(r)
 
-class NetPotential(PairPotential):
-    def __init__(self, potentials=[]):
-        self.types = None
-        self._potentials = set()
+    def __iter__(self):
+        return iter(self.coeff)
 
-        for pot in potentials:
-            self.add(pot)
+    def __next__(self):
+        return next(self.coeff)
 
-    def add(self, potential):
-        if self.types is None:
-            self.types = tuple(sorted(potential.coeff.types))
-        else:
-            if tuple(sorted(potential.coeff.types)) != self.types:
-                raise KeyError('Potentials must all have the same types.')
+class LJPotential(PairPotential):
+    def __init__(self, types, shift=False):
+        super(LJPotential,self).__init__(types=types,
+                                         params=('epsilon','sigma','n','rmin','rmax'),
+                                         default={'n': 6, 'rmin': 0.},
+                                         shift=shift)
 
-        self._potentials.add(potential)
-
-    def remove(self, potential):
-        self._potentials.remove(potential)
-
-    def __call__(self, r, pair):
+    def energy(self, r, epsilon, sigma, n, rmin, rmax):
         r,u = self._zeros(r)
 
-        # exit early if there are no potentials added
-        if len(self._potentials) == 0:
-            return u
+        zero_flags = np.isclose(r, 0)
+        range_flags = np.logical_and(r >= rmin, r <= rmax)
 
-        # sum up all potentials, noting anything that spills over
-        uinf = np.zeros(u.shape, dtype=bool)
-        for pot in self._potentials:
-            params = pot.coeff.evaluate(pair)
-            up = pot(r, **params)
-
-            # todo: worry about neg inf.?
-            flags = np.isfinite(up)
-            u[flags] += up[flags]
-            uinf |= ~flags
-
-        # set to a large (?) value
-        u[uinf] = 1000.
-
-        return u
-
-class WCAPotential(PairPotential):
-    def __init__(self,types):
-        super(WCAPotential,self).__init__(types=types,
-                                          params=('epsilon','sigma','n'),
-                                          default={'n': 6})
-
-    def energy(self, r, epsilon, sigma, n):
-        r,u = self._zeros(r)
-
-        # evaluate cutoff potential
-        rcut = 2.**(1./n)*sigma
-        flags = r <= rcut
+        # evaluate potential for r in range, but nonzero
+        flags = np.logical_xor(range_flags, zero_flags)
         rn_inv = np.power(sigma/r[flags], n)
-        u[flags] = 4.*epsilon*(rn_inv**2 - rn_inv + 0.25)
+        u[flags] = 4.*epsilon*(rn_inv**2 - rn_inv)
+
+        # evaluate potential for r in range, but zero
+        flags = np.logical_and(range_flags, zero_flags)
+        u[flags] = np.inf
 
         return u
 
-    def force(self, r, epsilon, sigma, n):
-        r,f = self._zeros(r)
+    def force(self, r, pair):
+        # load parameters for the pair
+        params = self.coeff.evaluate(pair)
+        epsilon = params['epsilon']
+        sigma = params['sigma']
+        n = params['n']
+        rmin = params['rmin']
+        rmax = params['rmax']
 
         # evaluate cutoff force
-        rcut = 2.**(1./n)*sigma
-        flags = r <= rcut
+        r,f = self._zeros(r)
+
+        zero_flags = np.isclose(r, 0)
+        range_flags = np.logical_and(r >= rmin, r <= rmax)
+
+        # evaluate force for r in range, but nonzero
+        flags = np.logical_xor(range_flags, zero_flags)
         rinv = 1./r[flags]
         rn_inv = np.power(sigma*rinv, n)
         f[flags] = (8.*n*epsilon*rinv)*(rn_inv**2-0.5*rn_inv)
 
+        # evaluate force for r in range, but zero
+        flags = np.logical_and(range_flags, zero_flags)
+        f[flags] = np.inf
+
         return f
+
+class Tabulator(object):
+    def __init__(self, nbins, rmin, rmax, fmax=None, fcut=None, edges=True):
+        self._nbins = nbins
+        self._rmin = rmin
+        self._rmax = rmax
+
+        self.fmax = fmax
+        self.fcut = fcut
+
+        self._dr = (rmax-rmin)/nbins
+        if edges:
+            self._r = np.linspace(rmin, rmax, nbins+1, dtype=np.float64)
+        else:
+            self._r = rmin + self._dr*(np.arange(nbins, dtype=np.float64)+0.5)
+
+    @property
+    def dr(self):
+        return self._dr
+
+    @property
+    def r(self):
+        return self._r
+
+    def __call__(self, pair, potentials):
+        u = np.zeros_like(self.r)
+        for pot in potentials:
+            if pair in pot.coeff.pairs:
+                u += pot(self.r, pair)
+        return u
+
+    def force(self, pair, potentials):
+        f = np.zeros_like(self.r)
+        for pot in potentials:
+            if pair in pot.coeff.pairs:
+                f += pot.force(self.r, pair)
+        return f
+
+    def regularize(self, u, f, trim=True):
+        if len(u) != len(self.r):
+            raise IndexError('Potential must have the same length as r.')
+        if len(f) != len(self.r):
+            raise IndexError('Force must have the same length as r.')
+
+        # find first point from beginning that is within energy tolerance
+        if self.fmax is not None:
+            cut = np.argmax(np.abs(f) <= self.fmax)
+            if cut > 0:
+                u[:cut] = u[cut] - f[cut]*(self.r[:cut] - self.r[cut])
+                f[:cut] = f[cut]
+
+        # find first point from end with sufficient force and cutoff the potential after it
+        if self.fcut is not None:
+            flags = np.abs(np.flip(f)) >= self.fcut
+            cut = len(f)-1 - np.argmax(flags)
+            u -= u[cut]
+            if cut < len(f)-1:
+                u[(cut+1):] = 0.
+                f[(cut+1):] = 0.
+
+        # trim off trailing zeros
+        r = self.r.copy()
+        if trim:
+            flags = np.abs(np.flip(f)) > 0
+            cut = len(f) - np.argmax(flags)
+            if cut < len(f)-1:
+                r = r[:(cut+1)]
+                u = u[:(cut+1)]
+                f = f[:(cut+1)]
+
+        return np.column_stack((r,u,f))
