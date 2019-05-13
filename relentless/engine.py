@@ -4,8 +4,7 @@ import os
 import numpy as np
 
 from . import core
-from . import environment
-from . import utils
+from .environment import Policy
 
 class Engine(object):
     trim = False
@@ -21,18 +20,18 @@ class Engine(object):
         """
         raise NotImplementedError()
 
-    def load_trajectory(self, env):
+    def load_trajectory(self, env, step):
         raise NotImplementedError()
 
-class MockEngine(Engine):
-    def __init__(self, ensemble, policy=environment.Policy()):
-        super(MockEngine, self).__init__(policy)
+class Mock(Engine):
+    def __init__(self, ensemble, policy=Policy()):
+        super(Mock, self).__init__(policy)
         self.ensemble = ensemble
 
     def run(self, env, step, potentials):
         pass
 
-    def load_trajectory(self, env):
+    def load_trajectory(self, env, step):
         L = self.ensemble.V**(1./3.)
         box = core.Box(L)
 
@@ -49,7 +48,7 @@ class MockEngine(Engine):
 class LAMMPS(Engine):
     trim = True
 
-    def __init__(self, lammps, template, args=None, policy=environment.Policy()):
+    def __init__(self, lammps, template, args=None, policy=Policy()):
         super(LAMMPS, self).__init__(policy)
 
         self.lammps = lammps
@@ -57,8 +56,7 @@ class LAMMPS(Engine):
         self.args = args if args is not None else ""
 
     def run(self, env, step, potentials):
-        assert env.cwd is not None, 'Environment current working directory must be set.'
-        with env.cwd:
+        with env.data(step):
             for i,j in potentials:
                 if j >= i:
                     pot = np.asarray(potentials[(i,j)])
@@ -80,11 +78,9 @@ class LAMMPS(Engine):
             cmd = '{lmp} -in {fn} -nocite {args}'.format(lmp=self.lammps, fn=file_, args=self.args)
             env.call(cmd, self.policy)
 
-    def load_trajectory(self, env):
-        assert env.cwd is not None, 'Environment current working directory must be set.'
-
+    def load_trajectory(self, env, step):
         traj = core.Trajectory()
-        with env.cwd:
+        with env.data(step):
             file_ = 'trajectory.gz'
             if os.path.exists(file_):
                 gz = True

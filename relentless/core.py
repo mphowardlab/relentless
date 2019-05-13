@@ -1,6 +1,6 @@
 import numpy as np
 
-class CoefficientMatrix(object):
+class PairMatrix(object):
     """ Coefficient matrix.
     """
     def __init__(self, types):

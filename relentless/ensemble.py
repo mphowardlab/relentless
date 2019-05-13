@@ -19,7 +19,7 @@ class Ensemble(object):
             self.mu[i] = None
             self.N[i] = None
 
-        self.rdf = core.CoefficientMatrix(self.types)
+        self.rdf = core.PairMatrix(self.types)
 
     @property
     def beta(self):
@@ -45,7 +45,7 @@ class NVT(Ensemble):
         self.P = None
         for i in self.types:
             mu[i] = None
-        self.rdf = core.CoefficientMatrix(self.types)
+        self.rdf = core.PairMatrix(self.types)
 
     def copy(self):
         return NVT(self.N, self.V, self.T, self.kB)
@@ -62,7 +62,7 @@ class NPT(Ensemble):
         self.V = None
         for i in self.types:
             mu[i] = None
-        self.rdf = core.CoefficientMatrix(self.types)
+        self.rdf = core.PairMatrix(self.types)
 
     def copy(self):
         return NPT(self.N, self.P, self.T, self.kB)
@@ -79,7 +79,7 @@ class muVT(Ensemble):
         self.P = None
         for i in self.types:
             N[i] = None
-        self.rdf = core.CoefficientMatrix(self.types)
+        self.rdf = core.PairMatrix(self.types)
 
     def copy(self):
         return muVT(self.mu, self.V, self.T, self.kB)

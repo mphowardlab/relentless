@@ -4,7 +4,24 @@ import subprocess
 
 from . import utils
 
+class TemporaryDirectory(object):
+    """ Temporary working directory.
+    """
+    def __init__(self, path):
+        self._path = os.path.abspath(path)
+        if not os.path.exists(self._path):
+            os.makedirs(self._path)
+
+    def __enter__(self):
+        self.start = os.getcwd()
+        os.chdir(self._path)
+        return self._path
+
+    def __exit__(self, exception_type, exception_value, traceback):
+        os.chdir(self.start)
+
 class Policy(object):
+    """ Execution poliy."""
     def __init__(self, procs=None, threads=None):
         if procs is not None:
             if not procs >= 1:
@@ -26,23 +43,15 @@ class Environment(object):
     mpiexec = None
     always_wrap = False
 
-    def __init__(self, scratch, work, archive=False, mock=False):
-        self._scratch = scratch
-        self._work = work
-        self.cwd = None
-
-        self.archive = archive
+    def __init__(self, path, mock=False):
+        self._path = os.path.abspath(path)
         self.mock = mock
-
-    def reset(self):
-        self.cwd = None
 
     def __enter__(self):
         return self
 
     def __exit__(self, exception_type, exception_value, traceback):
-        self.reset()
-        print('Cleanup scratch? {}'.format(self.archive))
+        pass
 
     def call(self, cmd, policy):
         # OpenMP threading
@@ -72,35 +81,30 @@ class Environment(object):
         else:
             print(cmd)
 
-    def scratch(self, path=None):
-        if path is not None:
-            return os.path.join(self._scratch, path)
-        else:
-            return self._scratch
+    @property
+    def project(self):
+        return TemporaryDirectory(self._path)
 
-    def work(self, path=None):
-        if path is not None:
-            return os.path.join(self._work, path)
-        else:
-            return self._work
+    def data(self, step):
+        return TemporaryDirectory(os.path.join(self._path, str(step)))
 
 class SLURM(Environment):
     mpiexec = 'srun'
     always_wrap = False
 
-    def __init__(self, scratch, work, archive=False, mock=False):
-        super(SLURM, self).__init__(scratch, work, archive, mock)
+    def __init__(self, path, mock=False):
+        super(SLURM, self).__init__(path, mock)
 
 class Lonestar(Environment):
     mpiexec = 'ibrun'
     always_wrap = False
 
-    def __init__(self, scratch=None, work=None, archive=False, mock=False):
-        super(Lonestar, self).__init__(scratch,work, archive, mock)
+    def __init__(self, path, mock=False):
+        super(Lonestar, self).__init__(path, mock)
 
 class Stampede2(Environment):
     mpiexec = 'ibrun'
     always_wrap = False
 
-    def __init__(self, scratch=None, work=None, archive=False, mock=False):
-        super(Stampede2, self).__init__(scratch,work, archive, mock)
+    def __init__(self, path, mock=False):
+        super(Stampede2, self).__init__(path, mock)

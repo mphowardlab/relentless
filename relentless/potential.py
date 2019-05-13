@@ -1,47 +1,42 @@
 from __future__ import division
 
+import json
 import warnings
 
 import numdifftools
 import numpy as np
 import scipy.optimize
 
-from .core import CoefficientMatrix
+from .core import PairMatrix
 
-class PairCoefficientMatrix(CoefficientMatrix):
+class CoefficientMatrix(PairMatrix):
     """ Pair coefficient matrix.
     """
     def __init__(self, types, params, default={}):
-        super(PairCoefficientMatrix, self).__init__(types)
+        super(CoefficientMatrix, self).__init__(types)
 
         self.params = tuple(params)
 
-        for key in self._data:
+        for key in self:
             for p in self.params:
                 v = default[p] if p in default else None
-                self._data[key][p] = v
+                self[key][p] = v
 
     def evaluate(self, pair):
-        i,j = self._check_key(pair)
-
         params = {}
         for p in self.params:
-            v = self._data[i,j][p]
+            v = self[pair][p]
             params[p] = v(self) if callable(v) else v
             if params[p] is None:
-                raise ValueError('Parameter {} is not set for ({},{}).'.format(p,i,j))
+                raise ValueError('Parameter {} is not set for ({},{}).'.format(p,pair[0],pair[1]))
 
         return params
 
     def perturb(self, pair, key, param, value):
-        # check keys now to bypass later checks
-        pair = self._check_key(pair)
-        key = self._check_key(key)
-
         if param not in self.params:
             raise KeyError('Parameter {} is not part of the coefficient matrix.'.format(param))
 
-        old_value = self._data[key][param]
+        old_value = self[key][param]
         if old_value is None:
             raise ValueError('Cannot perturb parameter {}, not set for ({},{}).'.format(param,*key))
         elif callable(old_value):
@@ -51,23 +46,28 @@ class PairCoefficientMatrix(CoefficientMatrix):
         old_params = self.evaluate(pair)
 
         # swap in new value
-        self._data[key][param] = value
+        self[key][param] = value
         new_params = self.evaluate(pair)
 
         # restore old value
-        self._data[key][param] = old_value
+        self[key][param] = old_value
 
         return new_params, old_params
+
+    def save(self, filename):
+        all_params = {}
+        for key in self:
+            all_params[str(key)] = self.evaluate(key)
+        with open(filename, 'w') as f:
+            json.dump(all_params, f, sort_keys=True, indent=4)
 
     def __setitem__(self, key, value):
         """ Set coefficients for the (i,j) pair.
         """
-        i,j = self._check_key(key)
-
         for p in value:
             if p not in self.params:
                 raise KeyError('Only the known parameters can be set in coefficient matrix.')
-            self._data[i,j][p] = value[p]
+            self[key][p] = value[p]
 
 class PairPotential(object):
     """ Generic pair potential evaluator.
@@ -78,8 +78,8 @@ class PairPotential(object):
         assert 'rmin' in params, 'rmin must be in PairPotential parameters'
         assert 'rmax' in params, 'rmax must be in PairPotential parameters'
 
-        self.coeff = PairCoefficientMatrix(types, params, default)
-        self.free = CoefficientMatrix(types)
+        self.coeff = CoefficientMatrix(types, params, default)
+        self.free = PairMatrix(types)
         self.shift = shift
 
         self.id = PairPotential._id
@@ -93,6 +93,11 @@ class PairPotential(object):
         if self.shift:
             u[np.atleast_1d(r) <= params['rmax']] -= self.energy(params['rmax'], **params)
         return u
+
+    def energy(self, r, **kwargs):
+        """ Evaluate the potential energy.
+        """
+        raise NotImplementedError()
 
     def force(self, r, pair):
         """ Evaluate the force for a (i,j) pair.
@@ -125,10 +130,8 @@ class PairPotential(object):
 
         return deriv
 
-    def energy(self, r, **kwargs):
-        """ Evaluate the potential energy.
-        """
-        raise NotImplementedError()
+    def save(self):
+        self.coeff.save('{}.{}.json'.format(self.id,self.__class__.__name__))
 
     def _zeros(self, r):
         # coerce input shape and create zeros for output

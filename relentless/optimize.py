@@ -1,5 +1,6 @@
 from __future__ import division
 
+import json
 import os
 
 import numpy as np
@@ -8,16 +9,15 @@ import scipy.interpolate
 
 from . import core
 from . import rdf
-from . import utils
 
 class Variable(object):
-    def __init__(self, name, rate, low=None, high=None):
+    def __init__(self, name, value=None, low=None, high=None):
         self.name = name
-        self.rate = rate
         self.low = low
         self.high = high
 
-        self.tmp = None
+        self._value = value
+        self._free = self.check(self._value) if self._value is not None else False
 
     def check(self, value):
         return not ((self.low is not None and value < self.low) or
@@ -30,6 +30,14 @@ class Variable(object):
             return self.high, True
         else:
             return value, False
+
+    @property
+    def value(self):
+        return self._value
+
+    @value.setter
+    def value(self, value):
+        self._value,self._free = self.clamp(value)
 
 class Optimizer(object):
     def __init__(self, engine, rdf, table):
@@ -63,7 +71,7 @@ class Optimizer(object):
         return self._types
 
     def _tabulate_potentials(self):
-        potentials = core.CoefficientMatrix(self.types)
+        potentials = core.PairMatrix(self.types)
         for pair in potentials.pairs:
             r = self.table.r
             u = self.table(pair, self.potentials)
@@ -122,26 +130,57 @@ class Optimizer(object):
 class SteepestDescent(Optimizer):
     def __init__(self, engine, rdf, table):
         super(SteepestDescent, self).__init__(engine, rdf, table)
+        self._variables = []
+        self.rates = {}
+
+    def add_potential(self, potential, variables, rates):
+        super(SteepestDescent, self).add_potential(potential)
+
+        # copy variables
+        keys = []
+        for pair in variables:
+            for var in variables[pair]:
+                if pair[1] < pair[0]:
+                    key = pair[::-1]
+                else:
+                    key = pair
+                self._variables.append((potential,key,var))
+                keys.append(key)
+
+        # copy rate coefficients
+        self.rates[potential] = {}
+        for pair in rates:
+            if pair[1] < pair[0]:
+                key = pair[::-1]
+            else:
+                key = pair
+                self.rates[potential][key] = rates[pair]
+
+        # check all keys are in rate
+        for key in keys:
+            if key not in self.rates[potential]:
+                raise KeyError('Missing learning rate for key ({},{}).'.format(*key))
+
+    def remove_potential(self, potential):
+        super(SteepestDescent, self).remove_potential(potential)
+
+        # remove variables referencing this potential
+        self._variables = [var for var in self._variables if var[0] != potential]
+
+        # remove rate coefficients
+        try:
+            del self.rates[potential]
+        except KeyError:
+            pass
 
     def run(self, env, target, maxiter, dr=0.01):
         # fit the target g(r) to a spline
         gtgt = {}
         for i,j in target.rdf:
-            gij = target.rdf[i,j]
-            gtgt[i,j] = rdf.RDFInterpolator(gij[:,0],gij[:,1])
-
-        # flatten down the unique tunable parameters for all potentials
-        free = []
-        for pot in self.potentials:
-            for a,b in pot.free:
-                if b >= a:
-                    for param in pot.free[a,b]:
-                        free.append((pot,(a,b),param))
+            gtgt[i,j] = rdf.RDFInterpolator(target.rdf[i,j])
 
         converged = False
         while self.step < maxiter and not converged:
-            env.cwd = utils.TemporaryWorkingDirectory(env.scratch(str(self.step)))
-
             # create potentials
             potentials = self._tabulate_potentials()
 
@@ -149,47 +188,91 @@ class SteepestDescent(Optimizer):
             self.engine.run(env, self.step, potentials)
 
             # get the trajectory
-            traj = self.engine.load_trajectory(env)
+            traj = self.engine.load_trajectory(env, self.step)
 
             # evaluate the RDFs
             thermo = self._compute_thermo(env, traj, target)
             gsim = {}
             for i,j in thermo.rdf:
-                gij = thermo.rdf[i,j]
-                gsim[i,j] = rdf.RDFInterpolator(gij[:,0],gij[:,1])
+                gsim[i,j] = rdf.RDFInterpolator(thermo.rdf[i,j])
+
+            # save the current values
+            with env.data(self.step):
+                for i,j in thermo.rdf:
+                    file_ = 'rdf.{i}.{j}.dat'.format(i=i, j=j)
+                    np.savetxt(file_, thermo.rdf[i,j], header='r g(r)')
+
+                for pot in self.potentials:
+                    pot.save()
 
             # update parameters
-            converged = True
-            for pot,key,param in free:
+            gradient = []
+            for pot,key,param in self._variables:
                 # sum derivative over all gij
                 update = 0.
-                for i,j in pot.coeff:
+                for i,j in target.rdf:
+                    # only operate on pair if present in potential
+                    if (i,j) not in pot.coeff:
+                        continue
+
                     # compute derivative and interpolate through r
                     r0 = max(gsim[i,j].rmin, gtgt[i,j].rmin)
                     r1 = min(gsim[i,j].rmax, gtgt[i,j].rmax)
                     r = np.arange(r0,r1+0.5*dr,dr)
-
                     dudp = pot.derivative(r, (i,j), key, param.name)
                     dudp = scipy.interpolate.Akima1DInterpolator(x=r, y=dudp)
-                    # take integral by quadrature
+
+                    # take integral by trapezoidal rule
                     sim_factor = thermo.N[i]*thermo.N[j]/thermo.V
                     tgt_factor = target.N[i]*target.N[j]/target.V
                     update += scipy.integrate.trapz(x=r, y=2.*np.pi*r**2*(sim_factor*gsim[i,j](r)-tgt_factor*gtgt[i,j](r))*dudp(r))
 
-                if np.abs(update / pot.coeff[key][param.name]) > 1.e-2:
-                    converged = False
-                param.tmp,_ = param.clamp(pot.coeff[key][param.name] + param.rate * update)
+                param.value = pot.coeff[key][param.name] + self.rates[pot][key] * update
+                gradient.append(update)
+            gradient = np.asarray(gradient)
 
+            # 2-norm of the gradient
+            convergence = {}
+            convergence['gradient'] = np.sum(gradient*gradient)
+
+            # rdf error
+            convergence['rdf_diff'] = 0.
+            for i,j in target.rdf:
+                # compute derivative and interpolate through r
+                r0 = max(gsim[i,j].rmin, gtgt[i,j].rmin)
+                r1 = min(gsim[i,j].rmax, gtgt[i,j].rmax)
+                r = np.arange(r0,r1+0.5*dr,dr)
+
+                sim_factor = thermo.N[i]*thermo.N[j]/thermo.V
+                tgt_factor = target.N[i]*target.N[j]/target.V
+                convergence['rdf_diff'] += scipy.integrate.trapz(x=r, y=4.*np.pi*r**2*(sim_factor*gsim[i,j](r)-tgt_factor*gtgt[i,j](r))**2)
+
+            with env.project:
+                write_header = not os.path.exists('convergence.dat') or self.step == 0
+                mode = 'a' if not write_header else 'w'
+                with open('convergence.dat',mode) as f:
+                    if write_header:
+                        f.write('# step |gradient|^2 rdf-error\n')
+                    f.write('{step} {grad2} {diff}\n'.format(step=self.step,
+                                                           grad2=convergence['gradient'],
+                                                           diff=convergence['rdf_diff']))
+
+
+            converged = convergence['gradient'] < 1.e-3 or convergence['rdf_diff'] < 1.e-4
             if not converged:
                 # complete update step
-                for pot,pair,param in free:
-                    pot.coeff[pair][param.name] = param.tmp
+                for pot,pair,param in self._variables:
+                    pot.coeff[pair][param.name] = param.value
 
-                print("{} {}".format(free[0][0].coeff['A','A']['epsilon'],free[0][0].coeff['A','A']['sigma']))
-                print("{} {}".format(free[0][0].coeff['B','B']['epsilon'],free[0][0].coeff['B','B']['sigma']))
+                # stash new parameters into next step
+                with env.data(self.step+1):
+                    for pot in self.potentials:
+                        pot.save()
+
+                print("{} {}".format(self._variables[0][0].coeff['A','A']['epsilon'],self._variables[0][0].coeff['A','A']['sigma']))
+                print("{} {}".format(self._variables[0][0].coeff['B','B']['epsilon'],self._variables[0][0].coeff['B','B']['sigma']))
                 print("")
 
             self.step += 1
 
-            env.reset()
         print(converged)
