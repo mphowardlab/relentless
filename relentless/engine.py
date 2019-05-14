@@ -3,8 +3,8 @@ import os
 
 import numpy as np
 
-from . import core
 from .environment import Policy
+from . import trajectory
 
 class Engine(object):
     trim = False
@@ -33,17 +33,17 @@ class Mock(Engine):
 
     def load_trajectory(self, env, step):
         L = self.ensemble.V**(1./3.)
-        box = core.Box(L)
+        box = trajectory.Box(L)
 
         Ntot = np.sum([self.ensemble.N[i] for i in self.ensemble.types])
-        snap = core.Snapshot(Ntot, box)
+        snap = trajectory.Snapshot(Ntot, box)
         first = 0
         for i in self.ensemble.types:
             last = first + self.ensemble.N[i]
             snap.types[first:last] = i
             first += self.ensemble.N[i]
 
-        return core.Trajectory(snapshots=(snap,))
+        return trajectory.Trajectory(snapshots=(snap,))
 
 class LAMMPS(Engine):
     trim = True
@@ -79,7 +79,7 @@ class LAMMPS(Engine):
             env.call(cmd, self.policy)
 
     def load_trajectory(self, env, step):
-        traj = core.Trajectory()
+        traj = trajectory.Trajectory()
         with env.data(step):
             file_ = 'trajectory.gz'
             if os.path.exists(file_):

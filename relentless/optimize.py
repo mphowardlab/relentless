@@ -5,7 +5,6 @@ import os
 
 import numpy as np
 import scipy.integrate
-import scipy.interpolate
 
 from . import core
 from . import rdf
@@ -20,16 +19,23 @@ class Variable(object):
         self._free = self.check(self._value) if self._value is not None else False
 
     def check(self, value):
-        return not ((self.low is not None and value < self.low) or
-                    (self.high is not None and value > self.high))
+        if self.low is not None and value <= self.low:
+            return -1
+        elif self.high is not None and value >= self.high:
+            return 1
+        else:
+            return 0
 
     def clamp(self, value):
-        if self.low is not None and value < self.low:
-            return self.low, True
-        elif self.high is not None and value > self.high:
-            return self.high, True
+        b = self.check(value)
+        if b == -1:
+            v = self.low
+        elif b == 1:
+            v = self.high
         else:
-            return value, False
+            v = value
+
+        return v,b
 
     @property
     def value(self):
@@ -37,7 +43,19 @@ class Variable(object):
 
     @value.setter
     def value(self, value):
-        self._value,self._free = self.clamp(value)
+        v,b = self.clamp(value)
+        self._value = v
+        self._free = b
+
+    @property
+    def free(self):
+        return self._free == 0
+
+    def is_low(self):
+        return self._free == -1
+
+    def is_high(self):
+        return self._free == 1
 
 class Optimizer(object):
     def __init__(self, engine, rdf, table):
@@ -168,16 +186,13 @@ class SteepestDescent(Optimizer):
         self._variables = [var for var in self._variables if var[0] != potential]
 
         # remove rate coefficients
-        try:
-            del self.rates[potential]
-        except KeyError:
-            pass
+        del self.rates[potential]
 
     def run(self, env, target, maxiter, dr=0.01):
         # fit the target g(r) to a spline
         gtgt = {}
-        for i,j in target.rdf:
-            gtgt[i,j] = rdf.RDFInterpolator(target.rdf[i,j])
+        for pair in target.rdf:
+            gtgt[pair] = core.Interpolator(target.rdf[pair])
 
         converged = False
         while self.step < maxiter and not converged:
@@ -193,8 +208,8 @@ class SteepestDescent(Optimizer):
             # evaluate the RDFs
             thermo = self._compute_thermo(env, traj, target)
             gsim = {}
-            for i,j in thermo.rdf:
-                gsim[i,j] = rdf.RDFInterpolator(thermo.rdf[i,j])
+            for pair in thermo.rdf:
+                gsim[pair] = core.Interpolator(thermo.rdf[pair])
 
             # save the current values
             with env.data(self.step):
@@ -220,7 +235,7 @@ class SteepestDescent(Optimizer):
                     r1 = min(gsim[i,j].rmax, gtgt[i,j].rmax)
                     r = np.arange(r0,r1+0.5*dr,dr)
                     dudp = pot.derivative(r, (i,j), key, param.name)
-                    dudp = scipy.interpolate.Akima1DInterpolator(x=r, y=dudp)
+                    dudp = core.Interpolator(np.column_stack((r,dudp)))
 
                     # take integral by trapezoidal rule
                     sim_factor = thermo.N[i]*thermo.N[j]/thermo.V
@@ -231,11 +246,11 @@ class SteepestDescent(Optimizer):
                 gradient.append(update)
             gradient = np.asarray(gradient)
 
-            # 2-norm of the gradient
+            # convergence: 2-norm of the gradient
             convergence = {}
             convergence['gradient'] = np.sum(gradient*gradient)
 
-            # rdf error
+            # convergence: rdf error
             convergence['rdf_diff'] = 0.
             for i,j in target.rdf:
                 # compute derivative and interpolate through r
@@ -247,6 +262,13 @@ class SteepestDescent(Optimizer):
                 tgt_factor = target.N[i]*target.N[j]/target.V
                 convergence['rdf_diff'] += scipy.integrate.trapz(x=r, y=4.*np.pi*r**2*(sim_factor*gsim[i,j](r)-tgt_factor*gtgt[i,j](r))**2)
 
+            # convergence: contraints
+            convergence['constraints'] = True
+            for g,(pot,key,param) in zip(gradient, self._variables):
+                v = pot.coeff[key][param.name]
+                if (g > 0 and v < param.high) or (g < 0 and v > param.low):
+                    convergence['constraints'] = False
+
             with env.project:
                 write_header = not os.path.exists('convergence.dat') or self.step == 0
                 mode = 'a' if not write_header else 'w'
@@ -257,8 +279,7 @@ class SteepestDescent(Optimizer):
                                                            grad2=convergence['gradient'],
                                                            diff=convergence['rdf_diff']))
 
-
-            converged = convergence['gradient'] < 1.e-3 or convergence['rdf_diff'] < 1.e-4
+            converged = convergence['gradient'] < 1.e-3 or convergence['rdf_diff'] < 1.e-4 or convergence['constraints']
             if not converged:
                 # complete update step
                 for pot,pair,param in self._variables:
@@ -275,4 +296,4 @@ class SteepestDescent(Optimizer):
 
             self.step += 1
 
-        print(converged)
+        return converged

@@ -5,7 +5,6 @@ import warnings
 
 import numdifftools
 import numpy as np
-import scipy.optimize
 
 from .core import PairMatrix
 
@@ -146,6 +145,81 @@ class PairPotential(object):
     def __next__(self):
         return next(self.coeff)
 
+class Tabulator(object):
+    def __init__(self, nbins, rmin, rmax, fmax=None, fcut=None, edges=True):
+        self._nbins = nbins
+        self._rmin = rmin
+        self._rmax = rmax
+
+        self.fmax = fmax
+        self.fcut = fcut
+
+        self._dr = (rmax-rmin)/nbins
+        if edges:
+            self._r = np.linspace(rmin, rmax, nbins+1, dtype=np.float64)
+        else:
+            self._r = rmin + self._dr*(np.arange(nbins, dtype=np.float64)+0.5)
+
+    @property
+    def dr(self):
+        return self._dr
+
+    @property
+    def r(self):
+        return self._r
+
+    def __call__(self, pair, potentials):
+        u = np.zeros_like(self.r)
+        for pot in potentials:
+            try:
+                u += pot(self.r, pair)
+            except KeyError:
+                pass
+        return u
+
+    def force(self, pair, potentials):
+        f = np.zeros_like(self.r)
+        for pot in potentials:
+            try:
+                f += pot.force(self.r, pair)
+            except KeyError:
+                pass
+        return f
+
+    def regularize(self, u, f, trim=True):
+        if len(u) != len(self.r):
+            raise IndexError('Potential must have the same length as r.')
+        if len(f) != len(self.r):
+            raise IndexError('Force must have the same length as r.')
+
+        # find first point from beginning that is within energy tolerance
+        if self.fmax is not None:
+            cut = np.argmax(np.abs(f) <= self.fmax)
+            if cut > 0:
+                u[:cut] = u[cut] - f[cut]*(self.r[:cut] - self.r[cut])
+                f[:cut] = f[cut]
+
+        # find first point from end with sufficient force and cutoff the potential after it
+        if self.fcut is not None:
+            flags = np.abs(np.flip(f)) >= self.fcut
+            cut = len(f)-1 - np.argmax(flags)
+            u -= u[cut]
+            if cut < len(f)-1:
+                u[(cut+1):] = 0.
+                f[(cut+1):] = 0.
+
+        # trim off trailing zeros
+        r = self.r.copy()
+        if trim:
+            flags = np.abs(np.flip(f)) > 0
+            cut = len(f) - np.argmax(flags)
+            if cut < len(f)-1:
+                r = r[:(cut+1)]
+                u = u[:(cut+1)]
+                f = f[:(cut+1)]
+
+        return np.column_stack((r,u,f))
+
 class LJPotential(PairPotential):
     def __init__(self, types, shift=False):
         super(LJPotential,self).__init__(types=types,
@@ -196,74 +270,3 @@ class LJPotential(PairPotential):
         f[flags] = np.inf
 
         return f
-
-class Tabulator(object):
-    def __init__(self, nbins, rmin, rmax, fmax=None, fcut=None, edges=True):
-        self._nbins = nbins
-        self._rmin = rmin
-        self._rmax = rmax
-
-        self.fmax = fmax
-        self.fcut = fcut
-
-        self._dr = (rmax-rmin)/nbins
-        if edges:
-            self._r = np.linspace(rmin, rmax, nbins+1, dtype=np.float64)
-        else:
-            self._r = rmin + self._dr*(np.arange(nbins, dtype=np.float64)+0.5)
-
-    @property
-    def dr(self):
-        return self._dr
-
-    @property
-    def r(self):
-        return self._r
-
-    def __call__(self, pair, potentials):
-        u = np.zeros_like(self.r)
-        for pot in potentials:
-            if pair in pot.coeff.pairs:
-                u += pot(self.r, pair)
-        return u
-
-    def force(self, pair, potentials):
-        f = np.zeros_like(self.r)
-        for pot in potentials:
-            if pair in pot.coeff.pairs:
-                f += pot.force(self.r, pair)
-        return f
-
-    def regularize(self, u, f, trim=True):
-        if len(u) != len(self.r):
-            raise IndexError('Potential must have the same length as r.')
-        if len(f) != len(self.r):
-            raise IndexError('Force must have the same length as r.')
-
-        # find first point from beginning that is within energy tolerance
-        if self.fmax is not None:
-            cut = np.argmax(np.abs(f) <= self.fmax)
-            if cut > 0:
-                u[:cut] = u[cut] - f[cut]*(self.r[:cut] - self.r[cut])
-                f[:cut] = f[cut]
-
-        # find first point from end with sufficient force and cutoff the potential after it
-        if self.fcut is not None:
-            flags = np.abs(np.flip(f)) >= self.fcut
-            cut = len(f)-1 - np.argmax(flags)
-            u -= u[cut]
-            if cut < len(f)-1:
-                u[(cut+1):] = 0.
-                f[(cut+1):] = 0.
-
-        # trim off trailing zeros
-        r = self.r.copy()
-        if trim:
-            flags = np.abs(np.flip(f)) > 0
-            cut = len(f) - np.argmax(flags)
-            if cut < len(f)-1:
-                r = r[:(cut+1)]
-                u = u[:(cut+1)]
-                f = f[:(cut+1)]
-
-        return np.column_stack((r,u,f))

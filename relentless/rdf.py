@@ -1,7 +1,6 @@
 import numpy as np
-import scipy.interpolate
 
-from . import environment
+from .environment import Policy
 
 class RDF(object):
     def __init__(self, dr, policy):
@@ -11,19 +10,8 @@ class RDF(object):
     def __call__(self, env, trajectory, pair, rcut):
         raise NotImplementedError()
 
-class RDFInterpolator(object):
-    def __init__(self, gr):
-        r = gr[:,0]
-        g = gr[:,1]
-        self.rmin = r[0]
-        self.rmax = r[-1]
-        self._spline = scipy.interpolate.Akima1DInterpolator(x=r, y=g)
-
-    def __call__(self, r):
-        return self._spline(r)
-
 class Mock(RDF):
-    def __init__(self, dr, potential, policy=environment.Policy()):
+    def __init__(self, dr, potential, policy=Policy()):
         super(Mock, self).__init__(dr, policy)
         self.potential = potential
 
@@ -43,7 +31,7 @@ class Mock(RDF):
         return np.column_stack((r,gr))
 
 class AllPairs(RDF):
-    def __init__(self, dr, policy=environment.Policy()):
+    def __init__(self, dr, policy=Policy()):
         super(AllPairsRDF, self).__init__(dr, policy)
 
     def __call__(self, env, trajectory, pair, rcut):
