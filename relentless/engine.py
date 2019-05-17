@@ -1,10 +1,6 @@
-import gzip
-import os
-
 import numpy as np
 
 from .environment import Policy
-from . import trajectory
 
 class Engine(object):
     trim = False
@@ -12,44 +8,23 @@ class Engine(object):
     def __init__(self, policy):
         self.policy = policy
 
-    def setup(self, step):
-        pass
-
     def run(self, env, step, potential):
         """ Run the simulation with the current potentials and return the trajectory.
         """
         raise NotImplementedError()
 
-    def load_trajectory(self, env, step):
-        raise NotImplementedError()
-
 class Mock(Engine):
-    def __init__(self, ensemble, policy=Policy()):
-        super(Mock, self).__init__(policy)
-        self.ensemble = ensemble
+    def __init__(self, policy=Policy()):
+        super().__init__(policy)
 
     def run(self, env, step, potentials):
         pass
-
-    def load_trajectory(self, env, step):
-        L = self.ensemble.V**(1./3.)
-        box = trajectory.Box(L)
-
-        Ntot = np.sum([self.ensemble.N[i] for i in self.ensemble.types])
-        snap = trajectory.Snapshot(Ntot, box)
-        first = 0
-        for i in self.ensemble.types:
-            last = first + self.ensemble.N[i]
-            snap.types[first:last] = i
-            first += self.ensemble.N[i]
-
-        return trajectory.Trajectory(snapshots=(snap,))
 
 class LAMMPS(Engine):
     trim = True
 
     def __init__(self, lammps, template, args=None, policy=Policy()):
-        super(LAMMPS, self).__init__(policy)
+        super().__init__(policy)
 
         self.lammps = lammps
         self.template = template
@@ -77,15 +52,3 @@ class LAMMPS(Engine):
             # run the simulation out of the scratch directory
             cmd = '{lmp} -in {fn} -nocite {args}'.format(lmp=self.lammps, fn=file_, args=self.args)
             env.call(cmd, self.policy)
-
-    def load_trajectory(self, env, step):
-        traj = trajectory.Trajectory()
-        with env.data(step):
-            file_ = 'trajectory.gz'
-            if os.path.exists(file_):
-                gz = True
-            else:
-                file_ = 'trajectory'
-                gz = False
-
-        return traj

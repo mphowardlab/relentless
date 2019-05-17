@@ -1,5 +1,3 @@
-from __future__ import division
-
 import json
 import os
 
@@ -9,57 +7,10 @@ import scipy.integrate
 from . import core
 from . import rdf
 
-class Variable(object):
-    def __init__(self, name, value=None, low=None, high=None):
-        self.name = name
-        self.low = low
-        self.high = high
-
-        self._value = value
-        self._free = self.check(self._value) if self._value is not None else False
-
-    def check(self, value):
-        if self.low is not None and value <= self.low:
-            return -1
-        elif self.high is not None and value >= self.high:
-            return 1
-        else:
-            return 0
-
-    def clamp(self, value):
-        b = self.check(value)
-        if b == -1:
-            v = self.low
-        elif b == 1:
-            v = self.high
-        else:
-            v = value
-
-        return v,b
-
-    @property
-    def value(self):
-        return self._value
-
-    @value.setter
-    def value(self, value):
-        v,b = self.clamp(value)
-        self._value = v
-        self._free = b
-
-    @property
-    def free(self):
-        return self._free == 0
-
-    def is_low(self):
-        return self._free == -1
-
-    def is_high(self):
-        return self._free == 1
-
 class Optimizer(object):
-    def __init__(self, engine, rdf, table):
+    def __init__(self, engine, trajectory, rdf, table):
         self.engine = engine
+        self.trajectory = trajectory
         self.rdf = rdf
         self.table = table
 
@@ -71,6 +22,7 @@ class Optimizer(object):
 
     def add_potential(self, potential):
         self.potentials.add(potential)
+
         self._update_types = True
 
     def remove_potential(self, potential):
@@ -115,10 +67,11 @@ class Optimizer(object):
             ens.N[i] /= len(traj)
 
         for pair in target.rdf:
-            gtgt = target.rdf[pair]
-            rmax = self._get_rmax(gtgt[:,0])
-            gij = self.rdf(env, traj, pair, rmax)
-            ens.rdf[pair] = self.rdf(env, traj, pair, rmax)
+            if target.rdf[pair] is not None:
+                gtgt = target.rdf[pair]
+                rmax = self._get_rmax(gtgt[:,0])
+                gij = self.rdf(env, traj, pair, rmax)
+                ens.rdf[pair] = self.rdf(env, traj, pair, rmax)
 
         return ens
 
@@ -146,53 +99,36 @@ class Optimizer(object):
         self.step = step
 
 class SteepestDescent(Optimizer):
-    def __init__(self, engine, rdf, table):
-        super(SteepestDescent, self).__init__(engine, rdf, table)
-        self._variables = []
-        self.rates = {}
+    def __init__(self, engine, trajectory, rdf, table):
+        super().__init__(engine, trajectory, rdf, table)
 
-    def add_potential(self, potential, variables, rates):
-        super(SteepestDescent, self).add_potential(potential)
+    def run(self, env, target, rates, maxiter, dr=0.01):
+        # flatten down variables for all potentials
+        variables = []
+        keys = set()
+        for pot in self.potentials:
+            has_vars = False
+            for key in pot.variables:
+                if pot.variables[key] is not None:
+                    has_vars = True
+                    for var in pot.variables[key]:
+                        variables.append((pot,key,var))
+                        keys.add(key)
+            if has_vars:
+                for pair in pot.coeff.pairs:
+                    if pair not in target.rdf or target.rdf[pair] is None:
+                        raise KeyError('RDF for {},{} pair required.'.format(*pair))
 
-        # copy variables
-        keys = []
-        for pair in variables:
-            for var in variables[pair]:
-                if pair[1] < pair[0]:
-                    key = pair[::-1]
-                else:
-                    key = pair
-                self._variables.append((potential,key,var))
-                keys.append(key)
-
-        # copy rate coefficients
-        self.rates[potential] = {}
-        for pair in rates:
-            if pair[1] < pair[0]:
-                key = pair[::-1]
-            else:
-                key = pair
-                self.rates[potential][key] = rates[pair]
-
-        # check all keys are in rate
+        # check keys are properly set
         for key in keys:
-            if key not in self.rates[potential]:
-                raise KeyError('Missing learning rate for key ({},{}).'.format(*key))
+            if key not in rates:
+                raise KeyError('Learning rate not set for {},{} pair.'.format(*key))
 
-    def remove_potential(self, potential):
-        super(SteepestDescent, self).remove_potential(potential)
-
-        # remove variables referencing this potential
-        self._variables = [var for var in self._variables if var[0] != potential]
-
-        # remove rate coefficients
-        del self.rates[potential]
-
-    def run(self, env, target, maxiter, dr=0.01):
         # fit the target g(r) to a spline
         gtgt = {}
         for pair in target.rdf:
-            gtgt[pair] = core.Interpolator(target.rdf[pair])
+            if target.rdf[pair] is not None:
+                gtgt[pair] = core.Interpolator(target.rdf[pair])
 
         converged = False
         while self.step < maxiter and not converged:
@@ -203,13 +139,14 @@ class SteepestDescent(Optimizer):
             self.engine.run(env, self.step, potentials)
 
             # get the trajectory
-            traj = self.engine.load_trajectory(env, self.step)
+            traj = self.trajectory.load(env, self.step)
 
             # evaluate the RDFs
             thermo = self._compute_thermo(env, traj, target)
             gsim = {}
             for pair in thermo.rdf:
-                gsim[pair] = core.Interpolator(thermo.rdf[pair])
+                if thermo.rdf[pair] is not None:
+                    gsim[pair] = core.Interpolator(thermo.rdf[pair])
 
             # save the current values
             with env.data(self.step):
@@ -222,14 +159,10 @@ class SteepestDescent(Optimizer):
 
             # update parameters
             gradient = []
-            for pot,key,param in self._variables:
+            for pot,key,param in variables:
                 # sum derivative over all gij
                 update = 0.
-                for i,j in target.rdf:
-                    # only operate on pair if present in potential
-                    if (i,j) not in pot.coeff:
-                        continue
-
+                for i,j in pot.coeff:
                     # compute derivative and interpolate through r
                     r0 = max(gsim[i,j].rmin, gtgt[i,j].rmin)
                     r1 = min(gsim[i,j].rmax, gtgt[i,j].rmax)
@@ -242,7 +175,7 @@ class SteepestDescent(Optimizer):
                     tgt_factor = target.N[i]*target.N[j]/target.V
                     update += scipy.integrate.trapz(x=r, y=2.*np.pi*r**2*(sim_factor*gsim[i,j](r)-tgt_factor*gtgt[i,j](r))*dudp(r))
 
-                param.value = pot.coeff[key][param.name] + self.rates[pot][key] * update
+                param.value = pot.coeff[key][param.name] + rates[key] * update
                 gradient.append(update)
             gradient = np.asarray(gradient)
 
@@ -253,20 +186,21 @@ class SteepestDescent(Optimizer):
             # convergence: rdf error
             convergence['rdf_diff'] = 0.
             for i,j in target.rdf:
-                # compute derivative and interpolate through r
-                r0 = max(gsim[i,j].rmin, gtgt[i,j].rmin)
-                r1 = min(gsim[i,j].rmax, gtgt[i,j].rmax)
-                r = np.arange(r0,r1+0.5*dr,dr)
+                if target.rdf[i,j] is not None:
+                    # compute derivative and interpolate through r
+                    r0 = max(gsim[i,j].rmin, gtgt[i,j].rmin)
+                    r1 = min(gsim[i,j].rmax, gtgt[i,j].rmax)
+                    r = np.arange(r0,r1+0.5*dr,dr)
 
-                sim_factor = thermo.N[i]*thermo.N[j]/thermo.V
-                tgt_factor = target.N[i]*target.N[j]/target.V
-                convergence['rdf_diff'] += scipy.integrate.trapz(x=r, y=4.*np.pi*r**2*(sim_factor*gsim[i,j](r)-tgt_factor*gtgt[i,j](r))**2)
+                    sim_factor = thermo.N[i]*thermo.N[j]/thermo.V
+                    tgt_factor = target.N[i]*target.N[j]/target.V
+                    convergence['rdf_diff'] += scipy.integrate.trapz(x=r, y=4.*np.pi*r**2*(sim_factor*gsim[i,j](r)-tgt_factor*gtgt[i,j](r))**2)
 
             # convergence: contraints
             convergence['constraints'] = True
-            for g,(pot,key,param) in zip(gradient, self._variables):
+            for g,(pot,key,param) in zip(gradient, variables):
                 v = pot.coeff[key][param.name]
-                if (g > 0 and v < param.high) or (g < 0 and v > param.low):
+                if (g > 0 and param.high is not None and v < param.high) or (g < 0 and param.low is not None and v > param.low):
                     convergence['constraints'] = False
 
             with env.project:
@@ -282,7 +216,7 @@ class SteepestDescent(Optimizer):
             converged = convergence['gradient'] < 1.e-3 or convergence['rdf_diff'] < 1.e-4 or convergence['constraints']
             if not converged:
                 # complete update step
-                for pot,pair,param in self._variables:
+                for pot,pair,param in variables:
                     pot.coeff[pair][param.name] = param.value
 
                 # stash new parameters into next step
@@ -290,8 +224,8 @@ class SteepestDescent(Optimizer):
                     for pot in self.potentials:
                         pot.save()
 
-                print("{} {}".format(self._variables[0][0].coeff['A','A']['epsilon'],self._variables[0][0].coeff['A','A']['sigma']))
-                print("{} {}".format(self._variables[0][0].coeff['B','B']['epsilon'],self._variables[0][0].coeff['B','B']['sigma']))
+                print("{} {}".format(variables[0][0].coeff['A','A']['epsilon'],variables[0][0].coeff['A','A']['sigma']))
+                print("{} {}".format(variables[0][0].coeff['B','B']['epsilon'],variables[0][0].coeff['B','B']['sigma']))
                 print("")
 
             self.step += 1

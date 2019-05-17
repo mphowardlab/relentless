@@ -12,7 +12,7 @@ class RDF(object):
 
 class Mock(RDF):
     def __init__(self, dr, potential, policy=Policy()):
-        super(Mock, self).__init__(dr, policy)
+        super().__init__(dr, policy)
         self.potential = potential
 
     def __call__(self, env, trajectory, pair, rcut):
@@ -32,7 +32,7 @@ class Mock(RDF):
 
 class AllPairs(RDF):
     def __init__(self, dr, policy=Policy()):
-        super(AllPairsRDF, self).__init__(dr, policy)
+        super().__init__(dr, policy)
 
     def __call__(self, env, trajectory, pair, rcut):
         # r with requested spacing (accounting for possible last fractional bin)

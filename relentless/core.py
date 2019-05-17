@@ -1,3 +1,5 @@
+__all__ = ['Variable']
+
 import numpy as np
 import scipy.interpolate
 
@@ -64,3 +66,51 @@ class PairMatrix(object):
     @property
     def pairs(self):
         return tuple(self._data.keys())
+
+class Variable(object):
+    def __init__(self, name, value=None, low=None, high=None):
+        self.name = name
+        self.low = low
+        self.high = high
+
+        self.value = value
+
+    def check(self, value):
+        if self.low is not None and value <= self.low:
+            return -1
+        elif self.high is not None and value >= self.high:
+            return 1
+        else:
+            return 0
+
+    def clamp(self, value):
+        b = self.check(value)
+        if b == -1:
+            v = self.low
+        elif b == 1:
+            v = self.high
+        else:
+            v = value
+
+        return v,b
+
+    @property
+    def value(self):
+        return self._value
+
+    @value.setter
+    def value(self, value):
+        if value is not None:
+            self._value, self._free = self.clamp(value)
+        else:
+            self._value = None
+            self._free = 0
+
+    def is_free(self):
+        return self._free == 0
+
+    def is_low(self):
+        return self._free == -1
+
+    def is_high(self):
+        return self._free == 1

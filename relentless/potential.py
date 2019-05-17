@@ -1,5 +1,3 @@
-from __future__ import division
-
 import json
 import warnings
 
@@ -12,7 +10,7 @@ class CoefficientMatrix(PairMatrix):
     """ Pair coefficient matrix.
     """
     def __init__(self, types, params, default={}):
-        super(CoefficientMatrix, self).__init__(types)
+        super().__init__(types)
 
         self.params = tuple(params)
 
@@ -78,7 +76,7 @@ class PairPotential(object):
         assert 'rmax' in params, 'rmax must be in PairPotential parameters'
 
         self.coeff = CoefficientMatrix(types, params, default)
-        self.free = PairMatrix(types)
+        self.variables = PairMatrix(types)
         self.shift = shift
 
         self.id = PairPotential._id
@@ -222,10 +220,10 @@ class Tabulator(object):
 
 class LJPotential(PairPotential):
     def __init__(self, types, shift=False):
-        super(LJPotential,self).__init__(types=types,
-                                         params=('epsilon','sigma','n','rmin','rmax'),
-                                         default={'n': 6, 'rmin': 0.},
-                                         shift=shift)
+        super().__init__(types=types,
+                         params=('epsilon','sigma','n','rmin','rmax'),
+                         default={'n': 6, 'rmin': 0.},
+                         shift=shift)
 
     def energy(self, r, epsilon, sigma, n, rmin, rmax):
         r,u = self._zeros(r)

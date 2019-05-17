@@ -1,4 +1,4 @@
-from __future__ import division
+__all__ = ['Box','Snapshot','Trajectory']
 
 import numpy as np
 
@@ -130,3 +130,10 @@ class Trajectory(object):
 
     def sort(self):
         self._snapshots.sort(key=lambda s : s.timestep)
+
+class TrajectoryReader(object):
+    def __init__(self, filename):
+        self.filename = filename
+
+    def load(self, env, step):
+        raise NotImplementedError()

@@ -1,8 +1,7 @@
-from __future__ import print_function
+__all__ = ['Environment','Policy']
+
 import os
 import subprocess
-
-from . import utils
 
 class TemporaryDirectory(object):
     """ Temporary working directory.
@@ -72,14 +71,14 @@ class Environment(object):
             mpi = ''
 
         # turn a list of commands into a string if supplied
-        if not utils.isstr(cmd):
+        if not isinstance(cmd, str):
             cmd = ' '.join(cmd)
 
         cmd = '{omp} {mpi} {cmd}'.format(omp=omp,mpi=mpi,cmd=cmd).strip()
         if not self.mock:
             subprocess.Popen(cmd, shell=True).communicate()
-        else:
-            print(cmd)
+
+        return cmd
 
     @property
     def project(self):
@@ -87,24 +86,3 @@ class Environment(object):
 
     def data(self, step):
         return TemporaryDirectory(os.path.join(self._path, str(step)))
-
-class SLURM(Environment):
-    mpiexec = 'srun'
-    always_wrap = False
-
-    def __init__(self, path, mock=False):
-        super(SLURM, self).__init__(path, mock)
-
-class Lonestar(Environment):
-    mpiexec = 'ibrun'
-    always_wrap = False
-
-    def __init__(self, path, mock=False):
-        super(Lonestar, self).__init__(path, mock)
-
-class Stampede2(Environment):
-    mpiexec = 'ibrun'
-    always_wrap = False
-
-    def __init__(self, path, mock=False):
-        super(Stampede2, self).__init__(path, mock)

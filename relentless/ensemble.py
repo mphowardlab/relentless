@@ -35,7 +35,7 @@ class Ensemble(object):
 
 class NVT(Ensemble):
     def __init__(self, N, V, T, kB=1.0):
-        super(NVT, self).__init__(N.keys(), kB)
+        super().__init__(N.keys(), kB)
         self.T = T
         self.V = V
         for i in self.types:
@@ -52,7 +52,7 @@ class NVT(Ensemble):
 
 class NPT(Ensemble):
     def __init__(self, N, P, T, kB=1.0):
-        super(NPT, self).__init__(N.keys(), kB)
+        super().__init__(N.keys(), kB)
         self.T = T
         self.P = P
         for i in self.types:
@@ -69,7 +69,7 @@ class NPT(Ensemble):
 
 class muVT(Ensemble):
     def __init__(self, mu, V, T, kB=1.0):
-        super(muVT, self).__init__(mu.keys(), kB)
+        super().__init__(mu.keys(), kB)
         self.T = T
         self.V = V
         for i in self.types:
