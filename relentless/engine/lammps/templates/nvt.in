@@ -1,0 +1,46 @@
+{% block init %}
+## initialization
+units lj
+boundary p p p
+atom_style atomic
+
+# place randomly in cubic box
+{%set L = ensemble.V**(1.0/3.0) %}
+region cube block 0.0 {{ L }} 0.0 {{ L }} 0.0 {{ L }}
+create_box {{ ensemble.N|length }} cube
+{% for t,n in ensemble.N.items() %}
+create_atoms {{ t }} random {{ n }} {{ 42 + loop.index }}
+{% endfor %}
+{% endblock %}
+
+{% block potentials %}
+## potentials
+pair_style table linear {{ size }}
+{% for pair,file in files.items() %}
+pair_coeff {{ pair.0 }} {{ pair.1 }} {{ file }} TABLE_{{ pair.0 }}_{{ pair.1 }}
+{% endfor %}
+{% endblock %}
+
+{% block protocol %}
+## protocol
+# remove initial overlaps
+minimize 1.0e-4 1.0e-6 100 1000
+
+# thermalize at initialize temperature
+velocity create {{ ensemble.T }} 24
+
+{% block integrator %}
+# nvt integrator
+fix 1 all nvt temp {{ ensemble.T }} {{ ensemble.T }} 0.1
+{% endblock %}
+
+# equilibration
+run 100000
+
+# production
+{% block dump %}
+dump 1 all atom 200 trajectory.gz
+dump_modify 1 scale no
+{% endblock %}
+run 100000
+{% endblock %}

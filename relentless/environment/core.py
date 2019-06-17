@@ -7,14 +7,14 @@ class TemporaryDirectory(object):
     """ Temporary working directory.
     """
     def __init__(self, path):
-        self._path = os.path.abspath(path)
-        if not os.path.exists(self._path):
-            os.makedirs(self._path)
+        self.path = os.path.abspath(path)
+        if not os.path.exists(self.path):
+            os.makedirs(self.path)
 
     def __enter__(self):
         self.start = os.getcwd()
-        os.chdir(self._path)
-        return self._path
+        os.chdir(self.path)
+        return self.path
 
     def __exit__(self, exception_type, exception_value, traceback):
         os.chdir(self.start)

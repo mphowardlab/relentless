@@ -196,12 +196,8 @@ class SteepestDescent(Optimizer):
                     tgt_factor = target.N[i]*target.N[j]/target.V
                     convergence['rdf_diff'] += scipy.integrate.trapz(x=r, y=4.*np.pi*r**2*(sim_factor*gsim[i,j](r)-tgt_factor*gtgt[i,j](r))**2)
 
-            # convergence: contraints
-            convergence['constraints'] = True
-            for g,(pot,key,param) in zip(gradient, variables):
-                v = pot.coeff[key][param.name]
-                if (g > 0 and param.high is not None and v < param.high) or (g < 0 and param.low is not None and v > param.low):
-                    convergence['constraints'] = False
+            # TODO: convergence: contraints
+            convergence['constraints'] = False
 
             with env.project:
                 write_header = not os.path.exists('convergence.dat') or self.step == 0
@@ -223,10 +219,6 @@ class SteepestDescent(Optimizer):
                 with env.data(self.step+1):
                     for pot in self.potentials:
                         pot.save()
-
-                print("{} {}".format(variables[0][0].coeff['A','A']['epsilon'],variables[0][0].coeff['A','A']['sigma']))
-                print("{} {}".format(variables[0][0].coeff['B','B']['epsilon'],variables[0][0].coeff['B','B']['sigma']))
-                print("")
 
             self.step += 1
 
