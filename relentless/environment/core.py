@@ -42,7 +42,7 @@ class Environment(object):
     mpiexec = None
     always_wrap = False
 
-    def __init__(self, path, mock=False):
+    def __init__(self, path='.', mock=False):
         self._path = os.path.abspath(path)
         self.mock = mock
 
@@ -76,7 +76,10 @@ class Environment(object):
 
         cmd = '{omp} {mpi} {cmd}'.format(omp=omp,mpi=mpi,cmd=cmd).strip()
         if not self.mock:
-            subprocess.Popen(cmd, shell=True).communicate()
+            task = subprocess.Popen(cmd, shell=True)
+            output = task.communicate()
+            if task.returncode != 0:
+                raise RuntimeError('Shell subprocess returned non-zero exit code.')
 
         return cmd
 

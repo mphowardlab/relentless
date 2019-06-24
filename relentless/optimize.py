@@ -8,9 +8,8 @@ from . import core
 from . import rdf
 
 class Optimizer(object):
-    def __init__(self, engine, trajectory, rdf, table):
+    def __init__(self, engine, rdf, table):
         self.engine = engine
-        self.trajectory = trajectory
         self.rdf = rdf
         self.table = table
 
@@ -49,32 +48,6 @@ class Optimizer(object):
             potentials[pair] = self.table.regularize(u, f, trim=self.engine.trim)
         return potentials
 
-    def _compute_thermo(self, env, traj, target):
-        ens = target.copy()
-
-        # number of particles per type
-        ens.V = 0.
-        for i in self.types:
-            ens.N[i] = 0
-
-        # average over trajectory
-        for s in traj:
-            ens.V += s.box.volume
-            for i in self.types:
-                ens.N[i] += np.sum(s.types == i)
-        ens.V /= len(traj)
-        for i in self.types:
-            ens.N[i] /= len(traj)
-
-        for pair in target.rdf:
-            if target.rdf[pair] is not None:
-                gtgt = target.rdf[pair]
-                rmax = self._get_rmax(gtgt[:,0])
-                gij = self.rdf(env, traj, pair, rmax)
-                ens.rdf[pair] = self.rdf(env, traj, pair, rmax)
-
-        return ens
-
     def _get_rmax(self, r):
         r0 = r[0]
         dr = r[1] - r0
@@ -98,9 +71,9 @@ class Optimizer(object):
             pot.load(step)
         self.step = step
 
-class SteepestDescent(Optimizer):
-    def __init__(self, engine, trajectory, rdf, table):
-        super().__init__(engine, trajectory, rdf, table)
+class GradientDescent(Optimizer):
+    def __init__(self, engine, rdf, table):
+        super().__init__(engine, rdf, table)
 
     def run(self, env, target, rates, maxiter, dr=0.01):
         # flatten down variables for all potentials
@@ -136,13 +109,10 @@ class SteepestDescent(Optimizer):
             potentials = self._tabulate_potentials()
 
             # run the simulation
-            self.engine.run(env, self.step, potentials)
-
-            # get the trajectory
-            traj = self.trajectory.load(env, self.step)
+            self.engine.run(env, self.step, target, potentials)
 
             # evaluate the RDFs
-            thermo = self._compute_thermo(env, traj, target)
+            thermo = self.rdf.run(env, self.step)
             gsim = {}
             for pair in thermo.rdf:
                 if thermo.rdf[pair] is not None:
@@ -173,7 +143,7 @@ class SteepestDescent(Optimizer):
                     # take integral by trapezoidal rule
                     sim_factor = thermo.N[i]*thermo.N[j]/thermo.V
                     tgt_factor = target.N[i]*target.N[j]/target.V
-                    update += scipy.integrate.trapz(x=r, y=2.*np.pi*r**2*(sim_factor*gsim[i,j](r)-tgt_factor*gtgt[i,j](r))*dudp(r))
+                    update += scipy.integrate.trapz(x=r, y=2.*np.pi*r**2*(sim_factor*gsim[i,j](r)-tgt_factor*gtgt[i,j](r))*target.beta*dudp(r))
 
                 param.value = pot.coeff[key][param.name] + rates[key] * update
                 gradient.append(update)

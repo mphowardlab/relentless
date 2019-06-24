@@ -44,7 +44,7 @@ class NVT(Ensemble):
     def reset(self):
         self.P = None
         for i in self.types:
-            mu[i] = None
+            self.mu[i] = None
         self.rdf = core.PairMatrix(self.types)
 
     def copy(self):
@@ -61,7 +61,7 @@ class NPT(Ensemble):
     def reset(self):
         self.V = None
         for i in self.types:
-            mu[i] = None
+            self.mu[i] = None
         self.rdf = core.PairMatrix(self.types)
 
     def copy(self):
@@ -78,7 +78,7 @@ class muVT(Ensemble):
     def reset(self):
         self.P = None
         for i in self.types:
-            N[i] = None
+            self.N[i] = None
         self.rdf = core.PairMatrix(self.types)
 
     def copy(self):

@@ -7,14 +7,14 @@ from relentless.environment import Policy
 class LAMMPS(Engine):
     trim = False
 
-    def __init__(self, ensemble, lammps, template, args=None, policy=Policy()):
-        super().__init__(ensemble, policy)
+    def __init__(self, lammps, template, args=None, policy=Policy()):
+        super().__init__(policy)
 
         self.lammps = lammps
         self.template = template
         self.args = args if args is not None else ""
 
-    def run(self, env, step, potentials):
+    def run(self, env, step, ensemble, potentials):
         with env.data(step):
             table_size = 0
             file_pairs = {}
@@ -23,6 +23,10 @@ class LAMMPS(Engine):
                 if j >= i:
                     pot = np.asarray(potentials[(i,j)])
                     assert pot.shape[1] == 3, 'Potential must be given as (r,u,f) pairs'
+                    # drop zero from first entry
+                    if pot[0,0] <= 0.0:
+                        pot = pot[1:]
+                    # check table size
                     if table_size == 0:
                         table_size = pot.shape[0]
                     elif pot.shape[0] != table_size:
@@ -49,7 +53,7 @@ class LAMMPS(Engine):
 
             template = loader.get_template(self.template)
             with open(self.template, 'w') as f:
-                f.write(template.render(size=table_size, files=file_pairs, ensemble=self.ensemble))
+                f.write(template.render(size=table_size, files=file_pairs, ensemble=ensemble))
 
             # run the simulation out of the scratch directory
             cmd = '{lmp} -in {fn} -screen none -nocite {args}'.format(lmp=self.lammps, fn=self.template, args=self.args)

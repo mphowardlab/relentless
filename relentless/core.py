@@ -12,7 +12,22 @@ class Interpolator(object):
         self._spline = scipy.interpolate.Akima1DInterpolator(x=r, y=g)
 
     def __call__(self, r):
-        return self._spline(r)
+        r = np.atleast_1d(r)
+        result = np.zeros(len(r))
+
+        # clamp lo
+        lo = r < self.rmin
+        result[lo] = self._spline(self.rmin)
+
+        # clamp hi
+        hi = r > self.rmax
+        result[hi] = self._spline(self.rmax)
+
+        # evaluate in between
+        eval = np.logical_and(~lo,~hi)
+        result[eval] = self._spline(r[eval])
+
+        return result
 
 class PairMatrix(object):
     """ Coefficient matrix.

@@ -1,94 +1,101 @@
 import numpy as np
 
 from .environment import Policy
+from .ensemble import Ensemble
 
 class RDF(object):
-    def __init__(self, dr, policy):
-        self.dr = dr
-        self.policy = policy
+    def __init__(self):
+        pass
 
-    def __call__(self, env, trajectory, pair, rcut):
+    def run(self, env, step):
         raise NotImplementedError()
 
 class Mock(RDF):
-    def __init__(self, dr, potential, policy=Policy()):
-        super().__init__(dr, policy)
+    def __init__(self, ensemble, dr, rcut, potential):
+        super().__init__()
+        self._ensemble = ensemble
+        self.dr = dr
+        self.rcut = rcut
         self.potential = potential
 
-    def __call__(self, env, trajectory, pair, rcut):
+    def run(self, env, step):
         # r with requested spacing (accounting for possible last fractional bin)
-        nbins = np.ceil(rcut/self.dr).astype(int)
+        nbins = np.ceil(self.rcut/self.dr).astype(int)
         r = self.dr*np.arange(nbins+1)
-        r[-1] = rcut
+        r[-1] = self.rcut
 
         # center r on the bins
         r = 0.5*(r[:-1] + r[1:])
 
         # use dilute g(r) approximation
-        u = self.potential(r, pair)
-        gr = np.exp(-u)
+        ens = self._ensemble.copy()
+        for pair in ens.rdf:
+            u = self.potential(r, pair)
+            gr = np.exp(-ens.beta*u)
+            ens.rdf[pair] = np.column_stack((r,gr))
 
-        return np.column_stack((r,gr))
+        return ens
 
-class AllPairs(RDF):
-    def __init__(self, dr, policy=Policy()):
-        super().__init__(dr, policy)
+class LAMMPS(object):
+    def __init__(self, ensemble, order, rdf='rdf.lammps', thermo='log.lammps'):
+        self._ensemble = ensemble.copy()
+        self._ensemble.reset()
 
-    def __call__(self, env, trajectory, pair, rcut):
-        # r with requested spacing (accounting for possible last fractional bin)
-        nbins = np.ceil(rcut/self.dr).astype(int)
-        r = self.dr*np.arange(nbins+1)
-        r[-1] = rcut
+        self.order = order
+        self.rdf = rdf
+        self.thermo = thermo
 
-        # volume of spherical shell bins
-        vbins = (4.*np.pi/3.)*(r[1:]**3-r[:-1]**3)
+    def run(self, env, step):
+        # default empty ensemble
+        ens = self._ensemble.copy()
+        ens.T = 0.
+        ens.P = 0.
+        ens.V = 0.
+        for t in ens.types:
+            ens.N[t] = 0
 
-        # center r on the bins
-        r = 0.5*(r[:-1] + r[1:])
-        gr = np.zeros(nbins, dtype=np.float64)
+        with env.data(step):
+            # thermodynamic properties
+            with open(self.thermo) as f:
+                # advance to the table section
+                line = f.readline()
+                while line and 'RELENTLESS PRODUCTION' not in line:
+                    line = f.readline()
+                while line and 'Step' not in line:
+                    line = f.readline()
 
-        for s in trajectory:
-            if rcut > 0.5*np.min(s.box.L):
-                raise ValueError('RDF cutoff exceeds half the shortest box length.')
+                header = line.strip().split()
+                n_entry = len(header)
+                num_samples = 0
+                line = f.readline()
+                while line and 'Loop time' not in line:
+                    row = line.strip().split()
+                    if len(row) != n_entry:
+                        raise IOError('Read bad row of thermo data')
 
-            # select out the right particles
-            type_i = s.types == pair[0]
-            type_j = s.types == pair[1]
+                    ens.T += float(row[self.order['T']])
+                    ens.P += float(row[self.order['P']])
+                    ens.V += float(row[self.order['V']])
+                    for t in ens.types:
+                        ens.N[t] += int(row[self.order['N_'+t]])
+                    num_samples += 1
 
-            # number of each
-            N_i = np.sum(type_i)
-            N_j = np.sum(type_j)
-            if N_i == 0 or N_j == 0:
-                continue
+                    line = f.readline()
 
-            tags = np.arange(s.N)
-            tagsi = tags[type_i]
-            tagsj = tags[type_j]
+                # normalize mean
+                if num_samples > 0:
+                    ens.T /= num_samples
+                    ens.P /= num_samples
+                    ens.V /= num_samples
+                    for t in ens.types:
+                        ens.N[t] /= num_samples
+                else:
+                    raise IOError('LAMMPS thermo table empty!')
 
-            ris = s.positions[type_i]
-            rjs = s.positions[type_j]
+            # radial distribution functions
+            rdf = np.loadtxt(self.rdf, skiprows=4)
+            rs = rdf[:,1]
+            for i,pair in enumerate(ens.rdf):
+                ens.rdf[pair] = np.column_stack((rs,rdf[:,2+2*i]))
 
-            # iterate through all pairs
-            overlap = 0
-            rcut2 = rcut*rcut
-            counts = np.zeros(nbins, dtype=np.int64)
-            for i,ri in zip(tagsi,ris):
-                for j,rj in zip(tagsj,rjs):
-                    if i == j:
-                        overlap += 1
-                        continue
-
-                    # distance check
-                    drij = rj - ri
-                    drij = s.box.min_image(drij)
-                    drij2 = np.sum(drij*drij)
-
-                    if drij2 < rcut2:
-                        bin_ = int(np.sqrt(drij2)/dr)
-                        assert bin_ < nbins, "Bin {} outside of allocated RDF range ({})".format(bin_,nbins)
-                        counts[bin_] += 1
-
-            gr += counts*s.box.volume/((N_i*N_j-overlap)*vbins)
-        gr /= len(trajectory)
-
-        return np.column_stack((r,gr))
+        return ens
