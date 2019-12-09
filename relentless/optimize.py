@@ -8,6 +8,19 @@ from . import core
 from . import rdf
 
 class Optimizer(object):
+    def __init__(self, problem):
+        self.problem = problem
+        self.step = 0
+
+    def run(self):
+        raise NotImplementedError()
+
+    def restart(self, step):
+        """ Restart a calculation from a given step."""
+        self.problem.restart(step)
+        self.step = step
+
+class OptimizationProblem(object):
     def __init__(self, engine, rdf, table):
         self.engine = engine
         self.rdf = rdf
@@ -48,123 +61,143 @@ class Optimizer(object):
             potentials[pair] = self.table.regularize(u, f, trim=self.engine.trim)
         return potentials
 
-    def _get_rmax(self, r):
-        r0 = r[0]
-        dr = r[1] - r0
-
-        rmax = r[-1]
-        if np.isclose(r0, 0.):
-            # left end
-            rmax += dr
-        elif np.isclose(r0, 0.5*dr):
-            # midpoint
-            rmax += 0.5*dr
-
-        return rmax
-
-    def run(self):
+    def grad(self, env):
         raise NotImplementedError()
 
     def restart(self, step):
         """ Restart a calculation from a given step."""
         for pot in self.potentials:
             pot.load(step)
-        self.step = step
 
-class GradientDescent(Optimizer):
-    def __init__(self, engine, rdf, table):
-        super().__init__(engine, rdf, table)
-
-    def run(self, env, target, rates, maxiter, dr=0.01):
+    def get_variables(self):
         # flatten down variables for all potentials
         variables = []
         keys = set()
         for pot in self.potentials:
-            has_vars = False
             for key in pot.variables:
                 if pot.variables[key] is not None:
-                    has_vars = True
                     for var in pot.variables[key]:
                         variables.append((pot,key,var))
                         keys.add(key)
-            if has_vars:
-                for pair in pot.coeff.pairs:
-                    if pair not in target.rdf or target.rdf[pair] is None:
-                        raise KeyError('RDF for {},{} pair required.'.format(*pair))
+
+        return variables,keys
+
+class RelativeEntropy(OptimizationProblem):
+    def __init__(self, target, engine, rdf, table, dr=0.01):
+        super().__init__(engine, rdf, table)
+        self.target = target
+        self.dr = dr
+
+    def grad(self, env, step):
+        variables,keys = self.get_variables()
+
+        # fit the target g(r) to a spline
+        # TODO: abstract to RDF class
+        gtgt = {}
+        for pair in self.target.rdf:
+            if self.target.rdf[pair] is not None:
+                gtgt[pair] = core.Interpolator(self.target.rdf[pair])
+
+        # create potentials
+        potentials = self._tabulate_potentials()
+
+        # run the simulation
+        self.engine.run(env, step, self.target, potentials)
+
+        # evaluate the RDFs
+        thermo = self.rdf.run(env, step)
+        gsim = {}
+        for pair in thermo.rdf:
+            if thermo.rdf[pair] is not None:
+                gsim[pair] = core.Interpolator(thermo.rdf[pair])
+
+        # save the current values
+        with env.data(step):
+            for i,j in thermo.rdf:
+                file_ = 'rdf.{i}.{j}.dat'.format(i=i, j=j)
+                np.savetxt(file_, thermo.rdf[i,j], header='r g(r)')
+
+            for pot in self.potentials:
+                pot.save()
+
+        # update parameters
+        gradient = {}
+        for pot,key,param in variables:
+            # sum derivative over all gij
+            update = 0.
+            for i,j in pot.coeff:
+                # compute derivative and interpolate through r
+                r0 = max(gsim[i,j].rmin, gtgt[i,j].rmin)
+                r1 = min(gsim[i,j].rmax, gtgt[i,j].rmax)
+                r = np.arange(r0,r1+0.5*self.dr,self.dr)
+                dudp = pot.derivative(r, (i,j), key, param.name)
+                dudp = core.Interpolator(np.column_stack((r,dudp)))
+
+                # take integral by trapezoidal rule
+                sim_factor = thermo.N[i]*thermo.N[j]/thermo.V
+                tgt_factor = self.target.N[i]*self.target.N[j]/self.target.V
+                mult = 2 if i == j else 4 # 2 if same, otherwise need i,j and j,i contributions?
+                update += scipy.integrate.trapz(x=r, y=mult*np.pi*r**2*(sim_factor*gsim[i,j](r)-tgt_factor*gtgt[i,j](r))*self.target.beta*dudp(r))
+
+            gradient[(pot,key,param)] = update
+        return gradient
+
+    def error(self, env, step):
+        # fit the target g(r) to a spline
+        gtgt = {}
+        for pair in self.target.rdf:
+            if self.target.rdf[pair] is not None:
+                gtgt[pair] = core.Interpolator(self.target.rdf[pair])
+
+        # evaluate the RDFs
+        thermo = self.rdf.run(env, step)
+        gsim = {}
+        for pair in thermo.rdf:
+            if thermo.rdf[pair] is not None:
+                gsim[pair] = core.Interpolator(thermo.rdf[pair])
+
+        diff = 0.
+        for i,j in self.target.rdf:
+            if self.target.rdf[i,j] is not None:
+                # compute derivative and interpolate through r
+                r0 = max(gsim[i,j].rmin, gtgt[i,j].rmin)
+                r1 = min(gsim[i,j].rmax, gtgt[i,j].rmax)
+                r = np.arange(r0,r1+0.5*self.dr,self.dr)
+
+                sim_factor = thermo.N[i]*thermo.N[j]/thermo.V
+                tgt_factor = self.target.N[i]*self.target.N[j]/self.target.V
+                diff += scipy.integrate.trapz(x=r, y=4.*np.pi*r**2*(sim_factor*gsim[i,j](r)-tgt_factor*gtgt[i,j](r))**2)
+
+        return diff
+
+class GradientDescent(Optimizer):
+    def __init__(self, problem):
+        super().__init__(problem)
+
+    def run(self, env, rates, maxiter, gradtol=1.e-3, rdftol=1.e-4):
+        variables,keys = self.problem.get_variables()
 
         # check keys are properly set
         for key in keys:
             if key not in rates:
                 raise KeyError('Learning rate not set for {},{} pair.'.format(*key))
 
-        # fit the target g(r) to a spline
-        gtgt = {}
-        for pair in target.rdf:
-            if target.rdf[pair] is not None:
-                gtgt[pair] = core.Interpolator(target.rdf[pair])
-
         converged = False
         while self.step < maxiter and not converged:
-            # create potentials
-            potentials = self._tabulate_potentials()
-
-            # run the simulation
-            self.engine.run(env, self.step, target, potentials)
-
-            # evaluate the RDFs
-            thermo = self.rdf.run(env, self.step)
-            gsim = {}
-            for pair in thermo.rdf:
-                if thermo.rdf[pair] is not None:
-                    gsim[pair] = core.Interpolator(thermo.rdf[pair])
-
-            # save the current values
-            with env.data(self.step):
-                for i,j in thermo.rdf:
-                    file_ = 'rdf.{i}.{j}.dat'.format(i=i, j=j)
-                    np.savetxt(file_, thermo.rdf[i,j], header='r g(r)')
-
-                for pot in self.potentials:
-                    pot.save()
-
-            # update parameters
-            gradient = []
-            for pot,key,param in variables:
-                # sum derivative over all gij
-                update = 0.
-                for i,j in pot.coeff:
-                    # compute derivative and interpolate through r
-                    r0 = max(gsim[i,j].rmin, gtgt[i,j].rmin)
-                    r1 = min(gsim[i,j].rmax, gtgt[i,j].rmax)
-                    r = np.arange(r0,r1+0.5*dr,dr)
-                    dudp = pot.derivative(r, (i,j), key, param.name)
-                    dudp = core.Interpolator(np.column_stack((r,dudp)))
-
-                    # take integral by trapezoidal rule
-                    sim_factor = thermo.N[i]*thermo.N[j]/thermo.V
-                    tgt_factor = target.N[i]*target.N[j]/target.V
-                    update += scipy.integrate.trapz(x=r, y=2.*np.pi*r**2*(sim_factor*gsim[i,j](r)-tgt_factor*gtgt[i,j](r))*target.beta*dudp(r))
-
+            # get gradient
+            gradient = self.problem.grad(env, self.step)
+            gvec = []
+            for (pot,key,param),update in gradient.items():
                 param.value = pot.coeff[key][param.name] + rates[key] * update
-                gradient.append(update)
-            gradient = np.asarray(gradient)
+                gvec.append(update)
+            gvec = np.array(gvec)
 
             # convergence: 2-norm of the gradient
             convergence = {}
-            convergence['gradient'] = np.sum(gradient*gradient)
+            convergence['gradient'] = np.sum(gvec*gvec)
 
             # convergence: rdf error
-            convergence['rdf_diff'] = 0.
-            for i,j in target.rdf:
-                if target.rdf[i,j] is not None:
-                    # compute derivative and interpolate through r
-                    r0 = max(gsim[i,j].rmin, gtgt[i,j].rmin)
-                    r1 = min(gsim[i,j].rmax, gtgt[i,j].rmax)
-                    r = np.arange(r0,r1+0.5*dr,dr)
-
-                    sim_factor = thermo.N[i]*thermo.N[j]/thermo.V
-                    tgt_factor = target.N[i]*target.N[j]/target.V
-                    convergence['rdf_diff'] += scipy.integrate.trapz(x=r, y=4.*np.pi*r**2*(sim_factor*gsim[i,j](r)-tgt_factor*gtgt[i,j](r))**2)
+            convergence['rdf_diff'] = self.problem.error(env, self.step)
 
             # TODO: convergence: contraints
             convergence['constraints'] = False
@@ -179,7 +212,7 @@ class GradientDescent(Optimizer):
                                                            grad2=convergence['gradient'],
                                                            diff=convergence['rdf_diff']))
 
-            converged = convergence['gradient'] < 1.e-3 or convergence['rdf_diff'] < 1.e-4 or convergence['constraints']
+            converged = convergence['gradient'] < gradtol or convergence['rdf_diff'] < rdftol or convergence['constraints']
             if not converged:
                 # complete update step
                 for pot,pair,param in variables:
@@ -187,7 +220,7 @@ class GradientDescent(Optimizer):
 
                 # stash new parameters into next step
                 with env.data(self.step+1):
-                    for pot in self.potentials:
+                    for pot in self.problem.potentials:
                         pot.save()
 
             self.step += 1
