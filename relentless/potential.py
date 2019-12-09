@@ -88,9 +88,23 @@ class PairPotential(object):
         """ Evaluate energy for a (i,j) pair.
         """
         params = self.coeff.evaluate(pair)
-        u = self.energy(r, **params)
+        r,u = self._zeros(r)
+
+        # evaluate first at points within bounds
+        flags = np.logical_and(r >= params['rmin'], r <= params['rmax'])
+        u[flags] = self.energy(r[flags], **params)
+
+        # constant value for u below rmin
+        if params['rmin'] > 0:
+            u[r < params['rmin']] = self.energy(params['rmin'], **params)
+
+        # if shifting is enabled, move the whole potential up
+        # otherwise, set energy to constant for any r beyond rmax
         if self.shift:
-            u[np.atleast_1d(r) <= params['rmax']] -= self.energy(params['rmax'], **params)
+            u[r <= params['rmax']] -= self.energy(params['rmax'], **params)
+        else:
+            u[r > params['rmax']] = self.energy(params['rmax'], **params)
+
         return u
 
     def energy(self, r, **kwargs):
@@ -102,10 +116,16 @@ class PairPotential(object):
         """ Evaluate the force for a (i,j) pair.
         """
         params = self.coeff.evaluate(pair)
+
         dudr = numdifftools.Derivative(lambda x: self.energy(x, **params))
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", FutureWarning)
-            f = -dudr(r)
+
+            # force is evaluated only in range and is zero outside
+            r,f = self._zeros(r)
+            flags = np.logical_and(r >= params['rmin'], r <= params['rmax'])
+            f[flags] = -dudr(r[flags])
+
         return f
 
     def derivative(self, r, pair, key, param):
@@ -114,18 +134,23 @@ class PairPotential(object):
         if callable(self.coeff[key][param]):
             raise KeyError('Cannot differentiate a callable parameter; it is chained.')
 
+        r,deriv = self._zeros(r)
+
+        params = self.coeff.evaluate(pair)
+        flags = np.logical_and(r >= params['rmin'], r <= params['rmax'])
+
         # setup derivative
+        # TODO: these derivatives need to respect bounds on values (e.g., positivity) in perturbations
         def u(p):
             params,_ = self.coeff.perturb(pair,key,param,p)
-            return self.energy(r, **params)
+            return self.energy(r[flags], **params)
         dudp = numdifftools.Derivative(u)
 
         # evaluate derivative at current value of param
         # numdifftools raises a deprecation FutureWarning via NumPy, so silence.
-        params = self.coeff.evaluate(pair)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", FutureWarning)
-            deriv = dudp(params[param])
+            deriv[flags] = dudp(params[param])
 
         return deriv
 
@@ -224,23 +249,19 @@ class LJPotential(PairPotential):
     def __init__(self, types, shift=False):
         super().__init__(types=types,
                          params=('epsilon','sigma','n','rmin','rmax'),
-                         default={'n': 6, 'rmin': 0.},
+                         default={'n': 6, 'rmin': 0},
                          shift=shift)
 
     def energy(self, r, epsilon, sigma, n, rmin, rmax):
         r,u = self._zeros(r)
-
-        zero_flags = np.isclose(r, 0)
-        range_flags = np.logical_and(r >= rmin, r <= rmax)
+        flags = ~np.isclose(r, 0)
 
         # evaluate potential for r in range, but nonzero
-        flags = np.logical_xor(range_flags, zero_flags)
         rn_inv = np.power(sigma/r[flags], n)
         u[flags] = 4.*epsilon*(rn_inv**2 - rn_inv)
 
         # evaluate potential for r in range, but zero
-        flags = np.logical_and(range_flags, zero_flags)
-        u[flags] = np.inf
+        u[~flags] = np.inf
 
         return u
 
@@ -250,24 +271,17 @@ class LJPotential(PairPotential):
         epsilon = params['epsilon']
         sigma = params['sigma']
         n = params['n']
-        rmin = params['rmin']
-        rmax = params['rmax']
 
-        # evaluate cutoff force
         r,f = self._zeros(r)
-
-        zero_flags = np.isclose(r, 0)
-        range_flags = np.logical_and(r >= rmin, r <= rmax)
+        flags = ~np.isclose(r, 0)
 
         # evaluate force for r in range, but nonzero
-        flags = np.logical_xor(range_flags, zero_flags)
         rinv = 1./r[flags]
         rn_inv = np.power(sigma*rinv, n)
         f[flags] = (8.*n*epsilon*rinv)*(rn_inv**2-0.5*rn_inv)
 
         # evaluate force for r in range, but zero
-        flags = np.logical_and(range_flags, zero_flags)
-        f[flags] = np.inf
+        f[~flags] = np.inf
 
         return f
 
