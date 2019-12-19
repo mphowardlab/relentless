@@ -60,6 +60,9 @@ class CoefficientMatrix(PairMatrix):
         with open(filename, 'w') as f:
             json.dump(all_params, f, sort_keys=True, indent=4)
 
+    def load(self, filename):
+        raise NotImplementedError('Load is not implemented')
+
     def __setitem__(self, key, value):
         """ Set coefficients for the (i,j) pair.
         """
@@ -68,7 +71,7 @@ class CoefficientMatrix(PairMatrix):
                 raise KeyError('Only the known parameters can be set in coefficient matrix.')
             self[key][p] = value[p]
 
-class PairPotential(object):
+class PairPotential:
     """ Generic pair potential evaluator.
     """
     _id = 0
@@ -157,6 +160,9 @@ class PairPotential(object):
     def save(self):
         self.coeff.save('{}.{}.json'.format(self.id,self.__class__.__name__))
 
+    def load(self):
+        self.coeff.load('{}.{}.json'.format(self.id,self.__class__.__name__))
+
     def _zeros(self, r):
         # coerce input shape and create zeros for output
         r = np.asarray(np.atleast_1d(r))
@@ -170,7 +176,7 @@ class PairPotential(object):
     def __next__(self):
         return next(self.coeff)
 
-class Tabulator(object):
+class Tabulator:
     def __init__(self, nbins, rmin, rmax, fmax=None, fcut=None, edges=True):
         self._nbins = nbins
         self._rmin = rmin

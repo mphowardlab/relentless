@@ -24,16 +24,11 @@ for i in range(spline.num_knots):
 lj.coeff['1','1']['rmax'] = 2.**(1./6.)
 
 # mock simulation engine & rdf (dilute limit)
-sim = relentless.engine.Mock()
-rdf = relentless.rdf.Mock(ensemble=tgt, dr=dr, rcut=3.0, potential=lambda r,pair: lj(r,pair)+spline(r,pair))
 tab = relentless.potential.Tabulator(nbins=1000, rmin=0.0, rmax=3.0, fmax=100., fcut=1.e-6)
+sim = relentless.engine.Mock(ensemble=tgt, table=tab, potentials=(lj,spline))
 
-# relative entropy
-re = relentless.optimize.RelativeEntropy(tgt, sim, rdf, tab)
-re.add_potential(lj)
-re.add_potential(spline)
-
-# steepest descent
+# relative entropy + steepest descent
+re = relentless.optimize.RelativeEntropy(sim,tgt)
 opt = relentless.optimize.GradientDescent(re)
 
 with Desktop(path='./workspace') as env:

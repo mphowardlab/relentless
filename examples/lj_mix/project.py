@@ -27,16 +27,12 @@ lj.coeff['2','2'] = {'epsilon': 1.0, 'sigma': 1.0}
 lj.variables['1','1'] = (relentless.Variable('sigma', low=0.8, high=1.2),)
 lj.variables['2','2'] = (relentless.Variable('sigma', low=0.8, high=1.2),)
 
-# mock simulation engine & rdf (dilute limit)
-sim = relentless.engine.LAMMPS(lammps='lmp_mpi', template='nvt.in', policy=relentless.environment.Policy(procs=2))
-rdf = relentless.rdf.LAMMPS(ensemble=tgt, order={'T': 1, 'P': 2, 'V': 3, 'N_1': 4, 'N_2': 5})
+# relative entropy + steepest descent
 tab = relentless.potential.Tabulator(nbins=1000, rmin=0.0, rmax=3.6, fmax=100., fcut=1.e-6)
+sim = relentless.engine.LAMMPS(ensemble=tgt, table=tab, lammps='lmp_mpi', template='nvt.in', policy=relentless.environment.Policy(procs=2), potentials=lj)
 
-# relative entropy
-re = relentless.optimize.RelativeEntropy(tgt, sim, rdf, tab)
-re.add_potential(lj)
-
-# steepest descent
+# relative entropy + steepest descent
+re = relentless.optimize.RelativeEntropy(sim,tgt)
 opt = relentless.optimize.GradientDescent(re)
 
 with Desktop(path='./workspace') as env:

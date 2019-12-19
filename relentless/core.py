@@ -30,42 +30,6 @@ class Interpolator(object):
     def domain(self):
         return self._domain
 
-class TypeDict:
-    def __init__(self, types, default=None):
-        self._types = tuple(types)
-        self._data = {}
-        for i in self.types:
-            self._data[i] = default
-
-    def _check_key(self, key):
-        if key not in self.types:
-            raise KeyError('Type {} is not in dictionary.'.format(key))
-        return key
-
-    def __getitem__(self, key):
-        key = self._check_key(key)
-        return self._data[key]
-
-    def __setitem__(self, key, value):
-        key = self._check_key(key)
-        self._data[key] = value
-
-    def __iter__(self):
-        return iter(self._data)
-
-    def __next__(self):
-        return next(self._data)
-
-    def __str__(self):
-        return str(self._data)
-
-    def asdict(self):
-        return dict(self._data)
-
-    @property
-    def types(self):
-        return self._types
-
 class PairMatrix(object):
     """ Coefficient matrix.
     """
@@ -118,6 +82,42 @@ class PairMatrix(object):
     @property
     def pairs(self):
         return tuple(self._data.keys())
+
+class TypeDict:
+    def __init__(self, types, default=None):
+        self._types = tuple(types)
+        self._data = {}
+        for i in self.types:
+            self._data[i] = default
+
+    def _check_key(self, key):
+        if key not in self.types:
+            raise KeyError('Type {} is not in dictionary.'.format(key))
+        return key
+
+    def __getitem__(self, key):
+        key = self._check_key(key)
+        return self._data[key]
+
+    def __setitem__(self, key, value):
+        key = self._check_key(key)
+        self._data[key] = value
+
+    def __iter__(self):
+        return iter(self._data)
+
+    def __next__(self):
+        return next(self._data)
+
+    def __str__(self):
+        return str(self._data)
+
+    def todict(self):
+        return dict(self._data)
+
+    @property
+    def types(self):
+        return self._types
 
 class Variable(object):
     def __init__(self, name, value=None, low=None, high=None):

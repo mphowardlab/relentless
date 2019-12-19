@@ -1,4 +1,6 @@
 import copy
+import json
+
 import numpy as np
 
 from . import core
@@ -9,7 +11,7 @@ class RDF(core.Interpolator):
         self.table = np.column_stack((r,g))
 
 class Ensemble(object):
-    def __init__(self, types, T, P=None, V=None, mu={}, N={}, kB=1.0):
+    def __init__(self, types, T, P=None, V=None, mu={}, N={}, kB=1.0, conjugates=None):
         self.types = tuple(types)
         self.rdf = core.PairMatrix(self.types)
 
@@ -22,37 +24,40 @@ class Ensemble(object):
         self._V = V
         if self.P is None and self.V is None:
             raise ValueError('Either P or V must be set.')
-        elif self.P is not None and self.V is not None:
-            raise ValueError('Both P and V cannot be set.')
 
-        # mu-N, must be set by species
+        # mu-N, must be set by type
         self._mu = core.TypeDict(self.types)
         self._N = core.TypeDict(self.types)
         for t in self.types:
-            mut = t in mu
-            Nt = t in N
-
-            if not mut and not Nt:
+            if (t not in mu or mu[t] is None) and (t not in N or N[t] is None):
                 raise ValueError('Either mu or N must be set for type {}.'.format(t))
-            elif mut and Nt:
-                raise ValueError('Both mu and N cannot be set for type {}.'.format(t))
-            elif Nt:
+            if t in N:
                 self._N[t] = N[t]
-            else:
+            if t in mu:
                 self._mu[t] = mu[t]
 
-        # save the set of conjugate variables from the constructor
-        conjugates = []
-        if self.P is None:
-            conjugates.append('P')
-        if self.V:
-            conjugates.append('V')
-        for t in self.types:
-            if self.mu[t] is None:
-                conjugates.append('mu_{}'.format(t))
-            if self.N[t] is None:
-                conjugates.append('N_{}'.format(t))
-        self._conjugates = tuple(conjugates)
+        # conjugates can be specified (and assumed correct), or they can be deduced
+        if conjugates is not None:
+            self._conjugates = tuple(conjugates)
+        else:
+            if self.P is not None and self.V is not None:
+                raise ValueError('Both P and V cannot be set.')
+            for t in self.types:
+                if self.mu[t] is not None and self.N[t] is not None:
+                    raise ValueError('Both mu and N cannot be set for type {}.'.format(t))
+
+            # build the set of conjugate variables from the constructor
+            conjugates = []
+            if self.P is None:
+                conjugates.append('P')
+            if self.V is None:
+                conjugates.append('V')
+            for t in self.types:
+                if self.mu[t] is None:
+                    conjugates.append('mu_{}'.format(t))
+                if self.N[t] is None:
+                    conjugates.append('N_{}'.format(t))
+            self._conjugates = tuple(conjugates)
 
     @property
     def beta(self):
@@ -82,7 +87,7 @@ class Ensemble(object):
 
     @property
     def N(self):
-        return self._N.asdict()
+        return self._N.todict()
 
     @N.setter
     def N(self, value):
@@ -94,11 +99,11 @@ class Ensemble(object):
 
     @property
     def mu(self):
-        return self._mu.asdict()
+        return self._mu.todict()
 
     @mu.setter
     def mu(self, value):
-        for t in self.types:
+        for t in value:
             if 'mu_{}'.format(t) in self.conjugates:
                 self._mu[t] = value[t]
             else:
@@ -125,3 +130,44 @@ class Ensemble(object):
     def copy(self):
         ens = copy.deepcopy(self)
         return ens.reset()
+
+    def save(self, basename='ensemble'):
+        # dump thermo data to json file
+        data = {'types': self.types,
+                'kB': self.kB,
+                'T': self.T,
+                'P': self.P,
+                'V': self.V,
+                'N': self.N,
+                'mu': self.mu,
+                'conjugates': self.conjugates}
+        with open('{}.json'.format(basename),'w') as f:
+            json.dump(data, f, sort_keys=True, indent=4)
+
+        # dump rdfs in separate files
+        for pair in self.rdf:
+            if self.rdf[pair] is not None:
+                np.savetxt('{}.{}.{}.dat'.format(basename,pair[0],pair[1]), self.rdf[pair].table, header='r g(r)')
+
+    @classmethod
+    def load(self, basename='ensemble'):
+        with open('{}.json'.format(basename)) as f:
+            data = json.load(f)
+
+        ens = Ensemble(types=data['types'],
+                       T=data['T'],
+                       P=data['P'],
+                       V=data['V'],
+                       N=data['N'],
+                       mu=data['mu'],
+                       kB=data['kB'],
+                       conjugates=data['conjugates'])
+
+        for pair in ens.rdf:
+            try:
+                gr = np.loadtxt('{}.{}.{}.dat'.format(basename,pair[0],pair[1]))
+                ens.rdf[pair] = RDF(gr[:,0], gr[:,1])
+            except FileNotFoundError:
+                pass
+
+        return ens
