@@ -91,12 +91,7 @@ class RelativeEntropy(OptimizationProblem):
     def grad(self, env, step):
         variables,keys = self.get_variables()
 
-        # fit the target g(r) to a spline
-        # TODO: abstract to RDF class
-        gtgt = {}
-        for pair in self.target.rdf:
-            if self.target.rdf[pair] is not None:
-                gtgt[pair] = core.Interpolator(self.target.rdf[pair])
+        gtgt = self.target.rdf
 
         # create potentials
         potentials = self._tabulate_potentials()
@@ -106,16 +101,14 @@ class RelativeEntropy(OptimizationProblem):
 
         # evaluate the RDFs
         thermo = self.rdf.run(env, step)
-        gsim = {}
-        for pair in thermo.rdf:
-            if thermo.rdf[pair] is not None:
-                gsim[pair] = core.Interpolator(thermo.rdf[pair])
+        gsim = thermo.rdf
 
         # save the current values
         with env.data(step):
             for i,j in thermo.rdf:
-                file_ = 'rdf.{i}.{j}.dat'.format(i=i, j=j)
-                np.savetxt(file_, thermo.rdf[i,j], header='r g(r)')
+                if thermo.rdf[i,j] is not None:
+                    file_ = 'rdf.{i}.{j}.dat'.format(i=i, j=j)
+                    np.savetxt(file_, thermo.rdf[i,j].table, header='r g(r)')
 
             for pot in self.potentials:
                 pot.save()
@@ -127,11 +120,11 @@ class RelativeEntropy(OptimizationProblem):
             update = 0.
             for i,j in pot.coeff:
                 # compute derivative and interpolate through r
-                r0 = max(gsim[i,j].rmin, gtgt[i,j].rmin)
-                r1 = min(gsim[i,j].rmax, gtgt[i,j].rmax)
+                r0 = max(gsim[i,j].domain[0], gtgt[i,j].domain[0])
+                r1 = min(gsim[i,j].domain[1], gtgt[i,j].domain[1])
                 r = np.arange(r0,r1+0.5*self.dr,self.dr)
                 dudp = pot.derivative(r, (i,j), key, param.name)
-                dudp = core.Interpolator(np.column_stack((r,dudp)))
+                dudp = core.Interpolator(r,dudp)
 
                 # take integral by trapezoidal rule
                 sim_factor = thermo.N[i]*thermo.N[j]/thermo.V
@@ -144,24 +137,18 @@ class RelativeEntropy(OptimizationProblem):
 
     def error(self, env, step):
         # fit the target g(r) to a spline
-        gtgt = {}
-        for pair in self.target.rdf:
-            if self.target.rdf[pair] is not None:
-                gtgt[pair] = core.Interpolator(self.target.rdf[pair])
+        gtgt = self.target.rdf
 
         # evaluate the RDFs
         thermo = self.rdf.run(env, step)
-        gsim = {}
-        for pair in thermo.rdf:
-            if thermo.rdf[pair] is not None:
-                gsim[pair] = core.Interpolator(thermo.rdf[pair])
+        gsim = thermo.rdf
 
         diff = 0.
         for i,j in self.target.rdf:
             if self.target.rdf[i,j] is not None:
                 # compute derivative and interpolate through r
-                r0 = max(gsim[i,j].rmin, gtgt[i,j].rmin)
-                r1 = min(gsim[i,j].rmax, gtgt[i,j].rmax)
+                r0 = max(gsim[i,j].domain[0], gtgt[i,j].domain[0])
+                r1 = min(gsim[i,j].domain[1], gtgt[i,j].domain[1])
                 r = np.arange(r0,r1+0.5*self.dr,self.dr)
 
                 sim_factor = thermo.N[i]*thermo.N[j]/thermo.V

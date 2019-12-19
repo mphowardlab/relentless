@@ -2,17 +2,10 @@ import numpy as np
 
 from .environment import Policy
 from .ensemble import Ensemble
+from .ensemble import RDF
 
-class RDF(object):
-    def __init__(self):
-        pass
-
-    def run(self, env, step):
-        raise NotImplementedError()
-
-class Mock(RDF):
+class Mock:
     def __init__(self, ensemble, dr, rcut, potential):
-        super().__init__()
         self._ensemble = ensemble
         self.dr = dr
         self.rcut = rcut
@@ -32,30 +25,27 @@ class Mock(RDF):
         for pair in ens.rdf:
             u = self.potential(r, pair)
             gr = np.exp(-ens.beta*u)
-            ens.rdf[pair] = np.column_stack((r,gr))
+            ens.rdf[pair] = RDF(r,gr)
 
         return ens
 
 class LAMMPS(object):
     def __init__(self, ensemble, order, rdf='rdf.lammps', thermo='log.lammps'):
         self._ensemble = ensemble.copy()
-        self._ensemble.reset()
-
         self.order = order
         self.rdf = rdf
         self.thermo = thermo
 
     def run(self, env, step):
-        # default empty ensemble
-        ens = self._ensemble.copy()
-        ens.T = 0.
-        ens.P = 0.
-        ens.V = 0.
-        for t in ens.types:
-            ens.N[t] = 0
-
         with env.data(step):
-            # thermodynamic properties
+            # thermodynamic property accumulators
+            T = 0.
+            P = 0.
+            V = 0.
+            N = {}
+            for t in self._ensemble.types:
+                N[t] = 0
+
             with open(self.thermo) as f:
                 # advance to the table section
                 line = f.readline()
@@ -71,31 +61,40 @@ class LAMMPS(object):
                 while line and 'Loop time' not in line:
                     row = line.strip().split()
                     if len(row) != n_entry:
-                        raise IOError('Read bad row of thermo data')
+                        raise IOError('Read bad row of LAMMPS thermo data')
 
-                    ens.T += float(row[self.order['T']])
-                    ens.P += float(row[self.order['P']])
-                    ens.V += float(row[self.order['V']])
-                    for t in ens.types:
-                        ens.N[t] += int(row[self.order['N_'+t]])
+                    T += float(row[self.order['T']])
+                    P += float(row[self.order['P']])
+                    V += float(row[self.order['V']])
+                    for t in self._ensemble.types:
+                        N[t] += int(row[self.order['N_'+t]])
                     num_samples += 1
 
                     line = f.readline()
 
                 # normalize mean
                 if num_samples > 0:
-                    ens.T /= num_samples
-                    ens.P /= num_samples
-                    ens.V /= num_samples
-                    for t in ens.types:
-                        ens.N[t] /= num_samples
+                    T /= num_samples
+                    P /= num_samples
+                    V /= num_samples
+                    for t in N:
+                        N[t] /= float(num_samples)
                 else:
                     raise IOError('LAMMPS thermo table empty!')
+
+            # set conjugate variables as needed for ensemble
+            ens = self._ensemble.copy()
+            if 'P' in ens.conjugates:
+                ens.P = P
+            if 'V' in ens.conjugates:
+                ens.V = V
+            if 'N' in ens.conjugates:
+                ens.N = N
 
             # radial distribution functions
             rdf = np.loadtxt(self.rdf, skiprows=4)
             rs = rdf[:,1]
             for i,pair in enumerate(ens.rdf):
-                ens.rdf[pair] = np.column_stack((rs,rdf[:,2+2*i]))
+                ens.rdf[pair] = RDF(rs,rdf[:,2+2*i])
 
         return ens

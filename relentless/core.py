@@ -4,30 +4,67 @@ import numpy as np
 import scipy.interpolate
 
 class Interpolator(object):
-    def __init__(self, gr):
-        r = gr[:,0]
-        g = gr[:,1]
-        self.rmin = r[0]
-        self.rmax = r[-1]
-        self._spline = scipy.interpolate.Akima1DInterpolator(x=r, y=g)
+    def __init__(self, x, y):
+        self._domain = (x[0],x[-1])
+        self._spline = scipy.interpolate.Akima1DInterpolator(x=x, y=y)
 
-    def __call__(self, r):
-        r = np.atleast_1d(r)
-        result = np.zeros(len(r))
+    def __call__(self, x):
+        x = np.atleast_1d(x)
+        result = np.zeros(len(x))
 
         # clamp lo
-        lo = r < self.rmin
-        result[lo] = self._spline(self.rmin)
+        lo = x < self.domain[0]
+        result[lo] = self._spline(self.domain[0])
 
         # clamp hi
-        hi = r > self.rmax
-        result[hi] = self._spline(self.rmax)
+        hi = x > self.domain[1]
+        result[hi] = self._spline(self.domain[1])
 
         # evaluate in between
-        eval = np.logical_and(~lo,~hi)
-        result[eval] = self._spline(r[eval])
+        flags = np.logical_and(~lo,~hi)
+        result[flags] = self._spline(x[flags])
 
         return result
+
+    @property
+    def domain(self):
+        return self._domain
+
+class TypeDict:
+    def __init__(self, types, default=None):
+        self._types = tuple(types)
+        self._data = {}
+        for i in self.types:
+            self._data[i] = default
+
+    def _check_key(self, key):
+        if key not in self.types:
+            raise KeyError('Type {} is not in dictionary.'.format(key))
+        return key
+
+    def __getitem__(self, key):
+        key = self._check_key(key)
+        return self._data[key]
+
+    def __setitem__(self, key, value):
+        key = self._check_key(key)
+        self._data[key] = value
+
+    def __iter__(self):
+        return iter(self._data)
+
+    def __next__(self):
+        return next(self._data)
+
+    def __str__(self):
+        return str(self._data)
+
+    def asdict(self):
+        return dict(self._data)
+
+    @property
+    def types(self):
+        return self._types
 
 class PairMatrix(object):
     """ Coefficient matrix.

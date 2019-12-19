@@ -11,10 +11,10 @@ lj = relentless.potential.LJPotential(types=('1',), shift=True)
 lj.coeff['1','1'] = {'epsilon': 1.0, 'sigma': 0.9, 'rmax': lambda c : 3*c['1','1']['sigma']}
 
 # reference ensemble
-tgt = relentless.ensemble.NVT(N={'1': 50}, V=1000., T=1.5)
+tgt = relentless.ensemble.Ensemble(types=('1',), N={'1': 50}, V=1000., T=1.5)
 dr = 0.1
 rs = np.arange(0.5*dr,5.0,dr)
-tgt.rdf['1','1'] = np.column_stack((rs,np.exp(-tgt.beta*lj(rs,('1','1')))))
+tgt.rdf['1','1'] = relentless.ensemble.RDF(rs,np.exp(-tgt.beta*lj(rs,('1','1'))))
 
 # change parameters and setup optimization
 lj.coeff['1','1'] = {'epsilon': 1.0, 'sigma': 1.0}
