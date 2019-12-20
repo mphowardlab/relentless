@@ -57,16 +57,23 @@ class RelativeEntropy(OptimizationProblem):
         self.dr = dr
 
     def _get_step(self, env, step):
-        # load or run the simulation
-        with env.data(step):
-            try:
+        # try loading the simulation
+        try:
+            with env.data(step):
                 thermo = Ensemble.load('ensemble')
-            except FileNotFoundError:
-                thermo = None
+        except FileNotFoundError:
+            thermo = None
 
-            if thermo is None:
-                self.engine.run(env, step)
-                thermo = self.engine.process(env, step)
+        # if not found, run the simulation
+        if thermo is None:
+            # write the current parameters
+            with env.data(step):
+                for pot in self.engine.potentials:
+                    pot.save()
+
+            self.engine.run(env, step)
+            thermo = self.engine.process(env, step)
+            with env.data(step):
                 thermo.save('ensemble')
 
         return thermo

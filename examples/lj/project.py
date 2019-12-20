@@ -7,7 +7,7 @@ class Desktop(relentless.environment.Environment):
     always_wrap = False
 
 # lj potential
-lj = relentless.potential.LJPotential(types=('1',), shift=True)
+lj = relentless.potential.LennardJones(types=('1',), shift=True)
 lj.coeff['1','1'] = {'epsilon': 1.0, 'sigma': 0.9, 'rmax': lambda c : 3*c['1','1']['sigma']}
 
 # reference ensemble
@@ -29,4 +29,4 @@ re = relentless.optimize.RelativeEntropy(sim,tgt)
 opt = relentless.optimize.GradientDescent(re)
 
 with Desktop(path='./workspace') as env:
-    opt.run(env=env, maxiter=10, rates={('1','1'): 1e-3})
+    opt.run(env=env, maxiter=1, rates={('1','1'): 1e-3})

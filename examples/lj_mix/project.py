@@ -7,7 +7,7 @@ class Desktop(relentless.environment.Environment):
     always_wrap = False
 
 # lj potential
-lj = relentless.potential.LJPotential(types=('1','2'), shift=True)
+lj = relentless.potential.LennardJones(types=('1','2'), shift=True)
 lj.coeff['1','1'] = {'epsilon': 1.0, 'sigma': 0.9, 'rmax': lambda c : 3*c['1','1']['sigma']}
 lj.coeff['2','2'] = {'epsilon': 1.0, 'sigma': 1.1, 'rmax': lambda c : 3*c['2','2']['sigma']}
 lj.coeff['1','2'] = {'epsilon': 1.0,

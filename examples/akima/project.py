@@ -7,7 +7,7 @@ class Desktop(relentless.environment.Environment):
     always_wrap = False
 
 # target lj potential
-lj = relentless.potential.LJPotential(types=('1',), shift=True)
+lj = relentless.potential.LennardJones(types=('1',), shift=True)
 lj.coeff['1','1'] = {'epsilon': 1.0, 'sigma': 1.0, 'rmax': 3.0}
 
 # reference ensemble

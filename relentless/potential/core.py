@@ -1,12 +1,13 @@
+__all__ = ['PairPotential','Tabulator']
+
 import json
 import warnings
 
 import numdifftools
 import numpy as np
-from scipy.interpolate import Akima1DInterpolator
 
-from .core import PairMatrix
-from .core import Variable
+from relentless.core import PairMatrix
+from relentless.core import Variable
 
 class CoefficientMatrix(PairMatrix):
     """ Pair coefficient matrix.
@@ -250,95 +251,3 @@ class Tabulator:
                 f = f[:(cut+1)]
 
         return np.column_stack((r,u,f))
-
-class LJPotential(PairPotential):
-    def __init__(self, types, shift=False):
-        super().__init__(types=types,
-                         params=('epsilon','sigma','n','rmin','rmax'),
-                         default={'n': 6, 'rmin': 0},
-                         shift=shift)
-
-    def energy(self, r, epsilon, sigma, n, rmin, rmax):
-        r,u = self._zeros(r)
-        flags = ~np.isclose(r, 0)
-
-        # evaluate potential for r in range, but nonzero
-        rn_inv = np.power(sigma/r[flags], n)
-        u[flags] = 4.*epsilon*(rn_inv**2 - rn_inv)
-
-        # evaluate potential for r in range, but zero
-        u[~flags] = np.inf
-
-        return u
-
-    def force(self, r, pair):
-        # load parameters for the pair
-        params = self.coeff.evaluate(pair)
-        epsilon = params['epsilon']
-        sigma = params['sigma']
-        n = params['n']
-
-        r,f = self._zeros(r)
-        flags = ~np.isclose(r, 0)
-
-        # evaluate force for r in range, but nonzero
-        rinv = 1./r[flags]
-        rn_inv = np.power(sigma*rinv, n)
-        f[flags] = (8.*n*epsilon*rinv)*(rn_inv**2-0.5*rn_inv)
-
-        # evaluate force for r in range, but zero
-        f[~flags] = np.inf
-
-        return f
-
-class AkimaSpline(PairPotential):
-    def __init__(self, types, num_knots, shift=False):
-        assert num_knots >= 2, "Must have at least 2 knots"
-
-        super().__init__(types=types,
-                         params=['rmin','rmax']+['knot-{}'.format(i) for i in range(num_knots)],
-                         default={'rmin': 0.},
-                         shift=shift)
-        self.num_knots = num_knots
-
-        # N-1 knots are free for optimization
-        for pair in self.variables:
-            self.variables[pair] = [Variable('knot-{}'.format(i)) for i in range(self.num_knots-1)]
-
-    def energy(self, r, **params):
-        r,u = self._zeros(r)
-        range_flags = np.logical_and(r >= params['rmin'], r <= params['rmax'])
-
-        akima = self._interpolate(params)
-        u[range_flags] = akima(r[range_flags])
-
-        return u
-
-    def force(self, r, pair):
-        # load parameters for the pair
-        params = self.coeff.evaluate(pair)
-
-        r,f = self._zeros(r)
-        range_flags = np.logical_and(r >= params['rmin'], r <= params['rmax'])
-
-        akima = self._interpolate(params)
-        f[range_flags] = -akima(r[range_flags], nu=1)
-
-        return f
-
-    def knots(self, pair):
-        params = self.coeff.evaluate(pair)
-        return self._knots(params)
-
-    def interpolate(self, pair):
-        params = self.coeff.evaluate(pair)
-        return self._interpolate(params)
-
-    def _knots(self, params):
-        r = np.linspace(params['rmin'], params['rmax'], self.num_knots)
-        u = [params['knot-{}'.format(i)] for i in range(self.num_knots)]
-        return r,u
-
-    def _interpolate(self, params):
-        rknot,uknot = self._knots(params)
-        return Akima1DInterpolator(rknot, uknot)
