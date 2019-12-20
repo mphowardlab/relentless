@@ -62,9 +62,13 @@ class RelativeEntropy(OptimizationProblem):
             try:
                 thermo = Ensemble.load('ensemble')
             except FileNotFoundError:
+                thermo = None
+
+            if thermo is None:
                 self.engine.run(env, step)
                 thermo = self.engine.process(env, step)
                 thermo.save('ensemble')
+
         return thermo
 
     def grad(self, env, step):

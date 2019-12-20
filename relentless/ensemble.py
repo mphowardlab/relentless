@@ -147,7 +147,8 @@ class Ensemble(object):
         # dump rdfs in separate files
         for pair in self.rdf:
             if self.rdf[pair] is not None:
-                np.savetxt('{}.{}.{}.dat'.format(basename,pair[0],pair[1]), self.rdf[pair].table, header='r g(r)')
+                i,j = pair
+                np.savetxt('{}.{}.{}.dat'.format(basename,i,j), self.rdf[pair].table, header='r g[{},{}](r)'.format(i,j))
 
     @classmethod
     def load(self, basename='ensemble'):

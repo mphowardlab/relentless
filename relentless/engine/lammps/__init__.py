@@ -1,15 +1,15 @@
-import numpy as np
 import jinja2
+import numpy as np
 
 from relentless.engine import Engine
-from relentless.ensemble import Ensemble
 from relentless.ensemble import RDF
 from relentless.environment import Policy
 
 class LAMMPS(Engine):
     trim = False
+    default_options = {'dt': 0.005, 'eq': 1000000, 'sample': 1000000, 'dump': 50, 'seed': 42}
 
-    def __init__(self, ensemble, table, template, lammps='lmp_mpi', args=None, policy=Policy(), potentials=None):
+    def __init__(self, ensemble, table, template, lammps='lmp_mpi', args=None, options=None, policy=Policy(), potentials=None):
         super().__init__(ensemble, table, potentials)
 
         self.template = template
@@ -17,7 +17,16 @@ class LAMMPS(Engine):
         self.args = args if args is not None else ""
         self.policy = policy
 
+        # load up options, including user overrides
+        self.options = dict(self.default_options)
+        if options is not None:
+            for key,value in options.items():
+                self.options[key] = value
+
     def run(self, env, step):
+        if len(self.potentials) == 0:
+            raise RuntimeError('Cannot run simulation without potentials.')
+
         with env.data(step):
             table_size = 0
             file_pairs = {}
@@ -57,9 +66,9 @@ class LAMMPS(Engine):
 
             template = loader.get_template(self.template)
             with open(self.template, 'w') as f:
-                f.write(template.render(size=table_size, files=file_pairs, ensemble=self.ensemble))
+                f.write(template.render(size=table_size, files=file_pairs, ensemble=self.ensemble, options=self.options))
 
-            # run the simulation out of the scratch directory
+            # run the simulation
             cmd = '{lmp} -in {fn} -screen none -nocite {args}'.format(lmp=self.lammps, fn=self.template, args=self.args)
             result = env.call(cmd, self.policy)
 
@@ -67,21 +76,10 @@ class LAMMPS(Engine):
         ens = self.ensemble.copy()
 
         with env.data(step):
-            # build the expected output column list
-            order = {'T': 1, 'P': 2, 'V': 3}
-            column = 4
-            for t in ens.types:
-                order['N_{}'.format(t)] = column
-                column += 1
-
             # thermodynamic property accumulators
             T = 0.
             P = 0.
             V = 0.
-            N = {}
-            for t in ens.types:
-                N[t] = 0
-
             with open('log.lammps') as f:
                 # advance to the table section
                 line = f.readline()
@@ -99,11 +97,9 @@ class LAMMPS(Engine):
                     if len(row) != n_entry:
                         raise IOError('Read bad row of LAMMPS thermo data')
 
-                    T += float(row[order['T']])
-                    P += float(row[order['P']])
-                    V += float(row[order['V']])
-                    for t in ens.types:
-                        N[t] += int(row[order['N_'+t]])
+                    T += float(row[1])
+                    P += float(row[2])
+                    V += float(row[3])
                     num_samples += 1
 
                     line = f.readline()
@@ -113,8 +109,6 @@ class LAMMPS(Engine):
                     T /= num_samples
                     P /= num_samples
                     V /= num_samples
-                    for t in N:
-                        N[t] /= float(num_samples)
                 else:
                     raise IOError('LAMMPS thermo table empty!')
 
@@ -124,12 +118,8 @@ class LAMMPS(Engine):
                 ens.P = P
             if 'V' in ens.conjugates:
                 ens.V = V
-            for t in ens.types:
-                if 'N_{}'.format(t) in ens.conjugates:
-                    ens.N[t] = N[t]
-                # mu is not computed in simulations (of course!)
 
-            # radial distribution functions
+            # read radial distribution functions from file
             rdf = np.loadtxt('rdf.lammps', skiprows=4)
             rs = rdf[:,1]
             for i,pair in enumerate(ens.rdf):

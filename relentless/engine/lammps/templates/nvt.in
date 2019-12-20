@@ -1,55 +1,5 @@
-{% block init %}
-## initialization
-units lj
-boundary p p p
-atom_style atomic
+{% extends "lammps.in" %}
 
-# place randomly in cubic box
-{%set L = ensemble.V**(1.0/3.0) %}
-region cube block 0.0 {{ L }} 0.0 {{ L }} 0.0 {{ L }}
-create_box {{ ensemble.N|length }} cube
-{% for t,n in ensemble.N.items() %}
-create_atoms {{ t }} random {{ n }} {{ 42 + loop.index }} cube
-{% endfor %}
-mass * 1.0
-{% endblock %}
-
-{% block potentials %}
-## potentials
-pair_style table linear {{ size }}
-{% for pair,file in files.items() %}
-pair_coeff {{ pair.0 }} {{ pair.1 }} {{ file }} TABLE_{{ pair.0 }}_{{ pair.1 }}
-{% endfor %}
-{% endblock %}
-
-{% block protocol %}
-## protocol
-# remove initial overlaps
-minimize 1.0e-4 1.0e-6 100 1000
-
-# thermalize at initialize temperature
-velocity all create {{ ensemble.T }} 24
-
-# nvt integrator
-fix 1 all nvt temp {{ ensemble.T }} {{ ensemble.T }} 0.1
-
-# equilibration
-run 1000000
-
-# production
-compute rdf all rdf 50 {% for pair in files %} {{ pair|join(' ') }}{% endfor %}
-
-fix rdf all ave/time 50 1 50 c_rdf[*] mode vector ave running overwrite file rdf.lammps
-
-{% for t in ensemble.N %}
-group type_{{ t }} type {{ t }}
-variable N_{{ t }} equal count(type_{{ t }})
-{% endfor %}
-thermo 50
-thermo_style custom step temp press vol {% for t in ensemble.N %} v_N_{{ t }}{% endfor %}
-
-thermo_modify norm no flush yes
-
-print 'RELENTLESS PRODUCTION'
-run 1000000
+{% block integrator %}
+fix nvt all nvt temp {{ ensemble.T }} {{ ensemble.T }} 0.1
 {% endblock %}
