@@ -15,11 +15,11 @@ lj.coeff['1','2'] = {'epsilon': 1.0,
                      'rmax': lambda c : 3*c['1','2']['sigma'](c)}
 
 # reference ensemble
-tgt = relentless.ensemble.Ensemble(types=('1','2'), N={'1': 50, '2': 50}, V=1000., T=1.5)
+tgt = relentless.Ensemble(types=('1','2'), N={'1': 50, '2': 50}, V=1000., T=1.5)
 dr = 0.1
 rs = np.arange(0.5*dr,5.0,dr)
 for pair in tgt.rdf:
-    tgt.rdf[pair] = relentless.ensemble.RDF(rs,np.exp(-tgt.beta*lj(rs,pair)))
+    tgt.rdf[pair] = relentless.RDF(rs,np.exp(-tgt.beta*lj(rs,pair)))
 
 # change parameters and setup optimization
 lj.coeff['1','1'] = {'epsilon': 1.0, 'sigma': 1.0}

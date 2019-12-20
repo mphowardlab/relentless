@@ -11,10 +11,10 @@ lj = relentless.potential.LennardJones(types=('1',), shift=True)
 lj.coeff['1','1'] = {'epsilon': 1.0, 'sigma': 1.0, 'rmax': 3.0}
 
 # reference ensemble
-tgt = relentless.ensemble.Ensemble(types=('1',), N={'1': 50}, V=1000., T=1.0)
+tgt = relentless.Ensemble(types=('1',), N={'1': 50}, V=1000., T=1.0)
 dr = 0.1
 rs = np.arange(0.5*dr,4.0,dr)
-tgt.rdf['1','1'] = relentless.ensemble.RDF(rs,np.exp(-tgt.beta*lj(rs,('1','1'))))
+tgt.rdf['1','1'] = relentless.RDF(rs,np.exp(-tgt.beta*lj(rs,('1','1'))))
 
 # spline potential
 spline = relentless.potential.AkimaSpline(types=('1',), num_knots=5, shift=True)
