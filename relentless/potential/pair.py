@@ -12,15 +12,13 @@ class LennardJones(PairPotential):
                          default={'rmin': 0},
                          shift=shift)
 
-    def energy(self, r, epsilon, sigma, rmin, rmax):
+    def energy(self, r, epsilon, sigma, **params):
         r,u = self._zeros(r)
         flags = ~np.isclose(r, 0)
 
-        # evaluate potential for r in range, but nonzero
+        # evaluate potential
         r6_inv = np.power(sigma/r[flags], 6)
         u[flags] = 4.*epsilon*(r6_inv**2 - r6_inv)
-
-        # evaluate potential for r in range, but zero
         u[~flags] = np.inf
 
         return u
@@ -34,15 +32,41 @@ class LennardJones(PairPotential):
         r,f = self._zeros(r)
         flags = ~np.isclose(r, 0)
 
-        # evaluate force for r in range, but nonzero
+        # evaluate force
         rinv = 1./r[flags]
         r6_inv = np.power(sigma*rinv, 6)
         f[flags] = (48.*epsilon*rinv)*(r6_inv**2-0.5*r6_inv)
-
-        # evaluate force for r in range, but zero
         f[~flags] = np.inf
 
         return f
+
+class Yukawa(PairPotential):
+    def __init__(self, types, shift=False):
+        super().__init__(types=types,
+                         params=('epsilon','kappa','rmin','rmax'),
+                         default={'rmin': 0},
+                         shift=shift)
+
+    def energy(self, r, epsilon, kappa, **params):
+        r,u = self._zeros(r)
+        flags = ~np.isclose(r,0)
+
+        u[flags] = epsilon*np.exp(-kappa*r[flags])/r[flags]
+        u[~flags] = np.inf
+
+        return u
+
+    def force(self, r, pair):
+        # load parameters for the pair
+        params = self.coeff.evaluate(pair)
+        epsilon = params['epsilon']
+        kappa = params['kappa']
+
+        r,f = self._zeros(r)
+        flags = ~np.isclose(r,0)
+
+        f[flags] = epsilon*np.exp(-kappa*r[flags])*(1.+kappa*r[flags])/r[flags]**2
+        f[~flags] = np.inf
 
 class AkimaSpline(PairPotential):
     def __init__(self, types, num_knots, shift=False):
