@@ -1,5 +1,7 @@
 __all__ = ['Interpolator','Variable']
 
+from enum import Enum
+
 import numpy as np
 import scipy.interpolate
 
@@ -53,11 +55,11 @@ class Interpolator:
 
         Returns
         -------
-        result : numpy.ndarray
-            1-d array of interpolated values having the same length as `x`.
-            The returned array is always a NumPy array even if `x` is a scalar.
+        result : float or numpy.ndarray
+            Interpolated values having the same form as `x`.
 
         """
+        scalar_x = np.isscalar(x)
         x = np.atleast_1d(x)
         result = np.zeros(len(x))
 
@@ -72,6 +74,9 @@ class Interpolator:
         # evaluate in between
         flags = np.logical_and(~lo,~hi)
         result[flags] = self._spline(x[flags])
+
+        if scalar_x:
+            result = result.item()
 
         return result
 
@@ -293,10 +298,10 @@ class TypeDict:
         """tuple All types in the dictionary."""
         return self._types
 
-class Variable(object):
+class Variable:
     """Bounded variable.
 
-    Represents a named quantity that optionally takes lower and upper bounds.
+    Represents a quantity that optionally takes lower and upper bounds.
     When the value of the quantity is set, these bounds will be respected and
     an internal state will track whether the requested quantity was within or
     outside these bounds. This is useful for performing constrained
@@ -305,10 +310,11 @@ class Variable(object):
 
     Parameters
     ----------
-    name : str
-        Name of the parameter.
     value : float
-        Initial value of the variable (defaults to `None`).
+        Value of the variable.
+    const : bool
+        If `False`, the variable can be optimized; otherwise, it is treated as
+        a constant in the optimization (defaults to `False`).
     low : float or None
         Lower bound for the variable (`None` means no lower bound).
     high : float or None
@@ -318,12 +324,12 @@ class Variable(object):
     --------
     A variable with a lower bound::
 
-        >>> v = Variable('length', value=1.0, low=0.0)
+        >>> v = Variable(value=1.0, low=0.0)
         >>> v.value
         1.0
-        >>> v.is_free()
+        >>> v.isfree()
         True
-        >>> v.is_low()
+        >>> v.atlow()
         False
 
     Bounds are respected and noted::
@@ -331,40 +337,24 @@ class Variable(object):
         >>> v.value = -1.0
         >>> v.value
         0.0
-        >>> v.is_free()
+        >>> v.isfree()
         False
-        >>> v.is_low()
+        >>> v.atlow()
         True
 
     """
-    def __init__(self, name, value=None, low=None, high=None):
-        self.name = name
+
+    class State(Enum):
+        FREE = 0
+        LOW = 1
+        HIGH = 2
+
+    def __init__(self, value, const=False, low=None, high=None):
+        self.const = const
         self.low = low
         self.high = high
 
         self.value = value
-
-    def _check(self, value):
-        """Check if a value is within the bounds.
-
-        Parameters
-        ----------
-        value : float
-            Value to compare to bounds.
-
-        Returns
-        -------
-        int:
-            `-1` if the value is below the lower bound, `1` if the value is
-            above the upper bound, and `0` otherwise.
-
-        """
-        if self.low is not None and value <= self.low:
-            return -1
-        elif self.high is not None and value >= self.high:
-            return 1
-        else:
-            return 0
 
     def clamp(self, value):
         """Clamps a value within the bounds.
@@ -378,19 +368,19 @@ class Variable(object):
         -------
         v : float
             The clamped value.
-        b : int
-            `-1` if the clamped value was initially below the lower bound,
-            `1` if the clamped value was initially above the upper bound, and
-            `0` otherwise.
+        b : Variable.State
+            The state of the variable.
 
         """
-        b = self._check(value)
-        if b == -1:
+        if self.low is not None and value <= self.low:
             v = self.low
-        elif b == 1:
+            b = Variable.State.LOW
+        elif self.high is not None and value >= self.high:
             v = self.high
+            b = Variable.State.HIGH
         else:
             v = value
+            b = Variable.State.FREE
 
         return v,b
 
@@ -401,20 +391,22 @@ class Variable(object):
 
     @value.setter
     def value(self, value):
-        if value is not None:
-            self._value, self._free = self.clamp(value)
-        else:
-            self._value = None
-            self._free = 0
+        if not isinstance(value,float):
+            raise ValueError('Variable must be a float')
+        self._value, self._state = self.clamp(float(value))
 
-    def is_free(self):
+    @property
+    def state(self):
+        return self._state
+
+    def isfree(self):
         """True if the variable is within the bounds."""
-        return self._free == 0
+        return self._state is Variable.State.FREE
 
-    def is_low(self):
+    def atlow(self):
         """True if the variable is at the lower bound."""
-        return self._free == -1
+        return self._state is Variable.State.LOW
 
-    def is_high(self):
-        """True if the variable is at the lower bound."""
-        return self._free == 1
+    def athigh(self):
+        """True if the variable is at the upper bound."""
+        return self._state is Variable.State.HIGH

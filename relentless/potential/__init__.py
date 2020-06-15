@@ -1,2 +1,2 @@
-from .core import *
+from .potential import *
 from .pair import *

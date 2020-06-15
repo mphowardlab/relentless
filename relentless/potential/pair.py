@@ -1,36 +1,30 @@
-__all__ = ['LennardJones', 'AkimaSpline']
+__all__ = ['LennardJones']
 
 import numpy as np
 from scipy.interpolate import Akima1DInterpolator
 
-from .core import PairPotential
+from .potential import PairPotential
 
 class LennardJones(PairPotential):
-    def __init__(self, types, shift=False):
-        super().__init__(types=types,
-                         params=('epsilon','sigma','rmin','rmax'),
-                         default={'rmin': 0},
-                         shift=shift)
+    def __init__(self, types):
+        super().__init__(types=types, params=('epsilon','sigma'))
 
-    def energy(self, r, epsilon, sigma, **params):
-        r,u = self._zeros(r)
-        flags = ~np.isclose(r, 0)
+    def _energy(self, r, epsilon, sigma, **params):
+        r,u,s = self._zeros(r)
+        flags = ~np.isclose(r,0)
 
         # evaluate potential
         r6_inv = np.power(sigma/r[flags], 6)
         u[flags] = 4.*epsilon*(r6_inv**2 - r6_inv)
         u[~flags] = np.inf
 
+        if s:
+            u = u.item()
         return u
 
-    def force(self, r, pair):
-        # load parameters for the pair
-        params = self.coeff.evaluate(pair)
-        epsilon = params['epsilon']
-        sigma = params['sigma']
-
-        r,f = self._zeros(r)
-        flags = ~np.isclose(r, 0)
+    def _force(self, r, epsilon, sigma, **params):
+        r,f,s = self._zeros(r)
+        flags = ~np.isclose(r,0)
 
         # evaluate force
         rinv = 1./r[flags]
@@ -38,14 +32,30 @@ class LennardJones(PairPotential):
         f[flags] = (48.*epsilon*rinv)*(r6_inv**2-0.5*r6_inv)
         f[~flags] = np.inf
 
+        if s:
+            f = f.item()
         return f
 
+    def _derivative(self, param, r, epsilon, sigma, **params):
+        r,d,s = self._zeros(r)
+        flags = ~np.isclose(r,0)
+
+        # evaluate derivative
+        r6_inv = np.power(sigma/r[flags], 6)
+        if param == 'epsilon':
+            d[flags] = 4*(r6_inv**2 - r6_inv)
+        elif param == 'sigma' and sigma > 0:
+            d[flags] = (48.*epsilon/sigma)*(r6_inv**2 - 0.5*r6_inv)
+        d[~flags] = np.inf
+
+        if s:
+            d = d.item()
+        return d
+
+""" TODO: these potentials need updating
 class Yukawa(PairPotential):
     def __init__(self, types, shift=False):
-        super().__init__(types=types,
-                         params=('epsilon','kappa','rmin','rmax'),
-                         default={'rmin': 0},
-                         shift=shift)
+        super().__init__(types=types, params=('epsilon','kappa'))
 
     def energy(self, r, epsilon, kappa, **params):
         r,u = self._zeros(r)
@@ -119,3 +129,4 @@ class AkimaSpline(PairPotential):
     def _interpolate(self, params):
         rknot,uknot = self._knots(params)
         return Akima1DInterpolator(rknot, uknot)
+"""
