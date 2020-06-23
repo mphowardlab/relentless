@@ -349,12 +349,12 @@ class Variable:
 
         Attributes
          ----------
-        FREE : int
-            Value if the variable is unconstrained or within the defined bounds.
-        LOW : int
-            Value if the variable is clamped to the lower bound.
-        HIGH : int
-            Value if the variable is clamped to the upper bound.
+        FREE : Variable.State
+            Value of 0 if the variable is unconstrained or within the defined bounds.
+        LOW : Variable.State
+            Value of 1 if the variable is clamped to the lower bound.
+        HIGH : Variable.State
+            Value of 2 if the variable is clamped to the upper bound.
 
         """
         FREE = 0
