@@ -345,6 +345,18 @@ class Variable:
     """
 
     class State(Enum):
+        """Numerical descriptor of the state of the variable.
+
+        Attributes
+         ----------
+        FREE : int
+            Value if the variable is unconstrained or within the defined bounds.
+        LOW : int
+            Value if the variable is clamped to the lower bound.
+        HIGH : int
+            Value if the variable is clamped to the upper bound.
+
+        """
         FREE = 0
         LOW = 1
         HIGH = 2
@@ -386,7 +398,7 @@ class Variable:
 
     @property
     def value(self):
-        """float The value stored in the variable."""
+        """The value stored in the variable (float)."""
         return self._value
 
     @value.setter
@@ -397,16 +409,38 @@ class Variable:
 
     @property
     def state(self):
+        """The state stored in the variable (Variable.State, read-only)."""
         return self._state
 
     def isfree(self):
-        """True if the variable is within the bounds."""
+        """Confirms if the variable is unconstrained or within the bounds.
+
+        Returns
+        -------
+        bool
+            True if the variable is unconstrained or within the bounds, False otherwise.
+
+        """
         return self._state is Variable.State.FREE
 
     def atlow(self):
-        """True if the variable is at the lower bound."""
+        """Confirms if the variable is at the lower bound.
+
+        Returns
+        -------
+        bool
+            True if the variable is at the lower bound, False otherwise.
+
+        """
         return self._state is Variable.State.LOW
 
     def athigh(self):
-        """True if the variable is at the upper bound."""
+        """Confirms if the variable is at the upper bound.
+
+        Returns
+        -------
+        bool
+            True if the variable is at the upper bound, False otherwise.
+
+        """
         return self._state is Variable.State.HIGH
