@@ -162,7 +162,7 @@ class PairPotential:
             raise TypeError('Expecting 1D array for r')
         return r,np.zeros_like(r),s
 
-    def _energy(self, r, **params)
+    def _energy(self, r, **params):
         raise NotImplementedError()
 
     def _force(self, r, **params):

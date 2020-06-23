@@ -310,7 +310,7 @@ class Variable:
 
     Parameters
     ----------
-    value : float
+    value : float or int
         Value of the variable.
     const : bool
         If `False`, the variable can be optimized; otherwise, it is treated as
@@ -345,6 +345,18 @@ class Variable:
     """
 
     class State(Enum):
+        """State of the variable.
+
+        Attributes
+         ----------
+        FREE : int
+            Value if the variable is unconstrained or within the defined bounds.
+        LOW : int
+            Value if the variable is clamped to the lower bound.
+        HIGH : int
+            Value if the variable is clamped to the upper bound.
+
+        """
         FREE = 0
         LOW = 1
         HIGH = 2
@@ -368,7 +380,7 @@ class Variable:
         -------
         v : float
             The clamped value.
-        b : Variable.State
+        b : :py:class:`Variable.State`
             The state of the variable.
 
         """
@@ -386,27 +398,49 @@ class Variable:
 
     @property
     def value(self):
-        """float The value stored in the variable."""
+        """float: The value of the variable"""
         return self._value
 
     @value.setter
     def value(self, value):
-        if not isinstance(value,float):
-            raise ValueError('Variable must be a float')
+        if not isinstance(value,(float,int)):
+            raise ValueError('Variable must be a float or int')
         self._value, self._state = self.clamp(float(value))
 
     @property
     def state(self):
+        """:py:class:`Variable.State`: The state of the variable"""
         return self._state
 
     def isfree(self):
-        """True if the variable is within the bounds."""
-        return self._state is Variable.State.FREE
+        """Confirms if the variable is unconstrained or within the bounds.
+
+        Returns
+        -------
+        bool
+            True if the variable is unconstrained or within the bounds, False otherwise.
+
+        """
+        return self.state is Variable.State.FREE
 
     def atlow(self):
-        """True if the variable is at the lower bound."""
-        return self._state is Variable.State.LOW
+        """Confirms if the variable is at the lower bound.
+
+        Returns
+        -------
+        bool
+            True if the variable is at the lower bound, False otherwise.
+
+        """
+        return self.state is Variable.State.LOW
 
     def athigh(self):
-        """True if the variable is at the upper bound."""
-        return self._state is Variable.State.HIGH
+        """Confirms if the variable is at the upper bound.
+
+        Returns
+        -------
+        bool
+            True if the variable is at the upper bound, False otherwise.
+
+        """
+        return self.state is Variable.State.HIGH
