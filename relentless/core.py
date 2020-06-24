@@ -200,7 +200,7 @@ class PairMatrix:
 
     @property
     def pairs(self):
-        """tuple All unique pairs in the matrix."""
+        """tuple: All unique pairs in the matrix."""
         return tuple(self._data.keys())
 
 class TypeDict:
