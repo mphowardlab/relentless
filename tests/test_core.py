@@ -1,5 +1,7 @@
 """Unit tests for core module."""
 import unittest
+import numpy as np
+from scipy.interpolate import Akima1DInterpolator
 
 import relentless
 
@@ -8,15 +10,52 @@ class test_Interpolator(unittest.TestCase):
 
     def test_init(self):
         """Test creation from data."""
-        raise NotImplementedError()
+
+        #test construction with tuple input
+        f = relentless.core.Interpolator(x=(-1,0,1), y=(-2,0,2))
+        self.assertEqual(f._domain, (-1,1))
+        self.assertIsInstance(f._spline, Akima1DInterpolator)
+
+        #test construction with list input
+        f = relentless.core.Interpolator(x=[-1,0,1], y=[-2,0,2])
+        self.assertEqual(f._domain, (-1,1))
+        self.assertIsInstance(f._spline, Akima1DInterpolator)
+
+        #test construction with numpy array input
+        f = relentless.core.Interpolator(x=np.array([-1,0,1]), y=np.array([-2,0,2]))
+        self.assertEqual(f._domain, (-1,1))
+        self.assertIsInstance(f._spline, Akima1DInterpolator)
+
+        #test construction with non-increasing domain
+        with self.assertRaises(ValueError):
+            f = relentless.core.Interpolator(x=(1,0,-1), y=(2,0,-2))
 
     def test_call(self):
         """Test calls, both scalar and array."""
-        raise NotImplementedError()
+        f = relentless.core.Interpolator(x=(-1,0,1), y=(-2,0,2))
+
+        #test scalar call
+        self.assertAlmostEqual(f(-0.5), -1.0)
+        self.assertAlmostEqual(f(0.5), 1.0)
+
+        #test array call
+        np.testing.assert_almost_equal(f([-0.5,0.5]), [-1.0,1.0])
 
     def test_extrap(self):
         """Test extrapolation calls."""
-        raise NotImplementedError()
+        f = relentless.core.Interpolator(x=(-1,0,1), y=(-2,0,2))
+
+        #test extrap below lo
+        self.assertAlmostEqual(f(-2), -2.0)
+
+        #test extrap above hi
+        self.assertAlmostEqual(f(2), 2.0)
+
+        #test extrap below low and above hi
+        np.testing.assert_almost_equal(f([-2,2]), [-2.0,2.0])
+
+        #test combined extrapolation and interpolation
+        np.testing.assert_almost_equal(f([-2,0.5,2]), [-2.0,1.0,2.0])
 
 class test_PairMatrix(unittest.TestCase):
     """Unit tests for core.PairMatrix."""

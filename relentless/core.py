@@ -82,7 +82,7 @@ class Interpolator:
 
     @property
     def domain(self):
-        """tuple The valid domain for interpolation."""
+        """tuple: The valid domain for interpolation."""
         return self._domain
 
 class PairMatrix:
