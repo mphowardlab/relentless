@@ -1,7 +1,6 @@
 """Unit tests for core module."""
 import unittest
 import numpy as np
-from scipy.interpolate import Akima1DInterpolator
 
 import relentless
 
@@ -36,6 +35,10 @@ class test_Interpolator(unittest.TestCase):
         with self.assertRaises(ValueError):
             f = relentless.core.Interpolator(x=np.array([[-1,0,1], [-2,2,4]]),
                                              y=np.array([[-1,0,1], [-2,2,4]]))
+
+        #test construction with x and y having different lengths
+        with self.assertRaises(ValueError):
+            f = relentless.core.Interpolator(x=[-1,0], y=[-2,0,2])
 
         #test construction with non-strictly-increasing domain
         with self.assertRaises(ValueError):
