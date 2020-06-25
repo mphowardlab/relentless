@@ -149,7 +149,7 @@ class PairMatrix:
         self._data = {}
         for i in self.types:
             for j in self.types:
-                if j >= i:
+                if str(j) >= str(i):
                     self._data[i,j] = {}
 
     def _check_key(self, key):
