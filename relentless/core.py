@@ -295,7 +295,7 @@ class TypeDict:
 
     @property
     def types(self):
-        """tuple All types in the dictionary."""
+        """tuple: All types in the dictionary."""
         return self._types
 
 class Variable:

@@ -1,5 +1,6 @@
 """Unit tests for core module."""
 import unittest
+import numpy as np
 
 import relentless
 
@@ -38,19 +39,100 @@ class test_TypeDict(unittest.TestCase):
 
     def test_init(self):
         """Test construction with different list types."""
-        raise NotImplementedError()
+
+        types_real = ('A','B')
+        data_real = {'A':None, 'B':None}
+
+        #test construction with tuple input
+        d = relentless.core.TypeDict(types=('A','B'))
+        self.assertEqual(d.types, types_real)
+        self.assertEqual(d._data, data_real)
+
+        #test construction with list input
+        d = relentless.core.TypeDict(types=['A','B'])
+        self.assertEqual(d.types, types_real)
+        self.assertEqual(d._data, data_real)
+
+        #test construction with numpy array input
+        d = relentless.core.TypeDict(types=np.array(['A','B']))
+        self.assertEqual(d.types, types_real)
+        self.assertEqual(d._data, data_real)
+
+        types_real = ('A',)
+        data_real = {'A':None}
+
+        #test construction with single-type tuple input
+        d = relentless.core.TypeDict(types=('A',))
+        self.assertEqual(d.types, types_real)
+        self.assertEqual(d._data, data_real)
 
     def test_accessors(self):
         """Test get and set methods on types."""
-        raise NotImplementedError()
+
+        d = relentless.core.TypeDict(types=('A','B'))
+
+        #test setting and getting values
+        d['A'] = 1.0
+        self.assertEqual(d['A'], 1.0)
+        self.assertEqual(d['B'], None)
+
+        d['B'] = 1.0
+        self.assertEqual(d['A'], 1.0)
+        self.assertEqual(d['B'], 1.0)
+
+        #test re-setting and getting values
+        d['A'] = 2.0
+        self.assertEqual(d['A'], 2.0)
+        self.assertEqual(d['B'], 1.0)
+
+        d['B'] = 1.5
+        self.assertEqual(d['A'], 2.0)
+        self.assertEqual(d['B'], 1.5)
+
+        #test getting invalid key
+        with self.assertRaises(KeyError):
+            x = d['C']
 
     def test_iteration(self):
         """Test iteration on the dictionary."""
-        raise NotImplementedError()
+
+        d = relentless.core.TypeDict(types=('A','B'))
+
+        #test iteration for setting values
+        for t in d:
+            d[t] = 1.0
+        self.assertEqual(d['A'], 1.0)
+        self.assertEqual(d['B'], 1.0)
+
+        #test manual re-setting of values
+        d['A'] = 2.0
+        self.assertEqual(d['A'], 2.0)
+        self.assertEqual(d['B'], 1.0)
+
+        d['B'] = 1.5
+        self.assertEqual(d['A'], 2.0)
+        self.assertEqual(d['B'], 1.5)
+
+        #test iteration for re-setting values
+        for t in d:
+            d[t] = 3.0
+        self.assertEqual(d['A'], 3.0)
+        self.assertEqual(d['B'], 3.0)
 
     def test_copy(self):
         """Test copying custom dict to standard dict."""
-        raise NotImplementedError()
+
+        d = relentless.core.TypeDict(types=('A','B'))
+
+        #test copying for empty dict
+        dict_real = {'A':None, 'B':None}
+        self.assertEqual(d.todict(), dict_real)
+
+        #test copying for full dict
+        dict_real = {'A':1.0, 'B':1.0}
+        for t in d:
+            d[t] = 1.0
+        self.assertEqual(d.todict(), dict_real)
 
 class test_Variable(unittest.TestCase):
     """Unit tests for core.Variable."""
