@@ -15,10 +15,19 @@ class Interpolator:
 
     Parameters
     ----------
-    x : array_like
+    x : float or array_like
         1-d array of x coordinates that must be continually increasing.
     y : array_like
         1-d array of y coordinates.
+
+    Raises
+    ------
+    ValueError
+        If x and y are scalars
+    ValueError
+        If x and y are not 1-dimensional
+    ValueError
+        If x is not strictly increasing
 
     Examples
     --------
@@ -40,6 +49,13 @@ class Interpolator:
 
     """
     def __init__(self, x, y):
+        x = np.atleast_1d(x)
+        if isinstance(x, (float,int)) or isinstance(y, (float,int)):
+            raise ValueError('x and y must not be scalars')
+        if isinstance(x[0], (tuple,list,np.ndarray)) or isinstance(y[0], (tuple,list,np.ndarray)):
+            raise ValueError('x and y must be 1-dimensional')
+        if not np.all(np.diff(x) > 0):
+            raise ValueError('x must be strictly increasing')
         self._domain = (x[0],x[-1])
         self._spline = scipy.interpolate.Akima1DInterpolator(x=x, y=y)
 
@@ -48,10 +64,8 @@ class Interpolator:
 
         Parameters
         ----------
-        x : array_like
+        x : float or array_like
             1-d array of x coordinates to evaluate.
-
-            If `x` is a scalar, it is promoted to a NumPy array.
 
         Returns
         -------
