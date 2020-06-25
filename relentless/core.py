@@ -53,9 +53,9 @@ class Interpolator:
     def __init__(self, x, y):
         x = np.atleast_1d(x)
         y = np.atleast_1d(y)
-        if x.ndim > 1:
-            raise ValueError('x cannot be a scalar')
         if x.shape[0] == 1:
+            raise ValueError('x cannot be a scalar')
+        if x.ndim > 1:
             raise ValueError('x must be 1-dimensional')
         if x.shape != y.shape:
             raise ValueError('x and y must be the same shape')
