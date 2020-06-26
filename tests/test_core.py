@@ -202,21 +202,23 @@ class test_TypeDict(unittest.TestCase):
         #test construction with tuple input
         d = relentless.core.TypeDict(types=('A','B'))
         self.assertEqual(d.types, types)
+        self.assertEqual([d[t] for t in d.types], [None, None])
 
         #test construction with list input
         d = relentless.core.TypeDict(types=['A','B'])
         self.assertEqual(d.types, types)
+        self.assertEqual([d[t] for t in d.types], [None, None])
 
         #test construction with defined default input
         d = relentless.core.TypeDict(types=('A','B'), default=1.0)
         self.assertEqual(d.types, types)
-        self.assertEqual(d._data, default)
-
-        types = ('A',)
+        self.assertEqual([d[t] for t in d.types], [1.0, 1.0])
 
         #test construction with single-type tuple input
+        types = ('A',)
         d = relentless.core.TypeDict(types=('A',))
         self.assertEqual(d.types, types)
+        self.assertEqual([d[t] for t in d.types], [None])
 
         #test construction with int type input
         with self.assertRaises(TypeError):
