@@ -76,15 +76,123 @@ class test_PairMatrix(unittest.TestCase):
 
     def test_init(self):
         """Test construction with different list types."""
-        raise NotImplementedError()
+
+        types = ('A','B')
+        pairs  = (('A','B'), ('B','B'), ('A','A'))
+
+        #test construction with tuple input
+        m = relentless.core.PairMatrix(types=('A','B'))
+        self.assertEqual(m.types, types)
+        self.assertCountEqual(m.pairs, pairs)
+
+        #test construction with list input
+        m = relentless.core.PairMatrix(types=['A','B'])
+        self.assertEqual(m.types, types)
+        self.assertCountEqual(m.pairs, pairs)
+
+        types = ('A',)
+        pairs = (('A','A'),)
+
+        #test construction with single type tuple
+        m = relentless.core.PairMatrix(types=('A',))
+        self.assertEqual(m.types, types)
+        self.assertCountEqual(m.pairs, pairs)
+
+        #test construction with int type input
+        with self.assertRaises(TypeError):
+            m = relentless.core.PairMatrix(types=(1,2))
+
+        #test construction with mixed type input
+        with self.assertRaises(TypeError):
+            m = relentless.core.PairMatrix(types=('1',2))
 
     def test_accessors(self):
         """Test get and set methods on pairs."""
-        raise NotImplementedError()
+
+        m = relentless.core.PairMatrix(types=('A','B'))
+
+        #test set and get for each pair type
+        m['A','A']['energy'] = 1.0
+        self.assertEqual(m['A','A']['energy'], 1.0)
+        self.assertEqual(m['A','B'], {})
+        self.assertEqual(m['B','B'], {})
+
+        m['A','B']['energy'] = -1.0
+        self.assertEqual(m['A','A']['energy'], 1.0)
+        self.assertEqual(m['A','B']['energy'], -1.0)
+        self.assertEqual(m['B','B'], {})
+
+        m['B','B']['energy'] = 1.0
+        self.assertEqual(m['A','A']['energy'], 1.0)
+        self.assertEqual(m['A','B']['energy'], -1.0)
+        self.assertEqual(m['B','B']['energy'], 1.0)
+
+        #test key order equality
+        self.assertEqual(m['A','B'], m['B','A'])
+
+        #test re-set and get
+        m['A','A']['energy'] = 2.0
+        self.assertEqual(m['A','A']['energy'], 2.0)
+        self.assertEqual(m['A','B']['energy'], -1.0)
+        self.assertEqual(m['B','B']['energy'], 1.0)
+
+        m['A','B']['energy'] = -1.5
+        self.assertEqual(m['A','A']['energy'], 2.0)
+        self.assertEqual(m['A','B']['energy'], -1.5)
+        self.assertEqual(m['B','B']['energy'], 1.0)
+
+        m['B','B']['energy'] = 0.0
+        self.assertEqual(m['A','A']['energy'], 2.0)
+        self.assertEqual(m['A','B']['energy'], -1.5)
+        self.assertEqual(m['B','B']['energy'], 0.0)
+
+        #test setting multiple parameters and get
+        m['A','A']['mass'] = 1.0
+        self.assertEqual(m['A','A']['mass'], 1.0)
+        self.assertEqual(m['A','A']['energy'], 2.0)
+        self.assertEqual(m['A','A'], {'energy':2.0, 'mass':1.0})
+
+        m['A','B']['mass'] = 3.0
+        self.assertEqual(m['A','B']['mass'], 3.0)
+        self.assertEqual(m['A','B']['energy'], -1.5)
+        self.assertEqual(m['A','B'], {'energy':-1.5, 'mass':3.0})
+
+        m['B','B']['mass'] = 5.0
+        self.assertEqual(m['B','B']['mass'], 5.0)
+        self.assertEqual(m['B','B']['energy'], 0.0)
+        self.assertEqual(m['B','B'], {'energy':0.0, 'mass':5.0})
+
+        #test setting paramters for invalid keys
+        with self.assertRaises(KeyError):
+            x = m['C','C']
+        with self.assertRaises(KeyError):
+            x = m['A','C']
 
     def test_iteration(self):
         """Test iteration on the matrix."""
-        raise NotImplementedError()
+        m = relentless.core.PairMatrix(types=('A','B'))
+
+        #test iteration for initialization
+        for pair in m:
+            m[pair]['mass'] = 2.0
+            m[pair]['energy'] = 1.0
+        self.assertEqual(m['A','B'], {'energy':1.0, 'mass':2.0})
+        self.assertEqual(m['A','A'], {'energy':1.0, 'mass':2.0})
+        self.assertEqual(m['B','B'], {'energy':1.0, 'mass':2.0})
+
+        #test resetting values manually
+        m['A','B']['mass'] = 2.5
+        m['A','A']['energy'] = 1.5
+        self.assertEqual(m['A','B'], {'energy':1.0, 'mass':2.5})
+        self.assertEqual(m['A','A'], {'energy':1.5, 'mass':2.0})
+        self.assertEqual(m['B','B'], {'energy':1.0, 'mass':2.0})
+
+        #test re-iteration for setting values
+        for pair in m:
+            m[pair]['energy'] = 3.0
+        self.assertEqual(m['A','B'], {'energy':3.0, 'mass':2.5})
+        self.assertEqual(m['A','A'], {'energy':3.0, 'mass':2.0})
+        self.assertEqual(m['B','B'], {'energy':3.0, 'mass':2.0})
 
 class test_TypeDict(unittest.TestCase):
     """Unit tests for core.TypeDict."""
