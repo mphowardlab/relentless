@@ -104,7 +104,12 @@ class PairMatrix:
     Parameters
     ----------
     types : array_like
-        List of types (typically, a type is a `str`).
+        List of types (A type must be a `str`).
+
+    Raises
+    ------
+    TypeError
+        If types does not consist of only strings
 
     Examples
     --------
@@ -143,6 +148,8 @@ class PairMatrix:
 
     """
     def __init__(self, types):
+        if not all(isinstance(t, str) for t in types):
+            raise TypeError('All types must be strings')
         self.types = tuple(types)
 
         # flood data with type pairs
@@ -200,7 +207,7 @@ class PairMatrix:
 
     @property
     def pairs(self):
-        """tuple All unique pairs in the matrix."""
+        """tuple: All unique pairs in the matrix."""
         return tuple(self._data.keys())
 
 class TypeDict:
