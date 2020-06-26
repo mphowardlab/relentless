@@ -9,7 +9,6 @@ class test_Interpolator(unittest.TestCase):
 
     def test_init(self):
         """Test creation from data."""
-
         #test construction with tuple input
         f = relentless.core.Interpolator(x=(-1,0,1), y=(-2,0,2))
         self.assertEqual(f.domain, (-1,1))

@@ -302,7 +302,7 @@ class TypeDict:
         key = self._check_key(key)
         return self._data[key]
 
-    def setitem__(self, key, value):
+    def __setitem__(self, key, value):
         key = self._check_key(key)
         self._data[key] = value
 
