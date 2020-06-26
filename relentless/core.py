@@ -127,7 +127,7 @@ class PairMatrix:
 
     Raises
     ------
-    ValueError
+    TypeError
         If types does not consist of only strings
 
     Examples
@@ -239,6 +239,11 @@ class TypeDict:
     default
         Initial value to fill in the dictionary, defaults to `None`.
 
+    Raises
+    ------
+    TypeError
+        If types does not consist only of strings
+
     Examples
     --------
     Create a type dictionary::
@@ -268,6 +273,8 @@ class TypeDict:
 
     """
     def __init__(self, types, default=None):
+        if not all(isinstance(t, str) for t in types):
+            raise TypeError('All types must be strings')
         self._types = tuple(types)
         self._data = {}
         for i in self.types:
@@ -321,7 +328,7 @@ class TypeDict:
 
     @property
     def types(self):
-        """tuple All types in the dictionary."""
+        """tuple: All types in the dictionary."""
         return self._types
 
 class Variable:

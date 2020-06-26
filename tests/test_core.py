@@ -9,7 +9,6 @@ class test_Interpolator(unittest.TestCase):
 
     def test_init(self):
         """Test creation from data."""
-
         #test construction with tuple input
         f = relentless.core.Interpolator(x=(-1,0,1), y=(-2,0,2))
         self.assertEqual(f.domain, (-1,1))
@@ -76,7 +75,6 @@ class test_PairMatrix(unittest.TestCase):
 
     def test_init(self):
         """Test construction with different list types."""
-
         types = ('A','B')
         pairs  = (('A','B'), ('B','B'), ('A','A'))
 
@@ -108,7 +106,6 @@ class test_PairMatrix(unittest.TestCase):
 
     def test_accessors(self):
         """Test get and set methods on pairs."""
-
         m = relentless.core.PairMatrix(types=('A','B'))
 
         #test set and get for each pair type
@@ -199,26 +196,112 @@ class test_TypeDict(unittest.TestCase):
 
     def test_init(self):
         """Test construction with different list types."""
-        raise NotImplementedError()
+        types = ('A','B')
+        default = {'A':1.0, 'B':1.0}
+
+        #test construction with tuple input
+        d = relentless.core.TypeDict(types=('A','B'))
+        self.assertEqual(d.types, types)
+        self.assertEqual([d[t] for t in d.types], [None, None])
+
+        #test construction with list input
+        d = relentless.core.TypeDict(types=['A','B'])
+        self.assertEqual(d.types, types)
+        self.assertEqual([d[t] for t in d.types], [None, None])
+
+        #test construction with defined default input
+        d = relentless.core.TypeDict(types=('A','B'), default=1.0)
+        self.assertEqual(d.types, types)
+        self.assertEqual([d[t] for t in d.types], [1.0, 1.0])
+
+        #test construction with single-type tuple input
+        types = ('A',)
+        d = relentless.core.TypeDict(types=('A',))
+        self.assertEqual(d.types, types)
+        self.assertEqual([d[t] for t in d.types], [None])
+
+        #test construction with int type input
+        with self.assertRaises(TypeError):
+            d = relentless.core.TypeDict(types=(1,2))
+
+        #test construction with mixed type input
+        with self.assertRaises(TypeError):
+            d = relentless.core.TypeDict(types=('1',2))
 
     def test_accessors(self):
         """Test get and set methods on types."""
-        raise NotImplementedError()
+        d = relentless.core.TypeDict(types=('A','B'))
+
+        #test setting and getting values
+        d['A'] = 1.0
+        self.assertEqual(d['A'], 1.0)
+        self.assertEqual(d['B'], None)
+
+        d['B'] = 1.0
+        self.assertEqual(d['A'], 1.0)
+        self.assertEqual(d['B'], 1.0)
+
+        #test re-setting and getting values
+        d['A'] = 2.0
+        self.assertEqual(d['A'], 2.0)
+        self.assertEqual(d['B'], 1.0)
+
+        d['B'] = 1.5
+        self.assertEqual(d['A'], 2.0)
+        self.assertEqual(d['B'], 1.5)
+
+        #test getting invalid key
+        with self.assertRaises(KeyError):
+            x = d['C']
 
     def test_iteration(self):
         """Test iteration on the dictionary."""
-        raise NotImplementedError()
+        d = relentless.core.TypeDict(types=('A','B'))
+
+        #test iteration for setting values
+        for t in d:
+            d[t] = 1.0
+        self.assertEqual(d['A'], 1.0)
+        self.assertEqual(d['B'], 1.0)
+
+        #test manual re-setting of values
+        d['A'] = 2.0
+        self.assertEqual(d['A'], 2.0)
+        self.assertEqual(d['B'], 1.0)
+
+        d['B'] = 1.5
+        self.assertEqual(d['A'], 2.0)
+        self.assertEqual(d['B'], 1.5)
+
+        #test iteration for re-setting values
+        for t in d:
+            d[t] = 3.0
+        self.assertEqual(d['A'], 3.0)
+        self.assertEqual(d['B'], 3.0)
 
     def test_copy(self):
         """Test copying custom dict to standard dict."""
-        raise NotImplementedError()
+        d = relentless.core.TypeDict(types=('A','B'))
+
+        #test copying for empty dict
+        dict_var = {'A':None, 'B':None}
+        self.assertEqual(d.todict(), dict_var)
+
+        #test copying for partially filled dict
+        dict_var = {'A':None, 'B':1.0}
+        d['B'] = 1.0
+        self.assertEqual(d.todict(), dict_var)
+
+        #test copying for full dict
+        dict_var = {'A':1.0, 'B':1.0}
+        d['A'] = 1.0
+        self.assertEqual(d.todict(), dict_var)
 
 class test_Variable(unittest.TestCase):
     """Unit tests for core.Variable."""
 
     def test_init(self):
         """Test construction with different bounds."""
-
         #test with no bounds and non-default value of `const`
         v = relentless.core.Variable(value=1.0, const=True)
         self.assertAlmostEqual(v.value, 1.0)
@@ -262,7 +345,6 @@ class test_Variable(unittest.TestCase):
 
     def test_clamp(self):
         """Test methods for clamping values with bounds."""
-
         #construction with only low bound
         v = relentless.core.Variable(value=0.0, low=2.0)
         #test below low
@@ -302,7 +384,6 @@ class test_Variable(unittest.TestCase):
 
     def test_value(self):
         """Test methods for setting values and checking bounds."""
-
         #test construction with value between bounds
         v = relentless.core.Variable(value=0.0, low=-1.0, high=1.0)
         self.assertAlmostEqual(v.value, 0.0)
