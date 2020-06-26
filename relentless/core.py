@@ -213,6 +213,11 @@ class TypeDict:
     default
         Initial value to fill in the dictionary, defaults to `None`.
 
+    Raises
+    ------
+    ValueError
+        If types does not consist only of strings
+
     Examples
     --------
     Create a type dictionary::
@@ -242,6 +247,8 @@ class TypeDict:
 
     """
     def __init__(self, types, default=None):
+        if not all(isinstance(t, str) for t in types):
+            raise TypeError('All types must be strings')
         self._types = tuple(types)
         self._data = {}
         for i in self.types:

@@ -40,31 +40,33 @@ class test_TypeDict(unittest.TestCase):
     def test_init(self):
         """Test construction with different list types."""
 
-        types_real = ('A','B')
-        data_real = {'A':None, 'B':None}
+        types = ('A','B')
 
         #test construction with tuple input
         d = relentless.core.TypeDict(types=('A','B'))
-        self.assertEqual(d.types, types_real)
-        self.assertEqual(d._data, data_real)
+        self.assertEqual(d.types, types)
 
         #test construction with list input
         d = relentless.core.TypeDict(types=['A','B'])
-        self.assertEqual(d.types, types_real)
-        self.assertEqual(d._data, data_real)
+        self.assertEqual(d.types, types)
 
         #test construction with numpy array input
         d = relentless.core.TypeDict(types=np.array(['A','B']))
-        self.assertEqual(d.types, types_real)
-        self.assertEqual(d._data, data_real)
+        self.assertEqual(d.types, types)
 
-        types_real = ('A',)
-        data_real = {'A':None}
+        types = ('A',)
 
         #test construction with single-type tuple input
         d = relentless.core.TypeDict(types=('A',))
-        self.assertEqual(d.types, types_real)
-        self.assertEqual(d._data, data_real)
+        self.assertEqual(d.types, types)
+
+        #test construction with int type input
+        with self.assertRaises(TypeError):
+            d = relentless.core.TypeDict(types=(1,2))
+
+        #test construction with mixed type input
+        with self.assertRaises(TypeError):
+            d = relentless.core.TypeDict(types=('1',2))
 
     def test_accessors(self):
         """Test get and set methods on types."""
@@ -125,14 +127,18 @@ class test_TypeDict(unittest.TestCase):
         d = relentless.core.TypeDict(types=('A','B'))
 
         #test copying for empty dict
-        dict_real = {'A':None, 'B':None}
-        self.assertEqual(d.todict(), dict_real)
+        dict_var = {'A':None, 'B':None}
+        self.assertEqual(d.todict(), dict_var)
+
+        #test copying for partially filled dict
+        dict_var = {'A':None, 'B':1.0}
+        d['B'] = 1.0
+        self.assertEqual(d.todict(), dict_var)
 
         #test copying for full dict
-        dict_real = {'A':1.0, 'B':1.0}
-        for t in d:
-            d[t] = 1.0
-        self.assertEqual(d.todict(), dict_real)
+        dict_var = {'A':1.0, 'B':1.0}
+        d['A'] = 1.0
+        self.assertEqual(d.todict(), dict_var)
 
 class test_Variable(unittest.TestCase):
     """Unit tests for core.Variable."""
