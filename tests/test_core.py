@@ -24,7 +24,6 @@ class test_PairMatrix(unittest.TestCase):
 
     def test_init(self):
         """Test construction with different list types."""
-
         types = ('A','B')
         pairs  = (('A','B'), ('B','B'), ('A','A'))
 
@@ -56,7 +55,6 @@ class test_PairMatrix(unittest.TestCase):
 
     def test_accessors(self):
         """Test get and set methods on pairs."""
-
         m = relentless.core.PairMatrix(types=('A','B'))
 
         #test set and get for each pair type

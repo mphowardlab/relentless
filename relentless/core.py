@@ -108,7 +108,7 @@ class PairMatrix:
 
     Raises
     ------
-    ValueError
+    TypeError
         If types does not consist of only strings
 
     Examples
