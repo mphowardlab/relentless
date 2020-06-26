@@ -215,7 +215,7 @@ class TypeDict:
 
     Raises
     ------
-    ValueError
+    TypeError
         If types does not consist only of strings
 
     Examples
@@ -276,7 +276,7 @@ class TypeDict:
         key = self._check_key(key)
         return self._data[key]
 
-    def __setitem__(self, key, value):
+    def setitem__(self, key, value):
         key = self._check_key(key)
         self._data[key] = value
 

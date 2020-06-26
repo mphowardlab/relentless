@@ -39,8 +39,8 @@ class test_TypeDict(unittest.TestCase):
 
     def test_init(self):
         """Test construction with different list types."""
-
         types = ('A','B')
+        default = {'A':1.0, 'B':1.0}
 
         #test construction with tuple input
         d = relentless.core.TypeDict(types=('A','B'))
@@ -50,9 +50,10 @@ class test_TypeDict(unittest.TestCase):
         d = relentless.core.TypeDict(types=['A','B'])
         self.assertEqual(d.types, types)
 
-        #test construction with numpy array input
-        d = relentless.core.TypeDict(types=np.array(['A','B']))
+        #test construction with defined default input
+        d = relentless.core.TypeDict(types=('A','B'), default=1.0)
         self.assertEqual(d.types, types)
+        self.assertEqual(d._data, default)
 
         types = ('A',)
 
@@ -70,7 +71,6 @@ class test_TypeDict(unittest.TestCase):
 
     def test_accessors(self):
         """Test get and set methods on types."""
-
         d = relentless.core.TypeDict(types=('A','B'))
 
         #test setting and getting values
@@ -97,7 +97,6 @@ class test_TypeDict(unittest.TestCase):
 
     def test_iteration(self):
         """Test iteration on the dictionary."""
-
         d = relentless.core.TypeDict(types=('A','B'))
 
         #test iteration for setting values
@@ -123,7 +122,6 @@ class test_TypeDict(unittest.TestCase):
 
     def test_copy(self):
         """Test copying custom dict to standard dict."""
-
         d = relentless.core.TypeDict(types=('A','B'))
 
         #test copying for empty dict
@@ -145,7 +143,6 @@ class test_Variable(unittest.TestCase):
 
     def test_init(self):
         """Test construction with different bounds."""
-
         #test with no bounds and non-default value of `const`
         v = relentless.core.Variable(value=1.0, const=True)
         self.assertAlmostEqual(v.value, 1.0)
@@ -189,7 +186,6 @@ class test_Variable(unittest.TestCase):
 
     def test_clamp(self):
         """Test methods for clamping values with bounds."""
-
         #construction with only low bound
         v = relentless.core.Variable(value=0.0, low=2.0)
         #test below low
@@ -229,7 +225,6 @@ class test_Variable(unittest.TestCase):
 
     def test_value(self):
         """Test methods for setting values and checking bounds."""
-
         #test construction with value between bounds
         v = relentless.core.Variable(value=0.0, low=-1.0, high=1.0)
         self.assertAlmostEqual(v.value, 0.0)
