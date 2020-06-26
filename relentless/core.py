@@ -20,6 +20,17 @@ class Interpolator:
     y : array_like
         1-d array of y coordinates.
 
+    Raises
+    ------
+    ValueError
+        If x is a scalar
+    ValueError
+        If x is not 1-dimensional
+    ValueError
+        If y is not the same shape as x
+    ValueError
+        If x is not strictly increasing
+
     Examples
     --------
     Interpolating the line :math:`y=2x`::
@@ -40,6 +51,16 @@ class Interpolator:
 
     """
     def __init__(self, x, y):
+        x = np.atleast_1d(x)
+        y = np.atleast_1d(y)
+        if x.shape[0] == 1:
+            raise ValueError('x cannot be a scalar')
+        if x.ndim > 1:
+            raise ValueError('x must be 1-dimensional')
+        if x.shape != y.shape:
+            raise ValueError('x and y must be the same shape')
+        if not np.all(x[1:] > x[:-1]):
+            raise ValueError('x must be strictly increasing')
         self._domain = (x[0],x[-1])
         self._spline = scipy.interpolate.Akima1DInterpolator(x=x, y=y)
 
@@ -48,10 +69,8 @@ class Interpolator:
 
         Parameters
         ----------
-        x : array_like
+        x : float or array_like
             1-d array of x coordinates to evaluate.
-
-            If `x` is a scalar, it is promoted to a NumPy array.
 
         Returns
         -------
@@ -82,7 +101,7 @@ class Interpolator:
 
     @property
     def domain(self):
-        """tuple The valid domain for interpolation."""
+        """tuple: The valid domain for interpolation."""
         return self._domain
 
 class PairMatrix:
