@@ -104,7 +104,12 @@ class PairMatrix:
     Parameters
     ----------
     types : array_like
-        List of types (typically, a type is a `str`).
+        List of types (A type must be a `str`).
+
+    Raises
+    ------
+    ValueError
+        If types does not consist of only strings
 
     Examples
     --------
@@ -143,13 +148,15 @@ class PairMatrix:
 
     """
     def __init__(self, types):
+        if not all(isinstance(t, str) for t in types):
+            raise TypeError('All types must be strings')
         self.types = tuple(types)
 
         # flood data with type pairs
         self._data = {}
         for i in self.types:
             for j in self.types:
-                if str(j) >= str(i):
+                if j >= i:
                     self._data[i,j] = {}
 
     def _check_key(self, key):

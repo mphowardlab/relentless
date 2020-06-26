@@ -25,42 +25,34 @@ class test_PairMatrix(unittest.TestCase):
     def test_init(self):
         """Test construction with different list types."""
 
-        types_real = ('A','B')
-        pairs_real  = (('A','B'), ('B','B'), ('A','A'))
+        types = ('A','B')
+        pairs  = (('A','B'), ('B','B'), ('A','A'))
 
         #test construction with tuple input
         m = relentless.core.PairMatrix(types=('A','B'))
-        self.assertEqual(m.types, types_real)
-        self.assertCountEqual(m.pairs, pairs_real)
+        self.assertEqual(m.types, types)
+        self.assertCountEqual(m.pairs, pairs)
 
         #test construction with list input
         m = relentless.core.PairMatrix(types=['A','B'])
-        self.assertEqual(m.types, types_real)
-        self.assertCountEqual(m.pairs, pairs_real)
+        self.assertEqual(m.types, types)
+        self.assertCountEqual(m.pairs, pairs)
 
-        types_real = ('A',)
-        pairs_real = (('A','A'),)
+        types = ('A',)
+        pairs = (('A','A'),)
 
         #test construction with single type tuple
         m = relentless.core.PairMatrix(types=('A',))
-        self.assertEqual(m.types, types_real)
-        self.assertCountEqual(m.pairs, pairs_real)
-
-        types_real = (1,2)
-        pairs_real = ((1,2), (2,2), (1,1))
+        self.assertEqual(m.types, types)
+        self.assertCountEqual(m.pairs, pairs)
 
         #test construction with int type input
-        m = relentless.core.PairMatrix(types=(1,2))
-        self.assertEqual(m.types, types_real)
-        self.assertCountEqual(m.pairs, pairs_real)
-
-        types_real = ('1',2)
-        pairs_real = (('1',2), (2,2), ('1','1'))
+        with self.assertRaises(TypeError):
+            m = relentless.core.PairMatrix(types=(1,2))
 
         #test construction with mixed type input
-        m = relentless.core.PairMatrix(types=('1',2))
-        self.assertEqual(m.types, types_real)
-        self.assertCountEqual(m.pairs, pairs_real)
+        with self.assertRaises(TypeError):
+            m = relentless.core.PairMatrix(types=('1',2))
 
     def test_accessors(self):
         """Test get and set methods on pairs."""
