@@ -32,7 +32,7 @@ class test_Policy(unittest.TestCase):
         """Test for invalid policy values."""
         raise NotImplementedError()
 
-def test_Environment(unittest.TestCase):
+class test_Environment(unittest.TestCase):
     """Unit tests for environment.core.Environment."""
     def setUp(self):
         # create temporary scratch space
