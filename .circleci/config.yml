@@ -8,7 +8,8 @@ jobs:
     parameters:
       version:
         type: string
-    executor: python/default
+    executor:
+      name: python/default
       tag: << parameters.version >>
     steps:
       - checkout
