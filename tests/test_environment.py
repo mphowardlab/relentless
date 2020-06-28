@@ -78,3 +78,6 @@ class test_TACC(unittest.TestCase):
     def test_Stampede2(self):
         """Test environment for TACC Stampede2."""
         raise NotImplementedError()
+
+if __name__ == '__main__':
+    unittest.main()
