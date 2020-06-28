@@ -22,5 +22,6 @@ workflows:
   test:
     jobs:
       - test:
-          name: py36
-          version: "3.6"
+          matrix:
+            parameters:
+              version: ["3.6","3.7","3.8"]
