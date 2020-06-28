@@ -11,6 +11,7 @@ jobs:
     executor:
       name: python/default
       tag: << parameters.version >>
+    resource_class: small
     steps:
       - checkout
       - python/load-cache
