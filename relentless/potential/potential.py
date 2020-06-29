@@ -1,16 +1,63 @@
 __all__ = ['PairPotential','Tabulator']
 
 import json
-
+import ast
 import numpy as np
 
 from relentless.core import PairMatrix
 from relentless.core import Variable
 
 class CoefficientMatrix(PairMatrix):
-    """ Pair coefficient matrix."""
+    """ Pair coefficient matrix.
+
+    Defines a matrix of PairMatrix objects with one or more parameters.
+    Any or all of the parameters can be initialized with a default value.
+
+    Parameters
+    ----------
+    types : array_like
+        List of types (A type must be a `str`).
+    params : array_like
+        List of parameters (A parameter must be a `str`).
+    default : `dict`
+        Initial value for any or all paramters, defaults to `None`.
+
+    Raises
+    ------
+    TypeError
+        If params does not consist of only strings
+
+    Examples
+    --------
+    Create a coefficient matrix::
+
+        m = CoefficientMatrix(types=('A','B'), params=('energy','mass'))
+
+    Create a coefficient matrix with default values::
+
+        m = CoefficientMatrix(types=('A','B'), params=('energy','mass'),
+                              default={'energy':1.0, 'mass':2.0})
+
+    Set coefficient matrix values::
+
+        m['A','A']['energy'] = 2.0
+        m['A,'B']['mass'] = 1.5
+        m['A','B']['energy'] = 3.0
+
+    Evaluate (retrieve) pair parameters::
+
+        >>> print(m.evaluate(('A','A')))
+        {'energy':2.0, 'mass':2.0}
+        >>> print(m.evaluate(('A','B')))
+        {'energy':3.0, 'mass':1.5}
+        >>> print(m.evaluate(('B','B')))
+        {'energy':1.0, 'mass':2.0}
+
+    """
     def __init__(self, types, params, default={}):
         super().__init__(types)
+        if not all(isinstance(p, str) for p in params):
+            raise TypeError('All parameters must be strings')
         self.params = tuple(params)
         for key in self:
             for p in self.params:
@@ -20,10 +67,30 @@ class CoefficientMatrix(PairMatrix):
     def evaluate(self, pair):
         """Evaluate pair parameters.
 
+        Returns a dictionary of the parameters and values for the specified pair.
+
+        Parameters
+        ----------
+        pair : array_like
+            Pair for which the parameters are called
+
+        Returns
+        -------
+        params : `dict`
+            The parameters evaluated for the specified pair
+
+        Raises
+        ------
+        TypeError
+            If a parameter is of an unrecognizable type
+        ValueError
+            If a parameter is not set for the specified pair
+
         Todo
         ----
         1. Allow callable parameters.
         2. Cache output.
+
         """
         params = {}
         for p in self.params:
@@ -34,13 +101,20 @@ class CoefficientMatrix(PairMatrix):
                 params[p] = v
             elif v is not None:
                 raise TypeError('Parameter type unrecognized')
-
             if v is None:
                 raise ValueError('Parameter {} is not set for ({},{}).'.format(p,pair[0],pair[1]))
 
         return params
 
     def save(self, filename):
+        """Saves the data to a file.
+
+        Parameters
+        ----------
+        filename : `str`
+            The name of the file to save data in.
+
+        """
         all_params = {}
         for key in self:
             all_params[str(key)] = self.evaluate(key)
@@ -48,10 +122,21 @@ class CoefficientMatrix(PairMatrix):
             json.dump(all_params, f, sort_keys=True, indent=4)
 
     def load(self, filename):
-        raise NotImplementedError('Load is not implemented')
+        """Loads the data from a file.
+
+        Parameters
+        ----------
+        filename : `str`
+            The name of the file from which to load data.
+
+        """
+        with open(filename, 'r') as f:
+            data = json.load(f)
+        data = ast.literal_eval(str(data).replace('"',''))
+        return data
 
     def __setitem__(self, key, value):
-        """ Set coefficients for the (i,j) pair."""
+        """Set coefficients for the (i,j) pair."""
         for p in value:
             if p not in self.params:
                 raise KeyError('Only the known parameters can be set in coefficient matrix.')
