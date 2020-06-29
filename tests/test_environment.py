@@ -4,10 +4,11 @@ import unittest
 import os
 import relentless
 
+@unittest.skip
 class test_Directory(unittest.TestCase):
     """Unit tests for environment.core.Directory."""
     def setUp(self):
-    	# create temporary scratch space
+        # create temporary scratch space
         pass
 
     def test_basic(self):
@@ -22,6 +23,7 @@ class test_Directory(unittest.TestCase):
         # clean up temporary space
         pass
 
+@unittest.skip
 class test_Policy(unittest.TestCase):
     """Unit tests for environment.core.Policy."""
     def test_basic(self):
@@ -32,7 +34,8 @@ class test_Policy(unittest.TestCase):
         """Test for invalid policy values."""
         raise NotImplementedError()
 
-def test_Environment(unittest.TestCase):
+@unittest.skip
+class test_Environment(unittest.TestCase):
     """Unit tests for environment.core.Environment."""
     def setUp(self):
         # create temporary scratch space
@@ -54,7 +57,8 @@ def test_Environment(unittest.TestCase):
         # clean up temporary space
         pass
 
-def test_generic(unittest.TestCase):
+@unittest.skip
+class test_generic(unittest.TestCase):
     """Unit tests for generic environments."""
     def test_OpenMPI(self):
         """Test environment for OpenMPI."""
@@ -64,7 +68,8 @@ def test_generic(unittest.TestCase):
         """Test environment for SLURM."""
         raise NotImplementedError()
 
-def test_TACC(unittest.TestCase):
+@unittest.skip
+class test_TACC(unittest.TestCase):
     """Unit tests for TACC environments."""
     def test_Lonestar5(self):
         """Test environment for TACC Lonestar5."""
@@ -73,3 +78,6 @@ def test_TACC(unittest.TestCase):
     def test_Stampede2(self):
         """Test environment for TACC Stampede2."""
         raise NotImplementedError()
+
+if __name__ == '__main__':
+    unittest.main()
