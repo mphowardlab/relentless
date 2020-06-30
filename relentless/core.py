@@ -229,26 +229,26 @@ class PairMatrix:
         """tuple: All unique pairs in the matrix."""
         return tuple(self._data.keys())
 
-class TypeDict:
-    """Dictionary with fixed keys set by type.
+class FixedKeyDict:
+    """Dictionary with fixed keys.
 
     Parameters
     ----------
-    types : array_like
-        List of types (typically, a type is a `str`).
+    keys : array_like
+        List of keys to be fixed (this must be a `str`).
     default
         Initial value to fill in the dictionary, defaults to `None`.
 
     Raises
     ------
     TypeError
-        If types does not consist only of strings
+        If keys does not consist only of strings
 
     Examples
     --------
-    Create a type dictionary::
+    Create a keyed dictionary::
 
-        d = TypeDict(types=('A','B'))
+        d = FixedKeyDict(keys=('A','B'))
 
     Default values::
 
@@ -257,8 +257,8 @@ class TypeDict:
 
     Iterate as a dictionary::
 
-        for t in d:
-            d[t] = 1.0
+        for k in d:
+            d[k] = 1.0
 
     Access by key::
 
@@ -267,17 +267,17 @@ class TypeDict:
         >>> d['B']
         1.0
 
-    Single-type dictionary still needs `types` as a tuple::
+    Single-key dictionary still needs `keys` as a tuple::
 
-        TypeDict(types=('A',))
+        FixedKeyDict(keys=('A',))
 
     """
-    def __init__(self, types, default=None):
-        if not all(isinstance(t, str) for t in types):
-            raise TypeError('All types must be strings')
-        self._types = tuple(types)
+    def __init__(self, keys, default=None):
+        if not all(isinstance(k, str) for k in keys):
+            raise TypeError('All keys must be strings')
+        self._keys = tuple(keys)
         self._data = {}
-        for i in self.types:
+        for i in self.keys:
             self._data[i] = default
 
     def _check_key(self, key):
@@ -294,8 +294,8 @@ class TypeDict:
             If the key is not in the dictionary.
 
         """
-        if key not in self.types:
-            raise KeyError('Type {} is not in dictionary.'.format(key))
+        if key not in self.keys:
+            raise KeyError('Key {} is not in dictionary.'.format(key))
         return key
 
     def __getitem__(self, key):
@@ -327,9 +327,9 @@ class TypeDict:
         return dict(self._data)
 
     @property
-    def types(self):
-        """tuple: All types in the dictionary."""
-        return self._types
+    def keys(self):
+        """tuple: All keys in the dictionary."""
+        return self._keys
 
 class Variable:
     """Bounded variable.
