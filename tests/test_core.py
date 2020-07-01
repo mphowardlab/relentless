@@ -1,6 +1,7 @@
 """Unit tests for core module."""
 import unittest
 import numpy as np
+
 import relentless
 
 class test_Interpolator(unittest.TestCase):
@@ -209,7 +210,7 @@ class test_FixedKeyDict(unittest.TestCase):
         self.assertEqual([d[k] for k in d.keys], [None, None])
 
         #test construction with defined default input
-        d = relentless.core.FixedKeyDict(keys=('A','B'), default=1.0)
+        d = relentless.core.FixedKeyDict(keys=('A','B'), default={'A':1.0, 'B':1.0})
         self.assertEqual(d.keys, keys)
         self.assertEqual([d[k] for k in d.keys], [1.0, 1.0])
 
