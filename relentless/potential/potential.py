@@ -85,6 +85,7 @@ class CoefficientMatrix(PairMatrix):
             vals[p] = default[p] if p in default else None
         for key in self:
             self[key] = FixedKeyDict(keys=self.params,default=vals)
+        self.default = default
 
     def evaluate(self, pair):
         """Evaluate pair parameters.
