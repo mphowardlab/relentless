@@ -43,13 +43,15 @@ class CoefficientMatrix(PairMatrix):
 
         m['A','A']['energy'] = 2.0
 
-    Set coefficient matrix values by setting parameters in full::
-
-        m['A','B'] = {'energy':0.0, 'mass':1.5}
-
     Set coefficient matrix values by setting parameters partially::
 
-        m['A','A'] = {'mass':Variable(value=1.0, high=0.5)}
+        m['A','A'] = {'mass':2.5}  #resets 'energy' value to default
+        >>> print(m['A','A'])
+        {'energy':1.0, 'mass':2.5}
+
+    Set coefficient matrix values by setting parameters in full::
+
+        m['A','B'] = {'energy':0.0, 'mass':Variable(value=2.0,high=1.5)}
 
     Set coefficient matrix values by iteratively accessing parameters::
 
@@ -59,7 +61,7 @@ class CoefficientMatrix(PairMatrix):
     Evaluate (retrieve) pair parameters::
 
         >>> print(m.evaluate(('A','A')))
-        {'energy':2.0, 'mass':0.5}
+        {'energy':1.0, 'mass':2.5}
         >>> print(m.evaluate(('A','B')))
         {'energy':0.0, 'mass':1.5}
         >>> print(m.evaluate(('B','B')))
@@ -67,10 +69,10 @@ class CoefficientMatrix(PairMatrix):
 
     Difference between using `evaluate()` and accessing values directly::
 
-        >>> print(m.evaluate(('A','A')))
+        >>> print(m.evaluate(('A','B')))
         {'energy':2.0, 'mass':0.5}
-        >>> print(m['A','A'])
-        {'energy':2.0, 'mass':<relentless.core.Variable object at 0x561124456>}
+        >>> print(m['A','B'])
+        {'energy':<relentless.core.Variable object at 0x561124456>, 'mass':0.5}
 
     """
     def __init__(self, types, params, default={}):
@@ -78,7 +80,6 @@ class CoefficientMatrix(PairMatrix):
         if not all(isinstance(p, str) for p in params):
             raise TypeError('All parameters must be strings')
         self.params = tuple(params)
-
         vals = {}
         for p in self.params:
             vals[p] = default[p] if p in default else None
@@ -160,8 +161,12 @@ class CoefficientMatrix(PairMatrix):
         """Set coefficients for the (i,j) pair."""
         for p in value:
             if p not in self.params:
-                raise KeyError('Only the known parameters can be set in coefficient matrix.')
-            self[key][p] = value[p]
+                raise KeyError('Only the known parameters can be set in the coefficient matrix.')
+        for p in self.params:
+            if p in value:
+                self[key][p] = value[p]
+            else:
+                self[key][p] = self.default[p] if p in self.default else None
 
 class PairPotential:
     """Generic pair potential evaluator.

@@ -1,7 +1,8 @@
 """Unit tests for potential module."""
 import unittest
 import tempfile
-
+import sys
+sys.path.append('../../')
 from relentless import core
 from relentless.potential import potential
 
@@ -64,10 +65,10 @@ class test_CoefficientMatrix(unittest.TestCase):
         #test setting key values partially
         m['A','A'] = {'energy':1.5}
         self.assertEqual(m['A','A']['energy'], 1.5)
-        self.assertEqual(m['A','A']['mass'], 2.0)
+        self.assertEqual(m['A','A']['mass'], None)
 
         m['A','A'] = {'mass':2.5}
-        self.assertEqual(m['A','A']['energy'], 1.5)
+        self.assertEqual(m['A','A']['energy'], None)
         self.assertEqual(m['A','A']['mass'], 2.5)
 
         #test accessing key param values individually
@@ -120,6 +121,15 @@ class test_CoefficientMatrix(unittest.TestCase):
         self.assertEqual(m['A','B']['mass'], 2.0)
         self.assertEqual(m['A','A']['energy'], 1.0)
         self.assertEqual(m['A','A']['mass'], 2.0)
+        self.assertEqual(m['B','B']['energy'], 1.0)
+        self.assertEqual(m['B','B']['mass'], 2.0)
+
+        #test that partial assignment resets other param to default value
+        m['A','A'] = {'energy':2.0}
+        self.assertEqual(m['A','B']['energy'], 1.0)
+        self.assertEqual(m['A','B']['mass'], 2.0)
+        self.assertEqual(m['A','A']['energy'], 2.0)
+        self.assertEqual(m['A','A']['mass'], 2.5)
         self.assertEqual(m['B','B']['energy'], 1.0)
         self.assertEqual(m['B','B']['mass'], 2.0)
 
