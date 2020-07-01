@@ -158,7 +158,7 @@ class test_CoefficientMatrix(unittest.TestCase):
 
         #test evaluation with initialized parameter values as unrecognized types
         m = potential.CoefficientMatrix(types=('A','B'), params=('energy','mass'),
-                                        default={'energy':core.Interpolator(x=(-1,0), y=(-2,0)), 'mass':core.Interpolator(x=(0,1), y=(0,2))})
+                                        default={'energy':core.Interpolator(x=(-1,0,1), y=(-2,0,2)), 'mass':core.Interpolator(x=(-1,0,1), y=(-2,0,2))})
         with self.assertRaises(TypeError):
             x = m.evaluate(('A','B'))
 
