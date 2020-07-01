@@ -60,15 +60,8 @@ class test_CoefficientMatrix(unittest.TestCase):
         self.assertEqual(m['B','B']['energy'], None)
         self.assertEqual(m['B','B']['mass'], None)
 
-        m['A','B']['energy'] = 1.0
-        self.assertEqual(m['A','B']['energy'], 1.0)
-        self.assertEqual(m['A','B']['mass'], None)
-        self.assertEqual(m['A','A']['energy'], None)
-        self.assertEqual(m['A','A']['mass'], None)
-        self.assertEqual(m['B','B']['energy'], None)
-        self.assertEqual(m['B','B']['mass'], None)
-
-        m['A','B']['mass'] = 2.0
+        #test setting all key values at once
+        m['A','B'] = {'energy':1.0, 'mass':2.0}
         self.assertEqual(m['A','B']['energy'], 1.0)
         self.assertEqual(m['A','B']['mass'], 2.0)
         self.assertEqual(m['A','A']['energy'], None)
@@ -76,7 +69,8 @@ class test_CoefficientMatrix(unittest.TestCase):
         self.assertEqual(m['B','B']['energy'], None)
         self.assertEqual(m['B','B']['mass'], None)
 
-        m['A','A']['energy'] = 1.0
+        #test setting key values partially
+        m['A','A'] = {'energy':1.0}
         self.assertEqual(m['A','B']['energy'], 1.0)
         self.assertEqual(m['A','B']['mass'], 2.0)
         self.assertEqual(m['A','A']['energy'], 1.0)
@@ -84,7 +78,7 @@ class test_CoefficientMatrix(unittest.TestCase):
         self.assertEqual(m['B','B']['energy'], None)
         self.assertEqual(m['B','B']['mass'], None)
 
-        m['A','A']['mass'] = 2.0
+        m['A','A'] = {'mass':2.0}
         self.assertEqual(m['A','B']['energy'], 1.0)
         self.assertEqual(m['A','B']['mass'], 2.0)
         self.assertEqual(m['A','A']['energy'], 1.0)
@@ -92,6 +86,7 @@ class test_CoefficientMatrix(unittest.TestCase):
         self.assertEqual(m['B','B']['energy'], None)
         self.assertEqual(m['B','B']['mass'], None)
 
+        #test accessing key param values individually
         m['B','B']['energy'] = 1.0
         self.assertEqual(m['A','B']['energy'], 1.0)
         self.assertEqual(m['A','B']['mass'], 2.0)
@@ -132,16 +127,8 @@ class test_CoefficientMatrix(unittest.TestCase):
         self.assertEqual(m['B','B']['mass'], 2.5)
 
         #test reset and get manually
-
-        m['A','B']['energy'] = 1.0
-        self.assertEqual(m['A','B']['energy'], 1.0)
-        self.assertEqual(m['A','B']['mass'], 2.5)
-        self.assertEqual(m['A','A']['energy'], 3.0)
-        self.assertEqual(m['A','A']['mass'], 2.5)
-        self.assertEqual(m['B','B']['energy'], 3.0)
-        self.assertEqual(m['B','B']['mass'], 2.5)
-
-        m['A','B']['mass'] = 2.0
+        #test setting all key values at once
+        m['A','B'] = {'energy':1.0, 'mass':2.0}
         self.assertEqual(m['A','B']['energy'], 1.0)
         self.assertEqual(m['A','B']['mass'], 2.0)
         self.assertEqual(m['A','A']['energy'], 3.0)
@@ -149,7 +136,8 @@ class test_CoefficientMatrix(unittest.TestCase):
         self.assertEqual(m['B','B']['energy'], 3.0)
         self.assertEqual(m['B','B']['mass'], 2.5)
 
-        m['A','A']['energy'] = 1.0
+        #test setting key values partially
+        m['A','A'] = {'energy':1.0}
         self.assertEqual(m['A','B']['energy'], 1.0)
         self.assertEqual(m['A','B']['mass'], 2.0)
         self.assertEqual(m['A','A']['energy'], 1.0)
@@ -157,7 +145,7 @@ class test_CoefficientMatrix(unittest.TestCase):
         self.assertEqual(m['B','B']['energy'], 3.0)
         self.assertEqual(m['B','B']['mass'], 2.5)
 
-        m['A','A']['mass'] = 2.0
+        m['A','A'] = {'mass':2.0}
         self.assertEqual(m['A','B']['energy'], 1.0)
         self.assertEqual(m['A','B']['mass'], 2.0)
         self.assertEqual(m['A','A']['energy'], 1.0)
@@ -165,6 +153,7 @@ class test_CoefficientMatrix(unittest.TestCase):
         self.assertEqual(m['B','B']['energy'], 3.0)
         self.assertEqual(m['B','B']['mass'], 2.5)
 
+        #test accessing key param values directly
         m['B','B']['energy'] = 1.0
         self.assertEqual(m['A','B']['energy'], 1.0)
         self.assertEqual(m['A','B']['mass'], 2.0)

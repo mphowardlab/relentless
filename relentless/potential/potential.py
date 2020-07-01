@@ -5,6 +5,7 @@ import ast
 import numpy as np
 
 from relentless.core import PairMatrix
+from relentless.core import FixedKeyDict
 from relentless.core import Variable
 
 class CoefficientMatrix(PairMatrix):
@@ -20,7 +21,7 @@ class CoefficientMatrix(PairMatrix):
     params : array_like
         List of parameters (A parameter must be a `str`).
     default : `dict`
-        Initial value for any or all paramters, defaults to `None`.
+        Initial value for any or all parameters, defaults to `None`.
 
     Raises
     ------
@@ -40,18 +41,20 @@ class CoefficientMatrix(PairMatrix):
 
     Set coefficient matrix values::
 
-        m['A','A']['energy'] = 2.0
-        m['A,'B']['mass'] = 1.5
-        m['A','B']['energy'] = 3.0
+        m['A','A']['energy'] = 2.0               #access param directly
+        m['A','B'] = {'energy':0.0, 'mass':1.5}  #reset default in full
+        m['A','A'] = {'mass':0.5}                #reset default partially
+        for p in self.params:                    #iteratively acesss params
+            m['B','B'][p] = 0.1
 
     Evaluate (retrieve) pair parameters::
 
         >>> print(m.evaluate(('A','A')))
-        {'energy':2.0, 'mass':2.0}
+        {'energy':2.0, 'mass':0.5}
         >>> print(m.evaluate(('A','B')))
-        {'energy':3.0, 'mass':1.5}
+        {'energy':0.0, 'mass':1.5}
         >>> print(m.evaluate(('B','B')))
-        {'energy':1.0, 'mass':2.0}
+        {'energy':0.1, 'mass':0.1}
 
     """
     def __init__(self, types, params, default={}):
@@ -59,10 +62,12 @@ class CoefficientMatrix(PairMatrix):
         if not all(isinstance(p, str) for p in params):
             raise TypeError('All parameters must be strings')
         self.params = tuple(params)
+
+        d = FixedKeyDict(keys=self.params)
+        for i in d:
+            d[i] = default[i] if i in default else None
         for key in self:
-            for p in self.params:
-                v = default[p] if p in default else None
-                self[key][p] = v
+            self[key] = d
 
     def evaluate(self, pair):
         """Evaluate pair parameters.

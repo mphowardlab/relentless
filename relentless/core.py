@@ -1,4 +1,4 @@
-__all__ = ['Interpolator','Variable']
+__all__ = ['Interpolator','Variable','FixedKeyDict']
 
 from enum import Enum
 
