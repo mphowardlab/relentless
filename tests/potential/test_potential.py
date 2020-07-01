@@ -48,74 +48,46 @@ class test_CoefficientMatrix(unittest.TestCase):
         with self.assertRaises(TypeError):
             m = potential.CoefficientMatrix(types=('A','B'), params=('1',2))
 
-    def test_accessors(self):
-        """Test get and set methods on pairs"""
-        m = potential.CoefficientMatrix(types=('A','B'), params=('energy','mass'))
+    def test_accessor_methods(self):
+        """Test various get and set methods on pairs"""
+        m = potential.CoefficientMatrix(types=('A',), params=('energy','mass'))
 
         #test set and get for each pair type and param
-        self.assertEqual(m['A','B']['energy'], None)
-        self.assertEqual(m['A','B']['mass'], None)
         self.assertEqual(m['A','A']['energy'], None)
         self.assertEqual(m['A','A']['mass'], None)
-        self.assertEqual(m['B','B']['energy'], None)
-        self.assertEqual(m['B','B']['mass'], None)
 
         #test setting all key values at once
-        m['A','B'] = {'energy':1.0, 'mass':2.0}
-        self.assertEqual(m['A','B']['energy'], 1.0)
-        self.assertEqual(m['A','B']['mass'], 2.0)
-        self.assertEqual(m['A','A']['energy'], None)
-        self.assertEqual(m['A','A']['mass'], None)
-        self.assertEqual(m['B','B']['energy'], None)
-        self.assertEqual(m['B','B']['mass'], None)
+        m['A','A'] = {'energy':1.0, 'mass':2.0}
+        self.assertEqual(m['A','A']['energy'], 1.0)
+        self.assertEqual(m['A','A']['mass'], 2.0)
 
         #test setting key values partially
-        m['A','A'] = {'energy':1.0}
-        self.assertEqual(m['A','B']['energy'], 1.0)
-        self.assertEqual(m['A','B']['mass'], 2.0)
-        self.assertEqual(m['A','A']['energy'], 1.0)
-        self.assertEqual(m['A','A']['mass'], None)
-        self.assertEqual(m['B','B']['energy'], None)
-        self.assertEqual(m['B','B']['mass'], None)
-
-        m['A','A'] = {'mass':2.0}
-        self.assertEqual(m['A','B']['energy'], 1.0)
-        self.assertEqual(m['A','B']['mass'], 2.0)
-        self.assertEqual(m['A','A']['energy'], 1.0)
+        m['A','A'] = {'energy':1.5}
+        self.assertEqual(m['A','A']['energy'], 1.5)
         self.assertEqual(m['A','A']['mass'], 2.0)
-        self.assertEqual(m['B','B']['energy'], None)
-        self.assertEqual(m['B','B']['mass'], None)
+
+        m['A','A'] = {'mass':2.5}
+        self.assertEqual(m['A','A']['energy'], 1.5)
+        self.assertEqual(m['A','A']['mass'], 2.5)
 
         #test accessing key param values individually
-        m['B','B']['energy'] = 1.0
-        self.assertEqual(m['A','B']['energy'], 1.0)
-        self.assertEqual(m['A','B']['mass'], 2.0)
+        m['A','A']['energy'] = 1.0
         self.assertEqual(m['A','A']['energy'], 1.0)
-        self.assertEqual(m['A','A']['mass'], 2.0)
-        self.assertEqual(m['B','B']['energy'], 1.0)
-        self.assertEqual(m['B','B']['mass'], None)
+        self.assertEqual(m['A','A']['mass'], 2.5)
 
-        m['B','B']['mass'] = 2.0
-        self.assertEqual(m['A','B']['energy'], 1.0)
-        self.assertEqual(m['A','B']['mass'], 2.0)
+        m['A','A']['mass'] = 2.0
         self.assertEqual(m['A','A']['energy'], 1.0)
         self.assertEqual(m['A','A']['mass'], 2.0)
-        self.assertEqual(m['B','B']['energy'], 1.0)
-        self.assertEqual(m['B','B']['mass'], 2.0)
 
         #test reset and get via iteration
-        pairs = (('A','B'), ('B','B'), ('A','A'))
         params = ('energy', 'mass')
-        for i in pairs:
-            for j in params:
-                m[i][j] = 1.5
-        self.assertEqual(m['A','B']['energy'], 1.5)
-        self.assertEqual(m['A','B']['mass'], 1.5)
+        for j in params:
+            m['A','A'][j] = 1.5
         self.assertEqual(m['A','A']['energy'], 1.5)
         self.assertEqual(m['A','A']['mass'], 1.5)
-        self.assertEqual(m['B','B']['energy'], 1.5)
-        self.assertEqual(m['B','B']['mass'], 1.5)
 
+    def test_accessor_pairs(self):
+        """Test get and set methods for various pairs"""
         #test set and get for initialized default
         m = potential.CoefficientMatrix(types=('A','B'), params=('energy','mass'),
                                         default={'energy':3.0, 'mass':2.5})
@@ -127,7 +99,6 @@ class test_CoefficientMatrix(unittest.TestCase):
         self.assertEqual(m['B','B']['mass'], 2.5)
 
         #test reset and get manually
-        #test setting all key values at once
         m['A','B'] = {'energy':1.0, 'mass':2.0}
         self.assertEqual(m['A','B']['energy'], 1.0)
         self.assertEqual(m['A','B']['mass'], 2.0)
@@ -136,16 +107,7 @@ class test_CoefficientMatrix(unittest.TestCase):
         self.assertEqual(m['B','B']['energy'], 3.0)
         self.assertEqual(m['B','B']['mass'], 2.5)
 
-        #test setting key values partially
-        m['A','A'] = {'energy':1.0}
-        self.assertEqual(m['A','B']['energy'], 1.0)
-        self.assertEqual(m['A','B']['mass'], 2.0)
-        self.assertEqual(m['A','A']['energy'], 1.0)
-        self.assertEqual(m['A','A']['mass'], 2.5)
-        self.assertEqual(m['B','B']['energy'], 3.0)
-        self.assertEqual(m['B','B']['mass'], 2.5)
-
-        m['A','A'] = {'mass':2.0}
+        m['A','A'] = {'energy':1.0, 'mass':2.0}
         self.assertEqual(m['A','B']['energy'], 1.0)
         self.assertEqual(m['A','B']['mass'], 2.0)
         self.assertEqual(m['A','A']['energy'], 1.0)
@@ -153,16 +115,7 @@ class test_CoefficientMatrix(unittest.TestCase):
         self.assertEqual(m['B','B']['energy'], 3.0)
         self.assertEqual(m['B','B']['mass'], 2.5)
 
-        #test accessing key param values directly
-        m['B','B']['energy'] = 1.0
-        self.assertEqual(m['A','B']['energy'], 1.0)
-        self.assertEqual(m['A','B']['mass'], 2.0)
-        self.assertEqual(m['A','A']['energy'], 1.0)
-        self.assertEqual(m['A','A']['mass'], 2.0)
-        self.assertEqual(m['B','B']['energy'], 1.0)
-        self.assertEqual(m['B','B']['mass'], 2.5)
-
-        m['B','B']['mass'] = 2.0
+        m['B','B'] = {'energy':1.0, 'mass':2.0}
         self.assertEqual(m['A','B']['energy'], 1.0)
         self.assertEqual(m['A','B']['mass'], 2.0)
         self.assertEqual(m['A','A']['energy'], 1.0)
@@ -238,3 +191,6 @@ class test_CoefficientMatrix(unittest.TestCase):
         self.assertEqual(m['B','B']['mass'].value, x['B','B']['mass'])
 
         temp.close()
+
+if __name__ == '__main__':
+    unittest.main()

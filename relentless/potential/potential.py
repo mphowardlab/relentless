@@ -39,12 +39,21 @@ class CoefficientMatrix(PairMatrix):
         m = CoefficientMatrix(types=('A','B'), params=('energy','mass'),
                               default={'energy':1.0, 'mass':2.0})
 
-    Set coefficient matrix values::
+    Set coefficient matrix values by accessing parameter directly::
 
-        m['A','A']['energy'] = 2.0               #access param directly
-        m['A','B'] = {'energy':0.0, 'mass':1.5}  #reset default in full
-        m['A','A'] = {'mass':0.5}                #reset default partially
-        for p in self.params:                    #iteratively acesss params
+        m['A','A']['energy'] = 2.0
+
+    Set coefficient matrix values by setting parameters in full::
+
+        m['A','B'] = {'energy':0.0, 'mass':1.5}
+
+    Set coefficient matrix values by setting parameters partially::
+
+        m['A','A'] = {'mass':Variable(value=1.0, high=0.5)}
+
+    Set coefficient matrix values by iteratively accessing parameters::
+
+        for p in self.params:
             m['B','B'][p] = 0.1
 
     Evaluate (retrieve) pair parameters::
@@ -56,6 +65,13 @@ class CoefficientMatrix(PairMatrix):
         >>> print(m.evaluate(('B','B')))
         {'energy':0.1, 'mass':0.1}
 
+    Difference between using `evaluate()` and accessing values directly::
+
+        >>> print(m.evaluate(('A','A')))
+        {'energy':2.0, 'mass':0.5}
+        >>> print(m['A','A'])
+        {'energy':2.0, 'mass':<relentless.core.Variable object at 0x561124456>}
+
     """
     def __init__(self, types, params, default={}):
         super().__init__(types)
@@ -63,11 +79,11 @@ class CoefficientMatrix(PairMatrix):
             raise TypeError('All parameters must be strings')
         self.params = tuple(params)
 
-        d = FixedKeyDict(keys=self.params)
-        for i in d:
-            d[i] = default[i] if i in default else None
+        vals = {}
+        for p in self.params:
+            vals[p] = default[p] if p in default else None
         for key in self:
-            self[key] = d
+            self[key] = FixedKeyDict(keys=self.params,default=vals)
 
     def evaluate(self, pair):
         """Evaluate pair parameters.

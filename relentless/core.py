@@ -1,4 +1,4 @@
-__all__ = ['Interpolator','Variable','FixedKeyDict']
+__all__ = ['Interpolator','Variable']
 
 from enum import Enum
 
@@ -235,9 +235,9 @@ class FixedKeyDict:
     Parameters
     ----------
     keys : array_like
-        List of keys to be fixed (this must be a `str`).
-    default
-        Initial value to fill in the dictionary, defaults to `None`.
+        List of keys to be fixed (a key must be a `str`).
+    default : `dict`
+        Initial values to fill in the dictionary, defaults to `None`.
 
     Raises
     ------
@@ -254,6 +254,12 @@ class FixedKeyDict:
 
         >>> print(d)
         {'A': None, 'B': None}
+
+    Set default values::
+
+        d = FixedKeyDict(keys=('A','B'), default={'A':1.0, 'B':2.0})
+        >>> print(d)
+        {'A':1.0, 'B':2.0}
 
     Iterate as a dictionary::
 
@@ -272,13 +278,13 @@ class FixedKeyDict:
         FixedKeyDict(keys=('A',))
 
     """
-    def __init__(self, keys, default=None):
+    def __init__(self, keys, default={}):
         if not all(isinstance(k, str) for k in keys):
             raise TypeError('All keys must be strings')
         self._keys = tuple(keys)
         self._data = {}
         for i in self.keys:
-            self._data[i] = default
+            self._data[i] = default[i] if i in default else None
 
     def _check_key(self, key):
         """Check that a type is in the dictionary.
