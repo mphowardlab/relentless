@@ -1,8 +1,7 @@
 """Unit tests for potential module."""
 import unittest
 import tempfile
-import sys
-sys.path.append('../../')
+
 from relentless import core
 from relentless.potential import potential
 
@@ -179,8 +178,9 @@ class test_CoefficientMatrix(unittest.TestCase):
         #test dumping/re-loading data with scalar parameter values
         m = potential.CoefficientMatrix(types=('A','B'), params=('energy','mass'),
                                         default={'energy':1.0, 'mass':2.0})
+        x = m
         m.save(temp.name)
-        x = m.load(temp.name)
+        m.load(temp.name)
         self.assertEqual(m['A','B']['energy'], x['A','B']['energy'])
         self.assertEqual(m['A','B']['mass'], x['A','B']['mass'])
         self.assertEqual(m['A','A']['energy'], x['A','A']['energy'])
@@ -191,14 +191,30 @@ class test_CoefficientMatrix(unittest.TestCase):
         #test dumping/re-loading data with Variable parameter values
         m = potential.CoefficientMatrix(types=('A','B'), params=('energy','mass'),
                                         default={'energy':core.Variable(value=1.0), 'mass':core.Variable(value=-1.0,low=0.1)})
+        x = m
         m.save(temp.name)
-        x = m.load(temp.name)
-        self.assertEqual(m['A','B']['energy'].value, x['A','B']['energy'])
-        self.assertEqual(m['A','B']['mass'].value, x['A','B']['mass'])
-        self.assertEqual(m['A','A']['energy'].value, x['A','A']['energy'])
-        self.assertEqual(m['A','A']['mass'].value, x['A','A']['mass'])
-        self.assertEqual(m['B','B']['energy'].value, x['B','B']['energy'])
-        self.assertEqual(m['B','B']['mass'].value, x['B','B']['mass'])
+        m.load(temp.name)
+        self.assertEqual(m['A','B']['energy'], x['A','B']['energy'])
+        self.assertEqual(m['A','B']['mass'], x['A','B']['mass'])
+        self.assertEqual(m['A','A']['energy'], x['A','A']['energy'])
+        self.assertEqual(m['A','A']['mass'], x['A','A']['mass'])
+        self.assertEqual(m['B','B']['energy'], x['B','B']['energy'])
+        self.assertEqual(m['B','B']['mass'], x['B','B']['mass'])
+
+        #test dumping/re-loading data that doesn't match the object
+        m = potential.CoefficientMatrix(types=('A','B'), params=('energy','mass'))
+        dat = potential.CoefficientMatrix(types=('A','B','C'), params=('energy','mass','temp'),
+                                          default={'energy':1.0, 'mass':2.0, 'temp':3.0})
+
+        x = m
+        dat.save(temp.name)
+        m.load(temp.name)
+        self.assertEqual(m['A','B']['energy'], x['A','B']['energy'])
+        self.assertEqual(m['A','B']['mass'], x['A','B']['mass'])
+        self.assertEqual(m['A','A']['energy'], x['A','A']['energy'])
+        self.assertEqual(m['A','A']['mass'], x['A','A']['mass'])
+        self.assertEqual(m['B','B']['energy'], x['B','B']['energy'])
+        self.assertEqual(m['B','B']['mass'], x['B','B']['mass'])
 
         temp.close()
 

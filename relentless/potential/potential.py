@@ -1,7 +1,6 @@
 __all__ = ['PairPotential','Tabulator']
 
 import json
-import ast
 import numpy as np
 
 from relentless.core import PairMatrix
@@ -155,8 +154,10 @@ class CoefficientMatrix(PairMatrix):
         """
         with open(filename, 'r') as f:
             data = json.load(f)
-        data = ast.literal_eval(str(data).replace('"',''))
-        return data
+        for key in data:
+            key_tup = tuple(str(key).strip('"'))
+            if key_tup in self:
+                self[key_tup] = data[key]
 
     def __setitem__(self, key, value):
         """Set coefficients for the (i,j) pair."""
