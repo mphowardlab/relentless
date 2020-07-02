@@ -19,7 +19,7 @@ class CoefficientMatrix(PairMatrix):
         List of types (A type must be a `str`).
     params : array_like
         List of parameters (A parameter must be a `str`).
-    default : `dict`
+    default : float or int
         Initial value for any or all parameters, defaults to `None`.
 
     Raises
@@ -33,40 +33,43 @@ class CoefficientMatrix(PairMatrix):
 
         m = CoefficientMatrix(types=('A','B'), params=('energy','mass'))
 
-    Create a coefficient matrix with default values::
+    Create a coefficient matrix with a default value::
 
-        m = CoefficientMatrix(types=('A','B'), params=('energy','mass'),
-                              default={'energy':1.0, 'mass':2.0})
+        m = CoefficientMatrix(types=('A','B'), params=('energy','mass'), default=0.0)
 
     Set coefficient matrix values by accessing parameter directly::
 
         m['A','A']['energy'] = 2.0
 
-    Set coefficient matrix values by setting parameters partially::
+    Assigning to a pair using `update()` overwrites parameters::
 
-        m['A','A'] = {'mass':2.5}  #resets 'energy' value to default
+        m['A','A'].update({'mass':2.5})  #does not reset 'energy' value to default
+        m['A','A'].update(mass=2.5)      #equivalent statement
         >>> print(m['A','A'])
-        {'energy':1.0, 'mass':2.5}
+        {'energy':2.0, 'mass':2.5}
+
+    Assigning to a pair using `=` operator overwrites parameters and resets any default::
+
+        m['A','A'] = {'mass':2.5}  #does reset 'energy' value to default
+        >>> print(m['A','A'])
+        {'energy':0.0, 'mass':2.5}
 
     Set coefficient matrix values by setting parameters in full::
 
-        m['A','B'] = {'energy':0.0, 'mass':Variable(value=2.0,high=1.5)}
+        m['A','B'] = {'energy':Variable(value=2.0,high=1.5), 'mass':0.5}
 
     Set coefficient matrix values by iteratively accessing parameters::
 
-        for p in self.params:
+        for p in m.params:
             m['B','B'][p] = 0.1
 
     Evaluate (retrieve) pair parameters::
 
-        >>> print(m.evaluate(('A','A')))
-        {'energy':1.0, 'mass':2.5}
-        >>> print(m.evaluate(('A','B')))
-        {'energy':0.0, 'mass':1.5}
         >>> print(m.evaluate(('B','B')))
         {'energy':0.1, 'mass':0.1}
 
-    Difference between using `evaluate()` and accessing values directly::
+    Utilizing `evaluate()` computes the defined values of all objects,
+    while directly accessing values returns the objects themselves::
 
         >>> print(m.evaluate(('A','B')))
         {'energy':2.0, 'mass':0.5}
@@ -74,17 +77,14 @@ class CoefficientMatrix(PairMatrix):
         {'energy':<relentless.core.Variable object at 0x561124456>, 'mass':0.5}
 
     """
-    def __init__(self, types, params, default={}):
+    def __init__(self, types, params, default=None):
         super().__init__(types)
         if not all(isinstance(p, str) for p in params):
             raise TypeError('All parameters must be strings')
         self.params = tuple(params)
-        vals = {}
-        for p in self.params:
-            vals[p] = default[p] if p in default else None
-        for key in self:
-            self[key] = FixedKeyDict(keys=self.params,default=vals)
         self.default = default
+        for key in self:
+            self[key] = FixedKeyDict(keys=self.params,default=self.default)
 
     def evaluate(self, pair):
         """Evaluate pair parameters.
@@ -128,6 +128,32 @@ class CoefficientMatrix(PairMatrix):
 
         return params
 
+    def update(self, **values):
+        """Partially reassigns coefficient values.
+
+        Sets coefficient parameter values. Other parameter values are not reset to the default.
+
+        Parameters
+        ----------
+        values : `dict` or "keyword args"
+            The parameter values to be updated/over-written.
+
+        Raises
+        ------
+        KeyError
+            If parameter to be updated is not in the coefficient matrix.
+
+        """
+        if isinstance(values, dict):
+            for key in values:
+                self[key] = values[key]
+        else:
+            for key,value in values.items():
+                key = str(key)
+                if key not in self.params:
+                    raise KeyError('Only the known parameters can be set in the coefficient matrix.')
+                self[key] = value
+
     def save(self, filename):
         """Saves the data to a file.
 
@@ -151,13 +177,26 @@ class CoefficientMatrix(PairMatrix):
         filename : `str`
             The name of the file from which to load data.
 
+        Raises
+        ------
+        KeyError
+            If the pairs in the data are not exactly the pairs in self
+        KeyError
+            If the params in the data are not exactly the params in self
+
         """
         with open(filename, 'r') as f:
             data = json.load(f)
+        pairs = []
         for key in data:
-            key_tup = tuple(str(key).strip('"'))
-            if key_tup in self:
-                self[key_tup] = data[key]
+            pairs.append(eval(key))
+        if sorted(self.pairs) != sorted(tuple(pairs)):
+            raise KeyError('The type pairs in the data are not exactly the pairs in self')
+        for key in data:
+            if sorted(self.params) != sorted(data[key].keys()):
+                raise KeyError('The parameters in the data are not exactly the parameters in self')
+            key_tup = eval(key)
+            self[key_tup] = data[key]
 
     def __setitem__(self, key, value):
         """Set coefficients for the (i,j) pair."""
@@ -168,7 +207,7 @@ class CoefficientMatrix(PairMatrix):
             if p in value:
                 self[key][p] = value[p]
             else:
-                self[key][p] = self.default[p] if p in self.default else None
+                self[key][p] = self.default
 
 class PairPotential:
     """Generic pair potential evaluator.
