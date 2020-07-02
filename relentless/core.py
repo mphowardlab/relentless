@@ -236,7 +236,7 @@ class FixedKeyDict:
     ----------
     keys : array_like
         List of keys to be fixed (a key must be a `str`).
-    default : `dict`
+    default : float or int
         Initial values to fill in the dictionary, defaults to `None`.
 
     Raises
@@ -257,9 +257,9 @@ class FixedKeyDict:
 
     Set default values::
 
-        d = FixedKeyDict(keys=('A','B'), default={'A':1.0, 'B':2.0})
+        d = FixedKeyDict(keys=('A','B'), default=0.0)
         >>> print(d)
-        {'A':1.0, 'B':2.0}
+        {'A':0.0, 'B':0.0}
 
     Iterate as a dictionary::
 
@@ -278,13 +278,13 @@ class FixedKeyDict:
         FixedKeyDict(keys=('A',))
 
     """
-    def __init__(self, keys, default={}):
+    def __init__(self, keys, default=None):
         if not all(isinstance(k, str) for k in keys):
             raise TypeError('All keys must be strings')
         self._keys = tuple(keys)
         self._data = {}
         for i in self.keys:
-            self._data[i] = default[i] if i in default else None
+            self._data[i] = default
 
     def _check_key(self, key):
         """Check that a type is in the dictionary.
