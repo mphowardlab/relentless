@@ -404,7 +404,6 @@ class Variable:
         self.const = const
         self.low = low
         self.high = high
-
         self.value = value
 
     def clamp(self, value):
@@ -445,6 +444,28 @@ class Variable:
         if not isinstance(value,(float,int)):
             raise ValueError('Variable must be a float or int')
         self._value, self._state = self.clamp(float(value))
+
+    @property
+    def low(self):
+        """float: The low bound of the variable"""
+        return self._low
+
+    @low.setter
+    def low(self, low):
+        if not isinstance(low, (float,int)):
+            raise ValueError('Low bound must be a float or int')
+        self._low = low
+
+    @property
+    def high(self):
+        """float: The high bound of the variable"""
+        return self._high
+
+    @high.setter
+    def high(self, high):
+        if not isinstance(high, (float,int)):
+            raise ValueError('High bound must be a float or int')
+        return self._low
 
     @property
     def state(self):

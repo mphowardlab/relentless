@@ -342,6 +342,12 @@ class test_Variable(unittest.TestCase):
         #test invalid value initialization
         with self.assertRaises(ValueError):
             v = relentless.core.Variable(value='4')
+        #test invalid low initialization
+        with self.assertRaises(ValueError):
+            v = relentless.core.Variable(low='4')
+        #test invalid high initialization
+        with self.assertRaises(ValueError):
+            v = relentless.core.Variable(high='4')
 
     def test_clamp(self):
         """Test methods for clamping values with bounds."""
