@@ -19,8 +19,8 @@ class CoefficientMatrix(PairMatrix):
         List of types (A type must be a `str`).
     params : array_like
         List of parameters (A parameter must be a `str`).
-    default : float or int
-        Initial value for any or all parameters, defaults to `None`.
+    default : dict
+        Initial value for any or all parameters, the values default to `None`.
 
     Raises
     ------
@@ -29,13 +29,19 @@ class CoefficientMatrix(PairMatrix):
 
     Examples
     --------
-    Create a coefficient matrix::
+
+    Create an empty coefficient matrix::
+
+        m = CoefficientMatrix()
+
+    Create a coefficient matrix with defined types and params::
 
         m = CoefficientMatrix(types=('A','B'), params=('energy','mass'))
 
-    Create a coefficient matrix with a default value::
+    Create a coefficient matrix with default parameter values::
 
-        m = CoefficientMatrix(types=('A','B'), params=('energy','mass'), default=0.0)
+        m = CoefficientMatrix(types=('A','B'), params=('energy','mass'),
+                              default={'energy':0.0, 'mass':0.0})
 
     Set coefficient matrix values by accessing parameter directly::
 
@@ -77,14 +83,15 @@ class CoefficientMatrix(PairMatrix):
         {'energy':<relentless.core.Variable object at 0x561124456>, 'mass':0.5}
 
     """
-    def __init__(self, types, params, default=None):
+    def __init__(self, types=(), params=(), default={}):
         super().__init__(types)
         if not all(isinstance(p, str) for p in params):
             raise TypeError('All parameters must be strings')
         self.params = tuple(params)
         self.default = default
         for key in self:
-            self[key] = FixedKeyDict(keys=self.params,default=self.default)
+            self[key] = FixedKeyDict(keys=self.params)
+            self[key].update(self.default)
 
     def evaluate(self, pair):
         """Evaluate pair parameters.
@@ -207,7 +214,7 @@ class CoefficientMatrix(PairMatrix):
             if p in value:
                 self[key][p] = value[p]
             else:
-                self[key][p] = self.default
+                self[key][p] = self.default[p] if p in self.default else None
 
 class PairPotential:
     """Generic pair potential evaluator.
