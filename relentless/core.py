@@ -452,7 +452,7 @@ class Variable:
 
     @low.setter
     def low(self, low):
-        if not isinstance(low, (float,int)):
+        if low is not None and not isinstance(low, (float,int)):
             raise ValueError('Low bound must be a float or int')
         self._low = low
 
@@ -463,9 +463,9 @@ class Variable:
 
     @high.setter
     def high(self, high):
-        if not isinstance(high, (float,int)):
+        if high is not None and not isinstance(high, (float,int)):
             raise ValueError('High bound must be a float or int')
-        return self._low
+        self._high = high
 
     @property
     def state(self):
