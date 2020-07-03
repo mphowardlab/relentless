@@ -250,6 +250,15 @@ class test_FixedKeyDict(unittest.TestCase):
         self.assertEqual(d['A'], 2.0)
         self.assertEqual(d['B'], 1.5)
 
+        #test using `update()`
+        d.update({'A':1.2, 'B':2.1})
+        self.assertEqual(d['A'], 1.2)
+        self.assertEqual(d['B'], 2.1)
+
+        d.update(A=1.1, B=2.2)
+        self.assertEqual(d['A'], 1.1)
+        self.assertEqual(d['B'], 2.2)
+
         #test getting invalid key
         with self.assertRaises(KeyError):
             x = d['C']
@@ -341,13 +350,13 @@ class test_Variable(unittest.TestCase):
 
         #test invalid value initialization
         with self.assertRaises(ValueError):
-            v = relentless.core.Variable(value='4')
+            v.value = '4'
         #test invalid low initialization
         with self.assertRaises(ValueError):
-            v = relentless.core.Variable(low='4')
+            v.low = '4'
         #test invalid high initialization
         with self.assertRaises(ValueError):
-            v = relentless.core.Variable(high='4')
+            v.high = '4'
 
     def test_clamp(self):
         """Test methods for clamping values with bounds."""

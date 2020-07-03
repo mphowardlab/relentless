@@ -24,15 +24,13 @@ class CoefficientMatrix(PairMatrix):
 
     Raises
     ------
+    ValueError
+        If params is initialized as empty
     TypeError
         If params does not consist of only strings
 
     Examples
     --------
-
-    Create an empty coefficient matrix::
-
-        m = CoefficientMatrix()
 
     Create a coefficient matrix with defined types and params::
 
@@ -47,14 +45,15 @@ class CoefficientMatrix(PairMatrix):
 
         m['A','A']['energy'] = 2.0
 
-    Assigning to a pair using `update()` overwrites parameters::
+    Assigning to a pair using `update()` overwrites the specified parameters::
 
         m['A','A'].update({'mass':2.5})  #does not reset 'energy' value to default
         m['A','A'].update(mass=2.5)      #equivalent statement
         >>> print(m['A','A'])
         {'energy':2.0, 'mass':2.5}
 
-    Assigning to a pair using `=` operator overwrites parameters and resets any default::
+    Assigning to a pair using `=` operator overwrites the specified parameters and resets
+    the other parameters to their defaults, if it exists::
 
         m['A','A'] = {'mass':2.5}  #does reset 'energy' value to default
         >>> print(m['A','A'])
@@ -83,8 +82,10 @@ class CoefficientMatrix(PairMatrix):
         {'energy':<relentless.core.Variable object at 0x561124456>, 'mass':0.5}
 
     """
-    def __init__(self, types=(), params=(), default={}):
+    def __init__(self, types, params, default={}):
         super().__init__(types)
+        if len(params) == 0:
+            raise ValueError('params cannot be initialized as empty')
         if not all(isinstance(p, str) for p in params):
             raise TypeError('All parameters must be strings')
         self.params = tuple(params)
@@ -100,7 +101,7 @@ class CoefficientMatrix(PairMatrix):
 
         Parameters
         ----------
-        pair : array_like
+        pair : tuple
             Pair for which the parameters are called
 
         Returns
@@ -135,34 +136,11 @@ class CoefficientMatrix(PairMatrix):
 
         return params
 
-    def update(self, **values):
-        """Partially reassigns coefficient values.
-
-        Sets coefficient parameter values. Other parameter values are not reset to the default.
-
-        Parameters
-        ----------
-        values : `dict` or "keyword args"
-            The parameter values to be updated/over-written.
-
-        Raises
-        ------
-        KeyError
-            If parameter to be updated is not in the coefficient matrix.
-
-        """
-        if isinstance(values, dict):
-            for key in values:
-                self[key] = values[key]
-        else:
-            for key,value in values.items():
-                key = str(key)
-                if key not in self.params:
-                    raise KeyError('Only the known parameters can be set in the coefficient matrix.')
-                self[key] = value
-
     def save(self, filename):
-        """Saves the data to a file.
+        """Saves the data from a coefficient matrix to a file.
+
+        Serializes each parameter value in order to track the internal values
+        of the :py:class:`Variable` object and distinguish it from 'scalar' values.
 
         Parameters
         ----------
@@ -170,14 +148,22 @@ class CoefficientMatrix(PairMatrix):
             The name of the file to save data in.
 
         """
-        all_params = {}
+        data = {}
         for key in self:
-            all_params[str(key)] = self.evaluate(key)
+            all_params = {}
+            for param in self[key]:
+                var = self[key][param]
+                if isinstance(var, Variable):
+                    all_params[param] = {'type':'variable', 'value':var.value,
+                                         'const':var.const, 'low':var.low, 'high':var.high}
+                elif isinstance(var, (float,int)):
+                    all_params[param] = {'type':'scalar', 'value':var}
+            data[str(key)] = all_params
         with open(filename, 'w') as f:
-            json.dump(all_params, f, sort_keys=True, indent=4)
+            json.dump(data, f, sort_keys=True, indent=4)
 
     def load(self, filename):
-        """Loads the data from a file.
+        """Loads the data from a file into the coefficient matrix.
 
         Parameters
         ----------
@@ -190,6 +176,8 @@ class CoefficientMatrix(PairMatrix):
             If the pairs in the data are not exactly the pairs in self
         KeyError
             If the params in the data are not exactly the params in self
+        TypeError
+            If the parameter value type in the data and in self do not match
 
         """
         with open(filename, 'r') as f:
@@ -200,10 +188,55 @@ class CoefficientMatrix(PairMatrix):
         if sorted(self.pairs) != sorted(tuple(pairs)):
             raise KeyError('The type pairs in the data are not exactly the pairs in self')
         for key in data:
+            key_tup = eval(key)
             if sorted(self.params) != sorted(data[key].keys()):
                 raise KeyError('The parameters in the data are not exactly the parameters in self')
-            key_tup = eval(key)
-            self[key_tup] = data[key]
+            for param in data[key]:
+                var_data = data[key][param]
+                var_self = self[key_tup][param]
+                if var_self is None:
+                    if var_data['type'] == 'variable':
+                        self[key_tup][param] = Variable(value=var_data['value'], const=var_data['const'],
+                                                        low=var_data['low'], high=var_data['high'])
+                    elif var_data['type'] == 'scalar':
+                        self[key_tup][param] = var_data['value']
+                    else:
+                        raise TypeError('The parameter value types in the data and self do not match')
+                elif var_data['type'] == 'scalar' and isinstance(var_self, (float,int)):
+                    self[key_tup][param] = var_data['value']
+                elif var_data['type'] == 'variable' and isinstance(var_self, Variable):
+                    self[key_tup][param] = Variable(value=var_data['value'], const=var_data['const'],
+                                                    low=var_data['low'], high=var_data['high'])
+                else:
+                    raise TypeError('The parameter value types in the data and self do not match')
+
+    @classmethod
+    def from_file(cls, filename):
+        """Load data from a file into a new coefficient matrix object.
+
+        Parameters
+        ----------
+        filename : `str`
+            The name of the file from which to load data.
+
+        Returns
+        -------
+        :py:class:`CoefficientMatrix`
+            Object initialized with the data in the file.
+
+        """
+        with open(filename, 'r') as f:
+            data = json.load(f)
+        t_all = data.keys()
+        p = data[list(t_all)[0]].keys()
+        for par in t_all:
+            par = eval(par)
+            if len(par) == len(set(par)):
+                t = par
+                break
+        m = CoefficientMatrix(types=t, params=p)
+        m.load(filename)
+        return m
 
     def __setitem__(self, key, value):
         """Set coefficients for the (i,j) pair."""

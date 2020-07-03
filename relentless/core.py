@@ -127,6 +127,8 @@ class PairMatrix:
 
     Raises
     ------
+    ValueError
+        If initialization occurs with empty types
     TypeError
         If types does not consist of only strings
 
@@ -167,6 +169,8 @@ class PairMatrix:
 
     """
     def __init__(self, types):
+        if len(types) == 0:
+            raise ValueError('Cannot initialize with empty types')
         if not all(isinstance(t, str) for t in types):
             raise TypeError('All types must be strings')
         self.types = tuple(types)
@@ -236,7 +240,7 @@ class FixedKeyDict:
     ----------
     keys : array_like
         List of keys to be fixed (a key must be a `str`).
-    default : float or int
+    default
         Initial values to fill in the dictionary, defaults to `None`.
 
     Raises
@@ -272,6 +276,13 @@ class FixedKeyDict:
         1.0
         >>> d['B']
         1.0
+
+    Partially reassign/update values::
+
+        d.update({'A':0.5})
+        d.update(A=0.5)  #equivalent statement
+        >>> print(d)
+        {'A':0.5, 'B':1.0}
 
     Single-key dictionary still needs `keys` as a tuple::
 
@@ -320,6 +331,32 @@ class FixedKeyDict:
 
     def __str__(self):
         return str(self._data)
+
+    def update(self, *data, **values):
+        """Partially reassigns key values.
+
+        Parameters
+        ----------
+        data : `dict`
+            The keys and values to be updated/over-written, in a dictionary form.
+        values : kwargs
+            The keys and values to be updated/over-written.
+
+        Raises
+        ------
+        TypeError
+            If more than one positional argument is given
+        KeyError
+            If the key to be updated is not in self.
+
+        """
+        if len(data) > 1:
+            raise TypeError('More than one positional argument is given')
+        d  = data[0] if len(data) == 1 else values
+        for key,value in d.items():
+            if str(key) not in self.keys:
+                raise KeyError('Only the known keys can be set.')
+            self[key] = value
 
     def todict(self):
         """Convert the fixed-key dictionary to a standard dictionary.

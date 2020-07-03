@@ -190,9 +190,10 @@ class test_CoefficientMatrix(unittest.TestCase):
         #test dumping/re-loading data with scalar parameter values
         m = potential.CoefficientMatrix(types=('A','B'), params=('energy','mass'),
                                         default={'energy':0.5, 'mass':2.0})
-        x = potential.CoefficientMatrix()
+        x = potential.CoefficientMatrix(types=('A','B'), params=('energy','mass'))
         m.save(temp.name)
         x.load(temp.name)
+
         self.assertEqual(m['A','B']['energy'], x['A','B']['energy'])
         self.assertEqual(m['A','B']['mass'], x['A','B']['mass'])
         self.assertEqual(m['A','A']['energy'], x['A','A']['energy'])
@@ -200,34 +201,90 @@ class test_CoefficientMatrix(unittest.TestCase):
         self.assertEqual(m['B','B']['energy'], x['B','B']['energy'])
         self.assertEqual(m['B','B']['mass'], x['B','B']['mass'])
 
-        #test dumping/re-loading data with Variable parameter values ################################################################################
+        #test dumping/re-loading data with Variable parameter values
         m = potential.CoefficientMatrix(types=('A','B'), params=('energy','mass'),
                                         default={'energy':core.Variable(value=0.5, high=0.2),
                                                  'mass':core.Variable(value=2.0, low=3.0)})
-        x = potential.CoefficientMatrix()
+        x = potential.CoefficientMatrix(types=('A','B'), params=('energy','mass'))
         m.save(temp.name)
         x.load(temp.name)
-        self.assertEqual(m['A','B']['energy'], x['A','B']['energy'])
-        self.assertEqual(m['A','B']['mass'], x['A','B']['mass'])
-        self.assertEqual(m['A','A']['energy'], x['A','A']['energy'])
-        self.assertEqual(m['A','A']['mass'], x['A','A']['mass'])
-        self.assertEqual(m['B','B']['energy'], x['B','B']['energy'])
-        self.assertEqual(m['B','B']['mass'], x['B','B']['mass'])
+
+        self.assertEqual(m['A','B']['energy'].value, x['A','B']['energy'].value)
+        self.assertEqual(m['A','B']['mass'].value, x['A','B']['mass'].value)
+        self.assertEqual(m['A','A']['energy'].value, x['A','A']['energy'].value)
+        self.assertEqual(m['A','A']['mass'].value, x['A','A']['mass'].value)
+        self.assertEqual(m['B','B']['energy'].value, x['B','B']['energy'].value)
+        self.assertEqual(m['B','B']['mass'].value, x['B','B']['mass'].value)
+
+        self.assertEqual(m['A','B']['energy'].low, x['A','B']['energy'].low)
+        self.assertEqual(m['A','B']['mass'].low, x['A','B']['mass'].low)
+        self.assertEqual(m['A','A']['energy'].low, x['A','A']['energy'].low)
+        self.assertEqual(m['A','A']['mass'].low, x['A','A']['mass'].low)
+        self.assertEqual(m['B','B']['energy'].low, x['B','B']['energy'].low)
+        self.assertEqual(m['B','B']['mass'].low, x['B','B']['mass'].low)
+
+        self.assertEqual(m['A','B']['energy'].high, x['A','B']['energy'].high)
+        self.assertEqual(m['A','B']['mass'].high, x['A','B']['mass'].high)
+        self.assertEqual(m['A','A']['energy'].high, x['A','A']['energy'].high)
+        self.assertEqual(m['A','A']['mass'].high, x['A','A']['mass'].high)
+        self.assertEqual(m['B','B']['energy'].high, x['B','B']['energy'].high)
+        self.assertEqual(m['B','B']['mass'].high, x['B','B']['mass'].high)
 
         #test dumping/re-loading data with types that don't match
         m = potential.CoefficientMatrix(types=('A','B'), params=('energy','mass'))
-        dat = potential.CoefficientMatrix(types=('A','B','C'), params=('energy','mass'),
+        x = potential.CoefficientMatrix(types=('A','B','C'), params=('energy','mass'),
                                           default={'energy':0.5, 'mass':0.2})
-        dat.save(temp.name)
+        x.save(temp.name)
         with self.assertRaises(KeyError):
             m.load(temp.name)
 
         #test dumping/re-loading data with params that don't match
-        dat = potential.CoefficientMatrix(types=('A','B'), params=('energy'),
+        x = potential.CoefficientMatrix(types=('A','B'), params=('energy'),
                                           default={'energy':core.Variable(value=1.0)})
-        dat.save(temp.name)
+        x.save(temp.name)
         with self.assertRaises(KeyError):
             m.load(temp.name)
+
+        #test loading data with scalar values using class method `from_file`
+        x = potential.CoefficientMatrix(types=('A','B'), params=('energy','mass'),
+                                          default={'energy':1.0, 'mass':2.0})
+        x.save(temp.name)
+        m = potential.CoefficientMatrix.from_file(temp.name)
+
+        self.assertEqual(m['A','B']['energy'], x['A','B']['energy'])
+        self.assertEqual(m['A','B']['mass'], x['A','B']['mass'])
+        self.assertEqual(m['A','A']['energy'], x['A','A']['energy'])
+        self.assertEqual(m['A','A']['mass'], x['A','A']['mass'])
+        self.assertEqual(m['B','B']['energy'], x['B','B']['energy'])
+        self.assertEqual(m['B','B']['mass'], x['B','B']['mass'])
+
+        #test loading data with Variable values using class method `from_file`
+        x = potential.CoefficientMatrix(types=('A','B'), params=('energy','mass'),
+                                          default={'energy':core.Variable(value=1.0,low=1.5),
+                                                   'mass':core.Variable(value=0.5,high=0.2)})
+        x.save(temp.name)
+        m = potential.CoefficientMatrix.from_file(temp.name)
+
+        self.assertEqual(m['A','B']['energy'].value, x['A','B']['energy'].value)
+        self.assertEqual(m['A','B']['mass'].value, x['A','B']['mass'].value)
+        self.assertEqual(m['A','A']['energy'].value, x['A','A']['energy'].value)
+        self.assertEqual(m['A','A']['mass'].value, x['A','A']['mass'].value)
+        self.assertEqual(m['B','B']['energy'].value, x['B','B']['energy'].value)
+        self.assertEqual(m['B','B']['mass'].value, x['B','B']['mass'].value)
+
+        self.assertEqual(m['A','B']['energy'].low, x['A','B']['energy'].low)
+        self.assertEqual(m['A','B']['mass'].low, x['A','B']['mass'].low)
+        self.assertEqual(m['A','A']['energy'].low, x['A','A']['energy'].low)
+        self.assertEqual(m['A','A']['mass'].low, x['A','A']['mass'].low)
+        self.assertEqual(m['B','B']['energy'].low, x['B','B']['energy'].low)
+        self.assertEqual(m['B','B']['mass'].low, x['B','B']['mass'].low)
+
+        self.assertEqual(m['A','B']['energy'].high, x['A','B']['energy'].high)
+        self.assertEqual(m['A','B']['mass'].high, x['A','B']['mass'].high)
+        self.assertEqual(m['A','A']['energy'].high, x['A','A']['energy'].high)
+        self.assertEqual(m['A','A']['mass'].high, x['A','A']['mass'].high)
+        self.assertEqual(m['B','B']['energy'].high, x['B','B']['energy'].high)
+        self.assertEqual(m['B','B']['mass'].high, x['B','B']['mass'].high)
 
         temp.close()
 
