@@ -159,14 +159,15 @@ class CoefficientMatrix(PairMatrix):
         """
         data = {}
         for key in self:
-            data[str(key)] = {}
+            dkey = str(key)
+            data[dkey] = {}
             for param in self[key]:
                 var = self[key][param]
                 if isinstance(var, Variable):
-                    data[str(key)][param] = {'type':'variable', 'value':var.value,
+                    data[dkey][param] = {'type':'variable', 'value':var.value,
                                              'const':var.const, 'low':var.low, 'high':var.high}
                 elif np.isscalar(var):
-                    data[str(key)][param] = {'type':'scalar', 'value':var}
+                    data[dkey][param] = {'type':'scalar', 'value':var}
                 else:
                     raise TypeError('Value type unrecognized')
 
@@ -213,7 +214,6 @@ class CoefficientMatrix(PairMatrix):
                         self[key][param] = var_data['value']
                     else:
                         raise TypeError('Unrecognized value type in the data')
-
                 elif var_data['type'] == 'variable' and isinstance(self[key][param], Variable):
                     self[key][param].value = var_data['value']
                     self[key][param].const = var_data['const']
@@ -243,6 +243,7 @@ class CoefficientMatrix(PairMatrix):
             data_ = json.load(f)
         data = {eval(key): data_[key] for key in data_}
 
+        #get the types and parameters from the JSON file
         par = None
         typ = set()
         for key in data:

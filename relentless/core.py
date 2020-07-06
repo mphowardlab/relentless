@@ -352,11 +352,15 @@ class FixedKeyDict:
         """
         if len(data) > 1:
             raise TypeError('More than one positional argument is given')
-        d  = data[0] if len(data) == 1 else values
-        for key in d:
+        if len(data) == 1:
+            for key in data[0]:
+                if str(key) not in self.keys:
+                    raise KeyError('Only the known keys can be set.')
+                self[key] = data[0][key]
+        for key in values:
             if str(key) not in self.keys:
                 raise KeyError('Only the known keys can be set.')
-            self[key] = d[key]
+            self[key] = values[key]
 
     def todict(self):
         """Convert the fixed-key dictionary to a standard dictionary.
@@ -480,7 +484,7 @@ class Variable:
     def value(self, value):
         if not isinstance(value,(float,int)):
             raise ValueError('Variable must be a float or int')
-        self._value, self._state = self.clamp(float(value))
+        self._value, self._state = self.clamp(value)
 
     @property
     def low(self):
@@ -491,9 +495,20 @@ class Variable:
     def low(self, low):
         if low is not None and not isinstance(low, (float,int)):
             raise ValueError('Low bound must be a float or int')
-        self._low = low
-        if hasattr(self, '_value'):
-            self._value, self._state = self.clamp(float(self._value))
+        try:
+            if low is None or self._high is None:
+                self._low = low
+            elif low <= self._high:
+                self._low = low
+            else:
+                raise ValueError('The low bound must be less than the high bound')
+        except AttributeError:
+            self._low = low
+
+        try:
+            self._value, self._state = self.clamp(self._value)
+        except AttributeError:
+            pass
 
     @property
     def high(self):
@@ -504,9 +519,20 @@ class Variable:
     def high(self, high):
         if high is not None and not isinstance(high, (float,int)):
             raise ValueError('High bound must be a float or int')
-        self._high = high
-        if hasattr(self, '_value'):
-            self._value, self._state = self.clamp(float(self._value))
+        try:
+            if high is None or self._high is None:
+                self._high = high
+            elif high >= self._low:
+                self._high = high
+            else:
+                raise ValueError('The high bound must be greater than the low bound')
+        except AttributeError:
+            self._high = high
+
+        try:
+            self._value, self._state = self.clamp(self._value)
+        except AttributeError:
+            pass
 
     @property
     def state(self):

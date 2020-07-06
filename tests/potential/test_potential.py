@@ -96,6 +96,16 @@ class test_CoefficientMatrix(unittest.TestCase):
         self.assertEqual(m['A','A']['energy'], 1.5)
         self.assertEqual(m['A','A']['mass'], 1.5)
 
+        #test get and set on invalid pairs/params
+        with self.assertRaises(KeyError):
+            m['A','C']['energy'] = 2
+        with self.assertRaises(KeyError):
+            x = m['A','C']['energy']
+        with self.assertRaises(KeyError):
+            m['A','B']['charge'] = 3
+        with self.assertRaises(KeyError):
+            x = m['A','B']['charge']
+
     def test_accessor_pairs(self):
         """Test get and set methods for various pairs"""
         #test set and get for initialized default
@@ -117,21 +127,21 @@ class test_CoefficientMatrix(unittest.TestCase):
         self.assertEqual(m['B','B']['energy'], 0.0)
         self.assertEqual(m['B','B']['mass'], 0.0)
 
-        m['A','A'] = {'energy':1.0, 'mass':2.0}
+        m['A','A'].update({'energy':1.5, 'mass':2.5})
         self.assertEqual(m['A','B']['energy'], 1.0)
         self.assertEqual(m['A','B']['mass'], 2.0)
-        self.assertEqual(m['A','A']['energy'], 1.0)
-        self.assertEqual(m['A','A']['mass'], 2.0)
+        self.assertEqual(m['A','A']['energy'], 1.5)
+        self.assertEqual(m['A','A']['mass'], 2.5)
         self.assertEqual(m['B','B']['energy'], 0.0)
         self.assertEqual(m['B','B']['mass'], 0.0)
 
-        m['B','B'] = {'energy':1.0, 'mass':2.0}
+        m['B','B'] = {'energy':3.0, 'mass':4.0}
         self.assertEqual(m['A','B']['energy'], 1.0)
         self.assertEqual(m['A','B']['mass'], 2.0)
-        self.assertEqual(m['A','A']['energy'], 1.0)
-        self.assertEqual(m['A','A']['mass'], 2.0)
-        self.assertEqual(m['B','B']['energy'], 1.0)
-        self.assertEqual(m['B','B']['mass'], 2.0)
+        self.assertEqual(m['A','A']['energy'], 1.5)
+        self.assertEqual(m['A','A']['mass'], 2.5)
+        self.assertEqual(m['B','B']['energy'], 3.0)
+        self.assertEqual(m['B','B']['mass'], 4.0)
 
         #test that partial assignment resets other param to default value
         m['A','A'] = {'energy':2.0}
@@ -139,14 +149,8 @@ class test_CoefficientMatrix(unittest.TestCase):
         self.assertEqual(m['A','B']['mass'], 2.0)
         self.assertEqual(m['A','A']['energy'], 2.0)
         self.assertEqual(m['A','A']['mass'], 0.0)
-        self.assertEqual(m['B','B']['energy'], 1.0)
-        self.assertEqual(m['B','B']['mass'], 2.0)
-
-        #test setting for invalid keys and params
-        with self.assertRaises(KeyError):
-            x = m['A','C']['energy']
-        with self.assertRaises(KeyError):
-            x = m['A','B']['temperature']
+        self.assertEqual(m['B','B']['energy'], 3.0)
+        self.assertEqual(m['B','B']['mass'], 4.0)
 
     def test_evaluate(self):
         """Test evaluation of pair parameters"""
@@ -183,7 +187,7 @@ class test_CoefficientMatrix(unittest.TestCase):
         with self.assertRaises(TypeError):
             x = m.evaluate(('A','B'))
 
-    def test_parse(self):
+    def test_saveload(self):
         """Test saving to and loading from file"""
         temp = tempfile.NamedTemporaryFile()
 
@@ -246,6 +250,12 @@ class test_CoefficientMatrix(unittest.TestCase):
         x.save(temp.name)
         with self.assertRaises(KeyError):
             m.load(temp.name)
+
+        temp.close()
+
+    def test_fromfile(self):
+        """Test creating new coefficient matrix from file."""
+        temp = tempfile.NamedTemporaryFile()
 
         #test loading data with scalar values using class method `from_file`
         x = potential.CoefficientMatrix(types=('A','B'), params=('energy','mass'),

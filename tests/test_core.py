@@ -250,18 +250,44 @@ class test_FixedKeyDict(unittest.TestCase):
         self.assertEqual(d['A'], 2.0)
         self.assertEqual(d['B'], 1.5)
 
-        #test using `update()`
-        d.update({'A':1.2, 'B':2.1})
-        self.assertEqual(d['A'], 1.2)
-        self.assertEqual(d['B'], 2.1)
-
-        d.update(A=1.1, B=2.2)
-        self.assertEqual(d['A'], 1.1)
-        self.assertEqual(d['B'], 2.2)
-
         #test getting invalid key
         with self.assertRaises(KeyError):
             x = d['C']
+
+    def test_update(self):
+        """Test update method to get and set keys."""
+        d = relentless.core.FixedKeyDict(keys=('A','B'))
+
+        #test updating both keys
+        d.update({'A':1.0, 'B':2.0})  #using dict
+        self.assertEqual(d['A'], 1.0)
+        self.assertEqual(d['B'], 2.0)
+
+        d.update(A=1.5, B=2.5)  #using kwargs
+        self.assertEqual(d['A'], 1.5)
+        self.assertEqual(d['B'], 2.5)
+
+        #test updating only one key at a time
+        d.update({'A':1.1})   #using dict
+        self.assertEqual(d['A'], 1.1)
+        self.assertEqual(d['B'], 2.5)
+
+        d.update(B=2.2)   #using kwargs
+        self.assertEqual(d['A'], 1.1)
+        self.assertEqual(d['B'], 2.2)
+
+        #test using *args length > 1
+        with self.assertRaises(TypeError):
+            d.update({'A':3.0}, {'B':4.0})
+
+        #test using both *args and **kwargs
+        d.update({'A':3.0, 'B':2.0}, B=2.2)
+        self.assertEqual(d['A'], 3.0)
+        self.assertEqual(d['B'], 2.2)
+
+        #test using invalid kwarg
+        with self.assertRaises(KeyError):
+            d.update(C=2.5)
 
     def test_iteration(self):
         """Test iteration on the dictionary."""
@@ -417,6 +443,41 @@ class test_Variable(unittest.TestCase):
         #test invalid value
         with self.assertRaises(ValueError):
             v.value = '0'
+
+    def test_bounds(self):
+        """Test methods for setting bounds and checking value clamping."""
+        #test construction with value between bounds
+        v = relentless.core.Variable(value=0.0, low=-1.0, high=1.0)
+        self.assertAlmostEqual(v.value, 0.0)
+        self.assertEqual(v.state, v.State.FREE)
+
+        #test changing low bound to above value
+        v.low = 0.2
+        self.assertAlmostEqual(v.value, 0.2)
+        self.assertAlmostEqual(v.low, 0.2)
+        self.assertAlmostEqual(v.high, 1.0)
+        self.assertEqual(v.state, v.State.LOW)
+
+        #test changing high bound to below value
+        v.low = -1.0
+        v.high = -0.2
+        self.assertAlmostEqual(v.value, -0.2)
+        self.assertAlmostEqual(v.low, -1.0)
+        self.assertAlmostEqual(v.high, -0.2)
+        self.assertEqual(v.state, v.State.HIGH)
+
+        #test changing bounds to value
+        v.low = -0.2
+        self.assertAlmostEqual(v.value, -0.2)
+        self.assertAlmostEqual(v.low, -0.2)
+        self.assertAlmostEqual(v.high, -0.2)
+        self.assertEqual(v.state, v.State.LOW)
+
+        #test changing bounds incorrectly
+        with self.assertRaises(ValueError):
+            v.low = 0.2
+        with self.assertRaises(ValueError):
+            v.high = -0.6
 
 if __name__ == '__main__':
     unittest.main()
