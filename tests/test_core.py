@@ -470,7 +470,7 @@ class test_Variable(unittest.TestCase):
         with self.assertRaises(ValueError):
             v.low = 0.2
         with self.assertRaises(ValueError):
-            v.high = -0.6
+            v.high = -1.6
 
 if __name__ == '__main__':
     unittest.main()

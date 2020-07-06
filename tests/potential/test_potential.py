@@ -157,8 +157,8 @@ class test_CoefficientMatrix(unittest.TestCase):
         self.assertEqual(m['A','B']['mass'], 2.0)
         self.assertEqual(m['A','A']['energy'], 2.0)
         self.assertEqual(m['A','A']['mass'], 0.0)
-        self.assertEqual(m['B','B']['energy'], 3.0)
-        self.assertEqual(m['B','B']['mass'], 4.0)
+        self.assertEqual(m['B','B']['energy'], 3.5)
+        self.assertEqual(m['B','B']['mass'], 4.5)
 
     def test_evaluate(self):
         """Test evaluation of pair parameters"""
