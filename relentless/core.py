@@ -127,6 +127,8 @@ class PairMatrix:
 
     Raises
     ------
+    ValueError
+        If initialization occurs with empty types
     TypeError
         If types does not consist of only strings
 
@@ -167,6 +169,8 @@ class PairMatrix:
 
     """
     def __init__(self, types):
+        if len(types) == 0:
+            raise ValueError('Cannot initialize with empty types')
         if not all(isinstance(t, str) for t in types):
             raise TypeError('All types must be strings')
         self.types = tuple(types)
@@ -229,36 +233,42 @@ class PairMatrix:
         """tuple: All unique pairs in the matrix."""
         return tuple(self._data.keys())
 
-class TypeDict:
-    """Dictionary with fixed keys set by type.
+class FixedKeyDict:
+    """Dictionary with fixed keys.
 
     Parameters
     ----------
-    types : array_like
-        List of types (typically, a type is a `str`).
+    keys : array_like
+        List of keys to be fixed (a key must be a `str`).
     default
-        Initial value to fill in the dictionary, defaults to `None`.
+        Initial values to fill in the dictionary, defaults to `None`.
 
     Raises
     ------
     TypeError
-        If types does not consist only of strings
+        If keys does not consist only of strings
 
     Examples
     --------
-    Create a type dictionary::
+    Create a keyed dictionary::
 
-        d = TypeDict(types=('A','B'))
+        d = FixedKeyDict(keys=('A','B'))
 
     Default values::
 
         >>> print(d)
         {'A': None, 'B': None}
 
+    Set default values::
+
+        d = FixedKeyDict(keys=('A','B'), default=0.0)
+        >>> print(d)
+        {'A':0.0, 'B':0.0}
+
     Iterate as a dictionary::
 
-        for t in d:
-            d[t] = 1.0
+        for k in d:
+            d[k] = 1.0
 
     Access by key::
 
@@ -267,17 +277,24 @@ class TypeDict:
         >>> d['B']
         1.0
 
-    Single-type dictionary still needs `types` as a tuple::
+    Partially reassign/update values::
 
-        TypeDict(types=('A',))
+        d.update({'A':0.5})
+        d.update(A=0.5)  #equivalent statement
+        >>> print(d)
+        {'A':0.5, 'B':1.0}
+
+    Single-key dictionary still needs `keys` as a tuple::
+
+        FixedKeyDict(keys=('A',))
 
     """
-    def __init__(self, types, default=None):
-        if not all(isinstance(t, str) for t in types):
-            raise TypeError('All types must be strings')
-        self._types = tuple(types)
+    def __init__(self, keys, default=None):
+        if not all(isinstance(k, str) for k in keys):
+            raise TypeError('All keys must be strings')
+        self._keys = tuple(keys)
         self._data = {}
-        for i in self.types:
+        for i in self.keys:
             self._data[i] = default
 
     def _check_key(self, key):
@@ -294,8 +311,8 @@ class TypeDict:
             If the key is not in the dictionary.
 
         """
-        if key not in self.types:
-            raise KeyError('Type {} is not in dictionary.'.format(key))
+        if key not in self.keys:
+            raise KeyError('Key {} is not in dictionary.'.format(key))
         return key
 
     def __getitem__(self, key):
@@ -315,6 +332,33 @@ class TypeDict:
     def __str__(self):
         return str(self._data)
 
+    def update(self, *data, **values):
+        """Partially reassigns key values.
+
+        If both positional argument (data) and keyword arguments (values)
+        are given as parameters, any keys in values will take precedence over data.
+
+        Parameters
+        ----------
+        data : `dict`
+            The keys and values to be updated/over-written, in a dictionary form.
+        values : kwargs
+            The keys and values to be updated/over-written.
+
+        Raises
+        ------
+        TypeError
+            If more than one positional argument is given.
+
+        """
+        if len(data) > 1:
+            raise TypeError('More than one positional argument is given')
+        elif len(data) == 1:
+            for key in data[0]:
+                self[key] = data[0][key]
+        for key in values:
+            self[key] = values[key]
+
     def todict(self):
         """Convert the fixed-key dictionary to a standard dictionary.
 
@@ -327,9 +371,9 @@ class TypeDict:
         return dict(self._data)
 
     @property
-    def types(self):
-        """tuple: All types in the dictionary."""
-        return self._types
+    def keys(self):
+        """tuple: All keys in the dictionary."""
+        return self._keys
 
 class Variable:
     """Bounded variable.
@@ -398,7 +442,6 @@ class Variable:
         self.const = const
         self.low = low
         self.high = high
-
         self.value = value
 
     def clamp(self, value):
@@ -438,7 +481,55 @@ class Variable:
     def value(self, value):
         if not isinstance(value,(float,int)):
             raise ValueError('Variable must be a float or int')
-        self._value, self._state = self.clamp(float(value))
+        self._value, self._state = self.clamp(value)
+
+    @property
+    def low(self):
+        """float: The low bound of the variable"""
+        return self._low
+
+    @low.setter
+    def low(self, low):
+        if low is not None and not isinstance(low, (float,int)):
+            raise ValueError('Low bound must be a float or int')
+        try:
+            if low is None or self._high is None:
+                self._low = low
+            elif low < self._high:
+                self._low = low
+            else:
+                raise ValueError('The low bound must be less than the high bound')
+        except AttributeError:
+            self._low = low
+
+        try:
+            self._value, self._state = self.clamp(self._value)
+        except AttributeError:
+            pass
+
+    @property
+    def high(self):
+        """float: The high bound of the variable"""
+        return self._high
+
+    @high.setter
+    def high(self, high):
+        if high is not None and not isinstance(high, (float,int)):
+            raise ValueError('High bound must be a float or int')
+        try:
+            if high is None or self._high is None:
+                self._high = high
+            elif high > self._low:
+                self._high = high
+            else:
+                raise ValueError('The high bound must be greater than the low bound')
+        except AttributeError:
+            self._high = high
+
+        try:
+            self._value, self._state = self.clamp(self._value)
+        except AttributeError:
+            pass
 
     @property
     def state(self):

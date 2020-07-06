@@ -1,29 +1,129 @@
 __all__ = ['PairPotential','Tabulator']
 
 import json
-
 import numpy as np
 
 from relentless.core import PairMatrix
+from relentless.core import FixedKeyDict
 from relentless.core import Variable
 
 class CoefficientMatrix(PairMatrix):
-    """ Pair coefficient matrix."""
+    """ Pair coefficient matrix.
+
+    Defines a matrix of PairMatrix objects with one or more parameters.
+    Any or all of the parameters can be initialized with a default value.
+
+    Parameters
+    ----------
+    types : array_like
+        List of types (A type must be a `str`).
+    params : array_like
+        List of parameters (A parameter must be a `str`).
+    default : dict
+        Initial value for any or all parameters, the values default to `None`.
+
+    Raises
+    ------
+    ValueError
+        If params is initialized as empty
+    TypeError
+        If params does not consist of only strings
+
+    Examples
+    --------
+    Create a coefficient matrix with defined types and params::
+
+        m = CoefficientMatrix(types=('A','B'), params=('energy','mass'))
+
+    Create a coefficient matrix with default parameter values::
+
+        m = CoefficientMatrix(types=('A','B'), params=('energy','mass'),
+                              default={'energy':0.0, 'mass':0.0})
+
+    Set coefficient matrix values by accessing parameter directly::
+
+        m['A','A']['energy'] = 2.0
+
+    Assigning to a pair using `update()` overwrites the specified parameters::
+
+        m['A','A'].update({'mass':2.5})  #does not reset 'energy' value to default
+        m['A','A'].update(mass=2.5)      #equivalent statement
+        >>> print(m['A','A'])
+        {'energy':2.0, 'mass':2.5}
+
+    Assigning to a pair using `=` operator overwrites the specified parameters and resets
+    the other parameters to their defaults, if it exists::
+
+        m['A','A'] = {'mass':2.5}  #does reset 'energy' value to default
+        >>> print(m['A','A'])
+        {'energy':0.0, 'mass':2.5}
+
+    Set coefficient matrix values by setting parameters in full::
+
+        m['A','B'] = {'energy':Variable(value=2.0,high=1.5), 'mass':0.5}
+
+    Set coefficient matrix values by iteratively accessing parameters::
+
+        for p in m.params:
+            m['B','B'][p] = 0.1
+
+    Evaluate (retrieve) pair parameters::
+
+        >>> print(m.evaluate(('B','B')))
+        {'energy':0.1, 'mass':0.1}
+
+    Utilizing `evaluate()` computes the defined values of all objects,
+    while directly accessing values returns the objects themselves::
+
+        >>> print(m.evaluate(('A','B')))
+        {'energy':2.0, 'mass':0.5}
+        >>> print(m['A','B'])
+        {'energy':<relentless.core.Variable object at 0x561124456>, 'mass':0.5}
+
+    """
     def __init__(self, types, params, default={}):
         super().__init__(types)
+
+        if len(params) == 0:
+            raise ValueError('params cannot be initialized as empty')
+        if not all(isinstance(p, str) for p in params):
+            raise TypeError('All parameters must be strings')
+
         self.params = tuple(params)
+        self.default = FixedKeyDict(keys=self.params)
+        self.default.update(default)
+
         for key in self:
-            for p in self.params:
-                v = default[p] if p in default else None
-                self[key][p] = v
+            self._data[key] = FixedKeyDict(keys=self.params)
+            self._data[key].update(self.default)
 
     def evaluate(self, pair):
         """Evaluate pair parameters.
+
+        Returns a dictionary of the parameters and values for the specified pair.
+
+        Parameters
+        ----------
+        pair : tuple
+            Pair for which the parameters are called
+
+        Returns
+        -------
+        params : `dict`
+            The parameters evaluated for the specified pair
+
+        Raises
+        ------
+        TypeError
+            If a parameter is of an unrecognizable type
+        ValueError
+            If a parameter is not set for the specified pair
 
         Todo
         ----
         1. Allow callable parameters.
         2. Cache output.
+
         """
         params = {}
         for p in self.params:
@@ -34,28 +134,136 @@ class CoefficientMatrix(PairMatrix):
                 params[p] = v
             elif v is not None:
                 raise TypeError('Parameter type unrecognized')
-
             if v is None:
                 raise ValueError('Parameter {} is not set for ({},{}).'.format(p,pair[0],pair[1]))
 
         return params
 
     def save(self, filename):
-        all_params = {}
+        """Saves the data from a coefficient matrix to a file.
+
+        Serializes each parameter value in order to track the internal values
+        of the :py:class:`Variable` object and distinguish it from 'scalar' values.
+
+        Parameters
+        ----------
+        filename : `str`
+            The name of the file to save data in.
+
+        Raises
+        ------
+        TypeError
+            If a value is of an unrecognizable type
+
+        """
+        data = {}
         for key in self:
-            all_params[str(key)] = self.evaluate(key)
+            dkey = str(key)
+            data[dkey] = {}
+            for param in self[key]:
+                var = self[key][param]
+                if isinstance(var, Variable):
+                    data[dkey][param] = {'type':'variable', 'value':var.value,
+                                         'const':var.const, 'low':var.low, 'high':var.high}
+                elif np.isscalar(var):
+                    data[dkey][param] = {'type':'scalar', 'value':var}
+                else:
+                    raise TypeError('Value type unrecognized')
+
         with open(filename, 'w') as f:
-            json.dump(all_params, f, sort_keys=True, indent=4)
+            json.dump(data, f, sort_keys=True, indent=4)
 
     def load(self, filename):
-        raise NotImplementedError('Load is not implemented')
+        """Loads the data from a file into the coefficient matrix.
+
+        Parameters
+        ----------
+        filename : `str`
+            The name of the file from which to load data.
+
+        Raises
+        ------
+        KeyError
+            If the pairs in the data are not exactly the pairs in self
+        KeyError
+            If the params in the data are not exactly the params in self
+        TypeError
+            If the value type in the data is of an unrecognized type
+        TypeError
+            If the parameter value type in the data and in self do not match
+
+        """
+        with open(filename, 'r') as f:
+            data_ = json.load(f)
+        data = {eval(key): data_[key] for key in data_}
+
+        if set(self.pairs) != set(data.keys()):
+            raise KeyError('The type pairs in the data are not exactly the pairs in self')
+        for key in data:
+            if set(self.params) != set(data[key].keys()):
+                raise KeyError('The parameters in the data are not exactly the parameters in self')
+
+            for param in data[key]:
+                var_data = data[key][param]
+                if self[key][param] is None:
+                    if var_data['type'] == 'variable':
+                        self[key][param] = Variable(value=var_data['value'], const=var_data['const'],
+                                                    low=var_data['low'], high=var_data['high'])
+                    elif var_data['type'] == 'scalar':
+                        self[key][param] = var_data['value']
+                    else:
+                        raise TypeError('Unrecognized value type in the data')
+                elif var_data['type'] == 'variable' and isinstance(self[key][param], Variable):
+                    self[key][param].value = var_data['value']
+                    self[key][param].const = var_data['const']
+                    self[key][param].low = var_data['low']
+                    self[key][param].high = var_data['high']
+                elif var_data['type'] == 'scalar' and np.isscalar(self[key][param]):
+                    self[key][param] = var_data['value']
+                else:
+                    raise TypeError('The parameter value types in the data and self do not match')
+
+    @classmethod
+    def from_file(cls, filename):
+        """Load data from a file into a new coefficient matrix object.
+
+        Parameters
+        ----------
+        filename : `str`
+            The name of the file from which to load data.
+
+        Returns
+        -------
+        :py:class:`CoefficientMatrix`
+            Object initialized with the data in the file.
+
+        """
+        with open(filename, 'r') as f:
+            data_ = json.load(f)
+        data = {eval(key): data_[key] for key in data_}
+
+        #get the types and parameters from the JSON file
+        par = None
+        typ = set()
+        for key in data:
+            for t in key:
+                typ.add(t)
+            if par is None:
+                par = data[key].keys()
+        typ = tuple(typ)
+
+        m = CoefficientMatrix(types=typ, params=par)
+        m.load(filename)
+        return m
 
     def __setitem__(self, key, value):
-        """ Set coefficients for the (i,j) pair."""
+        """Set coefficients for the (i,j) pair."""
         for p in value:
             if p not in self.params:
-                raise KeyError('Only the known parameters can be set in coefficient matrix.')
-            self[key][p] = value[p]
+                raise KeyError('Only the known parameters can be set in the coefficient matrix.')
+
+        self[key].update(self.default)
+        self[key].update(value)
 
 class PairPotential:
     """Generic pair potential evaluator.
