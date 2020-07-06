@@ -84,15 +84,19 @@ class CoefficientMatrix(PairMatrix):
     """
     def __init__(self, types, params, default={}):
         super().__init__(types)
+
         if len(params) == 0:
             raise ValueError('params cannot be initialized as empty')
         if not all(isinstance(p, str) for p in params):
             raise TypeError('All parameters must be strings')
+
         self.params = tuple(params)
-        self.default = default
+        self.default = FixedKeyDict(keys=self.params)
+        self.default.update(default)
+
         for key in self:
-            self[key] = FixedKeyDict(keys=self.params)
-            self[key].update(self.default)
+            self._data[key] = FixedKeyDict(keys=self.params)
+            self._data[key].update(self.default)
 
     def evaluate(self, pair):
         """Evaluate pair parameters.
@@ -147,18 +151,25 @@ class CoefficientMatrix(PairMatrix):
         filename : `str`
             The name of the file to save data in.
 
+        Raises
+        ------
+        TypeError
+            If a value is of an unrecognizable type
+
         """
         data = {}
         for key in self:
-            all_params = {}
+            data[str(key)] = {}
             for param in self[key]:
                 var = self[key][param]
                 if isinstance(var, Variable):
-                    all_params[param] = {'type':'variable', 'value':var.value,
-                                         'const':var.const, 'low':var.low, 'high':var.high}
-                elif isinstance(var, (float,int)):
-                    all_params[param] = {'type':'scalar', 'value':var}
-            data[str(key)] = all_params
+                    data[str(key)][param] = {'type':'variable', 'value':var.value,
+                                             'const':var.const, 'low':var.low, 'high':var.high}
+                elif np.isscalar(var):
+                    data[str(key)][param] = {'type':'scalar', 'value':var}
+                else:
+                    raise TypeError('Value type unrecognized')
+
         with open(filename, 'w') as f:
             json.dump(data, f, sort_keys=True, indent=4)
 
@@ -177,36 +188,39 @@ class CoefficientMatrix(PairMatrix):
         KeyError
             If the params in the data are not exactly the params in self
         TypeError
+            If the value type in the data is of an unrecognized type
+        TypeError
             If the parameter value type in the data and in self do not match
 
         """
         with open(filename, 'r') as f:
-            data = json.load(f)
-        pairs = []
-        for key in data:
-            pairs.append(eval(key))
-        if sorted(self.pairs) != sorted(tuple(pairs)):
+            data_ = json.load(f)
+        data = {eval(key): data_[key] for key in data_}
+
+        if set(self.pairs) != set(data.keys()):
             raise KeyError('The type pairs in the data are not exactly the pairs in self')
         for key in data:
-            key_tup = eval(key)
-            if sorted(self.params) != sorted(data[key].keys()):
+            if set(self.params) != set(data[key].keys()):
                 raise KeyError('The parameters in the data are not exactly the parameters in self')
+
             for param in data[key]:
                 var_data = data[key][param]
-                var_self = self[key_tup][param]
-                if var_self is None:
+                if self[key][param] is None:
                     if var_data['type'] == 'variable':
-                        self[key_tup][param] = Variable(value=var_data['value'], const=var_data['const'],
+                        self[key][param] = Variable(value=var_data['value'], const=var_data['const'],
                                                         low=var_data['low'], high=var_data['high'])
                     elif var_data['type'] == 'scalar':
-                        self[key_tup][param] = var_data['value']
+                        self[key][param] = var_data['value']
                     else:
-                        raise TypeError('The parameter value types in the data and self do not match')
-                elif var_data['type'] == 'scalar' and isinstance(var_self, (float,int)):
-                    self[key_tup][param] = var_data['value']
-                elif var_data['type'] == 'variable' and isinstance(var_self, Variable):
-                    self[key_tup][param] = Variable(value=var_data['value'], const=var_data['const'],
-                                                    low=var_data['low'], high=var_data['high'])
+                        raise TypeError('Unrecognized value type in the data')
+
+                elif var_data['type'] == 'variable' and isinstance(self[key][param], Variable):
+                    self[key][param].value = var_data['value']
+                    self[key][param].const = var_data['const']
+                    self[key][param].low = var_data['low']
+                    self[key][param].high = var_data['high']
+                elif var_data['type'] == 'scalar' and np.isscalar(self[key][param]):
+                    self[key][param] = var_data['value']
                 else:
                     raise TypeError('The parameter value types in the data and self do not match')
 
@@ -226,15 +240,19 @@ class CoefficientMatrix(PairMatrix):
 
         """
         with open(filename, 'r') as f:
-            data = json.load(f)
-        t_all = data.keys()
-        p = data[list(t_all)[0]].keys()
-        for par in t_all:
-            par = eval(par)
-            if len(par) == len(set(par)):
-                t = par
-                break
-        m = CoefficientMatrix(types=t, params=p)
+            data_ = json.load(f)
+        data = {eval(key): data_[key] for key in data_}
+
+        par = None
+        typ = set()
+        for key in data:
+            for t in key:
+                typ.add(t)
+            if par is None:
+                par = data[key].keys()
+        typ = tuple(typ)
+
+        m = CoefficientMatrix(types=typ, params=par)
         m.load(filename)
         return m
 
@@ -243,11 +261,9 @@ class CoefficientMatrix(PairMatrix):
         for p in value:
             if p not in self.params:
                 raise KeyError('Only the known parameters can be set in the coefficient matrix.')
-        for p in self.params:
-            if p in value:
-                self[key][p] = value[p]
-            else:
-                self[key][p] = self.default[p] if p in self.default else None
+
+        self[key].update(self.default)
+        self[key].update(value)
 
 class PairPotential:
     """Generic pair potential evaluator.

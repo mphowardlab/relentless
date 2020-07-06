@@ -353,10 +353,10 @@ class FixedKeyDict:
         if len(data) > 1:
             raise TypeError('More than one positional argument is given')
         d  = data[0] if len(data) == 1 else values
-        for key,value in d.items():
+        for key in d:
             if str(key) not in self.keys:
                 raise KeyError('Only the known keys can be set.')
-            self[key] = value
+            self[key] = d[key]
 
     def todict(self):
         """Convert the fixed-key dictionary to a standard dictionary.
@@ -492,6 +492,8 @@ class Variable:
         if low is not None and not isinstance(low, (float,int)):
             raise ValueError('Low bound must be a float or int')
         self._low = low
+        if hasattr(self, '_value'):
+            self._value, self._state = self.clamp(float(self._value))
 
     @property
     def high(self):
@@ -503,6 +505,8 @@ class Variable:
         if high is not None and not isinstance(high, (float,int)):
             raise ValueError('High bound must be a float or int')
         self._high = high
+        if hasattr(self, '_value'):
+            self._value, self._state = self.clamp(float(self._value))
 
     @property
     def state(self):

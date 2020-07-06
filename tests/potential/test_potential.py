@@ -38,7 +38,7 @@ class test_CoefficientMatrix(unittest.TestCase):
                                         default={'energy':0.0, 'mass':0.0})
         self.assertEqual(m.types, types)
         self.assertEqual(m.params, params)
-        self.assertEqual(m.default, default)
+        self.assertEqual(m.default.todict(), default)
         self.assertCountEqual(m.pairs, pairs)
 
         #test construction with int type parameters
@@ -239,8 +239,10 @@ class test_CoefficientMatrix(unittest.TestCase):
             m.load(temp.name)
 
         #test dumping/re-loading data with params that don't match
-        x = potential.CoefficientMatrix(types=('A','B'), params=('energy'),
-                                          default={'energy':core.Variable(value=1.0)})
+        x = potential.CoefficientMatrix(types=('A','B'), params=('energy','mass','charge'),
+                                          default={'energy':core.Variable(value=1.0),
+                                                   'mass':core.Variable(value=2.0),
+                                                   'charge':core.Variable(value=0.0)})
         x.save(temp.name)
         with self.assertRaises(KeyError):
             m.load(temp.name)
