@@ -31,7 +31,6 @@ class CoefficientMatrix(PairMatrix):
 
     Examples
     --------
-
     Create a coefficient matrix with defined types and params::
 
         m = CoefficientMatrix(types=('A','B'), params=('energy','mass'))
@@ -165,7 +164,7 @@ class CoefficientMatrix(PairMatrix):
                 var = self[key][param]
                 if isinstance(var, Variable):
                     data[dkey][param] = {'type':'variable', 'value':var.value,
-                                             'const':var.const, 'low':var.low, 'high':var.high}
+                                         'const':var.const, 'low':var.low, 'high':var.high}
                 elif np.isscalar(var):
                     data[dkey][param] = {'type':'scalar', 'value':var}
                 else:
@@ -209,7 +208,7 @@ class CoefficientMatrix(PairMatrix):
                 if self[key][param] is None:
                     if var_data['type'] == 'variable':
                         self[key][param] = Variable(value=var_data['value'], const=var_data['const'],
-                                                        low=var_data['low'], high=var_data['high'])
+                                                    low=var_data['low'], high=var_data['high'])
                     elif var_data['type'] == 'scalar':
                         self[key][param] = var_data['value']
                     else:

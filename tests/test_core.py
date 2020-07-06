@@ -466,13 +466,6 @@ class test_Variable(unittest.TestCase):
         self.assertAlmostEqual(v.high, -0.2)
         self.assertEqual(v.state, v.State.HIGH)
 
-        #test changing bounds to value
-        v.low = -0.2
-        self.assertAlmostEqual(v.value, -0.2)
-        self.assertAlmostEqual(v.low, -0.2)
-        self.assertAlmostEqual(v.high, -0.2)
-        self.assertEqual(v.state, v.State.LOW)
-
         #test changing bounds incorrectly
         with self.assertRaises(ValueError):
             v.low = 0.2

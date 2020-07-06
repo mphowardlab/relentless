@@ -335,6 +335,9 @@ class FixedKeyDict:
     def update(self, *data, **values):
         """Partially reassigns key values.
 
+        If both positional argument (data) and keyword arguments (values)
+        are given as parameters, any keys in values will take precedence over data.
+
         Parameters
         ----------
         data : `dict`
@@ -345,21 +348,15 @@ class FixedKeyDict:
         Raises
         ------
         TypeError
-            If more than one positional argument is given
-        KeyError
-            If the key to be updated is not in self.
+            If more than one positional argument is given.
 
         """
         if len(data) > 1:
             raise TypeError('More than one positional argument is given')
-        if len(data) == 1:
+        elif len(data) == 1:
             for key in data[0]:
-                if str(key) not in self.keys:
-                    raise KeyError('Only the known keys can be set.')
                 self[key] = data[0][key]
         for key in values:
-            if str(key) not in self.keys:
-                raise KeyError('Only the known keys can be set.')
             self[key] = values[key]
 
     def todict(self):
@@ -498,7 +495,7 @@ class Variable:
         try:
             if low is None or self._high is None:
                 self._low = low
-            elif low <= self._high:
+            elif low < self._high:
                 self._low = low
             else:
                 raise ValueError('The low bound must be less than the high bound')
@@ -522,7 +519,7 @@ class Variable:
         try:
             if high is None or self._high is None:
                 self._high = high
-            elif high >= self._low:
+            elif high > self._low:
                 self._high = high
             else:
                 raise ValueError('The high bound must be greater than the low bound')

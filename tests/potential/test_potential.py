@@ -143,6 +143,14 @@ class test_CoefficientMatrix(unittest.TestCase):
         self.assertEqual(m['B','B']['energy'], 3.0)
         self.assertEqual(m['B','B']['mass'], 4.0)
 
+        m['B','B'].update(energy=3.5, mass=4.5)
+        self.assertEqual(m['A','B']['energy'], 1.0)
+        self.assertEqual(m['A','B']['mass'], 2.0)
+        self.assertEqual(m['A','A']['energy'], 1.5)
+        self.assertEqual(m['A','A']['mass'], 2.5)
+        self.assertEqual(m['B','B']['energy'], 3.5)
+        self.assertEqual(m['B','B']['mass'], 4.5)
+
         #test that partial assignment resets other param to default value
         m['A','A'] = {'energy':2.0}
         self.assertEqual(m['A','B']['energy'], 1.0)
