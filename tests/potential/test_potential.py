@@ -1,6 +1,7 @@
 """Unit tests for potential module."""
 import unittest
 import tempfile
+import numpy as np
 
 from relentless import core
 from relentless.potential import potential
@@ -305,6 +306,282 @@ class test_CoefficientMatrix(unittest.TestCase):
         self.assertEqual(m['A','A']['mass'].high, x['A','A']['mass'].high)
         self.assertEqual(m['B','B']['energy'].high, x['B','B']['energy'].high)
         self.assertEqual(m['B','B']['mass'].high, x['B','B']['mass'].high)
+
+        temp.close()
+
+class test_PairPotential(unittest.TestCase):
+    """Unit tests for potential.PairPotential"""
+
+    class LinPot(potential.PairPotential):
+        """Linear potential function used to test potential.PairPotential"""
+        def __init__(self, types, params, default={}):
+            super().__init__(types, params, default)
+
+        def _energy(self, r, m, **params):
+            r,u,s = self._zeros(r)
+            u = m*r
+            if s:
+                u = u.item()
+            return u
+
+        def _force(self, r, m, **params):
+            r,f,s = self._zeros(r)
+            f = -m
+            if s:
+                f = f.item()
+            return f
+
+        def _derivative(self, param, r, **params):
+            r,d,s = self._zeros(r)
+            if param == 'm':
+                d = r
+            if s:
+                d = d.item()
+            return d
+
+    def test_init(self):
+        """Test creation from data"""
+        #test creation with only m
+        p = test_PairPotential.LinPot(types=('1',), params=('m',),
+                                      default={'m':3.5})
+        coeff = potential.CoefficientMatrix(types=('1',), params=('m','rmin','rmax','shift'),
+                                            default={'m':3.5,'rmin':False,'rmax':False,'shift':False})
+        self.assertCountEqual(p.coeff.types, coeff.types)
+        self.assertCountEqual(p.coeff.params, coeff.params)
+        self.assertDictEqual(p.coeff.default.todict(), coeff.default.todict())
+
+        #test creation with m and rmin
+        p = test_PairPotential.LinPot(types=('1',), params=('m','rmin'),
+                                      default={'m':3.5,'rmin':0.0})
+        coeff = potential.CoefficientMatrix(types=('1',), params=('m','rmin','rmax','shift'),
+                                            default={'m':3.5,'rmin':0.0,'rmax':False,'shift':False})
+        self.assertCountEqual(p.coeff.types, coeff.types)
+        self.assertCountEqual(p.coeff.params, coeff.params)
+        self.assertDictEqual(p.coeff.default.todict(), coeff.default.todict())
+
+        #test creation with m and rmax
+        p = test_PairPotential.LinPot(types=('1',), params=('m','rmax'),
+                                      default={'m':3.5,'rmax':1.0})
+        coeff = potential.CoefficientMatrix(types=('1',), params=('m','rmin','rmax','shift'),
+                                            default={'m':3.5,'rmin':False,'rmax':1.0,'shift':False})
+        self.assertCountEqual(p.coeff.types, coeff.types)
+        self.assertCountEqual(p.coeff.params, coeff.params)
+        self.assertDictEqual(p.coeff.default.todict(), coeff.default.todict())
+
+        #test creation with m and shift
+        p = test_PairPotential.LinPot(types=('1',), params=('m','shift'),
+                                      default={'m':3.5,'shift':True})
+        coeff = potential.CoefficientMatrix(types=('1',), params=('m','rmin','rmax','shift'),
+                                            default={'m':3.5,'rmin':False,'rmax':False,'shift':True})
+        self.assertCountEqual(p.coeff.types, coeff.types)
+        self.assertCountEqual(p.coeff.params, coeff.params)
+        self.assertDictEqual(p.coeff.default.todict(), coeff.default.todict())
+
+        #test creation with all params, default values
+        p = test_PairPotential.LinPot(types=('1',), params=('m','rmin','rmax','shift'),
+                                      default={'m':3.5,'rmin':0.0,'rmax':1.0,'shift':True})
+        coeff = potential.CoefficientMatrix(types=('1',), params=('m','rmin','rmax','shift'),
+                                            default={'m':3.5,'rmin':0.0,'rmax':1.0,'shift':True})
+        self.assertCountEqual(p.coeff.types, coeff.types)
+        self.assertCountEqual(p.coeff.params, coeff.params)
+        self.assertDictEqual(p.coeff.default.todict(), coeff.default.todict())
+
+        #test creation with all params, no default values
+        p = test_PairPotential.LinPot(types=('1',), params=('m',))
+        coeff = potential.CoefficientMatrix(types=('1',), params=('m','rmin','rmax','shift'),
+                                            default={'rmin':False,'rmax':False,'shift':False})
+        self.assertCountEqual(p.coeff.types, coeff.types)
+        self.assertCountEqual(p.coeff.params, coeff.params)
+        self.assertDictEqual(p.coeff.default.todict(), coeff.default.todict())
+
+    def test_zeros(self):
+        """Test _zeros method"""
+        p = test_PairPotential.LinPot(types=('1',), params=('m',))
+
+        #test with scalar r
+        r = 0.5
+        r_copy, u, s = p._zeros(r)
+        self.assertEqual(r_copy, r)
+        self.assertEqual(u, 0)
+        self.assertEqual(s, True)
+
+        u_copy = np.zeros(2)
+        #test with list r
+        r = [0.2, 0.3]
+        r_copy, u, s = p._zeros(r)
+        np.testing.assert_allclose(r_copy, r)
+        np.testing.assert_allclose(u, u_copy)
+        self.assertEqual(s, False)
+
+        #test with tuple r
+        r = (0.2, 0.3)
+        r_copy, u, s = p._zeros(r)
+        np.testing.assert_allclose(r_copy, r)
+        np.testing.assert_allclose(u, u_copy)
+        self.assertEqual(s, False)
+
+        #test with numpy array r
+        r = np.array([0.2, 0.3])
+        r_copy, u, s = p._zeros(r)
+        np.testing.assert_allclose(r_copy, r)
+        np.testing.assert_allclose(u, u_copy)
+        self.assertEqual(s, False)
+
+        #test with non 1-d array r
+        r = np.array([[1, 2], [0.2, 0.3]])
+        with self.assertRaises(TypeError):
+            r_copy, u, s = p._zeros(r)
+
+    def test_energy(self):
+        """Test energy method"""
+        #test with no cutoffs
+        p = test_PairPotential.LinPot(types=('1',), params=('m',),
+                                      default={'m':2})
+        u = p.energy(pair=(('1','1')), r=0.5)
+        self.assertEqual(u, 1.0)
+        u = p.energy(pair=(('1','1')), r=[0.25,0.75])
+        np.testing.assert_allclose(u, [0.5,1.5])
+
+        #test with rmin set
+        p = test_PairPotential.LinPot(types=('1',), params=('m','rmin'),
+                                      default={'m':2,'rmin':0.0})
+        u = p.energy(pair=(('1','1')), r=0.0)
+        self.assertEqual(u, 0.0)
+        u = p.energy(pair=(('1','1')), r=[-0.25,0.75])
+        np.testing.assert_allclose(u, [0.0,1.5])
+
+        #test with rmax set
+        p = test_PairPotential.LinPot(types=('1',), params=('m','rmax'),
+                                      default={'m':2,'rmax':1.0})
+        u = p.energy(pair=(('1','1')), r=1.0)
+        self.assertEqual(u, 2.0)
+        u = p.energy(pair=(('1','1')), r=[0.25,1.75])
+        np.testing.assert_allclose(u, [0.5,2.0])
+
+        #test with rmin and rmax set
+        p = test_PairPotential.LinPot(types=('1',), params=('m','rmin','rmax'),
+                                      default={'m':2,'rmin':0.0,'rmax':1.0})
+        u = p.energy(pair=(('1','1')), r=0.5)
+        self.assertEqual(u, 1.0)
+        u = p.energy(pair=(('1','1')), r=[-0.5,0.0,1.0,1.5])
+        np.testing.assert_allclose(u, [0.0,0.0,2.0,2.0])
+
+        #test with shift set
+        p = test_PairPotential.LinPot(types=('1',), params=('m','rmax','shift'),
+                                      default={'m':2,'rmax':1.0,'shift':True})
+        u = p.energy(pair=(('1','1')), r=0.5)
+        self.assertEqual(u, -1.0)
+        u = p.energy(pair=(('1','1')), r=[1.0,1.5])
+        np.testing.assert_allclose(u, [0.0,0.0])
+
+    def test_force(self):
+        """Test force method"""
+        #test with no cutoffs
+        p = test_PairPotential.LinPot(types=('1',), params=('m',),
+                                      default={'m':2})
+        f = p.force(pair=(('1','1')), r=0.5)
+        self.assertEqual(f, -2.0)
+        f = p.force(pair=(('1','1')), r=[0.25,0.75])
+        np.testing.assert_allclose(f, [-2.0,-2.0])
+
+        #test with rmin set
+        p = test_PairPotential.LinPot(types=('1',), params=('m','rmin'),
+                                      default={'m':2,'rmin':0.0})
+        f = p.force(pair=(('1','1')), r=0.0)
+        self.assertEqual(f, -2.0)
+        f = p.force(pair=(('1','1')), r=[-0.25,0.75])
+        np.testing.assert_allclose(f, [0.0,-2.0])
+
+        #test with rmax set
+        p = test_PairPotential.LinPot(types=('1',), params=('m','rmax'),
+                                      default={'m':2,'rmax':1.0})
+        f = p.force(pair=(('1','1')), r=1.0)
+        self.assertEqual(f, -2.0)
+        f = p.force(pair=(('1','1')), r=[0.25,1.75])
+        np.testing.assert_allclose(f, [-2.0,0.0])
+
+        #test with rmin and rmax set
+        p = test_PairPotential.LinPot(types=('1',), params=('m','rmin','rmax'),
+                                      default={'m':2,'rmin':0.0,'rmax':1.0})
+        f = p.force(pair=(('1','1')), r=0.5)
+        self.assertEqual(f, -2.0)
+        f = p.force(pair=(('1','1')), r=[-0.5,0.0,1.0,1.5])
+        np.testing.assert_allclose(f, [0.0,-2.0,-2.0,0.0])
+
+        #test with shift set
+        p = test_PairPotential.LinPot(types=('1',), params=('m','rmax','shift'),
+                                      default={'m':2,'rmax':1.0,'shift':True})
+        f = p.force(pair=(('1','1')), r=0.5)
+        self.assertEqual(f, -2.0)
+        f = p.force(pair=(('1','1')), r=[1.0,1.5])
+        np.testing.assert_allclose(f, [-2.0,0.0])
+
+    def test_derivative(self):
+        """Test derivative method"""
+        #test with no cutoffs
+        p = test_PairPotential.LinPot(types=('1',), params=('m',),
+                                      default={'m':2})
+        d = p.derivative(pair=(('1','1')), param='m', r=0.5)
+        self.assertEqual(d, 0.5)
+        d = p.derivative(pair=(('1','1')), r=[0.25,0.75], param='m')
+        np.testing.assert_allclose(d, [0.25,0.75])
+
+        #test with rmin set
+        p = test_PairPotential.LinPot(types=('1',), params=('m','rmin'),
+                                      default={'m':2,'rmin':0.0})
+        d = p.derivative(pair=(('1','1')), param='m', r=0.0)
+        self.assertEqual(d, 0.0)
+        d = p.derivative(pair=(('1','1')), param='m', r=[-0.25,0.75])
+        np.testing.assert_allclose(d, [0.0,0.75])
+
+        #test with rmax set
+        p = test_PairPotential.LinPot(types=('1',), params=('m','rmax'),
+                                      default={'m':2,'rmax':1.0})
+        d = p.derivative(pair=(('1','1')), param='m', r=1.0)
+        self.assertEqual(d, 1.0)
+        d = p.derivative(pair=(('1','1')), param='m', r=[0.25,1.75])
+        np.testing.assert_allclose(d, [0.25,0.0])
+
+        #test with rmin and rmax set
+        p = test_PairPotential.LinPot(types=('1',), params=('m','rmin','rmax'),
+                                      default={'m':2,'rmin':0.0,'rmax':1.0})
+        d = p.derivative(pair=(('1','1')), param='m', r=0.5)
+        self.assertEqual(d, 0.5)
+        d = p.derivative(pair=(('1','1')), param='m', r=[-0.5,0.0,1.0,1.5])
+        np.testing.assert_allclose(d, [0.0,0.0,1.0,0.0])
+
+        #test with shift set
+        p = test_PairPotential.LinPot(types=('1',), params=('m','rmax','shift'),
+                                      default={'m':2,'rmax':1.0,'shift':True})
+        d = p.derivative(pair=(('1','1')), param='m', r=0.5)
+        self.assertEqual(d, 0.5)
+        d = p.derivative(pair=(('1','1')), param='m', r=[1.0,1.5])
+        np.testing.assert_allclose(d, [1.0,0.0])
+
+    def test_iteration(self):
+        """Test iteration on coeffs"""
+        p = test_PairPotential.LinPot(types=('1','2'), params=('m',))
+        for pair in p.coeff:
+            p.coeff[pair]['m'] = 2.0
+            p.coeff[pair]['rmin'] = 0.0
+            p.coeff[pair]['rmax'] = 1.0
+        self.assertDictEqual(p.coeff['1','1'].todict(), {'m':2.0, 'rmin':0.0, 'rmax':1.0, 'shift':False})
+        self.assertDictEqual(p.coeff['1','2'].todict(), {'m':2.0, 'rmin':0.0, 'rmax':1.0, 'shift':False})
+        self.assertDictEqual(p.coeff['2','2'].todict(), {'m':2.0, 'rmin':0.0, 'rmax':1.0, 'shift':False})
+
+    def test_saveload(self):
+        """Test saving to and loading from file"""
+        temp = tempfile.NamedTemporaryFile()
+        p = test_PairPotential.LinPot(types=('1',), params=('m','rmin','rmax'),
+                                      default={'m':2,'rmin':0.0,'rmax':1.0})
+        x = test_PairPotential.LinPot(types=('1',), params=('m','rmin','rmax','shift'))
+        p.save(temp.name)
+        x.load(temp.name)
+
+        self.assertEqual(p.coeff['1','1']['m'], x.coeff['1','1']['m'])
+        self.assertEqual(p.coeff['1','1']['rmin'], x.coeff['1','1']['rmin'])
+        self.assertEqual(p.coeff['1','1']['rmax'], x.coeff['1','1']['rmax'])
+        self.assertEqual(p.coeff['1','1']['shift'], x.coeff['1','1']['shift'])
 
         temp.close()
 
