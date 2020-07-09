@@ -1,8 +1,8 @@
 __all__ = ['PairPotential','Tabulator']
 
+import abc
 import json
 import numpy as np
-import abc
 
 from relentless.core import PairMatrix
 from relentless.core import FixedKeyDict
@@ -282,10 +282,6 @@ class PairPotential(abc.ABC):
     default : dict
         Initial value for any or all parameters. Any value not specified defaults to `None`.
 
-    Examples
-    --------
-    ****TODO****
-
     Todo
     ----
     1. Inspect _energy() call signature for parameters.
@@ -315,6 +311,13 @@ class PairPotential(abc.ABC):
     def energy(self, pair, r):
         """Evaluate energy for a (i,j) pair.
 
+        If an `rmin` or `rmax` value is set, then any energy evaluated at an `r`
+        value greater than `rmax` or less than `rmin` is set to the value of energy
+        evaluated or `rmax` or `rmin`, respectively.
+
+        Additionally, if the `shift` parameter is set to be `True`, all energy values
+        are shifted so that the energy is `rmax` is 0.
+
         Parameters
         ----------
         pair : array_like
@@ -324,8 +327,10 @@ class PairPotential(abc.ABC):
 
         Returns
         -------
-        array_like
+        scalar or array_like
             The energy at the specified location(s).
+            The returned quantity will be a scalar if `r` is scalar
+            or a numpy array if `r` is array_like.
 
         Raises
         ------
@@ -335,10 +340,10 @@ class PairPotential(abc.ABC):
             If the potential is to be shifted without setting `rmax`.
 
         """
-        if np.min(r) < 0:
-            raise ValueError('r cannot be negative')
         params = self.coeff.evaluate(pair)
         r,u,scalar_r = self._zeros(r)
+        if any(r < 0):
+            raise ValueError('r cannot be negative')
 
         # evaluate at points below rmax (if set) first, including rmin cutoff (if set)
         flags = np.ones(r.shape[0], dtype=bool)
@@ -369,6 +374,8 @@ class PairPotential(abc.ABC):
     def force(self, pair, r):
         """Evaluate force for a (i,j) pair.
 
+        The force is only evaluated for `r` values between `rmin` and `rmax`, if set.
+
         Parameters
         ----------
         pair : array_like
@@ -378,8 +385,10 @@ class PairPotential(abc.ABC):
 
         Returns
         -------
-        array_like
+        scalar or array_like
             The force at the specified location(s).
+            The returned quantity will be a scalar if `r` is scalar
+            or a numpy array if `r` is array_like.
 
         Raises
         ------
@@ -387,10 +396,10 @@ class PairPotential(abc.ABC):
             If any value in `r` is negative.
 
         """
-        if np.min(r) < 0:
-            raise ValueError('r cannot be negative')
         params = self.coeff.evaluate(pair)
         r,f,scalar_r = self._zeros(r)
+        if any(r < 0):
+            raise ValueError('r cannot be negative')
 
         # only evaluate at points inside [rmin,rmax], if specified
         flags = np.ones(r.shape[0], dtype=bool)
@@ -408,6 +417,8 @@ class PairPotential(abc.ABC):
     def derivative(self, pair, param, r):
         """Evaluate derivative for a (i,j) pair with respect to a parameter.
 
+        The derivative is only evaluated for `r` values between `rmin` and `rmax`, if set.
+
         Parameters
         ----------
         pair : array_like
@@ -419,8 +430,10 @@ class PairPotential(abc.ABC):
 
         Returns
         -------
-        array_like
-            The derivative at the specified locations.
+        scalar or array_like
+            The derivative at the specified location(s).
+            The returned quantity will be a scalar if `r` is scalar
+            or a numpy array if `r` is array_like.
 
         Raises
         ------
@@ -428,10 +441,10 @@ class PairPotential(abc.ABC):
             If any value in `r` is negative.
 
         """
-        if np.min(r) < 0:
-            raise ValueError('r cannot be negative.')
         params = self.coeff.evaluate(pair)
         r,deriv,scalar_r = self._zeros(r)
+        if any(r < 0):
+            raise ValueError('r cannot be negative')
 
         # only evaluate at points inside [rmin,rmax], if specified
         flags = np.ones(r.shape[0], dtype=bool)
@@ -447,7 +460,7 @@ class PairPotential(abc.ABC):
         return deriv
 
     def _zeros(self, r):
-        """Coerces input shape and creates zeros for output.
+        """Force input to a 1-dimensional array and make matching array of zeros.
 
         Parameters
         ----------
