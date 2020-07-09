@@ -280,7 +280,7 @@ class PairPotential(abc.ABC):
     params : array_like
         List of parameters (A parameter must be a `str`).
     default : dict
-        Initial value for any or all parameters, the values default to `None`.
+        Initial value for any or all parameters. Any value not specified defaults to `None`.
 
     Examples
     --------
@@ -291,8 +291,6 @@ class PairPotential(abc.ABC):
     1. Inspect _energy() call signature for parameters.
 
     """
-    _id = 0
-
     def __init__(self, types, params, default={}):
         # force in standard potential parameters if they are not explicitly set
         params = list(params)
@@ -314,9 +312,6 @@ class PairPotential(abc.ABC):
 
         self.coeff = CoefficientMatrix(types, params, default)
 
-        self.id = PairPotential._id
-        PairPotential._id += 1
-
     def energy(self, pair, r):
         """Evaluate energy for a (i,j) pair.
 
@@ -332,28 +327,39 @@ class PairPotential(abc.ABC):
         array_like
             The energy at the specified location(s).
 
+        Raises
+        ------
+        ValueError
+            If any value in `r` is negative.
+        ValueError
+            If the potential is to be shifted without setting `rmax`.
+
         """
+        if np.min(r) < 0:
+            raise ValueError('r cannot be negative')
         params = self.coeff.evaluate(pair)
         r,u,scalar_r = self._zeros(r)
 
         # evaluate at points below rmax (if set) first, including rmin cutoff (if set)
         flags = np.ones(r.shape[0], dtype=bool)
-        if not isinstance(params['rmin'], bool):
+        if params['rmin'] is not False:
             range_ = r < params['rmin']
             flags[range_] = False
             u[range_] = self._energy(params['rmin'], **params)
-        if not isinstance(params['rmax'], bool):
+        if params['rmax'] is not False:
             flags[r > params['rmax']] = False
         u[flags] = self._energy(r[flags], **params)
 
         # if rmax is set, truncate or shift depending on the mode
-        if not isinstance(params['rmax'], bool):
+        if params['rmax'] is not False:
             # with shifting, move the whole potential up
             # otherwise, set energy to constant for any r beyond rmax
             if params['shift']:
                 u[r <= params['rmax']] -= self._energy(params['rmax'], **params)
             else:
                 u[r > params['rmax']] = self._energy(params['rmax'], **params)
+        elif params['shift'] is True:
+            raise ValueError('Cannot shift potential without rmax')
 
         # coerce u back into shape of the input
         if scalar_r:
@@ -375,15 +381,22 @@ class PairPotential(abc.ABC):
         array_like
             The force at the specified location(s).
 
+        Raises
+        ------
+        ValueError
+            If any value in `r` is negative.
+
         """
+        if np.min(r) < 0:
+            raise ValueError('r cannot be negative')
         params = self.coeff.evaluate(pair)
         r,f,scalar_r = self._zeros(r)
 
         # only evaluate at points inside [rmin,rmax], if specified
         flags = np.ones(r.shape[0], dtype=bool)
-        if not isinstance(params['rmin'], bool):
+        if params['rmin'] is not False:
             flags[r < params['rmin']] = False
-        if not isinstance(params['rmax'], bool):
+        if params['rmax'] is not False:
             flags[r > params['rmax']] = False
         f[flags] = self._force(r[flags], **params)
 
@@ -409,15 +422,22 @@ class PairPotential(abc.ABC):
         array_like
             The derivative at the specified locations.
 
+        Raises
+        ------
+        ValueError
+            If any value in `r` is negative.
+
         """
+        if np.min(r) < 0:
+            raise ValueError('r cannot be negative.')
         params = self.coeff.evaluate(pair)
         r,deriv,scalar_r = self._zeros(r)
 
         # only evaluate at points inside [rmin,rmax], if specified
         flags = np.ones(r.shape[0], dtype=bool)
-        if not isinstance(params['rmin'], bool):
+        if params['rmin'] is not False:
             flags[r < params['rmin']] = False
-        if not isinstance(params['rmax'], bool):
+        if params['rmax'] is not False:
             flags[r > params['rmax']] = False
         deriv[flags] = self._derivative(param, r[flags], **params)
 
@@ -457,43 +477,37 @@ class PairPotential(abc.ABC):
 
     @abc.abstractmethod
     def _energy(self, r, **params):
-        ...
+        pass
 
     @abc.abstractmethod
     def _force(self, r, **params):
-        ...
+        pass
 
     @abc.abstractmethod
     def _derivative(self, param, r, **params):
-        ...
+        pass
 
-    def save(self, filename=None):
+    def save(self, filename):
         """Saves the coefficient matrix to file as JSON data.
 
         Parameters
         ----------
         filename : `str`
-            (Optional) The name of the file to which to save the data.
+            The name of the file to which to save the data.
 
         """
-        if filename is not None:
-            self.coeff.save(filename)
-        else:
-            self.coeff.save('{}.{}.json'.format(self.id,self.__class__.__name__))
+        self.coeff.save(filename)
 
-    def load(self, filename=None):
+    def load(self, filename):
         """Loads the coefficient matrix from JSON data in file.
 
         Parameters
         ----------
         filename : `str`
-            (Optional) The name of the file from which to load data.
+            The name of the file from which to load data.
 
         """
-        if filename is not None:
-            self.coeff.load(filename)
-        else:
-            self.coeff.load('{}.{}.json'.format(self.id,self.__class__.__name__))
+        self.coeff.load(filename)
 
     def __iter__(self):
         return iter(self.coeff)
