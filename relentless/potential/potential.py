@@ -3,6 +3,7 @@ __all__ = ['PairPotential','Tabulator']
 import abc
 import json
 import numpy as np
+import warnings
 
 from relentless.core import PairMatrix
 from relentless.core import FixedKeyDict
@@ -529,7 +530,44 @@ class PairPotential(abc.ABC):
         return next(self.coeff)
 
 class Tabulator:
+    """Creates an object that organizes multiple potential functions together.
+
+    Bins accumulated energy and force values for multiple potential functions,
+    allows "regularization" of the force (and energy).
+
+    Parameters
+    ----------
+    nbins : int
+        The number of bins in which to place the values for the potential.
+    rmin : float
+        The minimum r value at which to calculate energy and force.
+    rmax : float
+        The maximum r value at which to calculate energy and force.
+    fmax : float
+        (Optional) The value of the force at which to truncate the maximum force at small r values.
+    fcut : float
+        (Optional) The value of the force at which to truncate the minimum force at large r values.
+    edges : bool
+        Whether to include the edges (rmin and rmax) in the bins, defaults to `True`.
+
+    Raises
+    ------
+    ValueError
+        If nbins is not a positive integer.
+    ValueError
+        If rmin is greater than or equal to rmax.
+    ValueError
+        If rmin is not positive.
+
+    """
     def __init__(self, nbins, rmin, rmax, fmax=None, fcut=None, edges=True):
+        if not isinstance(nbins, int) and nbins > 0:
+            raise ValueError('nbins must be a positive integer')
+        if rmin >= rmax:
+            raise ValueError('rmin must be less than rmax')
+        if rmin < 0:
+            raise ValueError('rmin must be positive')
+
         self._nbins = nbins
         self._rmin = rmin
         self._rmax = rmax
@@ -545,13 +583,30 @@ class Tabulator:
 
     @property
     def dr(self):
+        """float: The interval for r between each bin."""
         return self._dr
 
     @property
     def r(self):
+        """array_like: The r values at each bin."""
         return self._r
 
     def energy(self, pair, potentials):
+        """Accumulates and bins energy values for all potentials, for the specified pair.
+
+        Parameters
+        ----------
+        pair : tuple
+            The type pair (i,j) for which to calculate the energy.
+        potentials : array_like
+            All the potential functions for which to calculate and accumulate the energy.
+
+        Returns
+        -------
+        array_like
+            Returns the array of binned, accumulated energy values.
+
+        """
         u = np.zeros_like(self.r)
         for pot in potentials:
             try:
@@ -561,6 +616,21 @@ class Tabulator:
         return u
 
     def force(self, pair, potentials):
+        """Accumulates and bins force values for all potentials, for the specified pair.
+
+        Parameters
+        ----------
+        pair : tuple
+            The type pair (i,j) for which to calculate the force.
+        potentials : array_like
+            All the potential functions for which to calculate and accumulate the force.
+
+        Returns
+        -------
+        array_like
+            Returns the array of binned, accumulated force values.
+
+        """
         f = np.zeros_like(self.r)
         for pot in potentials:
             try:
@@ -569,7 +639,40 @@ class Tabulator:
                 pass
         return f
 
-    def regularize(self, u, f, trim=True):
+    def regularize_force(self, u, f, trim=True):
+        """Adjusts the accumulated force values based on the values of fmax and fcut.
+
+        Based on the adjustments made to the force, the energy values are also adjusted.
+
+        Parameters
+        ----------
+        u : array_like
+            The binned energy values.
+        f : array_like
+            The binned force values.
+        trim : bool
+            Whether to trim off trailing zeros from the regularized force/energy values,
+            defaults to `True`.
+
+        Returns
+        -------
+        float or `None`
+            The value of r at which trimming trailing zeros is implemented or could be
+            implemented (if trim is False). Returns `None` if trimming cannot be performed.
+        array_like
+            Stacks the r, adjusted u, and adjusted f as columns into a `nx3` array for n bins.
+
+        Raises
+        ------
+        IndexError
+            If the energy array is not the same length as the array of r values.
+        IndexError
+            If the force array is not the same length as the array of r values.
+        UserWarning
+            If rmax is too small to cutoff the potential, i.e. if the force at the end
+            of the potential is larger than fcut.
+
+        """
         if len(u) != len(self.r):
             raise IndexError('Potential must have the same length as r.')
         if len(f) != len(self.r):
@@ -577,28 +680,34 @@ class Tabulator:
 
         # find first point from beginning that is within energy tolerance
         if self.fmax is not None:
-            cut = np.argmax(np.abs(f) <= self.fmax)
+            cut = np.argmax(f <= self.fmax)
             if cut > 0:
                 u[:cut] = u[cut] - f[cut]*(self.r[:cut] - self.r[cut])
                 f[:cut] = f[cut]
 
         # find first point from end with sufficient force and cutoff the potential after it
         if self.fcut is not None:
-            flags = np.abs(np.flip(f)) >= self.fcut
+            flags = np.flip(f) >= self.fcut
             cut = len(f)-1 - np.argmax(flags)
-            u -= u[cut]
+            u -= u[cut]                         #would this be considered 'regularizing' the energy?
+            if cut == len(f)-1:
+                if f[-1] > self.fcut:
+                    warnings.warn('rmax is too small to cutoff the potential.', UserWarning)
             if cut < len(f)-1:
                 u[(cut+1):] = 0.
                 f[(cut+1):] = 0.
 
         # trim off trailing zeros
         r = self.r.copy()
-        if trim:
-            flags = np.abs(np.flip(f)) > 0
-            cut = len(f) - np.argmax(flags)
-            if cut < len(f)-1:
+        flags = np.abs(np.flip(f)) > 0
+        cut = len(f) - np.argmax(flags)
+        if cut < len(f)-1:
+            rcut = r[cut]
+            if trim:
                 r = r[:(cut+1)]
                 u = u[:(cut+1)]
                 f = f[:(cut+1)]
+        else:
+            rcut = None
 
-        return np.column_stack((r,u,f))
+        return rcut, np.column_stack((r,u,f))

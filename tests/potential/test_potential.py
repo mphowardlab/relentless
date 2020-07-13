@@ -2,7 +2,8 @@
 import numpy as np
 import tempfile
 import unittest
-
+import sys
+sys.path.append('../../')
 from relentless import core
 from relentless.potential import potential
 
@@ -231,10 +232,6 @@ class test_CoefficientMatrix(unittest.TestCase):
 
         self.assertEqual(m['A','B']['energy'].low, x['A','B']['energy'].low)
         self.assertEqual(m['A','B']['mass'].low, x['A','B']['mass'].low)
-        self.assertEqual(m['A','A']['energy'].low, x['A','A']['energy'].low)
-        self.assertEqual(m['A','A']['mass'].low, x['A','A']['mass'].low)
-        self.assertEqual(m['B','B']['energy'].low, x['B','B']['energy'].low)
-        self.assertEqual(m['B','B']['mass'].low, x['B','B']['mass'].low)
 
         self.assertEqual(m['A','B']['energy'].high, x['A','B']['energy'].high)
         self.assertEqual(m['A','B']['mass'].high, x['A','B']['mass'].high)
@@ -309,9 +306,8 @@ class test_CoefficientMatrix(unittest.TestCase):
 
         temp.close()
 
-
 class LinPot(potential.PairPotential):
-    """Linear potential function used to test PairPotential and Tabulator classes"""
+    """Linear potential function used to test potential.PairPotential"""
 
     def __init__(self, types, params, default={}):
         super().__init__(types, params, default)
@@ -580,6 +576,196 @@ class test_PairPotential(unittest.TestCase):
         self.assertEqual(p.coeff['1','1']['shift'], x.coeff['1','1']['shift'])
 
         temp.close()
+
+class QuadPot(potential.PairPotential):
+    """Quadratic potential function used to test potential.Tabulator"""
+
+    def __init__(self, types, params, default={}):
+        super().__init__(types, params, default)
+
+    def _energy(self, r, m, **params):
+        r,u,s = self._zeros(r)
+        u = m*(1-r)**2
+        if s:
+            u = u.item()
+        return u
+
+    def _force(self, r, m, **params):
+        r,f,s = self._zeros(r)
+        f = 2*m*(1-r)
+        if s:
+            f = f.item()
+        return f
+
+    def _derivative(self, param, r, **params):
+        r,d,s = self._zeros(r)
+        if param == 'm':
+            d = (1-r)**2
+        if s:
+            d = d.item()
+        return d
+
+class test_Tabulator(unittest.TestCase):
+    """Unit tests for potential.Tabulator"""
+
+    def test_init(self):
+        """Test creation of object with data"""
+        #test creation with required parameters
+        t = potential.Tabulator(nbins=5, rmin=0.5, rmax=1.5)
+        self.assertEqual(t._nbins, 5)
+        self.assertAlmostEqual(t._rmin, 0.5)
+        self.assertAlmostEqual(t._rmax, 1.5)
+        self.assertAlmostEqual(t.dr, 0.2)
+        np.testing.assert_allclose(t.r, np.linspace(0.5,1.5,6))
+
+        #test creation with required params, fmax, fcut
+        t = potential.Tabulator(nbins=2, rmin=1.0, rmax=2.0, fmax=1.5, fcut=1.0)
+        self.assertEqual(t._nbins, 2)
+        self.assertAlmostEqual(t._rmin, 1.0)
+        self.assertAlmostEqual(t._rmax, 2.0)
+        self.assertAlmostEqual(t.fmax, 1.5)
+        self.assertAlmostEqual(t.fcut, 1.0)
+        self.assertAlmostEqual(t.dr, 0.5)
+        np.testing.assert_allclose(t.r, np.linspace(1.0,2.0,3))
+
+        #test creation with all params and edges=False
+        t = potential.Tabulator(nbins=4, rmin=1.0, rmax=2.5, fmax=1.75, fcut=2.0, edges=False)
+        self.assertEqual(t._nbins, 4)
+        self.assertAlmostEqual(t._rmin, 1.0)
+        self.assertAlmostEqual(t._rmax, 2.5)
+        self.assertAlmostEqual(t.fmax, 1.75)
+        self.assertAlmostEqual(t.fcut, 2.0)
+        self.assertAlmostEqual(t.dr, 0.375)
+        np.testing.assert_allclose(t.r, 1.0+0.375*(np.arange(4)+0.5))
+
+        #test creation with invalid nbins/rmin/rmax setup
+        with self.assertRaises(ValueError):
+            t = potential.Tabulator(nbins=2.5, rmin=0.5, rmax=1.5)
+        with self.assertRaises(ValueError):
+            t = potential.Tabulator(nbins=2, rmin=1.0, rmax=0.5)
+        with self.assertRaises(ValueError):
+            t = potential.Tabulator(nbins=2, rmin=-1.0, rmax=1.0)
+
+    def test_potential(self):
+        """Test energy and force methods"""
+        p1 = QuadPot(types=('1',), params=('m',), default={'m':2})
+        p2 = QuadPot(types=('1','2'), params=('m',), default={'m':1})
+        p_all = [p1, p2]
+
+        #test energy method
+        #test with edges=True
+        t = potential.Tabulator(nbins=4, rmin=1.0, rmax=5.0)
+        u = t.energy(pair=('1','1'), potentials=p_all)
+        np.testing.assert_allclose(u, np.array([0,3,12,27,48]))
+        u = t.energy(pair=('1','2'), potentials=p_all)
+        np.testing.assert_allclose(u, np.array([0,1,4,9,16]))
+        #test with edges=False
+        t = potential.Tabulator(nbins=4, rmin=1.0, rmax=5.0, edges=False)
+        u = t.energy(pair=('1','1'), potentials=p_all)
+        np.testing.assert_allclose(u, np.array([0.75,6.75,18.75,36.75]))
+        u = t.energy(pair=('1','2'), potentials=p_all)
+        np.testing.assert_allclose(u, np.array([0.25,2.25,6.25,12.25]))
+
+        #test force method
+        #test with edges=True
+        t = potential.Tabulator(nbins=4, rmin=1.0, rmax=5.0)
+        f = t.force(pair=('1','1'), potentials=p_all)
+        np.testing.assert_allclose(f, np.array([0,-6,-12,-18,-24]))
+        f = t.force(pair=('1','2'), potentials=p_all)
+        np.testing.assert_allclose(f, np.array([0,-2,-4,-6,-8]))
+        #test with edges=False
+        t = potential.Tabulator(nbins=4, rmin=1.0, rmax=5.0, edges=False)
+        f = t.force(pair=('1','1'), potentials=p_all)
+        np.testing.assert_allclose(f, np.array([-3,-9,-15,-21]))
+        f = t.force(pair=('1','2'), potentials=p_all)
+        np.testing.assert_allclose(f, np.array([-1,-3,-5,-7]))
+
+    def test_regularize(self):
+        """Test regularize_force method cases"""
+        p1 = QuadPot(types=('1',), params=('m',), default={'m':2})
+        p2 = QuadPot(types=('1','2'), params=('m',), default={'m':1})
+        p_all = [p1, p2]
+
+        #test without fmax or fcut
+        t = potential.Tabulator(nbins=4, rmin=1.0, rmax=5.0)
+        u = t.energy(pair=('1','1'), potentials=p_all)
+        f = t.force(pair=('1','1'), potentials=p_all)
+        rcut,stack = t.regularize_force(u, f)
+        self.assertEqual(rcut, None)
+        np.testing.assert_allclose(stack, np.array([[1, 0,  0],
+                                                    [2, 3, -6],
+                                                    [3,12,-12],
+                                                    [4,27,-18],
+                                                    [5,48,-24]]))
+        #test with only fmax
+        t = potential.Tabulator(nbins=4, rmin=1.0, rmax=5.0, fmax=-10)
+        u = t.energy(pair=('1','1'), potentials=p_all)
+        f = t.force(pair=('1','1'), potentials=p_all)
+        rcut,stack = t.regularize_force(u, f)
+        self.assertEqual(rcut, None)
+        np.testing.assert_allclose(stack, np.array([[1,-12,-12],
+                                                    [2,  0,-12],
+                                                    [3, 12,-12],
+                                                    [4, 27,-18],
+                                                    [5, 48,-24]]))
+        #test with only fmax (fmax too big)
+        t = potential.Tabulator(nbins=4, rmin=1.0, rmax=5.0, fmax=5)
+        u = t.energy(pair=('1','1'), potentials=p_all)
+        f = t.force(pair=('1','1'), potentials=p_all)
+        rcut,stack = t.regularize_force(u, f)
+        self.assertEqual(rcut, None)
+        np.testing.assert_allclose(stack, np.array([[1, 0,  0],
+                                                    [2, 3, -6],
+                                                    [3,12,-12],
+                                                    [4,27,-18],
+                                                    [5,48,-24]]))
+        #test with only fcut
+        t = potential.Tabulator(nbins=4, rmin=1.0, rmax=5.0, fcut=-15)
+        u = t.energy(pair=('1','1'), potentials=p_all)
+        f = t.force(pair=('1','1'), potentials=p_all)
+        rcut,stack = t.regularize_force(u, f)
+        self.assertAlmostEqual(rcut, 4)
+        np.testing.assert_allclose(stack, np.array([[1,-12,  0],
+                                                    [2, -9, -6],
+                                                    [3,  0,-12],
+                                                    [4,  0,  0]]))
+        #test with only fcut (fcut too big)
+        t = potential.Tabulator(nbins=4, rmin=1.0, rmax=5.0, fcut=15)
+        u = t.energy(pair=('1','1'), potentials=p_all)
+        f = t.force(pair=('1','1'), potentials=p_all)
+        rcut,stack = t.regularize_force(u, f)
+        self.assertEqual(rcut, None)
+        np.testing.assert_allclose(stack, np.array([[1,-48,  0],
+                                                    [2,-45, -6],
+                                                    [3,-36,-12],
+                                                    [4,-21,-18],
+                                                    [5,  0,-24]]))
+        #test with fmax and fcut
+        t = potential.Tabulator(nbins=4, rmin=1.0, rmax=5.0, fmax=-10, fcut=-15)
+        u = t.energy(pair=('1','1'), potentials=p_all)
+        f = t.force(pair=('1','1'), potentials=p_all)
+        rcut,stack = t.regularize_force(u, f)
+        self.assertAlmostEqual(rcut, 4)
+        np.testing.assert_allclose(stack, np.array([[1,-24,-12],
+                                                    [2,-12,-12],
+                                                    [3,  0,-12],
+                                                    [4,  0,  0]]))
+        #test with trim=False
+        u = t.energy(pair=('1','1'), potentials=p_all)
+        f = t.force(pair=('1','1'), potentials=p_all)
+        rcut,stack = t.regularize_force(u, f, trim=False)
+        self.assertAlmostEqual(rcut, 4)
+        np.testing.assert_allclose(stack, np.array([[1,-24,-12],
+                                                    [2,-12,-12],
+                                                    [3,  0,-12],
+                                                    [4,  0,  0],
+                                                    [5,  0,  0]]))
+        #test warning for small rmax
+        t = potential.Tabulator(nbins=4, rmin=1.0, rmax=2.0, fcut=-15)
+        u = t.energy(pair=('1','1'), potentials=p_all)
+        f = t.force(pair=('1','1'), potentials=p_all)
+        with self.assertWarns(UserWarning):
+            rcut,stack = t.regularize_force(u, f, trim=False)
 
 if __name__ == '__main__':
     unittest.main()
