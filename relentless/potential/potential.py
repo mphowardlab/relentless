@@ -2,8 +2,9 @@ __all__ = ['PairPotential','Tabulator']
 
 import abc
 import json
-import numpy as np
 import warnings
+
+import numpy as np
 
 from relentless.core import PairMatrix
 from relentless.core import FixedKeyDict
@@ -530,10 +531,10 @@ class PairPotential(abc.ABC):
         return next(self.coeff)
 
 class Tabulator:
-    """Creates an object that organizes multiple potential functions together.
+    """Combines and tabulates multiple potentials together.
 
-    Bins accumulated energy and force values for multiple potential functions,
-    allows "regularization" of the force (and energy).
+    Evaluates accumulated energy and force values for multiple potential functions at different r values,
+    allows regularization of the force and shifting of the energy.
 
     Parameters
     ----------
@@ -544,11 +545,13 @@ class Tabulator:
     rmax : float
         The maximum r value at which to calculate energy and force.
     fmax : float
-        (Optional) The value of the force at which to truncate the maximum force at small r values.
+        (Optional) The maximum magnitude of the force for regularization at small r values.
     fcut : float
-        (Optional) The value of the force at which to truncate the minimum force at large r values.
+        (Optional) The magnitude of the force for truncation at large r values.
     edges : bool
-        Whether to include the edges (rmin and rmax) in the bins, defaults to `True`.
+        If `True`, evaluate r at edges of the bins; otherwise, evaluate at the centers (defaults to `True`).
+    shift : bool
+        If 'True', shift the potential (according to value of fcut) (defaults to `True`).
 
     Raises
     ------
@@ -558,15 +561,23 @@ class Tabulator:
         If rmin is greater than or equal to rmax.
     ValueError
         If rmin is not positive.
+    ValueError
+        If fmax is set, and it is not positive.
+    ValueError
+        If fcut is set, and it is not positive.
 
     """
-    def __init__(self, nbins, rmin, rmax, fmax=None, fcut=None, edges=True):
+    def __init__(self, nbins, rmin, rmax, fmax=None, fcut=None, edges=True, shift=True):
         if not isinstance(nbins, int) and nbins > 0:
             raise ValueError('nbins must be a positive integer')
         if rmin >= rmax:
             raise ValueError('rmin must be less than rmax')
         if rmin < 0:
             raise ValueError('rmin must be positive')
+        if (fmax is not None) and (fmax <= 0):
+            raise ValueError('fmax must be positive')
+        if (fcut is not None) and (fcut <= 0):
+            raise ValueError('fcut must be positive')
 
         self._nbins = nbins
         self._rmin = rmin
@@ -581,6 +592,8 @@ class Tabulator:
         else:
             self._r = rmin + self._dr*(np.arange(nbins, dtype=np.float64)+0.5)
 
+        self._shift = shift
+
     @property
     def dr(self):
         """float: The interval for r between each bin."""
@@ -592,7 +605,7 @@ class Tabulator:
         return self._r
 
     def energy(self, pair, potentials):
-        """Accumulates and bins energy values for all potentials, for the specified pair.
+        """Evaluates and accumulates energy for all potentials, for the specified pair.
 
         Parameters
         ----------
@@ -604,7 +617,7 @@ class Tabulator:
         Returns
         -------
         array_like
-            Returns the array of binned, accumulated energy values.
+            Total energy at each r value.
 
         """
         u = np.zeros_like(self.r)
@@ -616,7 +629,7 @@ class Tabulator:
         return u
 
     def force(self, pair, potentials):
-        """Accumulates and bins force values for all potentials, for the specified pair.
+        """Evaluates and accumulates force for all potentials, for the specified pair.
 
         Parameters
         ----------
@@ -628,7 +641,7 @@ class Tabulator:
         Returns
         -------
         array_like
-            Returns the array of binned, accumulated force values.
+            Total force at each r value.
 
         """
         f = np.zeros_like(self.r)
@@ -640,16 +653,17 @@ class Tabulator:
         return f
 
     def regularize_force(self, u, f, trim=True):
-        """Adjusts the accumulated force values based on the values of fmax and fcut.
+        """Regularizes and truncates the accumulated energies and forces.
 
-        Based on the adjustments made to the force, the energy values are also adjusted.
+        When shifting is enabled - if fcut is set, then the energies are shifted to be 0 at rcut;
+        otherwise, they are shifted to be 0 at rmax.
 
         Parameters
         ----------
         u : array_like
-            The binned energy values.
+            Energies, must have the same shape as r.
         f : array_like
-            The binned force values.
+            Forces, must have the same shape as r.
         trim : bool
             Whether to trim off trailing zeros from the regularized force/energy values,
             defaults to `True`.
@@ -658,7 +672,7 @@ class Tabulator:
         -------
         float or `None`
             The value of r at which trimming trailing zeros is implemented or could be
-            implemented (if trim is False). Returns `None` if trimming cannot be performed.
+            implemented (if trim is False). Returns the last r value if trimming cannot be performed.
         array_like
             Stacks the r, adjusted u, and adjusted f as columns into a `nx3` array for n bins.
 
@@ -673,41 +687,47 @@ class Tabulator:
             of the potential is larger than fcut.
 
         """
-        if len(u) != len(self.r):
+        u = np.atleast_1d(u)
+        f = np.atleast_1d(f)
+        if u.shape != self.r.shape:
             raise IndexError('Potential must have the same length as r.')
-        if len(f) != len(self.r):
+        if f.shape != self.r.shape:
             raise IndexError('Force must have the same length as r.')
 
         # find first point from beginning that is within energy tolerance
         if self.fmax is not None:
-            cut = np.argmax(f <= self.fmax)
+            cut = np.argmax(np.abs(f) <= self.fmax)
             if cut > 0:
                 u[:cut] = u[cut] - f[cut]*(self.r[:cut] - self.r[cut])
                 f[:cut] = f[cut]
 
         # find first point from end with sufficient force and cutoff the potential after it
         if self.fcut is not None:
-            flags = np.flip(f) >= self.fcut
-            cut = len(f)-1 - np.argmax(flags)
-            u -= u[cut]                         #would this be considered 'regularizing' the energy?
-            if cut == len(f)-1:
-                if f[-1] > self.fcut:
-                    warnings.warn('rmax is too small to cutoff the potential.', UserWarning)
-            if cut < len(f)-1:
-                u[(cut+1):] = 0.
-                f[(cut+1):] = 0.
+            flags = np.abs(np.flip(f)) <= self.fcut
+            cut = len(f) - np.argmax(flags)
+            if cut < len(f):
+                if self._shift:
+                    u -= u[cut]
+                u[cut:] = 0.
+                f[cut:] = 0.
+            else:
+                warnings.warn('Last tabulated force exceeds fcut, rmax may be too small.', UserWarning)
+                if self._shift:
+                    u -= u[-1]
+        elif self._shift:
+            u -= u[-1]
 
         # trim off trailing zeros
         r = self.r.copy()
         flags = np.abs(np.flip(f)) > 0
         cut = len(f) - np.argmax(flags)
-        if cut < len(f)-1:
+        if cut < len(f):
             rcut = r[cut]
             if trim:
                 r = r[:(cut+1)]
                 u = u[:(cut+1)]
                 f = f[:(cut+1)]
         else:
-            rcut = None
+            rcut = r[-1]
 
-        return rcut, np.column_stack((r,u,f))
+        return np.column_stack((r,u,f)), rcut
