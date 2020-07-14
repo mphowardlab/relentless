@@ -1,7 +1,8 @@
 """Unit tests for potential module."""
 import tempfile
 import unittest
-import sys
+
+import numpy as np
 
 from relentless import core
 from relentless.potential import potential
