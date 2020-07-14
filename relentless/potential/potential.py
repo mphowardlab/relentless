@@ -574,9 +574,9 @@ class Tabulator:
             raise ValueError('rmin must be less than rmax')
         if rmin < 0:
             raise ValueError('rmin must be positive')
-        if (fmax is not None) and (fmax <= 0):
+        if fmax is not None and fmax <= 0:
             raise ValueError('fmax must be positive')
-        if (fcut is not None) and (fcut <= 0):
+        if fcut is not None and fcut < 0:
             raise ValueError('fcut must be positive')
 
         self._nbins = nbins
@@ -592,7 +592,7 @@ class Tabulator:
         else:
             self._r = rmin + self._dr*(np.arange(nbins, dtype=np.float64)+0.5)
 
-        self._shift = shift
+        self.shift = shift
 
     @property
     def dr(self):
@@ -670,11 +670,11 @@ class Tabulator:
 
         Returns
         -------
+        array_like
+            A `nx3` array of columns as r, adjusted u, and regularized f, evaluated in n bins.
         float or `None`
             The value of r at which trimming trailing zeros is implemented or could be
             implemented (if trim is False). Returns the last r value if trimming cannot be performed.
-        array_like
-            Stacks the r, adjusted u, and adjusted f as columns into a `nx3` array for n bins.
 
         Raises
         ------
@@ -703,25 +703,25 @@ class Tabulator:
 
         # find first point from end with sufficient force and cutoff the potential after it
         if self.fcut is not None:
-            flags = np.abs(np.flip(f)) <= self.fcut
-            cut = len(f) - np.argmax(flags)
-            if cut < len(f):
-                if self._shift:
+            flags = np.abs(np.flip(f)) >= self.fcut
+            cut = len(f)-1 - np.argmax(flags)
+            if cut < len(f)-1:
+                if self.shift:
                     u -= u[cut]
-                u[cut:] = 0.
-                f[cut:] = 0.
+                u[(cut+1):] = 0.
+                f[(cut+1):] = 0.
             else:
                 warnings.warn('Last tabulated force exceeds fcut, rmax may be too small.', UserWarning)
-                if self._shift:
+                if self.shift:
                     u -= u[-1]
-        elif self._shift:
+        elif self.shift:
             u -= u[-1]
 
         # trim off trailing zeros
         r = self.r.copy()
         flags = np.abs(np.flip(f)) > 0
-        cut = len(f) - np.argmax(flags)
-        if cut < len(f):
+        cut = len(f)-1 - np.argmax(flags)
+        if cut < len(f)-1:
             rcut = r[cut]
             if trim:
                 r = r[:(cut+1)]
