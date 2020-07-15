@@ -538,71 +538,48 @@ class Tabulator:
 
     Parameters
     ----------
-    nbins : int
-        The number of bins in which to place the values for the potential.
-    rmin : float
-        The minimum r value at which to calculate energy and force.
-    rmax : float
-        The maximum r value at which to calculate energy and force.
+    r : array_like
+        The values at which to evaluate energy and force. Must be a 1-D array,
+        with values continously increasing.
     fmax : float
         (Optional) The maximum magnitude of the force for regularization at small r values.
     fcut : float
         (Optional) The magnitude of the force for truncation at large r values.
-    edges : bool
-        If `True`, evaluate r at edges of the bins; otherwise, evaluate at the centers (defaults to `True`).
     shift : bool
         If 'True', shift the potential (according to value of fcut) (defaults to `True`).
 
     Raises
     ------
     ValueError
-        If nbins is not a positive integer.
-    ValueError
-        If rmin is greater than or equal to rmax.
-    ValueError
-        If rmin is not positive.
-    ValueError
         If fmax is set, and it is not positive.
     ValueError
         If fcut is set, and it is not positive.
 
     """
-    def __init__(self, nbins, rmin, rmax, fmax=None, fcut=None, edges=True, shift=True):
-        if not isinstance(nbins, int) and nbins > 0:
-            raise ValueError('nbins must be a positive integer')
-        if rmin >= rmax:
-            raise ValueError('rmin must be less than rmax')
-        if rmin < 0:
-            raise ValueError('rmin must be positive')
+    def __init__(self, r, fmax=None, fcut=None, shift=True):
         if fmax is not None and fmax <= 0:
             raise ValueError('fmax must be positive')
         if fcut is not None and fcut < 0:
             raise ValueError('fcut must be positive')
 
-        self._nbins = nbins
-        self._rmin = rmin
-        self._rmax = rmax
-
+        self.r = r
         self.fmax = fmax
         self.fcut = fcut
-
-        self._dr = (rmax-rmin)/nbins
-        if edges:
-            self._r = np.linspace(rmin, rmax, nbins+1, dtype=np.float64)
-        else:
-            self._r = rmin + self._dr*(np.arange(nbins, dtype=np.float64)+0.5)
-
         self.shift = shift
 
     @property
-    def dr(self):
-        """float: The interval for r between each bin."""
-        return self._dr
-
-    @property
     def r(self):
-        """array_like: The r values at each bin."""
+        """array_like: The values of r at which to evaluate energy and force."""
         return self._r
+
+    @r.setter
+    def r(self, points):
+        points = np.array(points)
+        if points.ndim > 1:
+            raise TypeError('r must be a 1-D array')
+        if not np.all(points[1:] > points[:-1]):
+            raise ValueError('r values must be continuously increasing')
+        self._r = points
 
     def energy(self, pair, potentials):
         """Evaluates and accumulates energy for all potentials, for the specified pair.
@@ -720,8 +697,8 @@ class Tabulator:
         # trim off trailing zeros
         r = self.r.copy()
         flags = np.abs(np.flip(f)) > 0
-        cut = len(f)-1 - np.argmax(flags)
-        if cut < len(f)-1:
+        cut = len(f) - np.argmax(flags)
+        if cut < len(f):
             rcut = r[cut]
             if trim:
                 r = r[:(cut+1)]
