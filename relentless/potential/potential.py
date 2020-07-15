@@ -598,6 +598,7 @@ class Tabulator:
 
         """
         u = np.zeros_like(self.r)
+        u = u.astype(dtype=np.float64)
         for pot in potentials:
             try:
                 u += pot.energy(pair,self.r)
@@ -622,6 +623,7 @@ class Tabulator:
 
         """
         f = np.zeros_like(self.r)
+        f = f.astype(dtype=np.float64)
         for pot in potentials:
             try:
                 f += pot.force(pair,self.r)
