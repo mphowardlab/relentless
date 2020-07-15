@@ -485,7 +485,7 @@ class PairPotential(abc.ABC):
 
         """
         s = np.isscalar(r)
-        r = np.atleast_1d(r)
+        r = np.array(r, dtype=np.float64, ndmin=1)
         if len(r.shape) != 1:
             raise TypeError('Expecting 1D array for r')
         return r,np.zeros_like(r),s
