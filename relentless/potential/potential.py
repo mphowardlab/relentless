@@ -2,6 +2,8 @@ __all__ = ['PairPotential','Tabulator']
 
 import abc
 import json
+import warnings
+
 import numpy as np
 
 from relentless.core import PairMatrix
@@ -529,29 +531,72 @@ class PairPotential(abc.ABC):
         return next(self.coeff)
 
 class Tabulator:
-    def __init__(self, nbins, rmin, rmax, fmax=None, fcut=None, edges=True):
-        self._nbins = nbins
-        self._rmin = rmin
-        self._rmax = rmax
+    """Combines and tabulates multiple potentials together.
 
+    Evaluates accumulated energy and force values for multiple potential functions at different r values,
+    allows regularization of the force and shifting of the energy.
+
+    Parameters
+    ----------
+    r : array_like
+        The values at which to evaluate energy and force. Must be a 1-D array,
+        with values continously increasing.
+    fmax : float
+        (Optional) The maximum magnitude of the force for regularization at small r values.
+    fcut : float
+        (Optional) The magnitude of the force for truncation at large r values.
+    shift : bool
+        If 'True', shift the potential (according to value of fcut) (defaults to `True`).
+
+    Raises
+    ------
+    ValueError
+        If fmax is set, and it is not positive.
+    ValueError
+        If fcut is set, and it is not positive.
+
+    """
+    def __init__(self, r, fmax=None, fcut=None, shift=True):
+        if fmax is not None and fmax <= 0:
+            raise ValueError('fmax must be positive')
+        if fcut is not None and fcut < 0:
+            raise ValueError('fcut must be positive')
+
+        self.r = r
         self.fmax = fmax
         self.fcut = fcut
-
-        self._dr = (rmax-rmin)/nbins
-        if edges:
-            self._r = np.linspace(rmin, rmax, nbins+1, dtype=np.float64)
-        else:
-            self._r = rmin + self._dr*(np.arange(nbins, dtype=np.float64)+0.5)
-
-    @property
-    def dr(self):
-        return self._dr
+        self.shift = shift
 
     @property
     def r(self):
+        """array_like: The values of r at which to evaluate energy and force."""
         return self._r
 
+    @r.setter
+    def r(self, points):
+        points = np.array(points)
+        if points.ndim > 1:
+            raise TypeError('r must be a 1-D array')
+        if not np.all(points[1:] > points[:-1]):
+            raise ValueError('r values must be continuously increasing')
+        self._r = points
+
     def energy(self, pair, potentials):
+        """Evaluates and accumulates energy for all potentials, for the specified pair.
+
+        Parameters
+        ----------
+        pair : tuple
+            The type pair (i,j) for which to calculate the energy.
+        potentials : array_like
+            All the potential functions for which to calculate and accumulate the energy.
+
+        Returns
+        -------
+        array_like
+            Total energy at each r value.
+
+        """
         u = np.zeros_like(self.r)
         for pot in potentials:
             try:
@@ -561,6 +606,21 @@ class Tabulator:
         return u
 
     def force(self, pair, potentials):
+        """Evaluates and accumulates force for all potentials, for the specified pair.
+
+        Parameters
+        ----------
+        pair : tuple
+            The type pair (i,j) for which to calculate the force.
+        potentials : array_like
+            All the potential functions for which to calculate and accumulate the force.
+
+        Returns
+        -------
+        array_like
+            Total force at each r value.
+
+        """
         f = np.zeros_like(self.r)
         for pot in potentials:
             try:
@@ -569,10 +629,46 @@ class Tabulator:
                 pass
         return f
 
-    def regularize(self, u, f, trim=True):
-        if len(u) != len(self.r):
+    def regularize_force(self, u, f, trim=True):
+        """Regularizes and truncates the accumulated energies and forces.
+
+        When shifting is enabled - if fcut is set, then the energies are shifted to be 0 at rcut;
+        otherwise, they are shifted to be 0 at rmax.
+
+        Parameters
+        ----------
+        u : array_like
+            Energies, must have the same shape as r.
+        f : array_like
+            Forces, must have the same shape as r.
+        trim : bool
+            Whether to trim off trailing zeros from the regularized force/energy values,
+            defaults to `True`.
+
+        Returns
+        -------
+        array_like
+            A `nx3` array of columns as r, adjusted u, and regularized f, evaluated in n bins.
+        float or `None`
+            The value of r at which trimming trailing zeros is implemented or could be
+            implemented (if trim is False). Returns the last r value if trimming cannot be performed.
+
+        Raises
+        ------
+        IndexError
+            If the energy array is not the same length as the array of r values.
+        IndexError
+            If the force array is not the same length as the array of r values.
+        UserWarning
+            If rmax is too small to cutoff the potential, i.e. if the force at the end
+            of the potential is larger than fcut.
+
+        """
+        u = np.atleast_1d(u)
+        f = np.atleast_1d(f)
+        if u.shape != self.r.shape:
             raise IndexError('Potential must have the same length as r.')
-        if len(f) != len(self.r):
+        if f.shape != self.r.shape:
             raise IndexError('Force must have the same length as r.')
 
         # find first point from beginning that is within energy tolerance
@@ -586,19 +682,29 @@ class Tabulator:
         if self.fcut is not None:
             flags = np.abs(np.flip(f)) >= self.fcut
             cut = len(f)-1 - np.argmax(flags)
-            u -= u[cut]
             if cut < len(f)-1:
+                if self.shift:
+                    u -= u[cut]
                 u[(cut+1):] = 0.
                 f[(cut+1):] = 0.
+            else:
+                warnings.warn('Last tabulated force exceeds fcut, rmax may be too small.', UserWarning)
+                if self.shift:
+                    u -= u[-1]
+        elif self.shift:
+            u -= u[-1]
 
         # trim off trailing zeros
         r = self.r.copy()
-        if trim:
-            flags = np.abs(np.flip(f)) > 0
-            cut = len(f) - np.argmax(flags)
-            if cut < len(f)-1:
+        flags = np.abs(np.flip(f)) > 0
+        cut = len(f) - np.argmax(flags)
+        if cut < len(f):
+            rcut = r[cut]
+            if trim:
                 r = r[:(cut+1)]
                 u = u[:(cut+1)]
                 f = f[:(cut+1)]
+        else:
+            rcut = r[-1]
 
-        return np.column_stack((r,u,f))
+        return np.column_stack((r,u,f)), rcut
