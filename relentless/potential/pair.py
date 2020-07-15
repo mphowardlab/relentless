@@ -6,10 +6,44 @@ from scipy.interpolate import Akima1DInterpolator
 from .potential import PairPotential
 
 class LennardJones(PairPotential):
+    """Models particle pair interactions using the Lennard-Jones potential.
+
+    Two parameters are used: epsilon and sigma.
+
+    Parameters
+    ----------
+    types : array_like
+        List of types (A type must be a `str`).
+
+    """
     def __init__(self, types):
         super().__init__(types=types, params=('epsilon','sigma'))
 
     def _energy(self, r, epsilon, sigma, **params):
+        """Evaluates the energy using the L-J potential at a certain r-value.
+
+        Parameters
+        ----------
+        r : array_like
+            The value or values of r at which to evaluate the energy.
+        epsilon : float or int
+            The epsilon parameter for the potential function.
+        sigma : float or int
+            The sigma parameter for the potential function.
+
+        Returns
+        -------
+        array_like
+            Returns the value or values of the energy evaluated at r.
+
+        Raises
+        ------
+        ValueError
+            If sigma is not a positive number.
+
+        """
+        if sigma < 0:
+            raise ValueError('sigma must be positive')
         r,u,s = self._zeros(r)
         flags = ~np.isclose(r,0)
 
@@ -23,6 +57,30 @@ class LennardJones(PairPotential):
         return u
 
     def _force(self, r, epsilon, sigma, **params):
+        """Evaluates the force using the L-J potential at a certain r-value.
+
+        Parameters
+        ----------
+        r : array_like
+            The value or values of r at which to evaluate the force.
+        epsilon : float or int
+            The epsilon parameter for the potential function.
+        sigma : float or int
+            The sigma parameter for the potential function.
+
+        Returns
+        -------
+        array_like
+            Returns the value or values of the force evaluated at r.
+
+        Raises
+        ------
+        ValueError
+            If sigma is not a positive number.
+
+        """
+        if sigma < 0:
+            raise ValueError('sigma must be positive')
         r,f,s = self._zeros(r)
         flags = ~np.isclose(r,0)
 
@@ -37,6 +95,34 @@ class LennardJones(PairPotential):
         return f
 
     def _derivative(self, param, r, epsilon, sigma, **params):
+        """Evaluates the derivative of the L-J potential at a certain r-value, for a specified parameter.
+
+        Parameters
+        ----------
+        r : array_like
+            The value or values of r at which to evaluate the derivative.
+        param : `str`
+            The parameter with respect to which to take the derivative.
+        epsilon : float or int
+            The epsilon parameter for the potential function.
+        sigma : float or int
+            The sigma parameter for the potential function.
+
+        Returns
+        -------
+        array_like
+            Returns the value or values of the derivative evaluated at r.
+
+        Raises
+        ------
+        ValueError
+            If sigma is not a positive number.
+        ValueError
+            If the parameter with respect to which to take the derivative is not 'sigma' or 'epsilon'.
+
+        """
+        if sigma < 0:
+            raise ValueError('sigma must be positive')
         r,d,s = self._zeros(r)
         flags = ~np.isclose(r,0)
 
@@ -44,8 +130,10 @@ class LennardJones(PairPotential):
         r6_inv = np.power(sigma/r[flags], 6)
         if param == 'epsilon':
             d[flags] = 4*(r6_inv**2 - r6_inv)
-        elif param == 'sigma' and sigma > 0:
+        elif param == 'sigma':
             d[flags] = (48.*epsilon/sigma)*(r6_inv**2 - 0.5*r6_inv)
+        else:
+            raise ValueError('The parameter with respect to which to take the derivative must be "sigma" or "epsilon"')
         d[~flags] = np.inf
 
         if s:
