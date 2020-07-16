@@ -10,7 +10,7 @@ class LennardJones(PairPotential):
 
     .. math::
 
-    u(r) = 4 \varepsilon\left[\left(\frac{\sigma}{r}\right)^12 - \left(\frac{\sigma}{r}\right)^12 \right]
+        u(r) = 4 \varepsilon\left[\left(\frac{\sigma}{r}\right)^12 - \left(\frac{\sigma}{r}\right)^12 \right]
 
     The required coefficients per pair are:
 
@@ -22,6 +22,9 @@ class LennardJones(PairPotential):
     - ``rmin``: minimum radius, energy and force are 0 for ``r < rmin``. Ignored if ``False`` (default).
     - ``rmax``: maximum radius, energy and force are 0 for ``r > rmax`` Ignored if ``False`` (default).
     - ``shift``: If ``True``, shift potential to zero at ``rmax`` (default is ``False``).
+
+    Setting ``rmax = sigma*2**(1./6.)`` and ``shift = True`` will give the purely repulsive
+    Weeks-Chandler-Anderson potential, which can model nearly hard spheres.
 
     Parameters
     ----------

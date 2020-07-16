@@ -622,7 +622,6 @@ class Tabulator:
 
         """
         f = np.zeros(self.r.shape, dtype=np.float64)
-        f = f.astype(dtype=np.float64)
         for pot in potentials:
             try:
                 f += pot.force(pair,self.r)
