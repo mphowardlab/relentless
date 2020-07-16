@@ -161,12 +161,12 @@ class Yukawa(PairPotential):
 
     .. math::
 
-    u(r) = \varepsilon\frac{{e}^{{-\kappa{r}}}}{{r}}
+        u(r) = \varepsilon\frac{e^{-\kappa r}}{r}
 
     The required coefficients per pair are:
 
-    - :math:`\varepsilon`: interaction energy scale
-    - :math:`\kappa`: screening length inverse
+    - :math:`\varepsilon`: prefactor (dimensions: energy x length)
+    - :math:`\kappa`: inverse screening length
 
     The optional coefficients per pair are:
 
