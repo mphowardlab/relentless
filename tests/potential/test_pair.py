@@ -37,7 +37,7 @@ class test_LennardJones(unittest.TestCase):
 
         #test negative sigma
         with self.assertRaises(ValueError):
-            u = lj._energy(r=r_input, epsilon=e12, sigma=-1.0)
+            u = lj._energy(r=r_input, epsilon=1.0, sigma=-1.0)
 
     def test_force(self):
         """Test _force method"""
@@ -57,7 +57,7 @@ class test_LennardJones(unittest.TestCase):
 
         #test negative sigma
         with self.assertRaises(ValueError):
-            u = lj._force(r=r_input, epsilon=e12, sigma=-1.0)
+            u = lj._force(r=r_input, epsilon=1.0, sigma=-1.0)
 
     def test_derivative(self):
         """Test _derivative method"""
@@ -80,22 +80,22 @@ class test_LennardJones(unittest.TestCase):
         #test scalar r
         r_input = 0.5
         d_actual = 48
-        d = lj._derivative(param='sigma', r=r_input, epsilon=1.0, sigma=0,5)
+        d = lj._derivative(param='sigma', r=r_input, epsilon=1.0, sigma=0.5)
         self.assertAlmostEqual(d, d_actual)
 
         #test array r
         r_input = np.array([0,1,1.5])
         d_actual = np.array([np.inf,-0.7265625,-0.06566298])
-        d = lj._derivative(param='sigma', r=r_input, epsilon=e12, sigma=s12)
+        d = lj._derivative(param='sigma', r=r_input, epsilon=1.0, sigma=0.5)
         np.testing.assert_allclose(d, d_actual)
 
         #test negative sigma
         with self.assertRaises(ValueError):
-            u = lj._derivative(param='sigma', r=r_input, epsilon=e12, sigma=-1.0)
+            u = lj._derivative(param='sigma', r=r_input, epsilon=1.0, sigma=-1.0)
 
         #test invalid param
         with self.assertRaises(ValueError):
-            u = lj._derivative(param='simga', r=r_input, epsilon=e12, sigma=s12)
+            u = lj._derivative(param='simga', r=r_input, epsilon=1.0, sigma=1.0)
 
 if __name__ == '__main__':
     unittest.main()
