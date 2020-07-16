@@ -597,8 +597,7 @@ class Tabulator:
             Total energy at each r value.
 
         """
-        u = np.zeros_like(self.r)
-        u = u.astype(dtype=np.float64)
+        u = np.zeros(self.r.shape, dtype=np.float64)
         for pot in potentials:
             try:
                 u += pot.energy(pair,self.r)
@@ -622,7 +621,7 @@ class Tabulator:
             Total force at each r value.
 
         """
-        f = np.zeros_like(self.r)
+        f = np.zeros(self.r.shape, dtype=np.float64)
         f = f.astype(dtype=np.float64)
         for pot in potentials:
             try:

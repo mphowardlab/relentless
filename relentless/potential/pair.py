@@ -6,9 +6,22 @@ from scipy.interpolate import Akima1DInterpolator
 from .potential import PairPotential
 
 class LennardJones(PairPotential):
-    """Models particle pair interactions using the Lennard-Jones potential.
+    """Lennard-Jones 12-6 pair potential.
 
-    Two parameters are used: epsilon and sigma.
+    .. math::
+
+    u(r) = 4 \varepsilon\left[\left(\frac{\sigma}{r}\right)^12 - \left(\frac{\sigma}{r}\right)^12 \right]
+
+    The required coefficients per pair are:
+
+    - :math:`\varepsilon`: interaction energy
+    - :math:`\sigma`: interaction length scale (e.g., particle diameter)
+
+    The optional coefficients per pair are:
+
+    - ``rmin``: minimum radius, energy and force are 0 for ``r < rmin``. Ignored if ``False`` (default).
+    - ``rmax``: maximum radius, energy and force are 0 for ``r > rmax`` Ignored if ``False`` (default).
+    - ``shift``: If ``True``, shift potential to zero at ``rmax`` (default is ``False``).
 
     Parameters
     ----------
@@ -20,7 +33,7 @@ class LennardJones(PairPotential):
         super().__init__(types=types, params=('epsilon','sigma'))
 
     def _energy(self, r, epsilon, sigma, **params):
-        """Evaluates the energy using the L-J potential at a certain r-value.
+        """Evaluates the Lennard-Jones potential energy.
 
         Parameters
         ----------
@@ -57,7 +70,7 @@ class LennardJones(PairPotential):
         return u
 
     def _force(self, r, epsilon, sigma, **params):
-        """Evaluates the force using the L-J potential at a certain r-value.
+        """Evaluates the Lennard-Jones force.
 
         Parameters
         ----------
@@ -95,14 +108,14 @@ class LennardJones(PairPotential):
         return f
 
     def _derivative(self, param, r, epsilon, sigma, **params):
-        """Evaluates the derivative of the L-J potential at a certain r-value, for a specified parameter.
+        """Evaluates the Lennard-Jones parameter derivative.
 
         Parameters
         ----------
-        r : array_like
-            The value or values of r at which to evaluate the derivative.
         param : `str`
             The parameter with respect to which to take the derivative.
+        r : array_like
+            The value or values of r at which to evaluate the derivative.
         epsilon : float or int
             The epsilon parameter for the potential function.
         sigma : float or int
@@ -133,7 +146,7 @@ class LennardJones(PairPotential):
         elif param == 'sigma':
             d[flags] = (48.*epsilon/sigma)*(r6_inv**2 - 0.5*r6_inv)
         else:
-            raise ValueError('The parameter with respect to which to take the derivative must be "sigma" or "epsilon"')
+            raise ValueError('The Lennard-Jones parameters are sigma and epsilon.')
         d[~flags] = np.inf
 
         if s:
