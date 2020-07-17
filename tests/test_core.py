@@ -64,8 +64,8 @@ class test_Interpolator(unittest.TestCase):
         self.assertAlmostEqual(d, 3.0)
 
         #test array call
-        d = f.derivative(x=np.array([-1.5,-0.5,0.5]), n=1)
-        np.testing.assert_allclose(d, np.array([-3.0,-1.0,1.0]))
+        d = f.derivative(x=np.array([-3.0,-0.5,0.5,3.0]), n=1)
+        np.testing.assert_allclose(d, np.array([0.0,-1.0,1.0,0.0]))
 
     def test_extrap(self):
         """Test extrapolation calls."""

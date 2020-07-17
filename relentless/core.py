@@ -48,8 +48,8 @@ class Interpolator:
 
         >>> f.derivative(x=0.5, n=1)
         2.0
-        >>> f.derivative(x=[-0.5,0.5], n=1)
-        (2.0, 2.0)
+        >>> f.derivative(x=[-2.5,-0.5,0.5,2.5], n=1)
+        (0.0, 2.0, 2.0, 0.0)
 
     Extrapolation::
 
@@ -135,11 +135,11 @@ class Interpolator:
 
         # clamp lo
         lo = x < self.domain[0]
-        result[lo] = self._spline(self.domain[0], nu=n)
+        result[lo] = 0
 
         # clamp hi
         hi = x > self.domain[1]
-        result[hi] = self._spline(self.domain[1], nu=n)
+        result[hi] = 0
 
         # evaluate in between
         flags = np.logical_and(~lo,~hi)
