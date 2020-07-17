@@ -1,4 +1,4 @@
-__all__ = ['LennardJones']
+__all__ = ['LennardJones', 'Yukawa']
 
 import numpy as np
 from scipy.interpolate import Akima1DInterpolator
