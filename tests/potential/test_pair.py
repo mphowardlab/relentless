@@ -97,5 +97,95 @@ class test_LennardJones(unittest.TestCase):
         with self.assertRaises(ValueError):
             u = lj._derivative(param='simga', r=r_input, epsilon=1.0, sigma=1.0)
 
+class test_Yukawa(unittest.TestCase):
+    """Unit tests for pair.Yukawa"""
+
+    def test_init(self):
+        """Test creation from data"""
+        y = pair.Yukawa(types=('1','2'))
+        coeff = potential.CoefficientMatrix(types=('1','2'), params=('epsilon','kappa','rmin','rmax','shift'),
+                                            default={'rmin':False,'rmax':False,'shift':False})
+        self.assertCountEqual(y.coeff.types, coeff.types)
+        self.assertCountEqual(y.coeff.params, coeff.params)
+        self.assertDictEqual(y.coeff.default.todict(), coeff.default.todict())
+
+    def test_energy(self):
+        """Test _energy method"""
+        y = pair.Yukawa(types=('1',))
+
+        #test scalar r
+        r_input = 0.5
+        u_actual = 1.5576016
+        u = y._energy(r=r_input, epsilon=1.0, kappa=0.5)
+        self.assertAlmostEqual(u, u_actual)
+
+        #test array r
+        r_input = np.array([0,1,1.5])
+        u_actual = np.array([np.inf,0.60653066,0.31491104])
+        u = y._energy(r=r_input, epsilon=1.0, kappa=0.5)
+        np.testing.assert_allclose(u, u_actual)
+
+        #test negative kappa
+        with self.assertRaises(ValueError):
+            u = y._energy(r=r_input, epsilon=1.0, kappa=-1.0)
+
+    def test_force(self):
+        """Test _force method"""
+        y = pair.Yukawa(types=('1',))
+
+        #test scalar r
+        r_input = 0.5
+        f_actual = 3.8940039
+        f = y._force(r=r_input, epsilon=1.0, kappa=0.5)
+        self.assertAlmostEqual(f, f_actual)
+
+        #test array r
+        r_input = np.array([0,1,1.5])
+        f_actual = np.array([np.inf,0.90979599,0.36739621])
+        f = y._force(r=r_input, epsilon=1.0, kappa=0.5)
+        np.testing.assert_allclose(f, f_actual)
+
+        #test negative kappa
+        with self.assertRaises(ValueError):
+            u = y._force(r=r_input, epsilon=1.0, kappa=-1.0)
+
+    def test_derivative(self):
+        """Test _derivative method"""
+        y = pair.Yukawa(types=('1',))
+
+        #w.r.t. epsilon
+        #test scalar r
+        r_input = 0.5
+        d_actual = 1.5576016
+        d = y._derivative(param='epsilon', r=r_input, epsilon=1.0, kappa=0.5)
+        self.assertAlmostEqual(d, d_actual)
+
+        #test array r
+        r_input = np.array([0,1,1.5])
+        d_actual = np.array([np.inf,0.60653066,0.31491104])
+        d = y._derivative(param='epsilon', r=r_input, epsilon=1.0, kappa=0.5)
+        np.testing.assert_allclose(d, d_actual)
+
+        #w.r.t. kappa
+        #test scalar r
+        r_input = 0.5
+        d_actual = -0.77880078
+        d = y._derivative(param='kappa', r=r_input, epsilon=1.0, kappa=0.5)
+        self.assertAlmostEqual(d, d_actual)
+
+        #test array r
+        r_input = np.array([0,1,1.5])
+        d_actual = np.array([-1,-0.60653066,-0.47236655])
+        d = y._derivative(param='kappa', r=r_input, epsilon=1.0, kappa=0.5)
+        np.testing.assert_allclose(d, d_actual)
+
+        #test negative kappa
+        with self.assertRaises(ValueError):
+            u = y._derivative(param='kappa', r=r_input, epsilon=1.0, kappa=-1.0)
+
+        #test invalid param
+        with self.assertRaises(ValueError):
+            u = y._derivative(param='kapppa', r=r_input, epsilon=1.0, kappa=1.0)
+
 if __name__ == '__main__':
     unittest.main()
