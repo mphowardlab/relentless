@@ -1,5 +1,6 @@
 """Unit tests for core module."""
 import unittest
+
 import numpy as np
 
 import relentless
@@ -53,6 +54,18 @@ class test_Interpolator(unittest.TestCase):
 
         #test array call
         np.testing.assert_allclose(f([-0.5,0.5]), [-1.0,1.0])
+
+    def test_derivative(self):
+        """Test derivative function, both scalar and array."""
+        f = relentless.core.Interpolator(x=(-2,-1,0,1,2), y=(4,1,0,1,4))
+
+        #test scalar call
+        d = f.derivative(x=1.5, n=1)
+        self.assertAlmostEqual(d, 3.0)
+
+        #test array call
+        d = f.derivative(x=np.array([-1.5,-0.5,0.5]), n=1)
+        np.testing.assert_allclose(d, np.array([-3.0,-1.0,1.0]))
 
     def test_extrap(self):
         """Test extrapolation calls."""

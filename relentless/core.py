@@ -44,6 +44,13 @@ class Interpolator:
         >>> f([-0.5,0.5])
         (-1.0, 1.0)
 
+    Evaluate the n-th derivative of the function::
+
+        >>> f.derivative(x=0.5, n=1)
+        2.0
+        >>> f.derivative(x=[-0.5,0.5], n=1)
+        (2.0, 2.0)
+
     Extrapolation::
 
         >>> f(100)
@@ -93,6 +100,50 @@ class Interpolator:
         # evaluate in between
         flags = np.logical_and(~lo,~hi)
         result[flags] = self._spline(x[flags])
+
+        if scalar_x:
+            result = result.item()
+
+        return result
+
+    def derivative(self, x, n):
+        """Evaluate the n-th derivative of the interpolating function.
+
+        Parameters
+        ----------
+        x : float or array_like
+            1-d array of x coordinates to evaluate.
+        n : int
+            The order of the derivative to take.
+
+        Returns
+        -------
+        result : float or numpy.ndarray
+            Interpolated derivative values having the same form as `x`.
+
+        Raises
+        ------
+        ValueError
+            If n is not a positive integer.
+
+        """
+        if not isinstance(n, int) and n <= 0:
+            raise ValueError('n must be a positive integer')
+        scalar_x = np.isscalar(x)
+        x = np.atleast_1d(x)
+        result = np.zeros(len(x))
+
+        # clamp lo
+        lo = x < self.domain[0]
+        result[lo] = self._spline(self.domain[0], nu=n)
+
+        # clamp hi
+        hi = x > self.domain[1]
+        result[hi] = self._spline(self.domain[1], nu=n)
+
+        # evaluate in between
+        flags = np.logical_and(~lo,~hi)
+        result[flags] = self._spline(x[flags], nu=n)
 
         if scalar_x:
             result = result.item()
