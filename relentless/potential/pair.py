@@ -374,24 +374,26 @@ class PairPotential(potential.Potential):
         pass
 
 class LennardJones(PairPotential):
-    """Lennard-Jones 12-6 pair potential.
+    r"""Lennard-Jones 12-6 pair potential.
 
     .. math::
 
-        u(r) = 4 \varepsilon\left[\left(\frac{\sigma}{r}\right)^12 - \left(\frac{\sigma}{r}\right)^12 \right]
+        u(r) = 4 \varepsilon\left[\left(\frac{\sigma}{r}\right)^{12} - \left(\frac{\sigma}{r}\right)^6 \right]
 
     The required coefficients per pair are:
 
-    - :math:`\varepsilon`: interaction energy
-    - :math:`\sigma`: interaction length scale (e.g., particle diameter)
+    - :math:`\varepsilon` (``epsilon``): interaction energy
+    - :math:`\sigma` (``sigma``): interaction length scale (e.g., particle diameter)
 
     The optional coefficients per pair are:
 
-    - ``rmin``: minimum radius, energy and force are 0 for ``r < rmin``. Ignored if ``False`` (default).
-    - ``rmax``: maximum radius, energy and force are 0 for ``r > rmax`` Ignored if ``False`` (default).
+    - :math:`r_{\rm min}` (``rmin``): minimum radius, energy and force are 0 for
+      :math:`r < r_{\rm min}`. Ignored if ``False`` (default).
+    - :math:`r_{\rm max}` (``rmax``): maximum radius, energy and force are 0 for
+      :math:`r > r_{\rm max}`. Ignored if ``False`` (default).
     - ``shift``: If ``True``, shift potential to zero at ``rmax`` (default is ``False``).
 
-    Setting ``rmax = sigma*2**(1./6.)`` and ``shift = True`` will give the purely repulsive
+    Setting :math:`r_{\rm max} = 2^{1/6}\sigma` and ``shift = True`` will give the purely repulsive
     Weeks-Chandler-Anderson potential, which can model nearly hard spheres.
 
     Parameters
@@ -789,7 +791,7 @@ class Spline(PairPotential):
             yield r,k
 
 class Yukawa(PairPotential):
-    """Yukawa pair potential.
+    r"""Yukawa pair potential.
 
     .. math::
 
@@ -797,13 +799,15 @@ class Yukawa(PairPotential):
 
     The required coefficients per pair are:
 
-    - :math:`\varepsilon`: prefactor (dimensions: energy x length)
-    - :math:`\kappa`: inverse screening length
+    - :math:`\varepsilon` (``epsilon``): prefactor (dimensions: energy x length)
+    - :math:`\kappa` (``kappa``): inverse screening length
 
     The optional coefficients per pair are:
 
-    - ``rmin``: minimum radius, energy and force are 0 for ``r < rmin``. Ignored if ``False`` (default).
-    - ``rmax``: maximum radius, energy and force are 0 for ``r > rmax`` Ignored if ``False`` (default).
+    - :math:`r_{\rm min}` (``rmin``): minimum radius, energy and force are 0 for
+      :math:`r < r_{\rm min}`. Ignored if ``False`` (default).
+    - :math:`r_{\rm max}` (``rmax``): maximum radius, energy and force are 0 for
+      :math:`r > r_{\rm max}`. Ignored if ``False`` (default).
     - ``shift``: If ``True``, shift potential to zero at ``rmax`` (default is ``False``).
 
     Parameters
@@ -812,11 +816,11 @@ class Yukawa(PairPotential):
         List of types (A type must be a `str`).
 
     """
-    def __init__(self, types, shift=False):
+    def __init__(self, types):
         super().__init__(types=types, params=('epsilon','kappa'))
 
     def _energy(self, r, epsilon, kappa, **params):
-        """Evaluates the Yukawa potential energy.
+        r"""Evaluates the Yukawa potential energy.
 
         Parameters
         ----------
@@ -852,7 +856,7 @@ class Yukawa(PairPotential):
         return u
 
     def _force(self, r, epsilon, kappa, **params):
-        """Evaluates the Yukawa force.
+        r"""Evaluates the Yukawa force.
 
         Parameters
         ----------
@@ -888,7 +892,7 @@ class Yukawa(PairPotential):
         return f
 
     def _derivative(self, param, r, epsilon, kappa, **params):
-        """Evaluates the Yukawa parameter derivative.
+        r"""Evaluates the Yukawa parameter derivative.
 
         Parameters
         ----------
