@@ -69,7 +69,12 @@ class Interpolator:
         if not np.all(x[1:] > x[:-1]):
             raise ValueError('x must be strictly increasing')
         self._domain = (x[0],x[-1])
-        self._spline = scipy.interpolate.Akima1DInterpolator(x=x, y=y)
+        if x.shape[0] > 2:
+            self._spline = scipy.interpolate.Akima1DInterpolator(x=x, y=y)
+        else:
+            self._spline = scipy.interpolate.interp1d(x=x, y=y)
+            self._y = y
+            self._x = x
 
     def __call__(self, x):
         """Evaluate the interpolating function.
@@ -143,7 +148,10 @@ class Interpolator:
 
         # evaluate in between
         flags = np.logical_and(~lo,~hi)
-        result[flags] = self._spline(x[flags], nu=n)
+        if isinstance(self._spline, scipy.interpolate.Akima1DInterpolator):
+            result[flags] = self._spline(x[flags], nu=n)
+        else:
+            result[flags] = (self._y[1] - self._y[0])/(self._x[1] - self._x[0])
 
         if scalar_x:
             result = result.item()

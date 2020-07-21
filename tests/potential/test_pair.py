@@ -193,15 +193,21 @@ class test_Spline(unittest.TestCase):
         s = pair.Spline(types=('1',), num_knots=3)
         s.from_array(pair=('1','1'), r=r_arr, u=u_arr)
         u_actual = np.array([6.25,2.25,1])
-        u = s._energy(pair=('1','1'), r=[1.5,2.5,3.5])
+        u = s._energy(r=[1.5,2.5,3.5], params=s.coeff['1','1'])
         np.testing.assert_allclose(u, u_actual)
 
         #test value mode
         s = pair.Spline(types=('1',), num_knots=3, mode='value')
         s.from_array(pair=('1','1'), r=r_arr, u=u_arr)
         u_actual = np.array([6.25,2.25,1])
-        u = s._energy(pair=('1','1'), r=[1.5,2.5,3.5])
+        u = s._energy(r=[1.5,2.5,3.5], params=s.coeff['1','1'])
         np.testing.assert_allclose(u, u_actual)
+
+        #test Spline with 2 knots
+        s = pair.Spline(types=('1',), num_knots=2, mode='value')
+        s.from_array(pair=('1','1'), r=[1,2], u=[4,2])
+        u = s._energy(r=1.5, params=s.coeff['1','1'])
+        self.assertAlmostEqual(u, 3)
 
     def test_force(self):
         """Test _force method"""
@@ -212,15 +218,21 @@ class test_Spline(unittest.TestCase):
         s = pair.Spline(types=('1',), num_knots=3)
         s.from_array(pair=('1','1'), r=r_arr, u=u_arr)
         f_actual = np.array([5,3,0])
-        f = s._force(pair=('1','1'), r=[1.5,2.5,3.5])
+        f = s._force(r=[1.5,2.5,3.5], params=s.coeff['1','1'])
         np.testing.assert_allclose(f, f_actual)
 
         #test value mode
         s = pair.Spline(types=('1',), num_knots=3, mode='value')
         s.from_array(pair=('1','1'), r=r_arr, u=u_arr)
         f_actual = np.array([5,3,0])
-        f = s._force(pair=('1','1'), r=[1.5,2.5,3.5])
+        f = s._force(r=[1.5,2.5,3.5], params=s.coeff['1','1'])
         np.testing.assert_allclose(f, f_actual)
+
+        #test Spline with 2 knots
+        s = pair.Spline(types=('1',), num_knots=2, mode='value')
+        s.from_array(pair=('1','1'), r=[1,2], u=[4,2])
+        f = s._force(r=1.5, params=s.coeff['1','1'])
+        self.assertAlmostEqual(f, 2)
 
     def test_derivative(self):
         """Test _derivative method"""
@@ -231,15 +243,26 @@ class test_Spline(unittest.TestCase):
         s = pair.Spline(types=('1',), num_knots=3)
         s.from_array(pair=('1','1'), r=r_arr, u=u_arr)
         d_actual = np.array([1.125,0.625,0])
-        d = s._derivative(pair=('1','1'), param='knot-1', r=[1.5,2.5,3.5])
+        d = s._derivative(param='knot-1', r=[1.5,2.5,3.5], params=s.coeff['1','1'])
         np.testing.assert_allclose(d, d_actual)
 
         #test value mode
         s = pair.Spline(types=('1',), num_knots=3, mode='value')
         s.from_array(pair=('1','1'), r=r_arr, u=u_arr)
         d_actual = np.array([0.75,0.75,0])
-        d = s._derivative(pair=('1','1'), param='knot-1', r=[1.5,2.5,3.5])
+        d = s._derivative(param='knot-1', r=[1.5,2.5,3.5], params=s.coeff['1','1'])
         np.testing.assert_allclose(d, d_actual)
+
+    def test_knots(self):
+        """Test knots generator"""
+        r_arr = [1,2,3]
+        u_arr = [9,4,1]
+
+        s = pair.Spline(types=('1',), num_knots=3, mode='value')
+        s.from_array(pair=('1','1'), r=r_arr, u=u_arr)
+        for i,(r,k) in enumerate(s.knots(pair=('1','1'))):
+            self.assertAlmostEqual(r_arr[i], r.value)
+            self.assertAlmostEqual(u_arr[i], k.value)
 
 class test_Yukawa(unittest.TestCase):
     """Unit tests for pair.Yukawa"""

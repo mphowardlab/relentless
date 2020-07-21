@@ -1,6 +1,4 @@
 __all__ = ['LennardJones','Spline','Yukawa']
-import copy
-
 import numpy as np
 
 from relentless import core
@@ -189,10 +187,14 @@ class Spline(PairPotential):
         if mode in self.valid_modes:
             self._mode = mode
         else:
-            raise ValueError('Invalid parameter mode, choose from: ' + ','.join(Spline.valid_modes))
+            raise ValueError('Invalid parameter mode, choose from: ' + ','.join(self.valid_modes))
 
-        super().__init__(types=types,
-                         params=['r-{}'.format(i) for i in range(num_knots)] + ['knot-{}'.format(i) for i in range(num_knots)])
+        params = []
+        for i in range(self.num_knots):
+            ri,ki = self._knot_params(i)
+            params.append(ri)
+            params.append(ki)
+        super().__init__(types=types,params=params)
 
     def from_array(self, pair, r, u):
         """Sets up the potential from arrays of knot positions and energies.
@@ -229,18 +231,50 @@ class Spline(PairPotential):
 
         # make all knots variables, but hold all r and the last knot const
         for i in range(self.num_knots):
-            self.coeff[pair]['r-{}'.format(i)] = core.Variable(rs[i],const=True)
-            self.coeff[pair]['knot-{}'.format(i)] = core.Variable(ks[i],const=(i==self.num_knots-1))
+            ri,ki = self._knot_params(i)
+            if self.coeff[pair][ri] is None:
+                self.coeff[pair][ri] = core.Variable(rs[i],const=True)
+            else:
+                self.coeff[pair][ri].value = rs[i]
+            if self.coeff[pair][ki] is None:
+                self.coeff[pair][ki] = core.Variable(ks[i],const=(i==self.num_knots-1))
+            else:
+                self.coeff[pair][ki].value = ks[i]
 
-    def _energy(self, pair, r, **params):
+    def _knot_params(self, i):
+        """Returns the knot variables.
+
+        Parameters
+        ----------
+        i : int
+            Key for the knot variable.
+
+        Returns
+        -------
+        str
+            The keyed r value.
+        str
+            The keyed knot value.
+
+        Raises
+        ------
+        ValueError
+            If the knot key is not an integer.
+
+        """
+        if not isinstance(i, int):
+            raise ValueError('Knots are keyed by integers')
+        return 'r-{}'.format(i), 'knot-{}'.format(i)
+
+    def _energy(self, r, params, **pars):
         """Evaluates the spline potential energy.
 
         Parameters
         ----------
-        pair : tuple
-            The type pair (i,j) for which to initialize the spline potential.
         r : array_like
             The value or values of r at which to evaluate the energy.
+        params : dict
+            The parameters (r and knot values) for the potential function.
 
         Returns
         -------
@@ -249,21 +283,20 @@ class Spline(PairPotential):
 
         """
         r,u,s = self._zeros(r)
-        params = self.coeff[pair]
         u = self._interpolate(params)(r)
         if s:
             u = u.item()
         return u
 
-    def _force(self, pair, r, **params):
+    def _force(self, r, params, **pars):
         """Evaluates the spline force.
 
         Parameters
         ----------
-        pair : tuple
-            The type pair (i,j) for which to initialize the spline potential.
         r : array_like
-            The value or values of r at which to evaluate the force.
+            The value or values of r at which to evaluate the energy.
+        params : dict
+            The parameters (r and knot values) for the potential function.
 
         Returns
         -------
@@ -272,42 +305,87 @@ class Spline(PairPotential):
 
         """
         r,f,s = self._zeros(r)
-        params = self.coeff[pair]
         f = -self._interpolate(params).derivative(r, 1)
         if s:
             f = f.item()
         return f
 
-    def _derivative(self, pair, param, r, **params):
+    def derivative(self, pair, param, r):
+        """Evaluates derivative for a (i,j) pair with respect to a parameter.
+
+        All pair parameters must be of type :py:class:`Variable`. This method may not function
+        as intended if the parameter types are overridden.
+
+        Parameters
+        ----------
+        pair : array_like
+            The pair for which to calculate the derivative.
+        param : str
+            The parameter with respect to which to take the derivative.
+        r : array_like
+            The location(s) at which to calculate the derivative.
+
+        Returns
+        -------
+        scalar or array_like
+            The derivative at the specified location(s).
+            The returned quantity will be a scalar if `r` is scalar
+            or a numpy array if `r` is array_like.
+
+        Raises
+        ------
+        TypeError
+            If an r value is not of type :py:class:`Variable`
+        TypeError
+            If a knot value is not of type :py:class:`Variable`
+
+        """
+        for i in range(self.num_knots):
+            ri,ki = self._knot_params(i)
+            if not isinstance(self.coeff[pair][ri], core.Variable):
+                raise TypeError('All r values must be Variables')
+            if not isinstance(self.coeff[pair][ki], core.Variable):
+                raise TypeError('All knot values must be Variables')
+        return super().derivative(pair, param, r)
+
+    def _derivative(self, param, r, params, **pars):
         """Evaluates the spline parameter derivative using finite differencing.
 
         Parameters
         ----------
         pair : tuple
             The type pair (i,j) for which to initialize the spline potential.
-        param : str
-            The parameter with respect to which to take the derivative (the knot coefficient).
         r : array_like
-            The value or values of r at which to evaluate the derivative.
+            The value or values of r at which to evaluate the energy.
+        params : dict
+            The parameters (r and knot values) for the potential function.
 
         Returns
         -------
         array_like
             Returns the value or values of the derivative evaluated at r.
 
+        Raises
+        ------
+        ValueError
+            If the parameter with respect to which to take the derivative is not a knot value.
+
         """
+        if 'knot' not in param:
+            raise ValueError('Parameter derivative can only be taken for knot values')
+
         r,d,s = self._zeros(r)
         h = 0.001
-        params = self.coeff[pair]
 
-        #perturb params[param]
-        params_high = copy.deepcopy(params.todict())
-        params_low = copy.deepcopy(params.todict())
-        params_high[param].value += h
-        params_low[param].value -= h
+        #perturb knot param value
+        knot_p = params[param].value
+        params[param].value = knot_p + h
+        f_high = self._interpolate(params)(r)
+        params[param].value = knot_p - h
+        f_low = self._interpolate(params)(r)
 
-        d = self._interpolate(params_high)(r) - self._interpolate(params_low)(r)
-        d /= (2*h)
+        params[param].value = knot_p
+        d = (f_high - f_low)/(2*h)
         if s:
             d = d.item()
         return d
@@ -326,8 +404,12 @@ class Spline(PairPotential):
             The interpolated spline potential.
 
         """
-        r = np.array([params['r-{}'.format(i)].value for i in range(self.num_knots)])
-        u = np.array([params['knot-{}'.format(i)].value for i in range(self.num_knots)])
+        r = np.empty(self.num_knots)
+        u = np.empty(self.num_knots)
+        for i in range(self.num_knots):
+            ri,ki = self._knot_params(i)
+            r[i] = params[ri].value
+            u[i] = params[ki].value
         # reconstruct the energies from differences, starting from the end of the potential
         if self.mode == 'diff':
             u = np.flip(np.cumsum(np.flip(u)))
@@ -360,8 +442,9 @@ class Spline(PairPotential):
 
         """
         for i in range(self.num_knots):
-            r = self.coeff[pair]['r-{}'.format(i)]
-            k = self.coeff[pair]['knot-{}'.format(i)]
+            ri,ki = self._knot_params(i)
+            r = self.coeff[pair][ri]
+            k = self.coeff[pair][ki]
             yield r,k
 
 class Yukawa(PairPotential):
