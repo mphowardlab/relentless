@@ -161,10 +161,10 @@ class Spline(PairPotential):
     Parameters
     ----------
     types : array_like
-        List of types (A type must be a `str`).
+        List of types (A type must be a str).
     num_knots : int
         The number of knots with which to interpolate.
-    mode : `str`
+    mode : str
         Describes the type of design parameter used in the optimization. Setting the mode to 'value' uses the knot amplitudes,
         while 'diff' uses the differences between neighboring knot amplitudes. (Defaults to 'diff').
 
@@ -242,7 +242,7 @@ class Spline(PairPotential):
                 self.coeff[pair][ki].value = ks[i]
 
     def _knot_params(self, i):
-        """Returns the knot variables.
+        """Get the parameter names for a given knot.
 
         Parameters
         ----------
@@ -266,7 +266,7 @@ class Spline(PairPotential):
             raise ValueError('Knots are keyed by integers')
         return 'r-{}'.format(i), 'knot-{}'.format(i)
 
-    def _energy(self, r, params, **pars):
+    def _energy(self, r, **params):
         """Evaluates the spline potential energy.
 
         Parameters
@@ -288,7 +288,7 @@ class Spline(PairPotential):
             u = u.item()
         return u
 
-    def _force(self, r, params, **pars):
+    def _force(self, r, **params):
         """Evaluates the spline force.
 
         Parameters
@@ -311,35 +311,7 @@ class Spline(PairPotential):
         return f
 
     def derivative(self, pair, param, r):
-        """Evaluates derivative for a (i,j) pair with respect to a parameter.
-
-        All pair parameters must be of type :py:class:`Variable`. This method may not function
-        as intended if the parameter types are overridden.
-
-        Parameters
-        ----------
-        pair : array_like
-            The pair for which to calculate the derivative.
-        param : str
-            The parameter with respect to which to take the derivative.
-        r : array_like
-            The location(s) at which to calculate the derivative.
-
-        Returns
-        -------
-        scalar or array_like
-            The derivative at the specified location(s).
-            The returned quantity will be a scalar if `r` is scalar
-            or a numpy array if `r` is array_like.
-
-        Raises
-        ------
-        TypeError
-            If an r value is not of type :py:class:`Variable`
-        TypeError
-            If a knot value is not of type :py:class:`Variable`
-
-        """
+        #Extending PairPotential method to check if r and knot values are Variables.
         for i in range(self.num_knots):
             ri,ki = self._knot_params(i)
             if not isinstance(self.coeff[pair][ri], core.Variable):
@@ -348,7 +320,7 @@ class Spline(PairPotential):
                 raise TypeError('All knot values must be Variables')
         return super().derivative(pair, param, r)
 
-    def _derivative(self, param, r, params, **pars):
+    def _derivative(self, param, r, **params):
         """Evaluates the spline parameter derivative using finite differencing.
 
         Parameters
@@ -378,13 +350,13 @@ class Spline(PairPotential):
         h = 0.001
 
         #perturb knot param value
-        knot_p = params[param].value
-        params[param].value = knot_p + h
+        knot_p = params[param]
+        params[param] = knot_p + h
         f_high = self._interpolate(params)(r)
-        params[param].value = knot_p - h
+        params[param] = knot_p - h
         f_low = self._interpolate(params)(r)
 
-        params[param].value = knot_p
+        params[param] = knot_p
         d = (f_high - f_low)/(2*h)
         if s:
             d = d.item()
@@ -404,12 +376,12 @@ class Spline(PairPotential):
             The interpolated spline potential.
 
         """
-        r = np.empty(self.num_knots)
-        u = np.empty(self.num_knots)
+        r = np.zeros(self.num_knots)
+        u = np.zeros(self.num_knots)
         for i in range(self.num_knots):
             ri,ki = self._knot_params(i)
-            r[i] = params[ri].value
-            u[i] = params[ki].value
+            r[i] = params[ri]
+            u[i] = params[ki]
         # reconstruct the energies from differences, starting from the end of the potential
         if self.mode == 'diff':
             u = np.flip(np.cumsum(np.flip(u)))
