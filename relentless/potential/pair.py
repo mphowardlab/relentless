@@ -258,12 +258,12 @@ class Spline(PairPotential):
 
         Raises
         ------
-        ValueError
+        TypeError
             If the knot key is not an integer.
 
         """
         if not isinstance(i, int):
-            raise ValueError('Knots are keyed by integers')
+            raise TypeError('Knots are keyed by integers')
         return 'r-{}'.format(i), 'knot-{}'.format(i)
 
     def _energy(self, r, **params):
@@ -312,11 +312,10 @@ class Spline(PairPotential):
 
     def derivative(self, pair, param, r):
         #Extending PairPotential method to check if r and knot values are Variables.
-        for i in range(self.num_knots):
-            ri,ki = self._knot_params(i)
-            if not isinstance(self.coeff[pair][ri], core.Variable):
+        for ri,ki in self.knots(pair):
+            if not isinstance(ri, core.Variable):
                 raise TypeError('All r values must be Variables')
-            if not isinstance(self.coeff[pair][ki], core.Variable):
+            if not isinstance(ki, core.Variable):
                 raise TypeError('All knot values must be Variables')
         return super().derivative(pair, param, r)
 
@@ -407,9 +406,9 @@ class Spline(PairPotential):
 
         Yields
         ------
-        `str`
+        :py:class:`Variable`
             The next r key in the coefficient array of r values.
-        `str`
+        :py:class:`Variable`
             The next knot key in the coefficient array of k values.
 
         """
