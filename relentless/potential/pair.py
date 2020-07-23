@@ -1,8 +1,7 @@
-__all__ = ['LennardJones', 'Yukawa']
-
+__all__ = ['LennardJones','Spline','Yukawa']
 import numpy as np
-from scipy.interpolate import Akima1DInterpolator
 
+from relentless import core
 from .potential import PairPotential
 
 class LennardJones(PairPotential):
@@ -156,6 +155,269 @@ class LennardJones(PairPotential):
             d = d.item()
         return d
 
+class Spline(PairPotential):
+    """Spline potential using Akima interpolation.
+
+    Parameters
+    ----------
+    types : array_like
+        List of types (A type must be a str).
+    num_knots : int
+        The number of knots with which to interpolate.
+    mode : str
+        Describes the type of design parameter used in the optimization. Setting the mode to 'value' uses the knot amplitudes,
+        while 'diff' uses the differences between neighboring knot amplitudes. (Defaults to 'diff').
+
+    Raises
+    ------
+    ValueError
+        If the number of knots is not an integer >= 2.
+    ValueError
+        If the mode is not set to either 'value' or 'diff'.
+
+    """
+    valid_modes = ('value','diff')
+
+    def __init__(self, types, num_knots, mode='diff'):
+        if isinstance(num_knots,int) and num_knots >= 2:
+            self._num_knots = num_knots
+        else:
+            raise ValueError('Number of spline knots must be an integer >= 2.')
+
+        if mode in self.valid_modes:
+            self._mode = mode
+        else:
+            raise ValueError('Invalid parameter mode, choose from: ' + ','.join(self.valid_modes))
+
+        params = []
+        for i in range(self.num_knots):
+            ri,ki = self._knot_params(i)
+            params.append(ri)
+            params.append(ki)
+        super().__init__(types=types,params=params)
+
+    def from_array(self, pair, r, u):
+        """Sets up the potential from arrays of knot positions and energies.
+
+        Parameters
+        ----------
+        pair : tuple
+            The type pair (i,j) for which to set up the potential.
+        r : array_like
+            The array of knot positions.
+        u : array_like
+            The array of energies at each knot position.
+
+        Raises
+        ------
+        ValueError
+            If the array of r values does not have the same length as the number of knots.
+        ValueError
+            If the array of u values does not have the same length as the number of knots.
+
+        """
+        # check that r and u have the right shape
+        if len(r) != self.num_knots:
+            raise ValueError('r must have the same length as the number of knots')
+        if len(u) != self.num_knots:
+            raise ValueError('u must have the same length as the number of knots')
+
+        # convert to r,knot form given the mode
+        rs = np.asarray(r, dtype=np.float64)
+        ks = np.asarray(u, dtype=np.float64)
+        if self.mode == 'diff':
+            # difference is next knot minus my knot, with last knot fixed at its current value
+            ks[:-1] -= ks[1:]
+
+        # make all knots variables, but hold all r and the last knot const
+        for i in range(self.num_knots):
+            ri,ki = self._knot_params(i)
+            if self.coeff[pair][ri] is None:
+                self.coeff[pair][ri] = core.Variable(rs[i],const=True)
+            else:
+                self.coeff[pair][ri].value = rs[i]
+            if self.coeff[pair][ki] is None:
+                self.coeff[pair][ki] = core.Variable(ks[i],const=(i==self.num_knots-1))
+            else:
+                self.coeff[pair][ki].value = ks[i]
+
+    def _knot_params(self, i):
+        """Get the parameter names for a given knot.
+
+        Parameters
+        ----------
+        i : int
+            Key for the knot variable.
+
+        Returns
+        -------
+        str
+            The keyed r value.
+        str
+            The keyed knot value.
+
+        Raises
+        ------
+        TypeError
+            If the knot key is not an integer.
+
+        """
+        if not isinstance(i, int):
+            raise TypeError('Knots are keyed by integers')
+        return 'r-{}'.format(i), 'knot-{}'.format(i)
+
+    def _energy(self, r, **params):
+        """Evaluates the spline potential energy.
+
+        Parameters
+        ----------
+        r : array_like
+            The value or values of r at which to evaluate the energy.
+        params : dict
+            The parameters (r and knot values) for the potential function.
+
+        Returns
+        -------
+        array_like
+            Returns the value or values of the energy evaluated at r.
+
+        """
+        r,u,s = self._zeros(r)
+        u = self._interpolate(params)(r)
+        if s:
+            u = u.item()
+        return u
+
+    def _force(self, r, **params):
+        """Evaluates the spline force.
+
+        Parameters
+        ----------
+        r : array_like
+            The value or values of r at which to evaluate the energy.
+        params : dict
+            The parameters (r and knot values) for the potential function.
+
+        Returns
+        -------
+        array_like
+            Returns the value or values of the force evaluated at r.
+
+        """
+        r,f,s = self._zeros(r)
+        f = -self._interpolate(params).derivative(r, 1)
+        if s:
+            f = f.item()
+        return f
+
+    def derivative(self, pair, param, r):
+        #Extending PairPotential method to check if r and knot values are Variables.
+        for ri,ki in self.knots(pair):
+            if not isinstance(ri, core.Variable):
+                raise TypeError('All r values must be Variables')
+            if not isinstance(ki, core.Variable):
+                raise TypeError('All knot values must be Variables')
+        return super().derivative(pair, param, r)
+
+    def _derivative(self, param, r, **params):
+        """Evaluates the spline parameter derivative using finite differencing.
+
+        Parameters
+        ----------
+        pair : tuple
+            The type pair (i,j) for which to initialize the spline potential.
+        r : array_like
+            The value or values of r at which to evaluate the energy.
+        params : dict
+            The parameters (r and knot values) for the potential function.
+
+        Returns
+        -------
+        array_like
+            Returns the value or values of the derivative evaluated at r.
+
+        Raises
+        ------
+        ValueError
+            If the parameter with respect to which to take the derivative is not a knot value.
+
+        """
+        if 'knot' not in param:
+            raise ValueError('Parameter derivative can only be taken for knot values')
+
+        r,d,s = self._zeros(r)
+        h = 0.001
+
+        #perturb knot param value
+        knot_p = params[param]
+        params[param] = knot_p + h
+        f_high = self._interpolate(params)(r)
+        params[param] = knot_p - h
+        f_low = self._interpolate(params)(r)
+
+        params[param] = knot_p
+        d = (f_high - f_low)/(2*h)
+        if s:
+            d = d.item()
+        return d
+
+    def _interpolate(self, params):
+        """Interpolates the knot points into a continuous spline potential.
+
+        Parameters
+        ----------
+        params : array_like
+            The array of knot values.
+
+        Returns
+        -------
+        :py:class:`Interpolator`
+            The interpolated spline potential.
+
+        """
+        r = np.zeros(self.num_knots)
+        u = np.zeros(self.num_knots)
+        for i in range(self.num_knots):
+            ri,ki = self._knot_params(i)
+            r[i] = params[ri]
+            u[i] = params[ki]
+        # reconstruct the energies from differences, starting from the end of the potential
+        if self.mode == 'diff':
+            u = np.flip(np.cumsum(np.flip(u)))
+        return core.Interpolator(x=r, y=u)
+
+    @property
+    def num_knots(self):
+        """int: Number of knots."""
+        return self._num_knots
+
+    @property
+    def mode(self):
+        """str: Spline construction mode."""
+        return self._mode
+
+    def knots(self, pair):
+        """Generator for knot points.
+
+        Parameters
+        ----------
+        pair : tuple
+            The type pair (i,j) for which to retrieve the knot points.
+
+        Yields
+        ------
+        :py:class:`Variable`
+            The next r key in the coefficient array of r values.
+        :py:class:`Variable`
+            The next knot key in the coefficient array of k values.
+
+        """
+        for i in range(self.num_knots):
+            ri,ki = self._knot_params(i)
+            r = self.coeff[pair][ri]
+            k = self.coeff[pair][ki]
+            yield r,k
+
 class Yukawa(PairPotential):
     """Yukawa pair potential.
 
@@ -299,57 +561,3 @@ class Yukawa(PairPotential):
         if s:
             d = d.item()
         return d
-
-"""TODO: these potentials need updating
-class AkimaSpline(PairPotential):
-    def __init__(self, types, num_knots, shift=False):
-        assert num_knots >= 2, "Must have at least 2 knots"
-
-        super().__init__(types=types,
-                         params=['rmin','rmax']+['knot-{}'.format(i) for i in range(num_knots)],
-                         default={'rmin': 0.},
-                         shift=shift)
-        self.num_knots = num_knots
-
-        # N-1 knots are free for optimization
-        for pair in self.variables:
-            self.variables[pair] = [Variable('knot-{}'.format(i)) for i in range(self.num_knots-1)]
-
-    def energy(self, r, **params):
-        r,u = self._zeros(r)
-        range_flags = np.logical_and(r >= params['rmin'], r <= params['rmax'])
-
-        akima = self._interpolate(params)
-        u[range_flags] = akima(r[range_flags])
-
-        return u
-
-    def force(self, r, pair):
-        # load parameters for the pair
-        params = self.coeff.evaluate(pair)
-
-        r,f = self._zeros(r)
-        range_flags = np.logical_and(r >= params['rmin'], r <= params['rmax'])
-
-        akima = self._interpolate(params)
-        f[range_flags] = -akima(r[range_flags], nu=1)
-
-        return f
-
-    def knots(self, pair):
-        params = self.coeff.evaluate(pair)
-        return self._knots(params)
-
-    def interpolate(self, pair):
-        params = self.coeff.evaluate(pair)
-        return self._interpolate(params)
-
-    def _knots(self, params):
-        r = np.linspace(params['rmin'], params['rmax'], self.num_knots)
-        u = [params['knot-{}'.format(i)] for i in range(self.num_knots)]
-        return r,u
-
-    def _interpolate(self, params):
-        rknot,uknot = self._knots(params)
-        return Akima1DInterpolator(rknot, uknot)
-"""
