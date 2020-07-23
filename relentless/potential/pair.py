@@ -1,4 +1,4 @@
-__all__ = ['LennardJones','Spline','Yukawa']
+__all__ = ['LennardJones','Spline','Yukawa','Depletion']
 import numpy as np
 
 from relentless import core
@@ -557,6 +557,247 @@ class Yukawa(PairPotential):
             d = -epsilon*np.exp(-kappa*r)
         else:
             raise ValueError('The Yukawa parameters are kappa and epsilon.')
+
+        if s:
+            d = d.item()
+        return d
+
+class Depletion(PairPotential):
+    r"""Depletion pair potential.
+
+    .. math::
+
+        u(r) = -\frac{\pi P(\frac{1}{2}(\sigma_i+\sigma_j)+\sigma_d-r)^2(r^2+r(\sigma_i+\sigma_j+2\sigma_d)-\frac{3}{4}(\sigma_i-\sigma_j)^2}{12r}
+
+    The required coefficients per pair are:
+
+    - :math:`P`: depletant osmotic pressure
+    - :math:`\sigma_i`: particle type `i` diameter
+    - :math:`\sigma_j`: particle type `j` diameter
+    - :math:`\sigma_d`: depletant diameter
+
+    The optional coefficients per pair are:
+
+    - ``rmin``: minimum radius, energy and force are 0 for ``r < rmin``. Ignored if ``False`` (default).
+    - ``rmax``: maximum radius, energy and force are 0 for ``r > rmax`` Ignored if ``False`` (default).
+    - ``shift``: If ``True``, shift potential to zero at ``rmax`` (default is ``False``).
+
+    Parameters
+    ----------
+    types : array_like
+        List of types (A type must be a str).
+
+    """
+    def __init__(self, types, shift=False):
+        super().__init__(types=types, params=('P','sigma_i','sigma_j','sigma_d'))
+
+    def _energy(self, r, P, sigma_i, sigma_j, sigma_d, **params):
+        """Evaluates the depletion potential energy.
+
+        Parameters
+        ----------
+        r : array_like
+            The value or values of r at which to evaluate the energy.
+        P : float or int
+            The P parameter for the potential function.
+        sigma_i : float or int
+            The sigma_i parameter for the potential function.
+        sigma_j : float or int
+            The sigma_j parameter for the potential function.
+        sigma_d : float or int
+            The sigma_d parameter for the potential function.
+
+        Returns
+        -------
+        array_like
+            Returns the value or values of the energy evaluated at r.
+
+        Raises
+        ------
+        ValueError
+            If sigma_i, sigma_j, and sigma_d are not all positive.
+
+        """
+        if sigma_i<=0 or sigma_j<=0 or sigma_d<=0:
+            raise ValueError('sigma_i, sigma_j, and sigma_d must all be positive')
+        r,u,s = self._zeros(r)
+
+        #clamp lo
+        lo = 0.5*(sigma_i + sigma_j)
+        p1 = (0.5*(sigma_i + sigma_j) + sigma_d - lo)**2
+        p2 = lo**2 + lo*(sigma_i + sigma_j + 2*sigma_d) - 0.75*(sigma_i - sigma_j)**2
+        u_lo = -(np.pi*P*p1*p2)/(12*lo)
+        f_lo  = self._force(r=lo, P=P, sigma_i=sigma_i, sigma_j=sigma_j, sigma_d=sigma_d)
+        u[np.less(r,lo)] = u_lo - f_lo*(r[np.less(r,lo)] - lo)
+
+        #clamp hi
+        hi = lo + sigma_d
+        u[np.greater(r,hi)] = 0
+
+        # evaluate in between
+        flags = np.logical_and(np.greater_equal(r,lo), np.less_equal(r,hi))
+        p1 = (0.5*(sigma_i + sigma_j) + sigma_d - r[flags])**2
+        p2 = r[flags]**2 + r[flags]*(sigma_i + sigma_j + 2*sigma_d) - 0.75*(sigma_i - sigma_j)**2
+        u[flags] = -(np.pi*P*p1*p2)/(12*r[flags])
+
+        if s:
+            u = u.item()
+        return u
+
+    def _force(self, r, P, sigma_i, sigma_j, sigma_d, **params):
+        """Evaluates the depletion force.
+
+        Parameters
+        ----------
+        r : array_like
+            The value or values of r at which to evaluate the force.
+        P : float or int
+            The P parameter for the potential function.
+        sigma_i : float or int
+            The sigma_i parameter for the potential function.
+        sigma_j : float or int
+            The sigma_j parameter for the potential function.
+        sigma_d : float or int
+            The sigma_d parameter for the potential function.
+
+        Returns
+        -------
+        array_like
+            Returns the value or values of the force evaluated at r.
+
+        Raises
+        ------
+        ValueError
+            If sigma_i, sigma_j, and sigma_d are not all positive.
+
+        """
+        if sigma_i<=0 or sigma_j<=0 or sigma_d<=0:
+            raise ValueError('sigma_i, sigma_j, and sigma_d must all be positive')
+        r,f,s = self._zeros(r)
+        lo = 0.5*(sigma_i + sigma_j)
+        hi = lo + sigma_d
+
+        #clamp lo
+        lo = 0.5*(sigma_i + sigma_j)
+        p1 = lo**2 - 0.25*(sigma_i - sigma_j)**2
+        p2 = (0.5*(sigma_i + sigma_j) + sigma_d)**2 - lo**2
+        f[np.less(r,lo)] = -(np.pi*P*p1*p2)/(4*lo**2)
+
+        #clamp hi
+        hi = lo + sigma_d
+        f[np.greater(r,hi)] = 0
+
+        # evaluate in between
+        flags = np.logical_and(np.greater_equal(r,lo), np.less_equal(r,hi))
+        p1 = r[flags]**2 - 0.25*(sigma_i - sigma_j)**2
+        p2 = (0.5*(sigma_i + sigma_j) + sigma_d)**2 - r[flags]**2
+        f[flags] = -(np.pi*P*p1*p2)/(4*r[flags]**2)
+
+        if s:
+            f = f.item()
+        return f
+
+    def _derivative(self, param, r, P, sigma_i, sigma_j, sigma_d, **params):
+        """Evaluates the depletion parameter derivative.
+
+        Parameters
+        ----------
+        param : `str`
+            The parameter with respect to which to take the derivative.
+        r : array_like
+            The value or values of r at which to evaluate the derivative.
+        P : float or int
+            The P parameter for the potential function.
+        sigma_i : float or int
+            The sigma_i parameter for the potential function.
+        sigma_j : float or int
+            The sigma_j parameter for the potential function.
+        sigma_d : float or int
+            The sigma_d parameter for the potential function.
+
+        Returns
+        -------
+        array_like
+            Returns the value or values of the derivative evaluated at r.
+
+        Raises
+        ------
+        ValueError
+            If sigma_i, sigma_j, and sigma_d are not all positive.
+        ValueError
+            If the parameter with respect to which to take the derivative
+            is not P, sigma_i, sigma_j, or sigma_d.
+
+        """
+        if sigma_i<=0 or sigma_j<=0 or sigma_d<=0:
+            raise ValueError('sigma_i, sigma_j, and sigma_d must all be positive')
+        r,d,s = self._zeros(r)
+
+        #clamp lo
+        lo = 0.5*(sigma_i + sigma_j)
+        f_lo  = self._force(r=lo, P=P, sigma_i=sigma_i, sigma_j=sigma_j, sigma_d=sigma_d)
+        if param == 'P':
+            p1 = (sigma_d**2
+                 *(sigma_i**2 + 4*sigma_i*sigma_d + 8*sigma_i*sigma_j + sigma_j**2 + 4*sigma_j*sigma_d)
+                 /(12*(sigma_i + sigma_j)))
+            p2 = (sigma_i*sigma_j*sigma_d
+                 *(2*r[np.less(r,lo)] - sigma_i - sigma_j)*(sigma_i + sigma_j + sigma_d)
+                 /(8*(sigma_i + sigma_j)**2))
+            d[np.less(r,lo)] = np.pi*(p2 - p1)
+        elif param == 'sigma_i':
+            p1 = sigma_d**2*(sigma_i**2 + 2*sigma_i*sigma_j + 7*sigma_j**2)/(12*(sigma_i + sigma_j)**2)
+            p2 = ((-sigma_d*sigma_j*sigma_i**3 - 3*sigma_d*sigma_i**2*sigma_j**2
+                   - 3*sigma_d*sigma_i*sigma_j**3 - 2*sigma_d*sigma_i*sigma_j**2*r[np.less(r,lo)]
+                   - sigma_d*sigma_j**4 + 2*sigma_d*sigma_j**3*r[np.less(r,lo)] - sigma_d**2*sigma_j**3
+                   + 2*sigma_d**2*sigma_j**2*r[np.less(r,lo)])
+                 /(8*(sigma_i + sigma_j)**3))
+            d[np.less(r,lo)] = np.pi*P*(p2 - p1)
+        elif param == 'sigma_j':
+            p1 = sigma_d**2*(sigma_j**2 + 2*sigma_i*sigma_j + 7*sigma_i**2)/(12*(sigma_i + sigma_j)**2)
+            p2 = ((-sigma_i*sigma_d*sigma_j**3 - 3*sigma_d*sigma_i**2*sigma_j**2 - sigma_j*sigma_i**2*sigma_d**2
+                   - 3*sigma_j*sigma_d*sigma_i**3 + 2*sigma_i**2*sigma_j*sigma_d*r[np.less(r,lo)]
+                   - 2*sigma_i*sigma_j*sigma_d**2*r[np.less(r,lo)] - sigma_d**2*sigma_i**3 - sigma_d*sigma_i**4
+                   + 2*sigma_d*sigma_i**3*r[np.less(r,lo)] + 2*sigma_i**2*sigma_d**2*r[np.less(r,lo)])
+                 /(8*(sigma_i + sigma_j)**3))
+            d[np.less(r,lo)] = np.pi*P*(p2 - p1)
+        elif param == 'sigma_d':
+            p1 = (sigma_d
+                 *(6*sigma_i*sigma_d + 6*sigma_j*sigma_d + sigma_i**2 + sigma_j**2 + 8*sigma_i*sigma_j)
+                 /(6*(sigma_i + sigma_j)))
+            p2 = (sigma_i
+                 *sigma_j*(2*r[np.less(r,lo)] - sigma_i - sigma_j)*(2*sigma_d + sigma_i + sigma_j)
+                 /(8*(sigma_i + sigma_j)**2))
+            d[np.less(r,lo)] = np.pi*P*(p2 - p1)
+        else:
+            raise ValueError('The depletion parameters are P, sigma_i, sigma_j, and sigma_d.')
+
+        #clamp hi
+        hi = lo + sigma_d
+        d[np.greater(r,hi)] = 0
+
+        # evaluate in between
+        flags = np.logical_and(np.greater_equal(r,lo), np.less_equal(r,hi))
+        if param == 'P':
+            p1 = (0.5*(sigma_i + sigma_j) + sigma_d - r[flags])**2
+            p2 = r[flags]**2 + r[flags]*(sigma_i + sigma_j + 2*sigma_d) - 0.75*(sigma_i - sigma_j)**2
+            d[flags] = -(np.pi*p1*p2)/(12*r[flags])
+        elif param == 'sigma_i':
+            p1 = ((0.5*(sigma_i + sigma_j) + sigma_d - r[flags])
+                 *(r[flags]**2 + r[flags]*(sigma_i + sigma_j + 2*sigma_d) - 0.75*(sigma_i - sigma_j)**2))
+            p2 = (r[flags] + 1.5*(sigma_j - sigma_i))*(0.5*(sigma_i + sigma_j) + sigma_d - r[flags])**2
+            d[flags] = -(np.pi*P*(p1 + p2))/(12*r[flags])
+        elif param == 'sigma_j':
+            p1 = ((0.5*(sigma_i + sigma_j) + sigma_d - r[flags])
+                 *(r[flags]**2 + r[flags]*(sigma_i + sigma_j + 2*sigma_d) - 0.75*(sigma_i - sigma_j)**2))
+            p2 = (r[flags] + 1.5*(sigma_i - sigma_j))*(0.5*(sigma_i + sigma_j) + sigma_d - r[flags])**2
+            d[flags] = -(np.pi*P*(p1 + p2))/(12*r[flags])
+        elif param == 'sigma_d':
+            p1 = ((sigma_i + sigma_j + 2*sigma_d - 2*r[flags])
+                 *(r[flags]**2 + r[flags]*(sigma_i + sigma_j + 2*sigma_d) - 0.75*(sigma_i - sigma_j)**2))
+            p2 = 2*r[flags]*(0.5*(sigma_i + sigma_j) + sigma_d - r[flags])**2
+            d[flags] = -(np.pi*P*(p1 + p2))/(12*r[flags])
+        else:
+            raise ValueError('The depletion parameters are P, sigma_i, sigma_j, and sigma_d.')
 
         if s:
             d = d.item()

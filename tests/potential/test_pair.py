@@ -334,5 +334,134 @@ class test_Yukawa(unittest.TestCase):
         with self.assertRaises(ValueError):
             u = y._derivative(param='kapppa', r=r_input, epsilon=1.0, kappa=1.0)
 
+class test_Depletion(unittest.TestCase):
+    """Unit tests for pair.Depletion"""
+
+    def test_init(self):
+        """Test creation from data"""
+        dp = pair.Depletion(types=('1','2'))
+        coeff = potential.CoefficientMatrix(types=('1','2'),
+                                            params=('P','sigma_i','sigma_j','sigma_d','rmin','rmax','shift'),
+                                            default={'rmin':False,'rmax':False,'shift':False})
+        self.assertCountEqual(dp.coeff.types, coeff.types)
+        self.assertCountEqual(dp.coeff.params, coeff.params)
+        self.assertDictEqual(dp.coeff.default.todict(), coeff.default.todict())
+
+    def test_energy(self):
+        """Test _energy method"""
+        dp = pair.Depletion(types=('1',))
+
+        #test scalar r
+        r_input = 1.5
+        u_actual = -0.35997416
+        u = dp._energy(r=r_input, P=1, sigma_i=1, sigma_j=1, sigma_d=1)
+        self.assertAlmostEqual(u, u_actual)
+
+        #test array r
+        r_input = np.array([0.5,1,2,2.5])
+        u_actual = np.array([-2.48709418,-1.3089969,0,0])
+        u = dp._energy(r=r_input, P=1, sigma_i=1, sigma_j=1, sigma_d=1)
+        np.testing.assert_allclose(u, u_actual)
+
+        #test negative sigma
+        with self.assertRaises(ValueError):
+            u = dp._energy(r=r_input, P=1, sigma_i=-1, sigma_j=1, sigma_d=1)
+        with self.assertRaises(ValueError):
+            u = dp._energy(r=r_input, P=1, sigma_i=1, sigma_j=-1, sigma_d=1)
+        with self.assertRaises(ValueError):
+            u = dp._energy(r=r_input, P=1, sigma_i=1, sigma_j=1, sigma_d=-1)
+
+    def test_force(self):
+        """Test _force method"""
+        dp = pair.Depletion(types=('1',))
+
+        #test scalar r
+        r_input = 1.5
+        f_actual = -1.3744468
+        f = dp._force(r=r_input, P=1, sigma_i=1, sigma_j=1, sigma_d=1)
+        self.assertAlmostEqual(f, f_actual)
+
+        #test array r
+        r_input = np.array([0.5,1,2,2.5])
+        f_actual = np.array([-2.3561945,-2.3561945,0,0])
+        f = dp._force(r=r_input, P=1, sigma_i=1, sigma_j=1, sigma_d=1)
+        np.testing.assert_allclose(f, f_actual)
+
+        #test negative sigma
+        with self.assertRaises(ValueError):
+            f = dp._force(r=r_input, P=1, sigma_i=-1, sigma_j=1, sigma_d=1)
+        with self.assertRaises(ValueError):
+            f = dp._force(r=r_input, P=1, sigma_i=1, sigma_j=-1, sigma_d=1)
+        with self.assertRaises(ValueError):
+            f = dp._force(r=r_input, P=1, sigma_i=1, sigma_j=1, sigma_d=-1)
+
+    def test_derivative(self):
+        """Test _derivative method"""
+        dp = pair.Depletion(types=('1',))
+
+        #w.r.t. P
+        #test scalar r
+        r_input = 1.5
+        d_actual = -0.35997416
+        d = dp._derivative(param='P', r=r_input, P=1, sigma_i=1, sigma_j=1, sigma_d=1)
+        self.assertAlmostEqual(d, d_actual)
+
+        #test array r
+        r_input = np.array([0.5,1,2,2.5])
+        d_actual = np.array([-2.6507188,-1.3089969,0,0])
+        d = dp._derivative(param='P', r=r_input, P=1, sigma_i=1, sigma_j=1, sigma_d=1)
+        np.testing.assert_allclose(d, d_actual)
+
+        #w.r.t. sigma_i
+        #test scalar r
+        r_input = 1.5
+        d_actual = -0.78539816
+        d = dp._derivative(param='sigma_i', r=r_input, P=1, sigma_i=1, sigma_j=1, sigma_d=1)
+        self.assertAlmostEqual(d, d_actual)
+
+        #test array r
+        r_input = np.array([0.5,1,2,2.5])
+        d_actual = np.array([-1.04719755,-1.57079633,0,0])
+        d = dp._derivative(param='sigma_i', r=r_input, P=1, sigma_i=1, sigma_j=1, sigma_d=1)
+        np.testing.assert_allclose(d, d_actual)
+
+        #w.r.t. sigma_j
+        #test scalar r
+        r_input = 1.5
+        d_actual = -0.78539816
+        d = dp._derivative(param='sigma_j', r=r_input, P=1, sigma_i=1, sigma_j=1, sigma_d=1)
+        self.assertAlmostEqual(d, d_actual)
+
+        #test array r
+        r_input = np.array([0.5,1,2,2.5])
+        d_actual = np.array([-1.04719755,-1.57079633,0,0])
+        d = dp._derivative(param='sigma_j', r=r_input, P=1, sigma_i=1, sigma_j=1, sigma_d=1)
+        np.testing.assert_allclose(d, d_actual)
+
+        #w.r.t. sigma_d
+        #test scalar r
+        r_input = 1.5
+        d_actual = -1.57079633
+        d = dp._derivative(param='sigma_d', r=r_input, P=1, sigma_i=1, sigma_j=1, sigma_d=1)
+        self.assertAlmostEqual(d, d_actual)
+
+        #test array r
+        r_input = np.array([0.5,1,2,2.5])
+        d_actual = np.array([-6.15228561,-3.14159265,0,0])
+        d = dp._derivative(param='sigma_d', r=r_input, P=1, sigma_i=1, sigma_j=1, sigma_d=1)
+        np.testing.assert_allclose(d, d_actual)
+
+        #test negative sigma
+        with self.assertRaises(ValueError):
+            d = dp._derivative(param='P', r=r_input, P=1, sigma_i=-1, sigma_j=1, sigma_d=1)
+        with self.assertRaises(ValueError):
+            d = dp._derivative(param='P', r=r_input, P=1, sigma_i=1, sigma_j=-1, sigma_d=1)
+        with self.assertRaises(ValueError):
+            d = dp._derivative(param='P', r=r_input, P=1, sigma_i=1, sigma_j=1, sigma_d=-1)
+
+        #test invalid param
+        with self.assertRaises(ValueError):
+            d = dp._derivative(param='sigmaj', r=r_input, P=1, sigma_i=1, sigma_j=1, sigma_d=1)
+
 if __name__ == '__main__':
     unittest.main()
