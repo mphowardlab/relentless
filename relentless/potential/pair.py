@@ -624,9 +624,7 @@ class Depletion(PairPotential):
 
         #clamp lo
         lo = 0.5*(sigma_i + sigma_j)
-        p1 = (0.5*(sigma_i + sigma_j) + sigma_d - lo)**2
-        p2 = lo**2 + lo*(sigma_i + sigma_j + 2*sigma_d) - 0.75*(sigma_i - sigma_j)**2
-        u_lo = -(np.pi*P*p1*p2)/(12*lo)
+        u_lo = -np.pi*P*sigma_d**3/6*(1 + 3*sigma_i*sigma_j/(sigma_d*(sigma_i + sigma_j)))
         f_lo  = self._force(r=lo, P=P, sigma_i=sigma_i, sigma_j=sigma_j, sigma_d=sigma_d)
         u[np.less(r,lo)] = u_lo - f_lo*(r[np.less(r,lo)] - lo)
 
@@ -679,9 +677,8 @@ class Depletion(PairPotential):
 
         #clamp lo
         lo = 0.5*(sigma_i + sigma_j)
-        p1 = lo**2 - 0.25*(sigma_i - sigma_j)**2
-        p2 = (0.5*(sigma_i + sigma_j) + sigma_d)**2 - lo**2
-        f[np.less(r,lo)] = -(np.pi*P*p1*p2)/(4*lo**2)
+        f[np.less(r,lo)] = (-np.pi*P*sigma_i*sigma_j*sigma_d*(sigma_i + sigma_j + sigma_d)
+                           /(sigma_i + sigma_j)**2)
 
         #clamp hi
         hi = lo + sigma_d
@@ -737,39 +734,28 @@ class Depletion(PairPotential):
         lo = 0.5*(sigma_i + sigma_j)
         f_lo  = self._force(r=lo, P=P, sigma_i=sigma_i, sigma_j=sigma_j, sigma_d=sigma_d)
         if param == 'P':
-            p1 = (sigma_d**2
-                 *(sigma_i**2 + 4*sigma_i*sigma_d + 8*sigma_i*sigma_j + sigma_j**2 + 4*sigma_j*sigma_d)
-                 /(12*(sigma_i + sigma_j)))
-            p2 = (sigma_i*sigma_j*sigma_d
-                 *(2*r[np.less(r,lo)] - sigma_i - sigma_j)*(sigma_i + sigma_j + sigma_d)
-                 /(8*(sigma_i + sigma_j)**2))
-            d[np.less(r,lo)] = np.pi*(p2 - p1)
+            du_lo = -np.pi*sigma_d**3/6*(1 + 3*sigma_i*sigma_j/(sigma_d*(sigma_i + sigma_j)))
+            df_lo = (-np.pi*sigma_i*sigma_j*sigma_d*(sigma_i + sigma_j + sigma_d)
+                    /(sigma_i + sigma_j)**2)
+            d_lo = 0
         elif param == 'sigma_i':
-            p1 = sigma_d**2*(sigma_i**2 + 2*sigma_i*sigma_j + 7*sigma_j**2)/(12*(sigma_i + sigma_j)**2)
-            p2 = ((-sigma_d*sigma_j*sigma_i**3 - 3*sigma_d*sigma_i**2*sigma_j**2
-                   - 3*sigma_d*sigma_i*sigma_j**3 - 2*sigma_d*sigma_i*sigma_j**2*r[np.less(r,lo)]
-                   - sigma_d*sigma_j**4 + 2*sigma_d*sigma_j**3*r[np.less(r,lo)] - sigma_d**2*sigma_j**3
-                   + 2*sigma_d**2*sigma_j**2*r[np.less(r,lo)])
-                 /(8*(sigma_i + sigma_j)**3))
-            d[np.less(r,lo)] = np.pi*P*(p2 - p1)
+            du_lo = -np.pi*P/2*(sigma_d*sigma_j/(sigma_i + sigma_j))**2
+            df_lo = (-np.pi*P*sigma_d*sigma_j*(sigma_i*(sigma_j - sigma_d) + sigma_j*(sigma_j + sigma_d))
+                    /(sigma_i + sigma_j)**3)
+            d_lo = 0.5
         elif param == 'sigma_j':
-            p1 = sigma_d**2*(sigma_j**2 + 2*sigma_i*sigma_j + 7*sigma_i**2)/(12*(sigma_i + sigma_j)**2)
-            p2 = ((-sigma_i*sigma_d*sigma_j**3 - 3*sigma_d*sigma_i**2*sigma_j**2 - sigma_j*sigma_i**2*sigma_d**2
-                   - 3*sigma_j*sigma_d*sigma_i**3 + 2*sigma_i**2*sigma_j*sigma_d*r[np.less(r,lo)]
-                   - 2*sigma_i*sigma_j*sigma_d**2*r[np.less(r,lo)] - sigma_d**2*sigma_i**3 - sigma_d*sigma_i**4
-                   + 2*sigma_d*sigma_i**3*r[np.less(r,lo)] + 2*sigma_i**2*sigma_d**2*r[np.less(r,lo)])
-                 /(8*(sigma_i + sigma_j)**3))
-            d[np.less(r,lo)] = np.pi*P*(p2 - p1)
+            du_lo = -np.pi*P/2*(sigma_d*sigma_i/(sigma_i + sigma_j))**2
+            df_lo = (-np.pi*P*sigma_d*sigma_i*(sigma_j*(sigma_i - sigma_d) + sigma_i*(sigma_i + sigma_d))
+                    /(sigma_i + sigma_j)**3)
+            d_lo = 0.5
         elif param == 'sigma_d':
-            p1 = (sigma_d
-                 *(6*sigma_i*sigma_d + 6*sigma_j*sigma_d + sigma_i**2 + sigma_j**2 + 8*sigma_i*sigma_j)
-                 /(6*(sigma_i + sigma_j)))
-            p2 = (sigma_i
-                 *sigma_j*(2*r[np.less(r,lo)] - sigma_i - sigma_j)*(2*sigma_d + sigma_i + sigma_j)
-                 /(8*(sigma_i + sigma_j)**2))
-            d[np.less(r,lo)] = np.pi*P*(p2 - p1)
+            du_lo = (-np.pi*P*sigma_d*(sigma_d*(sigma_i + sigma_j) + 2*sigma_i*sigma_j)
+                    /(2*(sigma_i + sigma_j)))
+            df_lo = -np.pi*P*sigma_i*sigma_j*(sigma_i + sigma_j + 2*sigma_d)/(sigma_i + sigma_j)**2
+            d_lo = 0
         else:
             raise ValueError('The depletion parameters are P, sigma_i, sigma_j, and sigma_d.')
+        d[np.less(r,lo)] = du_lo - df_lo*(r[np.less(r,lo)] - lo) + f_lo*d_lo
 
         #clamp hi
         hi = lo + sigma_d
