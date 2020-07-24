@@ -10,8 +10,8 @@ from relentless.core import PairMatrix
 from relentless.core import FixedKeyDict
 from relentless.core import Variable
 
-class CoefficientMatrix(PairMatrix):
-    """ Pair coefficient matrix.
+class PairParameters:
+    """Pair coefficient matrix.
 
     Defines a matrix of PairMatrix objects with one or more parameters.
     Any or all of the parameters can be initialized with a default value.
@@ -36,12 +36,7 @@ class CoefficientMatrix(PairMatrix):
     --------
     Create a coefficient matrix with defined types and params::
 
-        m = CoefficientMatrix(types=('A','B'), params=('energy','mass'))
-
-    Create a coefficient matrix with default parameter values::
-
-        m = CoefficientMatrix(types=('A','B'), params=('energy','mass'),
-                              default={'energy':0.0, 'mass':0.0})
+        m = PairParameters(types=('A','B'), params=('energy','mass'))
 
     Set coefficient matrix values by accessing parameter directly::
 
@@ -54,12 +49,12 @@ class CoefficientMatrix(PairMatrix):
         >>> print(m['A','A'])
         {'energy':2.0, 'mass':2.5}
 
-    Assigning to a pair using `=` operator overwrites the specified parameters and resets
-    the other parameters to their defaults, if it exists::
+    Assigning to a pair using `=` operator overwrites the specified parameters
+    and resets the other parameters::
 
         m['A','A'] = {'mass':2.5}  #does reset 'energy' value to default
         >>> print(m['A','A'])
-        {'energy':0.0, 'mass':2.5}
+        {'energy': None, 'mass':2.5}
 
     Set coefficient matrix values by setting parameters in full::
 
@@ -84,7 +79,7 @@ class CoefficientMatrix(PairMatrix):
         {'energy':<relentless.core.Variable object at 0x561124456>, 'mass':0.5}
 
     """
-    def __init__(self, types, params, default={}):
+    def __init__(self, types, params):
         super().__init__(types)
 
         if len(params) == 0:
@@ -93,12 +88,20 @@ class CoefficientMatrix(PairMatrix):
             raise TypeError('All parameters must be strings')
 
         self.params = tuple(params)
-        self.default = FixedKeyDict(keys=self.params)
-        self.default.update(default)
 
+        # shared params
+        self.shared = FixedKeyDict(keys=self.params)
+
+        # per-type params
+        self._per_type = FixedKeyDict(keys=self.types)
+        for t in self.types:
+            self._per_type[t] = FixedKeyDict(keys=self.params)
+
+        # per-pair params
+        self._per_pair = PairMatrix(types)
         for key in self:
-            self._data[key] = FixedKeyDict(keys=self.params)
-            self._data[key].update(self.default)
+            self._per_pair[key] = FixedKeyDict(keys=self.params)
+            self._per_pair[key].update(self.default)
 
     def evaluate(self, pair):
         """Evaluate pair parameters.
@@ -130,13 +133,23 @@ class CoefficientMatrix(PairMatrix):
         """
         params = {}
         for p in self.params:
-            v = self[pair][p]
+            # use pair parameter if set, otherwise use shared parameter
+            if self[pair][p] is not None:
+                v = self[pair][p]
+            elif self.shared[p] is not None:
+                v = self.shared[p]
+            else:
+                raise ValueError('Parameter {} is not set for ({},{}).'.format(p,pair[0],pair[1]))
+
+            # evaluate the variable
             if isinstance(v, Variable):
                 params[p] = v.value
             elif np.isscalar(v):
                 params[p] = v
-            elif v is not None:
+            else:
                 raise TypeError('Parameter type unrecognized')
+
+            # final check: error if variable is still not set
             if v is None:
                 raise ValueError('Parameter {} is not set for ({},{}).'.format(p,pair[0],pair[1]))
 
@@ -159,6 +172,7 @@ class CoefficientMatrix(PairMatrix):
             If a value is of an unrecognizable type
 
         """
+        ## TODO: modify this to dump all of these internal parameter structures
         data = {}
         for key in self:
             dkey = str(key)
@@ -176,102 +190,33 @@ class CoefficientMatrix(PairMatrix):
         with open(filename, 'w') as f:
             json.dump(data, f, sort_keys=True, indent=4)
 
-    def load(self, filename):
-        """Loads the data from a file into the coefficient matrix.
-
-        Parameters
-        ----------
-        filename : `str`
-            The name of the file from which to load data.
-
-        Raises
-        ------
-        KeyError
-            If the pairs in the data are not exactly the pairs in self
-        KeyError
-            If the params in the data are not exactly the params in self
-        TypeError
-            If the value type in the data is of an unrecognized type
-        TypeError
-            If the parameter value type in the data and in self do not match
-
-        """
-        with open(filename, 'r') as f:
-            data_ = json.load(f)
-        data = {eval(key): data_[key] for key in data_}
-
-        if set(self.pairs) != set(data.keys()):
-            raise KeyError('The type pairs in the data are not exactly the pairs in self')
-        for key in data:
-            if set(self.params) != set(data[key].keys()):
-                raise KeyError('The parameters in the data are not exactly the parameters in self')
-
-            for param in data[key]:
-                var_data = data[key][param]
-                if self[key][param] is None:
-                    if var_data['type'] == 'variable':
-                        self[key][param] = Variable(value=var_data['value'], const=var_data['const'],
-                                                    low=var_data['low'], high=var_data['high'])
-                    elif var_data['type'] == 'scalar':
-                        self[key][param] = var_data['value']
-                    else:
-                        raise TypeError('Unrecognized value type in the data')
-                elif var_data['type'] == 'variable' and isinstance(self[key][param], Variable):
-                    self[key][param].value = var_data['value']
-                    self[key][param].const = var_data['const']
-                    self[key][param].low = var_data['low']
-                    self[key][param].high = var_data['high']
-                elif var_data['type'] == 'scalar' and np.isscalar(self[key][param]):
-                    self[key][param] = var_data['value']
-                else:
-                    raise TypeError('The parameter value types in the data and self do not match')
-
-    @classmethod
-    def from_file(cls, filename):
-        """Load data from a file into a new coefficient matrix object.
-
-        Parameters
-        ----------
-        filename : `str`
-            The name of the file from which to load data.
-
-        Returns
-        -------
-        :py:class:`CoefficientMatrix`
-            Object initialized with the data in the file.
-
-        """
-        with open(filename, 'r') as f:
-            data_ = json.load(f)
-        data = {eval(key): data_[key] for key in data_}
-
-        #get the types and parameters from the JSON file
-        par = None
-        typ = set()
-        for key in data:
-            for t in key:
-                typ.add(t)
-            if par is None:
-                par = data[key].keys()
-        typ = tuple(typ)
-
-        m = CoefficientMatrix(types=typ, params=par)
-        m.load(filename)
-        return m
+    def __getitem__(self, key):
+        """Get parameters for the (i,j) pair."""
+        if len(key) == 2:
+            return self._per_pair[key]
+        elif len(key) == 1:
+            return self._per_type[key]
+        else:
+            raise KeyError('Unknown key length')
 
     def __setitem__(self, key, value):
-        """Set coefficients for the (i,j) pair."""
+        """Set parameters for the (i,j) pair."""
         for p in value:
             if p not in self.params:
                 raise KeyError('Only the known parameters can be set in the coefficient matrix.')
-
-        self[key].update(self.default)
+        self[key].clear()
         self[key].update(value)
+
+    def __iter__(self):
+        return iter(self._per_pair)
+
+    def __next__(self):
+        return next(self._per_pair)
 
 class PairPotential(abc.ABC):
     """Generic pair potential evaluator.
 
-    A PairPotential object is created with coefficients as a CoefficientMatrix.
+    A PairPotential object is created with coefficients as a PairParameters.
     This abstract base class can be extended in order to evaluate custom force, energy,
     and derivative/gradient functions.
 
@@ -289,26 +234,21 @@ class PairPotential(abc.ABC):
     1. Inspect _energy() call signature for parameters.
 
     """
-    def __init__(self, types, params, default={}):
+    def __init__(self, types, params):
         # force in standard potential parameters if they are not explicitly set
         params = list(params)
-        # rmin defaults to False
         if 'rmin' not in params:
             params.append('rmin')
-        if 'rmin' not in default:
-            default['rmin'] = False
-        # rmax defaults to False
         if 'rmax' not in params:
             params.append('rmax')
-        if 'rmax' not in default:
-            default['rmax'] = False
-        # shift defaults to False
         if 'shift' not in params:
             params.append('shift')
-        if 'shift' not in default:
-            default['shift'] = False
 
-        self.coeff = CoefficientMatrix(types, params, default)
+        self.coeff = PairParameters(types, params)
+        for p in self.coeff:
+            self.coeff[p]['rmin'] = False
+            self.coeff[p]['rmax'] = False
+            self.coeff[p]['shift'] = False
 
     def energy(self, pair, r):
         """Evaluate energy for a (i,j) pair.
@@ -512,17 +452,6 @@ class PairPotential(abc.ABC):
 
         """
         self.coeff.save(filename)
-
-    def load(self, filename):
-        """Loads the coefficient matrix from JSON data in file.
-
-        Parameters
-        ----------
-        filename : `str`
-            The name of the file from which to load data.
-
-        """
-        self.coeff.load(filename)
 
     def __iter__(self):
         return iter(self.coeff)
