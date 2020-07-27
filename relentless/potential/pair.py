@@ -1,4 +1,4 @@
-__all__ = ['LennardJones','Spline','Yukawa','Depletion']
+__all__ = ['Depletion','LennardJones','Spline','Yukawa']
 import numpy as np
 
 from relentless import core
@@ -624,19 +624,21 @@ class Depletion(PairPotential):
 
         #clamp lo
         lo = 0.5*(sigma_i + sigma_j)
-        u_lo = -np.pi*P*sigma_d**3/6*(1 + 3*sigma_i*sigma_j/(sigma_d*(sigma_i + sigma_j)))
+        u_lo = -np.pi*P*sigma_d**3/6.*(1. + 3.*sigma_i*sigma_j/(sigma_d*(sigma_i + sigma_j)))
         f_lo  = self._force(r=lo, P=P, sigma_i=sigma_i, sigma_j=sigma_j, sigma_d=sigma_d)
-        u[np.less(r,lo)] = u_lo - f_lo*(r[np.less(r,lo)] - lo)
+        below = r < lo
+        u[below] = u_lo - f_lo*(r[below] - lo)
 
         #clamp hi
         hi = lo + sigma_d
-        u[np.greater(r,hi)] = 0
+        above = r > hi
+        u[above] = 0.
 
         # evaluate in between
-        flags = np.logical_and(np.greater_equal(r,lo), np.less_equal(r,hi))
+        flags = ~np.logical_or(below, above)
         p1 = (0.5*(sigma_i + sigma_j) + sigma_d - r[flags])**2
-        p2 = r[flags]**2 + r[flags]*(sigma_i + sigma_j + 2*sigma_d) - 0.75*(sigma_i - sigma_j)**2
-        u[flags] = -(np.pi*P*p1*p2)/(12*r[flags])
+        p2 = r[flags]**2 + r[flags]*(sigma_i + sigma_j + 2.*sigma_d) - 0.75*(sigma_i - sigma_j)**2
+        u[flags] = -(np.pi*P*p1*p2)/(12.*r[flags])
 
         if s:
             u = u.item()
@@ -677,18 +679,20 @@ class Depletion(PairPotential):
 
         #clamp lo
         lo = 0.5*(sigma_i + sigma_j)
-        f[np.less(r,lo)] = (-np.pi*P*sigma_i*sigma_j*sigma_d*(sigma_i + sigma_j + sigma_d)
-                           /(sigma_i + sigma_j)**2)
+        below = r < lo
+        f[below] = (-np.pi*P*sigma_i*sigma_j*sigma_d*(sigma_i + sigma_j + sigma_d)
+                   /(sigma_i + sigma_j)**2)
 
         #clamp hi
         hi = lo + sigma_d
-        f[np.greater(r,hi)] = 0
+        above = r > hi
+        f[above] = 0.
 
         # evaluate in between
-        flags = np.logical_and(np.greater_equal(r,lo), np.less_equal(r,hi))
+        flags = ~np.logical_or(below, above)
         p1 = r[flags]**2 - 0.25*(sigma_i - sigma_j)**2
         p2 = (0.5*(sigma_i + sigma_j) + sigma_d)**2 - r[flags]**2
-        f[flags] = -(np.pi*P*p1*p2)/(4*r[flags]**2)
+        f[flags] = -(np.pi*P*p1*p2)/(4.*r[flags]**2)
 
         if s:
             f = f.item()
@@ -732,56 +736,58 @@ class Depletion(PairPotential):
 
         #clamp lo
         lo = 0.5*(sigma_i + sigma_j)
+        below = r < lo
         f_lo  = self._force(r=lo, P=P, sigma_i=sigma_i, sigma_j=sigma_j, sigma_d=sigma_d)
         if param == 'P':
-            du_lo = -np.pi*sigma_d**3/6*(1 + 3*sigma_i*sigma_j/(sigma_d*(sigma_i + sigma_j)))
+            du_lo = -np.pi*sigma_d**3/6.*(1. + 3.*sigma_i*sigma_j/(sigma_d*(sigma_i + sigma_j)))
             df_lo = (-np.pi*sigma_i*sigma_j*sigma_d*(sigma_i + sigma_j + sigma_d)
                     /(sigma_i + sigma_j)**2)
-            d_lo = 0
+            d_lo = 0.
         elif param == 'sigma_i':
-            du_lo = -np.pi*P/2*(sigma_d*sigma_j/(sigma_i + sigma_j))**2
+            du_lo = -np.pi*P/2.*(sigma_d*sigma_j/(sigma_i + sigma_j))**2
             df_lo = (-np.pi*P*sigma_d*sigma_j*(sigma_i*(sigma_j - sigma_d) + sigma_j*(sigma_j + sigma_d))
                     /(sigma_i + sigma_j)**3)
             d_lo = 0.5
         elif param == 'sigma_j':
-            du_lo = -np.pi*P/2*(sigma_d*sigma_i/(sigma_i + sigma_j))**2
+            du_lo = -np.pi*P/2.*(sigma_d*sigma_i/(sigma_i + sigma_j))**2
             df_lo = (-np.pi*P*sigma_d*sigma_i*(sigma_j*(sigma_i - sigma_d) + sigma_i*(sigma_i + sigma_d))
                     /(sigma_i + sigma_j)**3)
             d_lo = 0.5
         elif param == 'sigma_d':
-            du_lo = (-np.pi*P*sigma_d*(sigma_d*(sigma_i + sigma_j) + 2*sigma_i*sigma_j)
-                    /(2*(sigma_i + sigma_j)))
-            df_lo = -np.pi*P*sigma_i*sigma_j*(sigma_i + sigma_j + 2*sigma_d)/(sigma_i + sigma_j)**2
-            d_lo = 0
+            du_lo = (-np.pi*P*sigma_d*(sigma_d*(sigma_i + sigma_j) + 2.*sigma_i*sigma_j)
+                    /(2.*(sigma_i + sigma_j)))
+            df_lo = -np.pi*P*sigma_i*sigma_j*(sigma_i + sigma_j + 2.*sigma_d)/(sigma_i + sigma_j)**2
+            d_lo = 0.
         else:
             raise ValueError('The depletion parameters are P, sigma_i, sigma_j, and sigma_d.')
-        d[np.less(r,lo)] = du_lo - df_lo*(r[np.less(r,lo)] - lo) + f_lo*d_lo
+        d[below] = du_lo - df_lo*(r[below] - lo) + f_lo*d_lo
 
         #clamp hi
         hi = lo + sigma_d
-        d[np.greater(r,hi)] = 0
+        above = r > hi
+        d[above] = 0.
 
         # evaluate in between
-        flags = np.logical_and(np.greater_equal(r,lo), np.less_equal(r,hi))
+        flags = ~np.logical_or(below, above)
         if param == 'P':
             p1 = (0.5*(sigma_i + sigma_j) + sigma_d - r[flags])**2
-            p2 = r[flags]**2 + r[flags]*(sigma_i + sigma_j + 2*sigma_d) - 0.75*(sigma_i - sigma_j)**2
-            d[flags] = -(np.pi*p1*p2)/(12*r[flags])
+            p2 = r[flags]**2 + r[flags]*(sigma_i + sigma_j + 2.*sigma_d) - 0.75*(sigma_i - sigma_j)**2
+            d[flags] = -(np.pi*p1*p2)/(12.*r[flags])
         elif param == 'sigma_i':
             p1 = ((0.5*(sigma_i + sigma_j) + sigma_d - r[flags])
-                 *(r[flags]**2 + r[flags]*(sigma_i + sigma_j + 2*sigma_d) - 0.75*(sigma_i - sigma_j)**2))
+                 *(r[flags]**2 + r[flags]*(sigma_i + sigma_j + 2.*sigma_d) - 0.75*(sigma_i - sigma_j)**2))
             p2 = (r[flags] + 1.5*(sigma_j - sigma_i))*(0.5*(sigma_i + sigma_j) + sigma_d - r[flags])**2
-            d[flags] = -(np.pi*P*(p1 + p2))/(12*r[flags])
+            d[flags] = -(np.pi*P*(p1 + p2))/(12.*r[flags])
         elif param == 'sigma_j':
             p1 = ((0.5*(sigma_i + sigma_j) + sigma_d - r[flags])
-                 *(r[flags]**2 + r[flags]*(sigma_i + sigma_j + 2*sigma_d) - 0.75*(sigma_i - sigma_j)**2))
+                 *(r[flags]**2 + r[flags]*(sigma_i + sigma_j + 2.*sigma_d) - 0.75*(sigma_i - sigma_j)**2))
             p2 = (r[flags] + 1.5*(sigma_i - sigma_j))*(0.5*(sigma_i + sigma_j) + sigma_d - r[flags])**2
-            d[flags] = -(np.pi*P*(p1 + p2))/(12*r[flags])
+            d[flags] = -(np.pi*P*(p1 + p2))/(12.*r[flags])
         elif param == 'sigma_d':
-            p1 = ((sigma_i + sigma_j + 2*sigma_d - 2*r[flags])
-                 *(r[flags]**2 + r[flags]*(sigma_i + sigma_j + 2*sigma_d) - 0.75*(sigma_i - sigma_j)**2))
-            p2 = 2*r[flags]*(0.5*(sigma_i + sigma_j) + sigma_d - r[flags])**2
-            d[flags] = -(np.pi*P*(p1 + p2))/(12*r[flags])
+            p1 = ((sigma_i + sigma_j + 2.*sigma_d - 2.*r[flags])
+                 *(r[flags]**2 + r[flags]*(sigma_i + sigma_j + 2.*sigma_d) - 0.75*(sigma_i - sigma_j)**2))
+            p2 = 2.*r[flags]*(0.5*(sigma_i + sigma_j) + sigma_d - r[flags])**2
+            d[flags] = -(np.pi*P*(p1 + p2))/(12.*r[flags])
         else:
             raise ValueError('The depletion parameters are P, sigma_i, sigma_j, and sigma_d.')
 
