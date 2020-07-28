@@ -1,4 +1,4 @@
-__all__ = ['PairPotential','Tabulator']
+__all__ = ['PairParameters','PairPotential','Tabulator']
 
 import abc
 import json

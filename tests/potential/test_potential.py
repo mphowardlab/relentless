@@ -8,7 +8,7 @@ import numpy as np
 import relentless
 
 class test_PairParameters(unittest.TestCase):
-    """Unit tests for relentless.potential.potential.PairParameters"""
+    """Unit tests for relentless.potential.PairParameters"""
 
     def test_init(self):
         """Test creation from data"""
@@ -17,34 +17,34 @@ class test_PairParameters(unittest.TestCase):
         params = ('energy', 'mass')
 
         #test construction with tuple input
-        m = relentless.potential.potential.PairParameters(types=('A','B'), params=('energy','mass'))
+        m = relentless.potential.PairParameters(types=('A','B'), params=('energy','mass'))
         self.assertEqual(m.types, types)
         self.assertEqual(m.params, params)
         self.assertCountEqual(m.pairs, pairs)
 
         #test construction with list input
-        m = relentless.potential.potential.PairParameters(types=['A','B'], params=('energy','mass'))
+        m = relentless.potential.PairParameters(types=['A','B'], params=('energy','mass'))
         self.assertEqual(m.types, types)
         self.assertEqual(m.params, params)
         self.assertCountEqual(m.pairs, pairs)
 
         #test construction with mixed tuple/list input
-        m = relentless.potential.potential.PairParameters(types=('A','B'), params=['energy','mass'])
+        m = relentless.potential.PairParameters(types=('A','B'), params=['energy','mass'])
         self.assertEqual(m.types, types)
         self.assertEqual(m.params, params)
         self.assertCountEqual(m.pairs, pairs)
 
         #test construction with int type parameters
         with self.assertRaises(TypeError):
-            m = relentless.potential.potential.PairParameters(types=('A','B'), params=(1,2))
+            m = relentless.potential.PairParameters(types=('A','B'), params=(1,2))
 
         #test construction with mixed type parameters
         with self.assertRaises(TypeError):
-            m = relentless.potential.potential.PairParameters(types=('A','B'), params=('1',2))
+            m = relentless.potential.PairParameters(types=('A','B'), params=('1',2))
 
     def test_param_types(self):
         """Test various get and set methods on pair parameter types"""
-        m = relentless.potential.potential.PairParameters(types=('A','B'), params=('energy', 'mass'))
+        m = relentless.potential.PairParameters(types=('A','B'), params=('energy', 'mass'))
 
         self.assertEqual(m.shared['energy'], None)
         self.assertEqual(m.shared['mass'], None)
@@ -112,7 +112,7 @@ class test_PairParameters(unittest.TestCase):
 
     def test_accessor_methods(self):
         """Test various get and set methods on pairs"""
-        m = relentless.potential.potential.PairParameters(types=('A',), params=('energy','mass'))
+        m = relentless.potential.PairParameters(types=('A',), params=('energy','mass'))
 
         #test set and get for each pair type and param
         self.assertEqual(m['A','A']['energy'], None)
@@ -170,7 +170,7 @@ class test_PairParameters(unittest.TestCase):
     def test_accessor_pairs(self):
         """Test get and set methods for various pairs"""
         #test set and get for initialized default
-        m = relentless.potential.potential.PairParameters(types=('A','B'), params=('energy','mass'))
+        m = relentless.potential.PairParameters(types=('A','B'), params=('energy','mass'))
         self.assertEqual(m['A','B']['energy'], None)
         self.assertEqual(m['A','B']['mass'], None)
         self.assertEqual(m['A','A']['energy'], None)
@@ -223,7 +223,7 @@ class test_PairParameters(unittest.TestCase):
     def test_evaluate(self):
         """Test evaluation of pair parameters"""
         #test evaluation with empty parameter values
-        m = relentless.potential.potential.PairParameters(types=('A','B'), params=('energy','mass'))
+        m = relentless.potential.PairParameters(types=('A','B'), params=('energy','mass'))
         with self.assertRaises(ValueError):
             x = m.evaluate(('A','B'))
 
@@ -232,7 +232,7 @@ class test_PairParameters(unittest.TestCase):
             x = m.evaluate(('A','C'))
 
         #test evaluation with initialized shared parameter values
-        m = relentless.potential.potential.PairParameters(types=('A','B'), params=('energy','mass'))
+        m = relentless.potential.PairParameters(types=('A','B'), params=('energy','mass'))
         m.shared['energy'] = 0.0
         m.shared['mass'] = 0.5
         self.assertEqual(m.evaluate(('A','B')), {'energy':0.0, 'mass':0.5})
@@ -241,7 +241,7 @@ class test_PairParameters(unittest.TestCase):
         self.assertEqual(m.evaluate(('B','A')), m.evaluate(('A','B')))
 
         #test evaluation with initialized shared and individual parameter values
-        m = relentless.potential.potential.PairParameters(types=('A','B'), params=('energy','mass'))
+        m = relentless.potential.PairParameters(types=('A','B'), params=('energy','mass'))
         m.shared['energy'] = 0.0
         m.shared['mass'] = 0.5
         m['B','B']['energy'] = 1.5
@@ -251,15 +251,15 @@ class test_PairParameters(unittest.TestCase):
         self.assertEqual(m.evaluate(('B','A')), m.evaluate(('A','B')))
 
         #test evaluation with initialized parameter values as Variable types
-        m = relentless.potential.potential.PairParameters(types=('A',), params=('energy','mass'))
-        m['A','A']['energy'] = relentless.core.Variable(value=-1.0,low=0.1)
-        m['A','A']['mass'] = relentless.core.Variable(value=1.0,high=0.3)
+        m = relentless.potential.PairParameters(types=('A',), params=('energy','mass'))
+        m['A','A']['energy'] = relentless.Variable(value=-1.0,low=0.1)
+        m['A','A']['mass'] = relentless.Variable(value=1.0,high=0.3)
         self.assertEqual(m.evaluate(('A','A')), {'energy':0.1, 'mass':0.3})
 
         #test evaluation with initialized parameter values as unrecognized types
-        m = relentless.potential.potential.PairParameters(types=('A','B'), params=('energy','mass'))
-        m.shared['energy'] = relentless.core.Interpolator(x=(-1,0,1), y=(-2,0,2))
-        m.shared['mass'] = relentless.core.Interpolator(x=(-1,0,1), y=(-2,0,2))
+        m = relentless.potential.PairParameters(types=('A','B'), params=('energy','mass'))
+        m.shared['energy'] = relentless.Interpolator(x=(-1,0,1), y=(-2,0,2))
+        m.shared['mass'] = relentless.Interpolator(x=(-1,0,1), y=(-2,0,2))
         with self.assertRaises(TypeError):
             x = m.evaluate(('A','B'))
 
@@ -268,7 +268,7 @@ class test_PairParameters(unittest.TestCase):
         temp = tempfile.NamedTemporaryFile()
 
         #test dumping/re-loading data with scalar parameter values
-        m = relentless.potential.potential.PairParameters(types=('A',), params=('energy','mass'))
+        m = relentless.potential.PairParameters(types=('A',), params=('energy','mass'))
         m['A','A']['energy'] = 1.5
         m['A','A']['mass'] = 2.5
         m.save(temp.name)
@@ -278,9 +278,9 @@ class test_PairParameters(unittest.TestCase):
         self.assertEqual(m['A','A']['mass'], x["('A', 'A')"]['mass'])
 
         #test dumping/re-loading data with Variable parameter values
-        m = relentless.potential.potential.PairParameters(types=('A',), params=('energy','mass'))
-        m['A','A']['energy'] = relentless.core.Variable(value=0.5)
-        m['A','A']['mass'] = relentless.core.Variable(value=2.0)
+        m = relentless.potential.PairParameters(types=('A',), params=('energy','mass'))
+        m['A','A']['energy'] = relentless.Variable(value=0.5)
+        m['A','A']['mass'] = relentless.Variable(value=2.0)
         m.save(temp.name)
         with open(temp.name, 'r') as f:
             x = json.load(f)
@@ -289,8 +289,8 @@ class test_PairParameters(unittest.TestCase):
 
         temp.close()
 
-class LinPot(relentless.potential.potential.PairPotential):
-    """Linear potential function used to test relentless.potential.potential.PairPotential"""
+class LinPot(relentless.potential.PairPotential):
+    """Linear potential function used to test relentless.potential.PairPotential"""
 
     def __init__(self, types, params):
         super().__init__(types, params)
@@ -318,7 +318,7 @@ class LinPot(relentless.potential.potential.PairPotential):
         return d
 
 class test_PairPotential(unittest.TestCase):
-    """Unit tests for relentless.potential.potential.PairPotential"""
+    """Unit tests for relentless.potential.PairPotential"""
 
     def test_init(self):
         """Test creation from data"""
@@ -326,7 +326,7 @@ class test_PairPotential(unittest.TestCase):
         p = LinPot(types=('1',), params=('m',))
         p.coeff['1','1']['m'] = 3.5
 
-        coeff = relentless.potential.potential.PairParameters(types=('1',), params=('m','rmin','rmax','shift'))
+        coeff = relentless.potential.PairParameters(types=('1',), params=('m','rmin','rmax','shift'))
         coeff['1','1']['m'] = 3.5
         coeff['1','1']['rmin'] = False
         coeff['1','1']['rmax'] = False
@@ -341,7 +341,7 @@ class test_PairPotential(unittest.TestCase):
         p.coeff['1','1']['m'] = 3.5
         p.coeff['1','1']['rmin'] = 0.0
 
-        coeff = relentless.potential.potential.PairParameters(types=('1',), params=('m','rmin','rmax','shift'))
+        coeff = relentless.potential.PairParameters(types=('1',), params=('m','rmin','rmax','shift'))
         coeff['1','1']['m'] = 3.5
         coeff['1','1']['rmin'] = 0.0
         coeff['1','1']['rmax'] = False
@@ -356,7 +356,7 @@ class test_PairPotential(unittest.TestCase):
         p.coeff['1','1']['m'] = 3.5
         p.coeff['1','1']['rmax'] = 1.0
 
-        coeff = relentless.potential.potential.PairParameters(types=('1',), params=('m','rmin','rmax','shift'))
+        coeff = relentless.potential.PairParameters(types=('1',), params=('m','rmin','rmax','shift'))
         coeff['1','1']['m'] = 3.5
         coeff['1','1']['rmin'] = False
         coeff['1','1']['rmax'] = 1.0
@@ -371,7 +371,7 @@ class test_PairPotential(unittest.TestCase):
         p.coeff['1','1']['m'] = 3.5
         p.coeff['1','1']['shift'] = True
 
-        coeff = relentless.potential.potential.PairParameters(types=('1',), params=('m','rmin','rmax','shift'))
+        coeff = relentless.potential.PairParameters(types=('1',), params=('m','rmin','rmax','shift'))
         coeff['1','1']['m'] = 3.5
         coeff['1','1']['rmin'] = False
         coeff['1','1']['rmax'] = False
@@ -388,7 +388,7 @@ class test_PairPotential(unittest.TestCase):
         p.coeff['1','1']['rmax'] = 1.0
         p.coeff['1','1']['shift'] = True
 
-        coeff = relentless.potential.potential.PairParameters(types=('1',), params=('m','rmin','rmax','shift'))
+        coeff = relentless.potential.PairParameters(types=('1',), params=('m','rmin','rmax','shift'))
         coeff['1','1']['m'] = 3.5
         coeff['1','1']['rmin'] = 0.0
         coeff['1','1']['rmax'] = 1.0
@@ -590,8 +590,8 @@ class test_PairPotential(unittest.TestCase):
 
         temp.close()
 
-class QuadPot(relentless.potential.potential.PairPotential):
-    """Quadratic potential function used to test relentless.potential.potential.Tabulator"""
+class QuadPot(relentless.potential.PairPotential):
+    """Quadratic potential function used to test relentless.potential.Tabulator"""
 
     def __init__(self, types, params):
         super().__init__(types, params)
@@ -619,21 +619,21 @@ class QuadPot(relentless.potential.potential.PairPotential):
         return d
 
 class test_Tabulator(unittest.TestCase):
-    """Unit tests for relentless.potential.potential.Tabulator"""
+    """Unit tests for relentless.potential.Tabulator"""
 
     def test_init(self):
         """Test creation of object with data"""
         r_input = np.array([0.5,0.75,1,1.25,1.5])
 
         #test creation with required param
-        t = relentless.potential.potential.Tabulator(r=r_input)
+        t = relentless.potential.Tabulator(r=r_input)
         np.testing.assert_allclose(t.r, r_input)
         self.assertEqual(t.fmax, None)
         self.assertEqual(t.fcut, None)
         self.assertEqual(t.shift, True)
 
         #test creation with required param, fmax, fcut, shift
-        t = relentless.potential.potential.Tabulator(r=r_input, fmax=1.5, fcut=1.0, shift=False)
+        t = relentless.potential.Tabulator(r=r_input, fmax=1.5, fcut=1.0, shift=False)
         np.testing.assert_allclose(t.r, r_input)
         self.assertAlmostEqual(t.fmax, 1.5)
         self.assertAlmostEqual(t.fcut, 1.0)
@@ -644,13 +644,13 @@ class test_Tabulator(unittest.TestCase):
 
         #test creation with invalid r,fmax,fcut setup
         with self.assertRaises(TypeError):
-            t = relentless.potential.potential.Tabulator(r=r_input_2d)
+            t = relentless.potential.Tabulator(r=r_input_2d)
         with self.assertRaises(ValueError):
-            t = relentless.potential.potential.Tabulator(r=r_input_bad)
+            t = relentless.potential.Tabulator(r=r_input_bad)
         with self.assertRaises(ValueError):
-            t = relentless.potential.potential.Tabulator(r=r_input, fmax=-1.0)
+            t = relentless.potential.Tabulator(r=r_input, fmax=-1.0)
         with self.assertRaises(ValueError):
-            t = relentless.potential.potential.Tabulator(r=r_input, fcut=-1.0)
+            t = relentless.potential.Tabulator(r=r_input, fcut=-1.0)
 
     def test_potential(self):
         """Test energy and force methods"""
@@ -660,7 +660,7 @@ class test_Tabulator(unittest.TestCase):
         for pair in p2.coeff.pairs:
             p2.coeff[pair]['m'] = 1.0
         p_all = [p1, p2]
-        t = relentless.potential.potential.Tabulator(r=np.array([1,2,3,4,5]))
+        t = relentless.potential.Tabulator(r=np.array([1,2,3,4,5]))
 
         #test energy method
         u = t.energy(pair=('1','1'), potentials=p_all)
@@ -684,7 +684,7 @@ class test_Tabulator(unittest.TestCase):
         for pair in p2.coeff.pairs:
             p2.coeff[pair]['m'] = 1.0
         p_all = [p1, p2]
-        t = relentless.potential.potential.Tabulator(r=np.array([0.5,1,1.5,2,2.5]))
+        t = relentless.potential.Tabulator(r=np.array([0.5,1,1.5,2,2.5]))
 
         #test without fmax or fcut
         u = t.energy(pair=('1','1'), potentials=p_all)
