@@ -306,7 +306,7 @@ class test_FixedKeyDict(unittest.TestCase):
 
         #test clear with set default
         d = relentless.core.FixedKeyDict(keys=('A','B'), default=1.0)
-        self.assertEqual([d[k] for k in d.keys], [None, None])
+        self.assertEqual([d[k] for k in d.keys], [1.0, 1.0])
         d.update(A=2, B=3)
         self.assertEqual([d[k] for k in d.keys], [2.0, 3.0])
         d.clear()
