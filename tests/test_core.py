@@ -6,7 +6,7 @@ import numpy as np
 import relentless
 
 class test_Interpolator(unittest.TestCase):
-    """Unit tests for core.Interpolator."""
+    """Unit tests for relentless.core.Interpolator."""
 
     def test_init(self):
         """Test creation from data."""
@@ -84,7 +84,7 @@ class test_Interpolator(unittest.TestCase):
         np.testing.assert_allclose(f([-2,0.5,2]), [-2.0,1.0,2.0])
 
 class test_PairMatrix(unittest.TestCase):
-    """Unit tests for core.PairMatrix."""
+    """Unit tests for relentless.core.PairMatrix."""
 
     def test_init(self):
         """Test construction with different list types."""
@@ -205,7 +205,7 @@ class test_PairMatrix(unittest.TestCase):
         self.assertEqual(m['B','B'], {'energy':3.0, 'mass':2.0})
 
 class test_FixedKeyDict(unittest.TestCase):
-    """Unit tests for core.FixedKeyDict."""
+    """Unit tests for relentless.core.FixedKeyDict."""
 
     def test_init(self):
         """Test construction with different list keys."""
@@ -302,6 +302,27 @@ class test_FixedKeyDict(unittest.TestCase):
         with self.assertRaises(KeyError):
             d.update(C=2.5)
 
+    def test_clear(self):
+        """Test clear method to reset keys to default."""
+
+        #test clear with no default set
+        d = relentless.core.FixedKeyDict(keys=('A','B'))
+        d.update(A=2, B=3)
+        self.assertEqual(d['A'], 2.0)
+        self.assertEqual(d['B'], 3.0)
+        d.clear()
+        self.assertEqual(d['A'], None)
+        self.assertEqual(d['B'], None)
+
+        #test clear with set default
+        d = relentless.core.FixedKeyDict(keys=('A','B'), default=1.0)
+        d.update(A=2, B=3)
+        self.assertEqual(d['A'], 2.0)
+        self.assertEqual(d['B'], 3.0)
+        d.clear()
+        self.assertEqual(d['A'], 1.0)
+        self.assertEqual(d['B'], 1.0)
+
     def test_iteration(self):
         """Test iteration on the dictionary."""
         d = relentless.core.FixedKeyDict(keys=('A','B'))
@@ -346,7 +367,7 @@ class test_FixedKeyDict(unittest.TestCase):
         self.assertEqual(d.todict(), dict_var)
 
 class test_Variable(unittest.TestCase):
-    """Unit tests for core.Variable."""
+    """Unit tests for relentless.core.Variable."""
 
     def test_init(self):
         """Test construction with different bounds."""
