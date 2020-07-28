@@ -337,17 +337,15 @@ class test_Depletion(unittest.TestCase):
 
     def test_init(self):
         """Test creation from data"""
-        dp = pair.Depletion(types=('1','2'))
-        coeff = potential.CoefficientMatrix(types=('1','2'),
-                                            params=('P','sigma_i','sigma_j','sigma_d','rmin','rmax','shift'),
-                                            default={'rmin':False,'rmax':False,'shift':False})
+        dp = relentless.potential.pair.Depletion(types=('1','2'))
+        coeff = relentless.potential.potential.PairParameters(types=('1','2'),
+                                                              params=('P','sigma_i','sigma_j','sigma_d','rmin','rmax','shift'))
         self.assertCountEqual(dp.coeff.types, coeff.types)
         self.assertCountEqual(dp.coeff.params, coeff.params)
-        self.assertDictEqual(dp.coeff.default.todict(), coeff.default.todict())
 
     def test_energy(self):
         """Test _energy method"""
-        dp = pair.Depletion(types=('1',))
+        dp = relentless.potential.pair.Depletion(types=('1',))
 
         #test scalar r
         r_input = 3
@@ -371,7 +369,7 @@ class test_Depletion(unittest.TestCase):
 
     def test_force(self):
         """Test _force method"""
-        dp = pair.Depletion(types=('1',))
+        dp = relentless.potential.pair.Depletion(types=('1',))
 
         #test scalar r
         r_input = 3
@@ -395,7 +393,7 @@ class test_Depletion(unittest.TestCase):
 
     def test_derivative(self):
         """Test _derivative method"""
-        dp = pair.Depletion(types=('1',))
+        dp = relentless.potential.pair.Depletion(types=('1',))
 
         #w.r.t. P
         #test scalar r
