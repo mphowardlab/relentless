@@ -10,8 +10,8 @@ from relentless.core import PairMatrix
 from relentless.core import FixedKeyDict
 from relentless.core import Variable
 
-class PairParameters:
-    """Pair coefficient matrix.
+class PairParameters(PairMatrix):
+    """Pair parameter/coefficient matrix.
 
     Defines a matrix of PairMatrix objects with one or more parameters.
     Any or all of the parameters can be initialized with a default value.
@@ -101,7 +101,6 @@ class PairParameters:
         self._per_pair = PairMatrix(types)
         for key in self:
             self._per_pair[key] = FixedKeyDict(keys=self.params)
-            self._per_pair[key].update(self.default)
 
     def evaluate(self, pair):
         """Evaluate pair parameters.
@@ -156,48 +155,27 @@ class PairParameters:
         return params
 
     def save(self, filename):
-        """Saves the data from a coefficient matrix to a file.
-
-        Serializes each parameter value in order to track the internal values
-        of the :py:class:`Variable` object and distinguish it from 'scalar' values.
+        """Saves the parameter data to a file.
 
         Parameters
         ----------
         filename : `str`
             The name of the file to save data in.
 
-        Raises
-        ------
-        TypeError
-            If a value is of an unrecognizable type
-
         """
-        ## TODO: modify this to dump all of these internal parameter structures
         data = {}
         for key in self:
-            dkey = str(key)
-            data[dkey] = {}
-            for param in self[key]:
-                var = self[key][param]
-                if isinstance(var, Variable):
-                    data[dkey][param] = {'type':'variable', 'value':var.value,
-                                         'const':var.const, 'low':var.low, 'high':var.high}
-                elif np.isscalar(var):
-                    data[dkey][param] = {'type':'scalar', 'value':var}
-                else:
-                    raise TypeError('Value type unrecognized')
+            data[str(key)] = self.evaluate(key)
 
         with open(filename, 'w') as f:
             json.dump(data, f, sort_keys=True, indent=4)
 
     def __getitem__(self, key):
         """Get parameters for the (i,j) pair."""
-        if len(key) == 2:
-            return self._per_pair[key]
-        elif len(key) == 1:
+        if isinstance(key, str):
             return self._per_type[key]
         else:
-            raise KeyError('Unknown key length')
+            return self._per_pair[key]
 
     def __setitem__(self, key, value):
         """Set parameters for the (i,j) pair."""
@@ -216,7 +194,7 @@ class PairParameters:
 class PairPotential(abc.ABC):
     """Generic pair potential evaluator.
 
-    A PairPotential object is created with coefficients as a PairParameters.
+    A PairPotential object is created with coefficients as a PairParameters coefficient matrix.
     This abstract base class can be extended in order to evaluate custom force, energy,
     and derivative/gradient functions.
 
