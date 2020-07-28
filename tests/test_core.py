@@ -111,11 +111,11 @@ class test_PairMatrix(unittest.TestCase):
 
         #test construction with int type input
         with self.assertRaises(TypeError):
-            m = relentless.PairMatrix(types=(1,2))
+            m = relentless.core.PairMatrix(types=(1,2))
 
         #test construction with mixed type input
         with self.assertRaises(TypeError):
-            m = relentless.PairMatrix(types=('1',2))
+            m = relentless.core.PairMatrix(types=('1',2))
 
     def test_accessors(self):
         """Test get and set methods on pairs."""
@@ -305,7 +305,7 @@ class test_FixedKeyDict(unittest.TestCase):
         self.assertEqual([d[k] for k in d.keys], [None, None])
 
         #test clear with set default
-        d = relentless.FixedKeyDict(keys=('A','B'), default=1.0)
+        d = relentless.core.FixedKeyDict(keys=('A','B'), default=1.0)
         self.assertEqual([d[k] for k in d.keys], [None, None])
         d.update(A=2, B=3)
         self.assertEqual([d[k] for k in d.keys], [2.0, 3.0])
