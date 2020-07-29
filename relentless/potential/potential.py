@@ -81,7 +81,7 @@ class PairParameters(PairMatrix):
     Assigning to a type sets the specified per-type parameters::
 
         m['A'].update(energy=1.0, mass=2.0)
-        >>> print(m.evaluate('A'))
+        >>> print(m['A'])
         {'energy':1.0, 'mass':2.0}
 
     Assigning to shared sets the specified shared parameters::
@@ -90,11 +90,14 @@ class PairParameters(PairMatrix):
         >>> print(m.shared)
         {'energy':0.5, 'mass':None}
 
-    Setting shared parameters does not override the per-pair parameters if the pair
-    is accessed directly, but does override the per-pair parameters if `evaluate()` is used::
+    Shared parameters will be used in `evaluate()` if the per-pair parameter is not set::
 
+        >>> m['B','B'] = {'mass': 0.1}
+        >>> m.shared = {'energy': 0.5}
         >>> print(m['B','B'])
-        {'energy':0.1, 'mass':0.1}
+        {'energy': None, 'mass': 0.1}
+        >>> print(m.shared)
+        {'energy': 0.5, 'mass': None}
         >>> print(m.evaluate(('B','B'))
         {'energy':0.5, 'mass':0.1}
 
