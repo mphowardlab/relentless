@@ -165,8 +165,9 @@ class Spline(PairPotential):
     num_knots : int
         The number of knots with which to interpolate.
     mode : str
-        Describes the type of design parameter used in the optimization. Setting the mode to 'value' uses the knot amplitudes,
-        while 'diff' uses the differences between neighboring knot amplitudes. (Defaults to 'diff').
+        Describes the type of design parameter used in the optimization.
+        Setting the mode to 'value' uses the knot amplitudes, while 'diff' uses
+        the differences between neighboring knot amplitudes. (Defaults to 'diff').
 
     Raises
     ------

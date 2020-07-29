@@ -11,10 +11,12 @@ from relentless.core import FixedKeyDict
 from relentless.core import Variable
 
 class PairParameters(PairMatrix):
-    """Pair parameter/coefficient matrix.
+    """Parameters for pairs of types.
 
-    Defines a matrix of PairMatrix objects with one or more parameters.
-    Any or all of the parameters can be initialized with a default value.
+    Defines one or more parameters for a set of types. The parameters can be set
+    per-pair, per-type, or shared between all pairs. The per-pair parameters take
+    precedence over the shared parameters. The per-type parameters are not included in
+    the evaluation of pair parameters, but can be used to set per-pair or shared parameters.
 
     Parameters
     ----------
@@ -22,8 +24,6 @@ class PairParameters(PairMatrix):
         List of types (A type must be a `str`).
     params : array_like
         List of parameters (A parameter must be a `str`).
-    default : dict
-        Initial value for any or all parameters, the values default to `None`.
 
     Raises
     ------
@@ -42,17 +42,17 @@ class PairParameters(PairMatrix):
 
         m['A','A']['energy'] = 2.0
 
-    Assigning to a pair using `update()` overwrites the specified parameters::
+    Assigning to a pair using `update()` overwrites the specified per-pair parameters::
 
-        m['A','A'].update({'mass':2.5})  #does not reset 'energy' value to default
+        m['A','A'].update({'mass':2.5})  #does not reset 'energy' value to `None`
         m['A','A'].update(mass=2.5)      #equivalent statement
         >>> print(m['A','A'])
         {'energy':2.0, 'mass':2.5}
 
-    Assigning to a pair using `=` operator overwrites the specified parameters
+    Assigning to a pair using `=` operator overwrites the specified per-pair parameters
     and resets the other parameters::
 
-        m['A','A'] = {'mass':2.5}  #does reset 'energy' value to default
+        m['A','A'] = {'mass':2.5}  #does reset 'energy' value to `None`
         >>> print(m['A','A'])
         {'energy': None, 'mass':2.5}
 
@@ -78,6 +78,26 @@ class PairParameters(PairMatrix):
         >>> print(m['A','B'])
         {'energy':<relentless.core.Variable object at 0x561124456>, 'mass':0.5}
 
+    Assigning to a type sets the specified per-type parameters::
+
+        m['A'].update(energy=1.0, mass=2.0)
+        >>> print(m.evaluate('A'))
+        {'energy':1.0, 'mass':2.0}
+
+    Assigning to shared sets the specified shared parameters::
+
+        m.shared['energy'] = 0.5
+        >>> print(m.shared)
+        {'energy':0.5, 'mass':None}
+
+    Setting shared parameters does not override the per-pair parameters if the pair
+    is accessed directly, but does override the per-pair parameters if `evaluate()` is used::
+
+        >>> print(m['B','B'])
+        {'energy':0.1, 'mass':0.1}
+        >>> print(m.evaluate(('B','B'))
+        {'energy':0.5, 'mass':0.1}
+
     """
     def __init__(self, types, params):
         super().__init__(types)
@@ -90,7 +110,7 @@ class PairParameters(PairMatrix):
         self.params = tuple(params)
 
         # shared params
-        self.shared = FixedKeyDict(keys=self.params)
+        self._shared = FixedKeyDict(keys=self.params)
 
         # per-type params
         self._per_type = FixedKeyDict(keys=self.types)
@@ -191,12 +211,17 @@ class PairParameters(PairMatrix):
     def __next__(self):
         return next(self._per_pair)
 
+    @property
+    def shared(self):
+        """:py:class:`FixedKeyDict`: The shared parameters."""
+        return self._shared
+
 class PairPotential(abc.ABC):
     """Generic pair potential evaluator.
 
-    A PairPotential object is created with coefficients as a PairParameters coefficient matrix.
-    This abstract base class can be extended in order to evaluate custom force, energy,
-    and derivative/gradient functions.
+    A PairPotential object is created with coefficients as a PairParameters object.
+    This abstract base class can be extended in order to evaluate custom force,
+    energy, and derivative/gradient functions.
 
     Parameters
     ----------
@@ -204,8 +229,6 @@ class PairPotential(abc.ABC):
         List of types (A type must be a `str`).
     params : array_like
         List of parameters (A parameter must be a `str`).
-    default : dict
-        Initial value for any or all parameters. Any value not specified defaults to `None`.
 
     Todo
     ----
@@ -440,8 +463,8 @@ class PairPotential(abc.ABC):
 class Tabulator:
     """Combines and tabulates multiple potentials together.
 
-    Evaluates accumulated energy and force values for multiple potential functions at different r values,
-    allows regularization of the force and shifting of the energy.
+    Evaluates accumulated energy and force values for multiple potential functions
+    at different r values, allows regularization of the force and shifting of the energy.
 
     Parameters
     ----------
