@@ -1,14 +1,14 @@
 """Unit tests for potential module."""
+import json
 import tempfile
 import unittest
 
 import numpy as np
 
-from relentless import core
-from relentless.potential import potential
+import relentless
 
-class test_CoefficientMatrix(unittest.TestCase):
-    """Unit tests for potential.CoefficientMatrix"""
+class test_PairParameters(unittest.TestCase):
+    """Unit tests for relentless.potential.PairParameters"""
 
     def test_init(self):
         """Test creation from data"""
@@ -17,43 +17,102 @@ class test_CoefficientMatrix(unittest.TestCase):
         params = ('energy', 'mass')
 
         #test construction with tuple input
-        m = potential.CoefficientMatrix(types=('A','B'), params=('energy','mass'))
+        m = relentless.potential.PairParameters(types=('A','B'), params=('energy','mass'))
         self.assertEqual(m.types, types)
         self.assertEqual(m.params, params)
         self.assertCountEqual(m.pairs, pairs)
 
         #test construction with list input
-        m = potential.CoefficientMatrix(types=['A','B'], params=('energy','mass'))
+        m = relentless.potential.PairParameters(types=['A','B'], params=('energy','mass'))
         self.assertEqual(m.types, types)
         self.assertEqual(m.params, params)
         self.assertCountEqual(m.pairs, pairs)
 
         #test construction with mixed tuple/list input
-        m = potential.CoefficientMatrix(types=('A','B'), params=['energy','mass'])
+        m = relentless.potential.PairParameters(types=('A','B'), params=['energy','mass'])
         self.assertEqual(m.types, types)
         self.assertEqual(m.params, params)
-        self.assertCountEqual(m.pairs, pairs)
-
-        #test construction with default values initialized
-        default = {'energy':0.0, 'mass':0.0}
-        m = potential.CoefficientMatrix(types=('A','B'), params=('energy','mass'),
-                                        default={'energy':0.0, 'mass':0.0})
-        self.assertEqual(m.types, types)
-        self.assertEqual(m.params, params)
-        self.assertEqual(m.default.todict(), default)
         self.assertCountEqual(m.pairs, pairs)
 
         #test construction with int type parameters
         with self.assertRaises(TypeError):
-            m = potential.CoefficientMatrix(types=('A','B'), params=(1,2))
+            m = relentless.potential.PairParameters(types=('A','B'), params=(1,2))
 
         #test construction with mixed type parameters
         with self.assertRaises(TypeError):
-            m = potential.CoefficientMatrix(types=('A','B'), params=('1',2))
+            m = relentless.potential.PairParameters(types=('A','B'), params=('1',2))
+
+    def test_param_types(self):
+        """Test various get and set methods on pair parameter types"""
+        m = relentless.potential.PairParameters(types=('A','B'), params=('energy', 'mass'))
+
+        self.assertEqual(m.shared['energy'], None)
+        self.assertEqual(m.shared['mass'], None)
+        self.assertEqual(m['A','A']['energy'], None)
+        self.assertEqual(m['A','A']['mass'], None)
+        self.assertEqual(m['A','B']['energy'], None)
+        self.assertEqual(m['A','B']['mass'], None)
+        self.assertEqual(m['B','B']['energy'], None)
+        self.assertEqual(m['B','B']['mass'], None)
+        self.assertEqual(m['A']['energy'], None)
+        self.assertEqual(m['A']['mass'], None)
+        self.assertEqual(m['B']['energy'], None)
+        self.assertEqual(m['B']['mass'], None)
+
+        #test setting shared params
+        m.shared.update(energy=1.0, mass=2.0)
+
+        self.assertEqual(m.shared['energy'], 1.0)
+        self.assertEqual(m.shared['mass'], 2.0)
+        self.assertEqual(m['A','A']['energy'], None)
+        self.assertEqual(m['A','A']['mass'], None)
+        self.assertEqual(m['A','B']['energy'], None)
+        self.assertEqual(m['A','B']['mass'], None)
+        self.assertEqual(m['B','B']['energy'], None)
+        self.assertEqual(m['B','B']['mass'], None)
+        self.assertEqual(m['A']['energy'], None)
+        self.assertEqual(m['A']['mass'], None)
+        self.assertEqual(m['B']['energy'], None)
+        self.assertEqual(m['B']['mass'], None)
+
+        #test setting per-pair params
+        m['A','A'].update(energy=1.5, mass=2.5)
+        m['A','B'].update(energy=2.0, mass=3.0)
+        m['B','B'].update(energy=0.5, mass=0.7)
+
+        self.assertEqual(m.shared['energy'], 1.0)
+        self.assertEqual(m.shared['mass'], 2.0)
+        self.assertEqual(m['A','A']['energy'], 1.5)
+        self.assertEqual(m['A','A']['mass'], 2.5)
+        self.assertEqual(m['A','B']['energy'], 2.0)
+        self.assertEqual(m['A','B']['mass'], 3.0)
+        self.assertEqual(m['B','B']['energy'], 0.5)
+        self.assertEqual(m['B','B']['mass'], 0.7)
+        self.assertEqual(m['A']['energy'], None)
+        self.assertEqual(m['A']['mass'], None)
+        self.assertEqual(m['B']['energy'], None)
+        self.assertEqual(m['B']['mass'], None)
+
+        #test setting per-type params
+        m['A'].update(energy=0.1, mass=0.2)
+        m['B'].update(energy=0.2, mass=0.1)
+
+        self.assertEqual(m.shared['energy'], 1.0)
+        self.assertEqual(m.shared['mass'], 2.0)
+        self.assertEqual(m['A','A']['energy'], 1.5)
+        self.assertEqual(m['A','A']['mass'], 2.5)
+        self.assertEqual(m['A','B']['energy'], 2.0)
+        self.assertEqual(m['A','B']['mass'], 3.0)
+        self.assertEqual(m['B','B']['energy'], 0.5)
+        self.assertEqual(m['B','B']['mass'], 0.7)
+        self.assertEqual(m['A']['energy'], 0.1)
+        self.assertEqual(m['A']['mass'], 0.2)
+        self.assertEqual(m['B']['energy'], 0.2)
+        self.assertEqual(m['B']['mass'], 0.1)
 
     def test_accessor_methods(self):
         """Test various get and set methods on pairs"""
-        m = potential.CoefficientMatrix(types=('A',), params=('energy','mass'))
+        m = relentless.potential.PairParameters(types=('A',), params=('energy','mass'))
 
         #test set and get for each pair type and param
         self.assertEqual(m['A','A']['energy'], None)
@@ -111,31 +170,30 @@ class test_CoefficientMatrix(unittest.TestCase):
     def test_accessor_pairs(self):
         """Test get and set methods for various pairs"""
         #test set and get for initialized default
-        m = potential.CoefficientMatrix(types=('A','B'), params=('energy','mass'),
-                                        default={'energy':0.0, 'mass':0.0})
-        self.assertEqual(m['A','B']['energy'], 0.0)
-        self.assertEqual(m['A','B']['mass'], 0.0)
-        self.assertEqual(m['A','A']['energy'], 0.0)
-        self.assertEqual(m['A','A']['mass'], 0.0)
-        self.assertEqual(m['B','B']['energy'], 0.0)
-        self.assertEqual(m['B','B']['mass'], 0.0)
+        m = relentless.potential.PairParameters(types=('A','B'), params=('energy','mass'))
+        self.assertEqual(m['A','B']['energy'], None)
+        self.assertEqual(m['A','B']['mass'], None)
+        self.assertEqual(m['A','A']['energy'], None)
+        self.assertEqual(m['A','A']['mass'], None)
+        self.assertEqual(m['B','B']['energy'], None)
+        self.assertEqual(m['B','B']['mass'], None)
 
         #test reset and get manually
         m['A','B'] = {'energy':1.0, 'mass':2.0}
         self.assertEqual(m['A','B']['energy'], 1.0)
         self.assertEqual(m['A','B']['mass'], 2.0)
-        self.assertEqual(m['A','A']['energy'], 0.0)
-        self.assertEqual(m['A','A']['mass'], 0.0)
-        self.assertEqual(m['B','B']['energy'], 0.0)
-        self.assertEqual(m['B','B']['mass'], 0.0)
+        self.assertEqual(m['A','A']['energy'], None)
+        self.assertEqual(m['A','A']['mass'], None)
+        self.assertEqual(m['B','B']['energy'], None)
+        self.assertEqual(m['B','B']['mass'], None)
 
         m['A','A'].update({'energy':1.5, 'mass':2.5})
         self.assertEqual(m['A','B']['energy'], 1.0)
         self.assertEqual(m['A','B']['mass'], 2.0)
         self.assertEqual(m['A','A']['energy'], 1.5)
         self.assertEqual(m['A','A']['mass'], 2.5)
-        self.assertEqual(m['B','B']['energy'], 0.0)
-        self.assertEqual(m['B','B']['mass'], 0.0)
+        self.assertEqual(m['B','B']['energy'], None)
+        self.assertEqual(m['B','B']['mass'], None)
 
         m['B','B'] = {'energy':3.0, 'mass':4.0}
         self.assertEqual(m['A','B']['energy'], 1.0)
@@ -158,14 +216,14 @@ class test_CoefficientMatrix(unittest.TestCase):
         self.assertEqual(m['A','B']['energy'], 1.0)
         self.assertEqual(m['A','B']['mass'], 2.0)
         self.assertEqual(m['A','A']['energy'], 2.0)
-        self.assertEqual(m['A','A']['mass'], 0.0)
+        self.assertEqual(m['A','A']['mass'], None)
         self.assertEqual(m['B','B']['energy'], 3.5)
         self.assertEqual(m['B','B']['mass'], 4.5)
 
     def test_evaluate(self):
         """Test evaluation of pair parameters"""
         #test evaluation with empty parameter values
-        m = potential.CoefficientMatrix(types=('A','B'), params=('energy','mass'))
+        m = relentless.potential.PairParameters(types=('A','B'), params=('energy','mass'))
         with self.assertRaises(ValueError):
             x = m.evaluate(('A','B'))
 
@@ -173,148 +231,69 @@ class test_CoefficientMatrix(unittest.TestCase):
         with self.assertRaises(KeyError):
             x = m.evaluate(('A','C'))
 
-        #test evaluation with initialized parameter values as scalars
-        m = potential.CoefficientMatrix(types=('A','B'), params=('energy','mass'),
-                                        default={'energy':0.0, 'mass':0.0})
-        self.assertEqual(m.evaluate(('A','B')), {'energy':0.0, 'mass':0.0})
-        self.assertEqual(m.evaluate(('A','A')), {'energy':0.0, 'mass':0.0})
-        self.assertEqual(m.evaluate(('B','B')), {'energy':0.0, 'mass':0.0})
+        #test evaluation with initialized shared parameter values
+        m = relentless.potential.PairParameters(types=('A','B'), params=('energy','mass'))
+        m.shared['energy'] = 0.0
+        m.shared['mass'] = 0.5
+        self.assertEqual(m.evaluate(('A','B')), {'energy':0.0, 'mass':0.5})
+        self.assertEqual(m.evaluate(('A','A')), {'energy':0.0, 'mass':0.5})
+        self.assertEqual(m.evaluate(('B','B')), {'energy':0.0, 'mass':0.5})
+        self.assertEqual(m.evaluate(('B','A')), m.evaluate(('A','B')))
+
+        #test evaluation with initialized shared and individual parameter values
+        m = relentless.potential.PairParameters(types=('A','B'), params=('energy','mass'))
+        m.shared['energy'] = 0.0
+        m.shared['mass'] = 0.5
+        m['B','B']['energy'] = 1.5
+        self.assertEqual(m.evaluate(('A','B')), {'energy':0.0, 'mass':0.5})
+        self.assertEqual(m.evaluate(('A','A')), {'energy':0.0, 'mass':0.5})
+        self.assertEqual(m.evaluate(('B','B')), {'energy':1.5, 'mass':0.5})
         self.assertEqual(m.evaluate(('B','A')), m.evaluate(('A','B')))
 
         #test evaluation with initialized parameter values as Variable types
-        m = potential.CoefficientMatrix(types=('A','B'), params=('energy','mass'),
-                                        default={'energy':core.Variable(value=-1.0,low=0.1),
-                                                 'mass':core.Variable(value=1.0,high=0.1)})
-        self.assertEqual(m.evaluate(('A','B')), {'energy':0.1, 'mass':0.1})
-        self.assertEqual(m.evaluate(('A','A')), {'energy':0.1, 'mass':0.1})
-        self.assertEqual(m.evaluate(('B','B')), {'energy':0.1, 'mass':0.1})
-        self.assertEqual(m.evaluate(('B','A')), m.evaluate(('A','B')))
+        m = relentless.potential.PairParameters(types=('A',), params=('energy','mass'))
+        m['A','A']['energy'] = relentless.Variable(value=-1.0,low=0.1)
+        m['A','A']['mass'] = relentless.Variable(value=1.0,high=0.3)
+        self.assertEqual(m.evaluate(('A','A')), {'energy':0.1, 'mass':0.3})
 
         #test evaluation with initialized parameter values as unrecognized types
-        m = potential.CoefficientMatrix(types=('A','B'), params=('energy','mass'),
-                                        default={'energy':core.Interpolator(x=(-1,0,1), y=(-2,0,2)),
-                                                 'mass':core.Interpolator(x=(-1,0,1), y=(-2,0,2))})
+        m = relentless.potential.PairParameters(types=('A','B'), params=('energy','mass'))
+        m.shared['energy'] = relentless.Interpolator(x=(-1,0,1), y=(-2,0,2))
+        m.shared['mass'] = relentless.Interpolator(x=(-1,0,1), y=(-2,0,2))
         with self.assertRaises(TypeError):
             x = m.evaluate(('A','B'))
 
-    def test_saveload(self):
-        """Test saving to and loading from file"""
+    def test_save(self):
+        """Test saving to file"""
         temp = tempfile.NamedTemporaryFile()
 
         #test dumping/re-loading data with scalar parameter values
-        m = potential.CoefficientMatrix(types=('A','B'), params=('energy','mass'),
-                                        default={'energy':0.5, 'mass':2.0})
-        x = potential.CoefficientMatrix(types=('A','B'), params=('energy','mass'))
+        m = relentless.potential.PairParameters(types=('A',), params=('energy','mass'))
+        m['A','A']['energy'] = 1.5
+        m['A','A']['mass'] = 2.5
         m.save(temp.name)
-        x.load(temp.name)
-
-        self.assertEqual(m['A','B']['energy'], x['A','B']['energy'])
-        self.assertEqual(m['A','B']['mass'], x['A','B']['mass'])
-        self.assertEqual(m['A','A']['energy'], x['A','A']['energy'])
-        self.assertEqual(m['A','A']['mass'], x['A','A']['mass'])
-        self.assertEqual(m['B','B']['energy'], x['B','B']['energy'])
-        self.assertEqual(m['B','B']['mass'], x['B','B']['mass'])
+        with open(temp.name, 'r') as f:
+            x = json.load(f)
+        self.assertEqual(m['A','A']['energy'], x["('A', 'A')"]['energy'])
+        self.assertEqual(m['A','A']['mass'], x["('A', 'A')"]['mass'])
 
         #test dumping/re-loading data with Variable parameter values
-        m = potential.CoefficientMatrix(types=('A','B'), params=('energy','mass'),
-                                        default={'energy':core.Variable(value=0.5, high=0.2),
-                                                 'mass':core.Variable(value=2.0, low=3.0)})
-        x = potential.CoefficientMatrix(types=('A','B'), params=('energy','mass'))
+        m = relentless.potential.PairParameters(types=('A',), params=('energy','mass'))
+        m['A','A']['energy'] = relentless.Variable(value=0.5)
+        m['A','A']['mass'] = relentless.Variable(value=2.0)
         m.save(temp.name)
-        x.load(temp.name)
-
-        self.assertEqual(m['A','B']['energy'].value, x['A','B']['energy'].value)
-        self.assertEqual(m['A','B']['mass'].value, x['A','B']['mass'].value)
-        self.assertEqual(m['A','A']['energy'].value, x['A','A']['energy'].value)
-        self.assertEqual(m['A','A']['mass'].value, x['A','A']['mass'].value)
-        self.assertEqual(m['B','B']['energy'].value, x['B','B']['energy'].value)
-        self.assertEqual(m['B','B']['mass'].value, x['B','B']['mass'].value)
-
-        self.assertEqual(m['A','B']['energy'].low, x['A','B']['energy'].low)
-        self.assertEqual(m['A','B']['mass'].low, x['A','B']['mass'].low)
-        self.assertEqual(m['A','A']['energy'].low, x['A','A']['energy'].low)
-        self.assertEqual(m['A','A']['mass'].low, x['A','A']['mass'].low)
-        self.assertEqual(m['B','B']['energy'].low, x['B','B']['energy'].low)
-        self.assertEqual(m['B','B']['mass'].low, x['B','B']['mass'].low)
-
-        self.assertEqual(m['A','B']['energy'].high, x['A','B']['energy'].high)
-        self.assertEqual(m['A','B']['mass'].high, x['A','B']['mass'].high)
-        self.assertEqual(m['A','A']['energy'].high, x['A','A']['energy'].high)
-        self.assertEqual(m['A','A']['mass'].high, x['A','A']['mass'].high)
-        self.assertEqual(m['B','B']['energy'].high, x['B','B']['energy'].high)
-        self.assertEqual(m['B','B']['mass'].high, x['B','B']['mass'].high)
-
-        #test dumping/re-loading data with types that don't match
-        m = potential.CoefficientMatrix(types=('A','B'), params=('energy','mass'))
-        x = potential.CoefficientMatrix(types=('A','B','C'), params=('energy','mass'),
-                                          default={'energy':0.5, 'mass':0.2})
-        x.save(temp.name)
-        with self.assertRaises(KeyError):
-            m.load(temp.name)
-
-        #test dumping/re-loading data with params that don't match
-        x = potential.CoefficientMatrix(types=('A','B'), params=('energy','mass','charge'),
-                                          default={'energy':core.Variable(value=1.0),
-                                                   'mass':core.Variable(value=2.0),
-                                                   'charge':core.Variable(value=0.0)})
-        x.save(temp.name)
-        with self.assertRaises(KeyError):
-            m.load(temp.name)
+        with open(temp.name, 'r') as f:
+            x = json.load(f)
+        self.assertEqual(m['A','A']['energy'].value, x["('A', 'A')"]['energy'])
+        self.assertEqual(m['A','A']['mass'].value, x["('A', 'A')"]['mass'])
 
         temp.close()
 
-    def test_fromfile(self):
-        """Test creating new coefficient matrix from file."""
-        temp = tempfile.NamedTemporaryFile()
+class LinPot(relentless.potential.PairPotential):
+    """Linear potential function used to test relentless.potential.PairPotential"""
 
-        #test loading data with scalar values using class method `from_file`
-        x = potential.CoefficientMatrix(types=('A','B'), params=('energy','mass'),
-                                          default={'energy':1.0, 'mass':2.0})
-        x.save(temp.name)
-        m = potential.CoefficientMatrix.from_file(temp.name)
-
-        self.assertEqual(m['A','B']['energy'], x['A','B']['energy'])
-        self.assertEqual(m['A','B']['mass'], x['A','B']['mass'])
-        self.assertEqual(m['A','A']['energy'], x['A','A']['energy'])
-        self.assertEqual(m['A','A']['mass'], x['A','A']['mass'])
-        self.assertEqual(m['B','B']['energy'], x['B','B']['energy'])
-        self.assertEqual(m['B','B']['mass'], x['B','B']['mass'])
-
-        #test loading data with Variable values using class method `from_file`
-        x = potential.CoefficientMatrix(types=('A','B'), params=('energy','mass'),
-                                          default={'energy':core.Variable(value=1.0,low=1.5),
-                                                   'mass':core.Variable(value=0.5,high=0.2)})
-        x.save(temp.name)
-        m = potential.CoefficientMatrix.from_file(temp.name)
-
-        self.assertEqual(m['A','B']['energy'].value, x['A','B']['energy'].value)
-        self.assertEqual(m['A','B']['mass'].value, x['A','B']['mass'].value)
-        self.assertEqual(m['A','A']['energy'].value, x['A','A']['energy'].value)
-        self.assertEqual(m['A','A']['mass'].value, x['A','A']['mass'].value)
-        self.assertEqual(m['B','B']['energy'].value, x['B','B']['energy'].value)
-        self.assertEqual(m['B','B']['mass'].value, x['B','B']['mass'].value)
-
-        self.assertEqual(m['A','B']['energy'].low, x['A','B']['energy'].low)
-        self.assertEqual(m['A','B']['mass'].low, x['A','B']['mass'].low)
-        self.assertEqual(m['A','A']['energy'].low, x['A','A']['energy'].low)
-        self.assertEqual(m['A','A']['mass'].low, x['A','A']['mass'].low)
-        self.assertEqual(m['B','B']['energy'].low, x['B','B']['energy'].low)
-        self.assertEqual(m['B','B']['mass'].low, x['B','B']['mass'].low)
-
-        self.assertEqual(m['A','B']['energy'].high, x['A','B']['energy'].high)
-        self.assertEqual(m['A','B']['mass'].high, x['A','B']['mass'].high)
-        self.assertEqual(m['A','A']['energy'].high, x['A','A']['energy'].high)
-        self.assertEqual(m['A','A']['mass'].high, x['A','A']['mass'].high)
-        self.assertEqual(m['B','B']['energy'].high, x['B','B']['energy'].high)
-        self.assertEqual(m['B','B']['mass'].high, x['B','B']['mass'].high)
-
-        temp.close()
-
-class LinPot(potential.PairPotential):
-    """Linear potential function used to test potential.PairPotential"""
-
-    def __init__(self, types, params, default={}):
-        super().__init__(types, params, default)
+    def __init__(self, types, params):
+        super().__init__(types, params)
 
     def _energy(self, r, m, **params):
         r,u,s = self._zeros(r)
@@ -339,66 +318,85 @@ class LinPot(potential.PairPotential):
         return d
 
 class test_PairPotential(unittest.TestCase):
-    """Unit tests for potential.PairPotential"""
+    """Unit tests for relentless.potential.PairPotential"""
 
     def test_init(self):
         """Test creation from data"""
         #test creation with only m
-        p = LinPot(types=('1',), params=('m',), default={'m':3.5})
-        coeff = potential.CoefficientMatrix(types=('1',), params=('m','rmin','rmax','shift'),
-                                            default={'m':3.5,'rmin':False,'rmax':False,'shift':False})
+        p = LinPot(types=('1',), params=('m',))
+        p.coeff['1','1']['m'] = 3.5
+
+        coeff = relentless.potential.PairParameters(types=('1',), params=('m','rmin','rmax','shift'))
+        coeff['1','1']['m'] = 3.5
+        coeff['1','1']['rmin'] = False
+        coeff['1','1']['rmax'] = False
+        coeff['1','1']['shift'] = False
+
         self.assertCountEqual(p.coeff.types, coeff.types)
         self.assertCountEqual(p.coeff.params, coeff.params)
-        self.assertDictEqual(p.coeff.default.todict(), coeff.default.todict())
+        self.assertDictEqual(p.coeff.evaluate(('1','1')), coeff.evaluate(('1','1')))
 
         #test creation with m and rmin
-        p = LinPot(types=('1',), params=('m','rmin'), default={'m':3.5,'rmin':0.0})
-        coeff = potential.CoefficientMatrix(types=('1',), params=('m','rmin','rmax','shift'),
-                                            default={'m':3.5,'rmin':0.0,'rmax':False,'shift':False})
+        p = LinPot(types=('1',), params=('m','rmin'))
+        p.coeff['1','1']['m'] = 3.5
+        p.coeff['1','1']['rmin'] = 0.0
+
+        coeff = relentless.potential.PairParameters(types=('1',), params=('m','rmin','rmax','shift'))
+        coeff['1','1']['m'] = 3.5
+        coeff['1','1']['rmin'] = 0.0
+        coeff['1','1']['rmax'] = False
+        coeff['1','1']['shift'] = False
+
         self.assertCountEqual(p.coeff.types, coeff.types)
         self.assertCountEqual(p.coeff.params, coeff.params)
-        self.assertDictEqual(p.coeff.default.todict(), coeff.default.todict())
+        self.assertDictEqual(p.coeff.evaluate(('1','1')), coeff.evaluate(('1','1')))
 
         #test creation with m and rmax
-        p = LinPot(types=('1',), params=('m','rmax'), default={'m':3.5,'rmax':1.0})
-        coeff = potential.CoefficientMatrix(types=('1',), params=('m','rmin','rmax','shift'),
-                                            default={'m':3.5,'rmin':False,'rmax':1.0,'shift':False})
+        p = LinPot(types=('1',), params=('m','rmax'))
+        p.coeff['1','1']['m'] = 3.5
+        p.coeff['1','1']['rmax'] = 1.0
+
+        coeff = relentless.potential.PairParameters(types=('1',), params=('m','rmin','rmax','shift'))
+        coeff['1','1']['m'] = 3.5
+        coeff['1','1']['rmin'] = False
+        coeff['1','1']['rmax'] = 1.0
+        coeff['1','1']['shift'] = False
+
         self.assertCountEqual(p.coeff.types, coeff.types)
         self.assertCountEqual(p.coeff.params, coeff.params)
-        self.assertDictEqual(p.coeff.default.todict(), coeff.default.todict())
+        self.assertDictEqual(p.coeff.evaluate(('1','1')), coeff.evaluate(('1','1')))
 
         #test creation with m and shift
-        p = LinPot(types=('1',), params=('m','shift'), default={'m':3.5,'shift':True})
-        coeff = potential.CoefficientMatrix(types=('1',), params=('m','rmin','rmax','shift'),
-                                            default={'m':3.5,'rmin':False,'rmax':False,'shift':True})
+        p = LinPot(types=('1',), params=('m','shift'))
+        p.coeff['1','1']['m'] = 3.5
+        p.coeff['1','1']['shift'] = True
+
+        coeff = relentless.potential.PairParameters(types=('1',), params=('m','rmin','rmax','shift'))
+        coeff['1','1']['m'] = 3.5
+        coeff['1','1']['rmin'] = False
+        coeff['1','1']['rmax'] = False
+        coeff['1','1']['shift'] = True
+
         self.assertCountEqual(p.coeff.types, coeff.types)
         self.assertCountEqual(p.coeff.params, coeff.params)
-        self.assertDictEqual(p.coeff.default.todict(), coeff.default.todict())
+        self.assertDictEqual(p.coeff.evaluate(('1','1')), coeff.evaluate(('1','1')))
 
-        #test creation with all params, default values
-        p = LinPot(types=('1',), params=('m','rmin','rmax','shift'),
-                   default={'m':3.5,'rmin':0.0,'rmax':1.0,'shift':True})
-        coeff = potential.CoefficientMatrix(types=('1',), params=('m','rmin','rmax','shift'),
-                                            default={'m':3.5,'rmin':0.0,'rmax':1.0,'shift':True})
-        self.assertCountEqual(p.coeff.types, coeff.types)
-        self.assertCountEqual(p.coeff.params, coeff.params)
-        self.assertDictEqual(p.coeff.default.todict(), coeff.default.todict())
-
-        #test creation with no standard params, no default values
-        p = LinPot(types=('1',), params=('m',))
-        coeff = potential.CoefficientMatrix(types=('1',), params=('m','rmin','rmax','shift'),
-                                            default={'rmin':False,'rmax':False,'shift':False})
-        self.assertCountEqual(p.coeff.types, coeff.types)
-        self.assertCountEqual(p.coeff.params, coeff.params)
-        self.assertDictEqual(p.coeff.default.todict(), coeff.default.todict())
-
-        #test creation with all params, no default values
+        #test creation with all params
         p = LinPot(types=('1',), params=('m','rmin','rmax','shift'))
-        coeff = potential.CoefficientMatrix(types=('1',), params=('m','rmin','rmax','shift'),
-                                            default={'rmin':False,'rmax':False,'shift':False})
+        p.coeff['1','1']['m'] = 3.5
+        p.coeff['1','1']['rmin'] = 0.0
+        p.coeff['1','1']['rmax'] = 1.0
+        p.coeff['1','1']['shift'] = True
+
+        coeff = relentless.potential.PairParameters(types=('1',), params=('m','rmin','rmax','shift'))
+        coeff['1','1']['m'] = 3.5
+        coeff['1','1']['rmin'] = 0.0
+        coeff['1','1']['rmax'] = 1.0
+        coeff['1','1']['shift'] = True
+
         self.assertCountEqual(p.coeff.types, coeff.types)
         self.assertCountEqual(p.coeff.params, coeff.params)
-        self.assertDictEqual(p.coeff.default.todict(), coeff.default.todict())
+        self.assertDictEqual(p.coeff.evaluate(('1','1')), coeff.evaluate(('1','1')))
 
     def test_zeros(self):
         """Test _zeros method"""
@@ -440,8 +438,10 @@ class test_PairPotential(unittest.TestCase):
 
     def test_energy(self):
         """Test energy method"""
+        p = LinPot(types=('1',), params=('m',))
+        p.coeff['1','1']['m'] = 2.0
+
         #test with no cutoffs
-        p = LinPot(types=('1',), params=('m',), default={'m':2})
         u = p.energy(pair=('1','1'), r=0.5)
         self.assertAlmostEqual(u, 1.0)
         u = p.energy(pair=('1','1'), r=[0.25,0.75])
@@ -482,8 +482,10 @@ class test_PairPotential(unittest.TestCase):
 
     def test_force(self):
         """Test force method"""
+        p = LinPot(types=('1',), params=('m',))
+        p.coeff['1','1']['m'] = 2.0
+
         #test with no cutoffs
-        p = LinPot(types=('1',), params=('m',), default={'m':2})
         f = p.force(pair=('1','1'), r=0.5)
         self.assertAlmostEqual(f, -2.0)
         f = p.force(pair=('1','1'), r=[0.25,0.75])
@@ -519,8 +521,10 @@ class test_PairPotential(unittest.TestCase):
 
     def test_derivative(self):
         """Test derivative method"""
+        p = LinPot(types=('1',), params=('m',))
+        p.coeff['1','1']['m'] = 2.0
+
         #test with no cutoffs
-        p = LinPot(types=('1',), params=('m',), default={'m':2})
         d = p.derivative(pair=('1','1'), param='m', r=0.5)
         self.assertAlmostEqual(d, 0.5)
         d = p.derivative(pair=('1','1'), param='m', r=[0.25,0.75])
@@ -566,26 +570,31 @@ class test_PairPotential(unittest.TestCase):
         self.assertDictEqual(p.coeff['1','2'].todict(), {'m':2.0, 'rmin':0.0, 'rmax':1.0, 'shift':False})
         self.assertDictEqual(p.coeff['2','2'].todict(), {'m':2.0, 'rmin':0.0, 'rmax':1.0, 'shift':False})
 
-    def test_saveload(self):
-        """Test saving to and loading from file"""
+    def test_save(self):
+        """Test saving to file"""
         temp = tempfile.NamedTemporaryFile()
-        p = LinPot(types=('1',), params=('m','rmin','rmax'), default={'m':2,'rmin':0.0,'rmax':1.0})
-        x = LinPot(types=('1',), params=('m','rmin','rmax','shift'))
-        p.save(temp.name)
-        x.load(temp.name)
+        p = LinPot(types=('1',), params=('m','rmin','rmax'))
+        p.coeff['1','1']['m'] = 2.0
+        p.coeff['1','1']['rmin'] = 0.0
+        p.coeff['1','1']['rmax'] = 1.0
+        p.coeff['1','1']['shift'] = True
 
-        self.assertEqual(p.coeff['1','1']['m'], x.coeff['1','1']['m'])
-        self.assertEqual(p.coeff['1','1']['rmin'], x.coeff['1','1']['rmin'])
-        self.assertEqual(p.coeff['1','1']['rmax'], x.coeff['1','1']['rmax'])
-        self.assertEqual(p.coeff['1','1']['shift'], x.coeff['1','1']['shift'])
+        p.save(temp.name)
+        with open(temp.name, 'r') as f:
+            x = json.load(f)
+
+        self.assertEqual(p.coeff['1','1']['m'], x["('1', '1')"]['m'])
+        self.assertEqual(p.coeff['1','1']['rmin'], x["('1', '1')"]['rmin'])
+        self.assertEqual(p.coeff['1','1']['rmax'], x["('1', '1')"]['rmax'])
+        self.assertEqual(p.coeff['1','1']['shift'], x["('1', '1')"]['shift'])
 
         temp.close()
 
-class QuadPot(potential.PairPotential):
-    """Quadratic potential function used to test potential.Tabulator"""
+class QuadPot(relentless.potential.PairPotential):
+    """Quadratic potential function used to test relentless.potential.Tabulator"""
 
-    def __init__(self, types, params, default={}):
-        super().__init__(types, params, default)
+    def __init__(self, types, params):
+        super().__init__(types, params)
 
     def _energy(self, r, m, **params):
         r,u,s = self._zeros(r)
@@ -610,21 +619,21 @@ class QuadPot(potential.PairPotential):
         return d
 
 class test_Tabulator(unittest.TestCase):
-    """Unit tests for potential.Tabulator"""
+    """Unit tests for relentless.potential.Tabulator"""
 
     def test_init(self):
         """Test creation of object with data"""
         r_input = np.array([0.5,0.75,1,1.25,1.5])
 
         #test creation with required param
-        t = potential.Tabulator(r=r_input)
+        t = relentless.potential.Tabulator(r=r_input)
         np.testing.assert_allclose(t.r, r_input)
         self.assertEqual(t.fmax, None)
         self.assertEqual(t.fcut, None)
         self.assertEqual(t.shift, True)
 
         #test creation with required param, fmax, fcut, shift
-        t = potential.Tabulator(r=r_input, fmax=1.5, fcut=1.0, shift=False)
+        t = relentless.potential.Tabulator(r=r_input, fmax=1.5, fcut=1.0, shift=False)
         np.testing.assert_allclose(t.r, r_input)
         self.assertAlmostEqual(t.fmax, 1.5)
         self.assertAlmostEqual(t.fcut, 1.0)
@@ -635,20 +644,23 @@ class test_Tabulator(unittest.TestCase):
 
         #test creation with invalid r,fmax,fcut setup
         with self.assertRaises(TypeError):
-            t = potential.Tabulator(r=r_input_2d)
+            t = relentless.potential.Tabulator(r=r_input_2d)
         with self.assertRaises(ValueError):
-            t = potential.Tabulator(r=r_input_bad)
+            t = relentless.potential.Tabulator(r=r_input_bad)
         with self.assertRaises(ValueError):
-            t = potential.Tabulator(r=r_input, fmax=-1.0)
+            t = relentless.potential.Tabulator(r=r_input, fmax=-1.0)
         with self.assertRaises(ValueError):
-            t = potential.Tabulator(r=r_input, fcut=-1.0)
+            t = relentless.potential.Tabulator(r=r_input, fcut=-1.0)
 
     def test_potential(self):
         """Test energy and force methods"""
-        p1 = QuadPot(types=('1',), params=('m',), default={'m':2})
-        p2 = QuadPot(types=('1','2'), params=('m',), default={'m':1})
+        p1 = QuadPot(types=('1',), params=('m',))
+        p1.coeff['1','1']['m'] = 2.0
+        p2 = QuadPot(types=('1','2'), params=('m',))
+        for pair in p2.coeff.pairs:
+            p2.coeff[pair]['m'] = 1.0
         p_all = [p1, p2]
-        t = potential.Tabulator(r=np.array([1,2,3,4,5]))
+        t = relentless.potential.Tabulator(r=np.array([1,2,3,4,5]))
 
         #test energy method
         u = t.energy(pair=('1','1'), potentials=p_all)
@@ -666,10 +678,13 @@ class test_Tabulator(unittest.TestCase):
 
     def test_regularize(self):
         """Test regularize_force method cases"""
-        p1 = QuadPot(types=('1',), params=('m',), default={'m':2})
-        p2 = QuadPot(types=('1','2'), params=('m',), default={'m':1})
+        p1 = QuadPot(types=('1',), params=('m',))
+        p1.coeff['1','1']['m'] = 2.0
+        p2 = QuadPot(types=('1','2'), params=('m',))
+        for pair in p2.coeff.pairs:
+            p2.coeff[pair]['m'] = 1.0
         p_all = [p1, p2]
-        t = potential.Tabulator(r=np.array([0.5,1,1.5,2,2.5]))
+        t = relentless.potential.Tabulator(r=np.array([0.5,1,1.5,2,2.5]))
 
         #test without fmax or fcut
         u = t.energy(pair=('1','1'), potentials=p_all)

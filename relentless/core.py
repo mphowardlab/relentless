@@ -348,8 +348,8 @@ class FixedKeyDict:
             raise TypeError('All keys must be strings')
         self._keys = tuple(keys)
         self._data = {}
-        for i in self.keys:
-            self._data[i] = default
+        self._default = default
+        self.clear()
 
     def _check_key(self, key):
         """Check that a type is in the dictionary.
@@ -385,6 +385,11 @@ class FixedKeyDict:
 
     def __str__(self):
         return str(self._data)
+
+    def clear(self):
+        """Clear entries in dict, resetting to default."""
+        for i in self.keys:
+            self._data[i] = self._default
 
     def update(self, *data, **values):
         """Partially reassigns key values.

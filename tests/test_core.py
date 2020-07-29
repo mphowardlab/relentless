@@ -6,47 +6,47 @@ import numpy as np
 import relentless
 
 class test_Interpolator(unittest.TestCase):
-    """Unit tests for core.Interpolator."""
+    """Unit tests for relentless.Interpolator."""
 
     def test_init(self):
         """Test creation from data."""
         #test construction with tuple input
-        f = relentless.core.Interpolator(x=(-1,0,1), y=(-2,0,2))
+        f = relentless.Interpolator(x=(-1,0,1), y=(-2,0,2))
         self.assertEqual(f.domain, (-1,1))
 
         #test construction with list input
-        f = relentless.core.Interpolator(x=[-1,0,1], y=[-2,0,2])
+        f = relentless.Interpolator(x=[-1,0,1], y=[-2,0,2])
         self.assertEqual(f.domain, (-1,1))
 
         #test construction with numpy array input
-        f = relentless.core.Interpolator(x=np.array([-1,0,1]),
+        f = relentless.Interpolator(x=np.array([-1,0,1]),
                                          y=np.array([-2,0,2]))
         self.assertEqual(f.domain, (-1,1))
 
         #test construction with mixed input
-        f = relentless.core.Interpolator(x=[-1,0,1], y=(-2,0,2))
+        f = relentless.Interpolator(x=[-1,0,1], y=(-2,0,2))
         self.assertEqual(f.domain, (-1,1))
 
         #test construction with scalar input
         with self.assertRaises(ValueError):
-            f = relentless.core.Interpolator(x=1, y=2)
+            f = relentless.Interpolator(x=1, y=2)
 
         #test construction with 2d-array input
         with self.assertRaises(ValueError):
-            f = relentless.core.Interpolator(x=np.array([[-1,0,1], [-2,2,4]]),
+            f = relentless.Interpolator(x=np.array([[-1,0,1], [-2,2,4]]),
                                              y=np.array([[-1,0,1], [-2,2,4]]))
 
         #test construction with x and y having different lengths
         with self.assertRaises(ValueError):
-            f = relentless.core.Interpolator(x=[-1,0], y=[-2,0,2])
+            f = relentless.Interpolator(x=[-1,0], y=[-2,0,2])
 
         #test construction with non-strictly-increasing domain
         with self.assertRaises(ValueError):
-            f = relentless.core.Interpolator(x=(0,1,-1), y=(0,2,-2))
+            f = relentless.Interpolator(x=(0,1,-1), y=(0,2,-2))
 
     def test_call(self):
         """Test calls, both scalar and array."""
-        f = relentless.core.Interpolator(x=(-1,0,1), y=(-2,0,2))
+        f = relentless.Interpolator(x=(-1,0,1), y=(-2,0,2))
 
         #test scalar call
         self.assertAlmostEqual(f(-0.5), -1.0)
@@ -57,7 +57,7 @@ class test_Interpolator(unittest.TestCase):
 
     def test_derivative(self):
         """Test derivative function, both scalar and array."""
-        f = relentless.core.Interpolator(x=(-2,-1,0,1,2), y=(4,1,0,1,4))
+        f = relentless.Interpolator(x=(-2,-1,0,1,2), y=(4,1,0,1,4))
 
         #test scalar call
         d = f.derivative(x=1.5, n=1)
@@ -69,7 +69,7 @@ class test_Interpolator(unittest.TestCase):
 
     def test_extrap(self):
         """Test extrapolation calls."""
-        f = relentless.core.Interpolator(x=(-1,0,1), y=(-2,0,2))
+        f = relentless.Interpolator(x=(-1,0,1), y=(-2,0,2))
 
         #test extrap below lo
         self.assertAlmostEqual(f(-2), -2.0)
@@ -84,7 +84,7 @@ class test_Interpolator(unittest.TestCase):
         np.testing.assert_allclose(f([-2,0.5,2]), [-2.0,1.0,2.0])
 
 class test_PairMatrix(unittest.TestCase):
-    """Unit tests for core.PairMatrix."""
+    """Unit tests for relentless.core.PairMatrix."""
 
     def test_init(self):
         """Test construction with different list types."""
@@ -205,7 +205,7 @@ class test_PairMatrix(unittest.TestCase):
         self.assertEqual(m['B','B'], {'energy':3.0, 'mass':2.0})
 
 class test_FixedKeyDict(unittest.TestCase):
-    """Unit tests for core.FixedKeyDict."""
+    """Unit tests for relentless.core.FixedKeyDict."""
 
     def test_init(self):
         """Test construction with different list keys."""
@@ -247,21 +247,15 @@ class test_FixedKeyDict(unittest.TestCase):
 
         #test setting and getting values
         d['A'] = 1.0
-        self.assertEqual(d['A'], 1.0)
-        self.assertEqual(d['B'], None)
-
+        self.assertEqual([d[k] for k in d.keys], [1.0, None])
         d['B'] = 1.0
-        self.assertEqual(d['A'], 1.0)
-        self.assertEqual(d['B'], 1.0)
+        self.assertEqual([d[k] for k in d.keys], [1.0, 1.0])
 
         #test re-setting and getting values
         d['A'] = 2.0
-        self.assertEqual(d['A'], 2.0)
-        self.assertEqual(d['B'], 1.0)
-
+        self.assertEqual([d[k] for k in d.keys], [2.0, 1.0])
         d['B'] = 1.5
-        self.assertEqual(d['A'], 2.0)
-        self.assertEqual(d['B'], 1.5)
+        self.assertEqual([d[k] for k in d.keys], [2.0, 1.5])
 
         #test getting invalid key
         with self.assertRaises(KeyError):
@@ -271,23 +265,21 @@ class test_FixedKeyDict(unittest.TestCase):
         """Test update method to get and set keys."""
         d = relentless.core.FixedKeyDict(keys=('A','B'))
 
+        self.assertEqual([d[k] for k in d.keys], [None, None])
+
         #test updating both keys
         d.update({'A':1.0, 'B':2.0})  #using dict
-        self.assertEqual(d['A'], 1.0)
-        self.assertEqual(d['B'], 2.0)
+        self.assertEqual([d[k] for k in d.keys], [1.0, 2.0])
 
         d.update(A=1.5, B=2.5)  #using kwargs
-        self.assertEqual(d['A'], 1.5)
-        self.assertEqual(d['B'], 2.5)
+        self.assertEqual([d[k] for k in d.keys], [1.5, 2.5])
 
         #test updating only one key at a time
         d.update({'A':1.1})   #using dict
-        self.assertEqual(d['A'], 1.1)
-        self.assertEqual(d['B'], 2.5)
+        self.assertEqual([d[k] for k in d.keys], [1.1, 2.5])
 
         d.update(B=2.2)   #using kwargs
-        self.assertEqual(d['A'], 1.1)
-        self.assertEqual(d['B'], 2.2)
+        self.assertEqual([d[k] for k in d.keys], [1.1, 2.2])
 
         #test using *args length > 1
         with self.assertRaises(TypeError):
@@ -295,12 +287,30 @@ class test_FixedKeyDict(unittest.TestCase):
 
         #test using both *args and **kwargs
         d.update({'A':3.0, 'B':2.0}, B=2.2)
-        self.assertEqual(d['A'], 3.0)
-        self.assertEqual(d['B'], 2.2)
+        self.assertEqual([d[k] for k in d.keys], [3.0, 2.2])
 
         #test using invalid kwarg
         with self.assertRaises(KeyError):
             d.update(C=2.5)
+
+    def test_clear(self):
+        """Test clear method to reset keys to default."""
+
+        #test clear with no default set
+        d = relentless.core.FixedKeyDict(keys=('A','B'))
+        self.assertEqual([d[k] for k in d.keys], [None, None])
+        d.update(A=2, B=3)
+        self.assertEqual([d[k] for k in d.keys], [2.0, 3.0])
+        d.clear()
+        self.assertEqual([d[k] for k in d.keys], [None, None])
+
+        #test clear with set default
+        d = relentless.core.FixedKeyDict(keys=('A','B'), default=1.0)
+        self.assertEqual([d[k] for k in d.keys], [1.0, 1.0])
+        d.update(A=2, B=3)
+        self.assertEqual([d[k] for k in d.keys], [2.0, 3.0])
+        d.clear()
+        self.assertEqual([d[k] for k in d.keys], [1.0, 1.0])
 
     def test_iteration(self):
         """Test iteration on the dictionary."""
@@ -309,23 +319,18 @@ class test_FixedKeyDict(unittest.TestCase):
         #test iteration for setting values
         for k in d:
             d[k] = 1.0
-        self.assertEqual(d['A'], 1.0)
-        self.assertEqual(d['B'], 1.0)
+        self.assertEqual([d[k] for k in d.keys], [1.0, 1.0])
 
         #test manual re-setting of values
         d['A'] = 2.0
-        self.assertEqual(d['A'], 2.0)
-        self.assertEqual(d['B'], 1.0)
-
+        self.assertEqual([d[k] for k in d.keys], [2.0, 1.0])
         d['B'] = 1.5
-        self.assertEqual(d['A'], 2.0)
-        self.assertEqual(d['B'], 1.5)
+        self.assertEqual([d[k] for k in d.keys], [2.0, 1.5])
 
         #test iteration for re-setting values
         for k in d:
             d[k] = 3.0
-        self.assertEqual(d['A'], 3.0)
-        self.assertEqual(d['B'], 3.0)
+        self.assertEqual([d[k] for k in d.keys], [3.0, 3.0])
 
     def test_copy(self):
         """Test copying custom dict to standard dict."""
@@ -346,12 +351,12 @@ class test_FixedKeyDict(unittest.TestCase):
         self.assertEqual(d.todict(), dict_var)
 
 class test_Variable(unittest.TestCase):
-    """Unit tests for core.Variable."""
+    """Unit tests for relentless.Variable."""
 
     def test_init(self):
         """Test construction with different bounds."""
         #test with no bounds and non-default value of `const`
-        v = relentless.core.Variable(value=1.0, const=True)
+        v = relentless.Variable(value=1.0, const=True)
         self.assertAlmostEqual(v.value, 1.0)
         self.assertEqual(v.const, True)
         self.assertEqual(v.low, None)
@@ -361,7 +366,7 @@ class test_Variable(unittest.TestCase):
         self.assertEqual(v.athigh(), False)
 
         #test in between low and high bounds
-        v = relentless.core.Variable(value=1.2, low=0.0, high=2.0)
+        v = relentless.Variable(value=1.2, low=0.0, high=2.0)
         self.assertAlmostEqual(v.value, 1.2)
         self.assertAlmostEqual(v.low, 0.0)
         self.assertAlmostEqual(v.high, 2.0)
@@ -370,7 +375,7 @@ class test_Variable(unittest.TestCase):
         self.assertEqual(v.athigh(), False)
 
         #test below low bound
-        v = relentless.core.Variable(value=-1, low=0.5)
+        v = relentless.Variable(value=-1, low=0.5)
         self.assertAlmostEqual(v.value, 0.5)
         self.assertAlmostEqual(v.low, 0.5)
         self.assertEqual(v.high, None)
@@ -379,7 +384,7 @@ class test_Variable(unittest.TestCase):
         self.assertEqual(v.athigh(), False)
 
         #test above high bound
-        v = relentless.core.Variable(value=2.2, high=2.0)
+        v = relentless.Variable(value=2.2, high=2.0)
         self.assertAlmostEqual(v.value, 2.0)
         self.assertEqual(v.high, 2.0)
         self.assertEqual(v.low, None)
@@ -400,7 +405,7 @@ class test_Variable(unittest.TestCase):
     def test_clamp(self):
         """Test methods for clamping values with bounds."""
         #construction with only low bound
-        v = relentless.core.Variable(value=0.0, low=2.0)
+        v = relentless.Variable(value=0.0, low=2.0)
         #test below low
         val,state = v.clamp(1.0)
         self.assertAlmostEqual(val, 2.0)
@@ -415,7 +420,7 @@ class test_Variable(unittest.TestCase):
         self.assertEqual(state, v.State.FREE)
 
         #construction with low and high bounds
-        v = relentless.core.Variable(value=0.0, low=0.0, high=2.0)
+        v = relentless.Variable(value=0.0, low=0.0, high=2.0)
         #test below low
         val,state = v.clamp(-1.0)
         self.assertAlmostEqual(val, 0.0)
@@ -430,7 +435,7 @@ class test_Variable(unittest.TestCase):
         self.assertEqual(state, v.State.HIGH)
 
         #construction with no bounds
-        v = relentless.core.Variable(value=0.0)
+        v = relentless.Variable(value=0.0)
         #test free variable
         val,state = v.clamp(1.0)
         self.assertAlmostEqual(val, 1.0)
@@ -439,7 +444,7 @@ class test_Variable(unittest.TestCase):
     def test_value(self):
         """Test methods for setting values and checking bounds."""
         #test construction with value between bounds
-        v = relentless.core.Variable(value=0.0, low=-1.0, high=1.0)
+        v = relentless.Variable(value=0.0, low=-1.0, high=1.0)
         self.assertAlmostEqual(v.value, 0.0)
         self.assertEqual(v.state, v.State.FREE)
 
@@ -460,7 +465,7 @@ class test_Variable(unittest.TestCase):
     def test_bounds(self):
         """Test methods for setting bounds and checking value clamping."""
         #test construction with value between bounds
-        v = relentless.core.Variable(value=0.0, low=-1.0, high=1.0)
+        v = relentless.Variable(value=0.0, low=-1.0, high=1.0)
         self.assertAlmostEqual(v.value, 0.0)
         self.assertEqual(v.state, v.State.FREE)
 
