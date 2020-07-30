@@ -248,8 +248,8 @@ class DependentVariable(Variable):
 
     @property
     def depends(self):
-        """tuple: The variable or variables on which the specified DependentVariable depends."""
-        return tuple([getattr(self,k) for k in self._depends])
+        """set: The unique variable or variables on which the specified DependentVariable depends."""
+        return set([getattr(self,k) for k in self._depends])
 
     @abc.abstractmethod
     def derivative(self, var):
@@ -290,9 +290,15 @@ class ArithmeticMean(MixingRule):
 
     def derivative(self, var):
         if var is self.a:
-            return 0.5
+            if self.a.value == self.b.value:
+                return 1.0
+            else:
+                return 0.5
         elif var is self.b:
-            return 0.5
+            if self.a.value == self.b.value:
+                return 1.0
+            else:
+                return 0.5
         else:
             return 0.0
 
@@ -304,8 +310,14 @@ class GeometricMean(MixingRule):
 
     def derivative(self, var):
         if var is self.a:
-            return 0.5*np.sqrt(self.b.value/self.a.value)
+            if self.a.value == self.b.value:
+                return 1.0
+            else:
+                return 0.5*np.sqrt(self.b.value/self.a.value)
         elif var is self.b:
-            return 0.5*np.sqrt(self.a.value/self.b.value)
+            if self.a.value == self.b.value:
+                return 1.0
+            else:
+                return 0.5*np.sqrt(self.a.value/self.b.value)
         else:
             return 0.0

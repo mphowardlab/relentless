@@ -256,6 +256,11 @@ class test_ArithmeticMean(unittest.TestCase):
         self.assertAlmostEqual(y.value, 1.625)
         self.assertCountEqual(y.depends, (w,x))
 
+        #test "same" dependencies
+        w = relentless.ArithmeticMean(u, u)
+        self.assertAlmostEqual(w.value, 1.0)
+        self.assertCountEqual(w.depends, (u,))
+
         #test invalid variable dependence
         with self.assertRaises(TypeError):
             z = relentless.ArithmeticMean(1.0, 2.0)
@@ -309,6 +314,11 @@ class test_ArithmeticMean(unittest.TestCase):
         dw = w.derivative(w)
         self.assertEqual(dw, 0.0)
 
+        #test "same" dependencies
+        w = relentless.ArithmeticMean(u, u)
+        dw = w.derivative(u)
+        self.assertEqual(dw, 1.0)
+
 class test_GeometricMean(unittest.TestCase):
     """Unit tests for relentless.GeometricMean"""
 
@@ -330,6 +340,11 @@ class test_GeometricMean(unittest.TestCase):
         y = relentless.GeometricMean(w,x)
         self.assertAlmostEqual(y.value, 1.5422108)
         self.assertCountEqual(y.depends, (w,x))
+
+        #test "same" dependencies
+        w = relentless.GeometricMean(u, u)
+        self.assertAlmostEqual(w.value, 1.0)
+        self.assertCountEqual(w.depends, (u,))
 
         #test invalid variable dependence
         with self.assertRaises(TypeError):
@@ -383,6 +398,11 @@ class test_GeometricMean(unittest.TestCase):
         #test w.r.t. ~u,~v
         dw = w.derivative(w)
         self.assertEqual(dw, 0.0)
+
+        #test "same" dependencies
+        w = relentless.GeometricMean(u, u)
+        dw = w.derivative(u)
+        self.assertEqual(dw, 1.0)
 
 if __name__ == '__main__':
     unittest.main()
