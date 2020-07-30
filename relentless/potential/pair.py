@@ -312,12 +312,12 @@ class Spline(PairPotential):
         return f
 
     def derivative(self, pair, param, r):
-        #Extending PairPotential method to check if r and knot values are Variables.
+        #Extending PairPotential method to check if r and knot values are DesignVariables.
         for ri,ki in self.knots(pair):
-            if not isinstance(ri, core.Variable):
-                raise TypeError('All r values must be Variables')
-            if not isinstance(ki, core.Variable):
-                raise TypeError('All knot values must be Variables')
+            if not isinstance(ri, core.DesignVariable):
+                raise TypeError('All r values must be DesignVariables')
+            if not isinstance(ki, core.DesignVariable):
+                raise TypeError('All knot values must be DesignVariables')
         return super().derivative(pair, param, r)
 
     def _derivative(self, param, r, **params):
@@ -407,9 +407,9 @@ class Spline(PairPotential):
 
         Yields
         ------
-        :py:class:`Variable`
+        :py:class:`DesignVariable`
             The next r key in the coefficient array of r values.
-        :py:class:`Variable`
+        :py:class:`DesignVariable`
             The next knot key in the coefficient array of k values.
 
         """

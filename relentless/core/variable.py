@@ -44,7 +44,7 @@ class DesignVariable(Variable):
     --------
     A variable with a lower bound::
 
-        >>> v = Variable(value=1.0, low=0.0)
+        >>> v = DesignVariable(value=1.0, low=0.0)
         >>> v.value
         1.0
         >>> v.isfree()
@@ -65,7 +65,7 @@ class DesignVariable(Variable):
     """
 
     class State(Enum):
-        """State of the variable.
+        """State of the DesignVariable.
 
         Attributes
          ----------
@@ -99,7 +99,7 @@ class DesignVariable(Variable):
         -------
         v : float
             The clamped value.
-        b : :py:class:`Variable.State`
+        b : :py:class:`DesignVariable.State`
             The state of the variable.
 
         """
@@ -123,7 +123,7 @@ class DesignVariable(Variable):
     @value.setter
     def value(self, value):
         if not isinstance(value,(float,int)):
-            raise ValueError('Variable must be a float or int')
+            raise ValueError('DesignVariable must be a float or int')
         self._value, self._state = self.clamp(value)
 
     @property
@@ -176,7 +176,7 @@ class DesignVariable(Variable):
 
     @property
     def state(self):
-        """:py:class:`Variable.State`: The state of the variable"""
+        """:py:class:`DesignVariable.State`: The state of the variable"""
         return self._state
 
     def isfree(self):

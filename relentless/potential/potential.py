@@ -8,7 +8,7 @@ import numpy as np
 
 from relentless.core import PairMatrix
 from relentless.core import FixedKeyDict
-from relentless.core import Variable
+from relentless.core import DesignVariable
 
 class PairParameters(PairMatrix):
     """Parameters for pairs of types.
@@ -58,7 +58,7 @@ class PairParameters(PairMatrix):
 
     Set coefficient matrix values by setting parameters in full::
 
-        m['A','B'] = {'energy':Variable(value=2.0,high=1.5), 'mass':0.5}
+        m['A','B'] = {'energy':DesignVariable(value=2.0,high=1.5), 'mass':0.5}
 
     Set coefficient matrix values by iteratively accessing parameters::
 
@@ -76,7 +76,7 @@ class PairParameters(PairMatrix):
         >>> print(m.evaluate(('A','B')))
         {'energy':2.0, 'mass':0.5}
         >>> print(m['A','B'])
-        {'energy':<relentless.core.Variable object at 0x561124456>, 'mass':0.5}
+        {'energy':<relentless.core.DesignVariable object at 0x561124456>, 'mass':0.5}
 
     Assigning to a type sets the specified per-type parameters::
 
@@ -164,7 +164,7 @@ class PairParameters(PairMatrix):
                 raise ValueError('Parameter {} is not set for ({},{}).'.format(p,pair[0],pair[1]))
 
             # evaluate the variable
-            if isinstance(v, Variable):
+            if isinstance(v, DesignVariable):
                 params[p] = v.value
             elif np.isscalar(v):
                 params[p] = v

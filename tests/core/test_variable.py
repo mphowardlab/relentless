@@ -165,8 +165,8 @@ class test_SameAs(unittest.TestCase):
         with self.assertRaises(TypeError):
             u = relentless.SameAs(1.0)
 
-    def test_accessors(self):
-        """Test setting attributes."""
+    def test_value(self):
+        """Test setting values."""
         #create "chained" dependent variables
         v = relentless.DesignVariable(value=1.0, low=0.5, high=1.5)
         w = relentless.SameAs(v)
@@ -221,8 +221,8 @@ class test_ArithmeticMean(unittest.TestCase):
         with self.assertRaises(TypeError):
             z = relentless.ArithmeticMean(1.0, 2.0)
 
-    def test_accessors(self):
-        """Test setting attributes."""
+    def test_value(self):
+        """Test setting values."""
         #create "chained" dependent variables
         u = relentless.DesignVariable(value=2.0, low=1.5, high=2.5)
         v = relentless.DesignVariable(value=1.0, low=0.5, high=1.5)
@@ -296,8 +296,8 @@ class test_GeometricMean(unittest.TestCase):
         with self.assertRaises(TypeError):
             z = relentless.GeometricMean(1.0, 2.0)
 
-    def test_accessors(self):
-        """Test setting attributes."""
+    def test_value(self):
+        """Test setting values."""
         #create "chained" dependent variables
         u = relentless.DesignVariable(value=2.0, low=1.5, high=2.5)
         v = relentless.DesignVariable(value=1.0, low=0.5, high=1.5)
