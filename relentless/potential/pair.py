@@ -234,11 +234,11 @@ class Spline(PairPotential):
         for i in range(self.num_knots):
             ri,ki = self._knot_params(i)
             if self.coeff[pair][ri] is None:
-                self.coeff[pair][ri] = core.Variable(rs[i],const=True)
+                self.coeff[pair][ri] = core.DesignVariable(rs[i],const=True)
             else:
                 self.coeff[pair][ri].value = rs[i]
             if self.coeff[pair][ki] is None:
-                self.coeff[pair][ki] = core.Variable(ks[i],const=(i==self.num_knots-1))
+                self.coeff[pair][ki] = core.DesignVariable(ks[i],const=(i==self.num_knots-1))
             else:
                 self.coeff[pair][ki].value = ks[i]
 
