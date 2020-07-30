@@ -250,10 +250,10 @@ class test_PairParameters(unittest.TestCase):
         self.assertEqual(m.evaluate(('B','B')), {'energy':1.5, 'mass':0.5})
         self.assertEqual(m.evaluate(('B','A')), m.evaluate(('A','B')))
 
-        #test evaluation with initialized parameter values as Variable types
+        #test evaluation with initialized parameter values as DesignVariable types
         m = relentless.potential.PairParameters(types=('A',), params=('energy','mass'))
-        m['A','A']['energy'] = relentless.Variable(value=-1.0,low=0.1)
-        m['A','A']['mass'] = relentless.Variable(value=1.0,high=0.3)
+        m['A','A']['energy'] = relentless.DesignVariable(value=-1.0,low=0.1)
+        m['A','A']['mass'] = relentless.DesignVariable(value=1.0,high=0.3)
         self.assertEqual(m.evaluate(('A','A')), {'energy':0.1, 'mass':0.3})
 
         #test evaluation with initialized parameter values as unrecognized types
@@ -277,10 +277,10 @@ class test_PairParameters(unittest.TestCase):
         self.assertEqual(m['A','A']['energy'], x["('A', 'A')"]['energy'])
         self.assertEqual(m['A','A']['mass'], x["('A', 'A')"]['mass'])
 
-        #test dumping/re-loading data with Variable parameter values
+        #test dumping/re-loading data with DesignVariable parameter values
         m = relentless.potential.PairParameters(types=('A',), params=('energy','mass'))
-        m['A','A']['energy'] = relentless.Variable(value=0.5)
-        m['A','A']['mass'] = relentless.Variable(value=2.0)
+        m['A','A']['energy'] = relentless.DesignVariable(value=0.5)
+        m['A','A']['mass'] = relentless.DesignVariable(value=2.0)
         m.save(temp.name)
         with open(temp.name, 'r') as f:
             x = json.load(f)

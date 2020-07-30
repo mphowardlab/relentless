@@ -105,13 +105,13 @@ class DesignVariable(Variable):
         """
         if self.low is not None and value <= self.low:
             v = self.low
-            b = Variable.State.LOW
+            b = DesignVariable.State.LOW
         elif self.high is not None and value >= self.high:
             v = self.high
-            b = Variable.State.HIGH
+            b = DesignVariable.State.HIGH
         else:
             v = value
-            b = Variable.State.FREE
+            b = DesignVariable.State.FREE
 
         return v,b
 
@@ -188,7 +188,7 @@ class DesignVariable(Variable):
             True if the variable is unconstrained or within the bounds, False otherwise.
 
         """
-        return self.state is Variable.State.FREE
+        return self.state is DesignVariable.State.FREE
 
     def atlow(self):
         """Confirms if the variable is at the lower bound.
@@ -199,7 +199,7 @@ class DesignVariable(Variable):
             True if the variable is at the lower bound, False otherwise.
 
         """
-        return self.state is Variable.State.LOW
+        return self.state is DesignVariable.State.LOW
 
     def athigh(self):
         """Confirms if the variable is at the upper bound.
@@ -210,7 +210,7 @@ class DesignVariable(Variable):
             True if the variable is at the upper bound, False otherwise.
 
         """
-        return self.state is Variable.State.HIGH
+        return self.state is DesignVariable.State.HIGH
 
 class DependentVariable(Variable):
     """Abstract base class for a variable that depends on other variables.
@@ -222,24 +222,33 @@ class DependentVariable(Variable):
     The number of dependencies of the variable are locked at construction, but
     their values can be modified.
 
+    Parameters
+    ----------
+    vardicts : dict
+        Attributes for the variable on which the DependentVariable depends (positional argument).
+    kwvars : kwargs
+        Attributes for the variable on which the DependentVariable depends (keyword arguments).
+
     """
-    def __init__(self, *vardicts, **vars):
+    def __init__(self, *vardicts, **kwvars):
         attrs = {}
         for d in vardicts:
             attrs.update(d)
-        attrs.update(**vars)
+        attrs.update(**kwvars)
 
         for k,v in attrs.items():
             super().__setattr__(k,self._assert_variable(v))
-        self._depends = tuple(vars.keys())
+        self._depends = tuple(kwvars.keys())
 
     def __setattr__(self, name, value):
+        # Sets the value of the variable on which the specified DependentVariable depends.
         if name != '_depends' and name in self._depends:
             value = self._assert_variable(value)
         super().__setattr__(name,value)
 
     @property
     def depends(self):
+        """tuple: The variable or variables on which the specified DependentVariable depends."""
         return tuple([getattr(self,k) for k in self._depends])
 
     @abc.abstractmethod
@@ -248,11 +257,13 @@ class DependentVariable(Variable):
 
     @classmethod
     def _assert_variable(cls, v):
+        # Checks if the dependent variable depends on another variable.
         if not isinstance(v, Variable):
             raise TypeError('Dependent variables can only depend on other variables.')
         return v
 
 class SameAs(DependentVariable):
+    """Dependent variable copy of a variable, based on one parameter value."""
     def __init__(self, a):
         super().__init__(a=a)
 
@@ -267,7 +278,7 @@ class SameAs(DependentVariable):
             return 0.0
 
 class MixingRule(DependentVariable):
-    """Dependent variable based on two parameter values."""
+    """Abstract base class for dependent variable based on two parameter values."""
     def __init__(self, a, b):
         super().__init__(a=a, b=b)
 
@@ -291,10 +302,10 @@ class GeometricMean(MixingRule):
     def value(self):
         return np.sqrt(self.a.value*self.b.value)
 
-    def derivative(self, obj):
-        if obj is self.a:
-            return 0.5*np.sqrt(self.b/self.a)
-        elif obj is self.b:
-            return 0.5*np.sqrt(self.a/self.b)
+    def derivative(self, var):
+        if var is self.a:
+            return 0.5*np.sqrt(self.b.value/self.a.value)
+        elif var is self.b:
+            return 0.5*np.sqrt(self.a.value/self.b.value)
         else:
             return 0.0
