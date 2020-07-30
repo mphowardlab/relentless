@@ -145,6 +145,45 @@ class test_DesignVariable(unittest.TestCase):
         with self.assertRaises(ValueError):
             v.high = -1.6
 
+class DepVar(relentless.DependentVariable):
+    """Mock dependent variable to test relentless.DependentVariable"""
+    def __init__(self, *a, **b):
+        super().__init__(*a, **b)
+
+    @property
+    def value(self):
+        v = 0.
+        for d in self.depends:
+            v += d.value
+        return v
+
+    def derivative(self):
+        pass
+
+class test_DependentVariable(unittest.TestCase):
+    """Unit tests for relentless.DependentVariable"""
+
+    def test_init(self):
+        """Test creation with data."""
+        t = relentless.DesignVariable(value=1.0)
+        u = relentless.DesignVariable(value=2.0)
+        v = relentless.DesignVariable(value=3.0)
+
+        #test creation with only vardicts
+        w = DepVar({'t':t, 'u':u, 'v':v})
+        self.assertCountEqual(w.depends, (t,u,v))
+        self.assertAlmostEqual(w.value, 6.0)
+
+        #test creation with only kwvars
+        w = DepVar(t=t, u=u, v=v)
+        self.assertCountEqual(w.depends, (t,u,v))
+        self.assertAlmostEqual(w.value, 6.0)
+
+        #test creation with vardicts and kwvars
+        w = DepVar({'t':t, 'u':u}, v=v)
+        self.assertCountEqual(w.depends, (t,u,v))
+        self.assertAlmostEqual(w.value, 6.0)
+
 class test_SameAs(unittest.TestCase):
     """Unit tests for relentless.SameAs"""
 

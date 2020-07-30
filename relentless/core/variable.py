@@ -238,10 +238,10 @@ class DependentVariable(Variable):
 
         for k,v in attrs.items():
             super().__setattr__(k,self._assert_variable(v))
-        self._depends = tuple(kwvars.keys())
+        self._depends = tuple(attrs.keys())
 
     def __setattr__(self, name, value):
-        # Sets the value of the variable on which the specified DependentVariable depends.
+        #Sets the value of the variable on which the specified DependentVariable depends.
         if name != '_depends' and name in self._depends:
             value = self._assert_variable(value)
         super().__setattr__(name,value)
@@ -257,7 +257,7 @@ class DependentVariable(Variable):
 
     @classmethod
     def _assert_variable(cls, v):
-        # Checks if the dependent variable depends on another variable.
+        #Checks if the dependent variable depends on another variable.
         if not isinstance(v, Variable):
             raise TypeError('Dependent variables can only depend on other variables.')
         return v
