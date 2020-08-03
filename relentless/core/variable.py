@@ -5,6 +5,8 @@ __all__ = ['Variable','DesignVariable','DependentVariable',
 
 import abc
 from enum import Enum
+
+import networkx as nx
 import numpy as np
 
 class Variable(abc.ABC):
@@ -251,8 +253,65 @@ class DependentVariable(Variable):
         """set: The unique variable or variables on which the specified DependentVariable depends."""
         return set([getattr(self,k) for k in self._depends])
 
-    @abc.abstractmethod
     def derivative(self, var):
+        """Calculates the derivative of a DependentVariable object
+        with respect to another Variable object.
+
+        Parameters
+        ----------
+        var : :py:class:`Variable`
+            The variable with respect to which to take the derivative.
+
+        Returns
+        -------
+        float
+            The calculated derivative value.
+
+        Raises
+        ------
+        TypeError
+            If the specified DependentVariable object has any circular dependencies.
+        ValueError
+            The specified DependentVariable does not depend on the variable
+            with respect to which to take the derivative.
+
+        """
+        #construct graph of dependencies
+        chain = nx.DiGraph()
+        current_node = self
+        chain.add_node(current_node)
+        nodes_to_add = [i for i in current_node.depends]
+        while len(nodes_to_add) != 0:
+            for neighbor in current_node.depends:
+                chain.add_edge(current_node, neighbor)
+            nodes_to_add = [i for i in nodes_to_add if isinstance(i, DependentVariable)]
+            if len(nodes_to_add) == 0:
+                break
+            current_node = nodes_to_add[0]
+            del nodes_to_add[0]
+            nodes_to_add += [i for i in current_node.depends]
+
+        #confirm DAG
+        if not nx.is_directed_acyclic_graph(chain):
+            raise TypeError('The specified DependentVariable has circular dependencies.')
+
+        #compute chain rule
+        try:
+            paths = nx.all_simple_paths(chain, source=self, target=var)
+        except:
+            raise ValueError('''The specified DependentVariable does not depend on the
+                                variable with respect to which to take the derivative''')
+        d = 0.
+        for path in map(nx.utils.pairwise, paths):
+            temp_d = 1.
+            for edge in path:
+                temp_d *= edge[0]._derivative(edge[1])
+            d += temp_d
+
+        return d
+
+    @abc.abstractmethod
+    def _derivative(self, var):
         pass
 
     @classmethod
@@ -271,7 +330,7 @@ class SameAs(DependentVariable):
     def value(self):
         return self.a.value
 
-    def derivative(self, var):
+    def _derivative(self, var):
         if var is self.a:
             return 1.0
         else:
@@ -288,17 +347,11 @@ class ArithmeticMean(MixingRule):
     def value(self):
         return 0.5*(self.a.value+self.b.value)
 
-    def derivative(self, var):
-        if var is self.a:
-            if self.a.value == self.b.value:
-                return 1.0
-            else:
-                return 0.5
-        elif var is self.b:
-            if self.a.value == self.b.value:
-                return 1.0
-            else:
-                return 0.5
+    def _derivative(self, var):
+        if var is self.a and var is self.b:
+            return 1.0
+        elif var is self.a or var is self.b:
+            return 0.5
         else:
             return 0.0
 
@@ -308,16 +361,12 @@ class GeometricMean(MixingRule):
     def value(self):
         return np.sqrt(self.a.value*self.b.value)
 
-    def derivative(self, var):
-        if var is self.a:
-            if self.a.value == self.b.value:
-                return 1.0
-            else:
-                return 0.5*np.sqrt(self.b.value/self.a.value)
+    def _derivative(self, var):
+        if var is self.a and var is self.b:
+            return 1.0
+        elif var is self.a:
+            return 0.5*np.sqrt(self.b.value/self.a.value)
         elif var is self.b:
-            if self.a.value == self.b.value:
-                return 1.0
-            else:
-                return 0.5*np.sqrt(self.a.value/self.b.value)
+            return 0.5*np.sqrt(self.a.value/self.b.value)
         else:
             return 0.0
