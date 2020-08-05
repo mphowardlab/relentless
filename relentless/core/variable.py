@@ -1,6 +1,6 @@
 __all__ = ['Variable','DesignVariable','DependentVariable',
-           'SameAs',
-           'MixingRule','ArithmeticMean','GeometricMean'
+           'UnaryOperator','SameAs',
+           'BinaryOperator','ArithmeticMean','GeometricMean'
           ]
 
 import abc
@@ -233,14 +233,15 @@ class DependentVariable(Variable):
 
     """
     def __init__(self, *vardicts, **kwvars):
-        attrs = {}
+        self._depends = {}
         for d in vardicts:
-            attrs.update(d)
-        attrs.update(**kwvars)
+            self._depends.update(d)
+        self._depends.update(**kwvars)
 
-        for k,v in attrs.items():
+        self._attrs = set()
+        for k,v in self._depends.items():
             super().__setattr__(k,self._assert_variable(v))
-        self._depends = tuple(attrs.keys())
+            self._attrs.add(v)
 
     def __setattr__(self, name, value):
         #Sets the value of the variable on which the specified DependentVariable depends.
@@ -250,8 +251,9 @@ class DependentVariable(Variable):
 
     @property
     def depends(self):
-        """set: The unique variable or variables on which the specified DependentVariable depends."""
-        return set([getattr(self,k) for k in self._depends])
+        """dict: The variable or variables on which the specified DependentVariable depends,
+                 keyed to the respective parameter names."""
+        return self._depends
 
     def derivative(self, var):
         """Calculates the derivative of a DependentVariable object
@@ -276,20 +278,38 @@ class DependentVariable(Variable):
             with respect to which to take the derivative.
 
         """
-        #construct graph of dependencies
+        #construct graph of DependentVariable dependencies
         chain = nx.DiGraph()
         current_node = self
-        chain.add_node(current_node)
-        nodes_to_add = [i for i in current_node.depends]
-        while len(nodes_to_add) != 0:
-            for neighbor in current_node.depends:
-                chain.add_edge(current_node, neighbor)
-            nodes_to_add = [i for i in nodes_to_add if isinstance(i, DependentVariable)]
-            if len(nodes_to_add) == 0:
-                break
-            current_node = nodes_to_add[0]
-            del nodes_to_add[0]
-            nodes_to_add += [i for i in current_node.depends]
+
+        #add nodes depth-first
+        nodes_visited = set()
+        nodes_to_add = set()
+        while current_node != None:
+            if current_node not in nodes_visited:
+                chain.add_node(current_node)
+                for neighbor in current_node._attrs:
+                    chain.add_node(neighbor)
+                nodes_visited.add(current_node)
+            #else:
+            #    raise TypeError('The specified DependentVariable has circular dependencies.')
+            temp_to_add = [i for i in current_node._attrs if isinstance(i, DependentVariable)]
+            for j in temp_to_add:
+                nodes_to_add.add(j)
+            try:
+                current_node = nodes_to_add.pop()
+            except:
+                current_node = None
+
+        #add edges with weights as parameter _derivatives
+        for node in chain.nodes:
+            if isinstance(node, DependentVariable):
+                for k,v in node.depends.items():
+                    duplicate_factor = 0
+                    for w in node.depends.values():
+                        if v is w:
+                            duplicate_factor += 1
+                    chain.add_edge(node, v, deriv=node._derivative(k)*duplicate_factor)
 
         #confirm DAG
         if not nx.is_directed_acyclic_graph(chain):
@@ -305,7 +325,7 @@ class DependentVariable(Variable):
         for path in map(nx.utils.pairwise, paths):
             temp_d = 1.
             for edge in path:
-                temp_d *= edge[0]._derivative(edge[1])
+                temp_d *= chain.edges[edge]['deriv']
             d += temp_d
 
         return d
@@ -321,52 +341,52 @@ class DependentVariable(Variable):
             raise TypeError('Dependent variables can only depend on other variables.')
         return v
 
-class SameAs(DependentVariable):
-    """Dependent variable copy of a variable, based on one parameter value."""
+class UnaryOperator(DependentVariable):
+    """Abstract base class for dependent variable based on one parameter value."""
     def __init__(self, a):
         super().__init__(a=a)
 
+class SameAs(UnaryOperator):
+    """Unary operator for copying a variable."""
     @property
     def value(self):
         return self.a.value
 
     def _derivative(self, var):
-        if var is self.a:
+        if var == 'a':
             return 1.0
         else:
             return 0.0
 
-class MixingRule(DependentVariable):
+class BinaryOperator(DependentVariable):
     """Abstract base class for dependent variable based on two parameter values."""
     def __init__(self, a, b):
         super().__init__(a=a, b=b)
 
-class ArithmeticMean(MixingRule):
-    """Mixing rule based on arithmetic mean."""
+class ArithmeticMean(BinaryOperator):
+    """Binary operator based on arithmetic mean."""
     @property
     def value(self):
         return 0.5*(self.a.value+self.b.value)
 
     def _derivative(self, var):
-        if var is self.a and var is self.b:
-            return 1.0
-        elif var is self.a or var is self.b:
+        if var == 'a':
+            return 0.5
+        elif var == 'b':
             return 0.5
         else:
             return 0.0
 
-class GeometricMean(MixingRule):
-    """Mixing rule based on geometric mean."""
+class GeometricMean(BinaryOperator):
+    """Binary operator based on geometric mean."""
     @property
     def value(self):
         return np.sqrt(self.a.value*self.b.value)
 
     def _derivative(self, var):
-        if var is self.a and var is self.b:
-            return 1.0
-        elif var is self.a:
+        if var == 'a':
             return 0.5*np.sqrt(self.b.value/self.a.value)
-        elif var is self.b:
+        elif var == 'b':
             return 0.5*np.sqrt(self.a.value/self.b.value)
         else:
             return 0.0
