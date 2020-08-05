@@ -233,27 +233,58 @@ class DependentVariable(Variable):
 
     """
     def __init__(self, *vardicts, **kwvars):
-        self._depends = {}
+        attrs = {}
         for d in vardicts:
-            self._depends.update(d)
-        self._depends.update(**kwvars)
+            attrs.update(d)
+        attrs.update(**kwvars)
 
-        self._attrs = set()
-        for k,v in self._depends.items():
+        if len(attrs) == 0:
+            raise AttributeError('No attributes specified for DependentVariable.')
+
+        for k,v in attrs.items():
             super().__setattr__(k,self._assert_variable(v))
-            self._attrs.add(v)
+        self._params = tuple(attrs.keys())
 
     def __setattr__(self, name, value):
         #Sets the value of the variable on which the specified DependentVariable depends.
-        if name != '_depends' and name in self._depends:
+        if name != '_params' and name in self._params:
             value = self._assert_variable(value)
         super().__setattr__(name,value)
 
     @property
     def depends(self):
-        """dict: The variable or variables on which the specified DependentVariable depends,
-                 keyed to the respective parameter names."""
-        return self._depends
+        """Generator of parameter,object pairs."""
+        for p in self._params:
+            yield p,getattr(self,p)
+
+    @property
+    def params(self):
+        return self._params
+
+    def dependency_graph(self):
+        # construct graph of variables
+
+        # discover all variables (nodes) by quasi-depth first search
+        g = nx.DiGraph()
+        stack = [self]
+        while stack:
+            a = stack.pop()
+            if a not in g:
+                g.add_node(a)
+                if isinstance(a,DependentVariable):
+                    stack.extend(b for _,b in a.depends)
+
+        # set edges between all nodes
+        for a in g:
+            if isinstance(a,DependentVariable):
+                for p,b in a.depends:
+                    # add new edge for p if not already present, otherwise append to params list
+                    if (a,b) not in g.edges:
+                        g.add_edge(a,b,params=[p])
+                    else:
+                        g.edges[a,b]['params'].append(p)
+
+        return g
 
     def derivative(self, var):
         """Calculates the derivative of a DependentVariable object
@@ -271,75 +302,47 @@ class DependentVariable(Variable):
 
         Raises
         ------
-        TypeError
+        RuntimeError
             If the specified DependentVariable object has any circular dependencies.
-        ValueError
-            The specified DependentVariable does not depend on the variable
-            with respect to which to take the derivative.
 
         """
-        #construct graph of DependentVariable dependencies
-        chain = nx.DiGraph()
-        current_node = self
+        # if var is this variable, the derivative is trivially 1.0
+        if var is self:
+            return 1.0
 
-        #add nodes depth-first
-        nodes_visited = set()
-        nodes_to_add = set()
-        while current_node != None:
-            if current_node not in nodes_visited:
-                chain.add_node(current_node)
-                for neighbor in current_node._attrs:
-                    chain.add_node(neighbor)
-                nodes_visited.add(current_node)
-            else:
-                raise TypeError('The specified DependentVariable has circular dependencies.')
-            temp_to_add = [i for i in current_node._attrs if isinstance(i, DependentVariable)]
-            for j in temp_to_add:
-                nodes_to_add.add(j)
-            try:
-                current_node = nodes_to_add.pop()
-            except:
-                current_node = None
+        # get dependency graph
+        g = self._assert_acyclic(self.dependency_graph())
 
-        #add edges with weights as parameter _derivatives
-        for node in chain.nodes:
-            if isinstance(node, DependentVariable):
-                for k,v in node.depends.items():
-                    duplicate_factor = 0
-                    for w in node.depends.values():
-                        if v is w:
-                            duplicate_factor += 1
-                    chain.add_edge(node, v, deriv=node._derivative(k)*duplicate_factor)
+        # if var is not in the graph, then its derivative is trivially 0.0
+        if var not in g:
+            return 0.0
 
-        #confirm DAG
-        if not nx.is_directed_acyclic_graph(chain):
-            raise TypeError('The specified DependentVariable has circular dependencies.')
+        # add sum of parameter derivatives to edges between objects
+        for a,b,params in g.edges.data('params'):
+            g.edges[a,b]['deriv'] = np.sum([a._derivative(p) for p in params])
 
-        #compute chain rule
-        try:
-            paths = nx.all_simple_paths(chain, source=self, target=var)
-        except:
-            raise ValueError('''The specified DependentVariable does not depend on the
-                                variable with respect to which to take the derivative''')
-        d = 0.
+        # compute chain rule along all paths to the variable
+        deriv = 0.
+        paths = nx.all_simple_paths(g, source=self, target=var)
         for path in map(nx.utils.pairwise, paths):
-            temp_d = 1.
-            for edge in path:
-                temp_d *= chain.edges[edge]['deriv']
-            d += temp_d
-
-        return d
+            deriv += np.prod([g.edges[edge]['deriv'] for edge in path])
+        return deriv
 
     @abc.abstractmethod
-    def _derivative(self, var):
+    def _derivative(self, param):
         pass
 
-    @classmethod
-    def _assert_variable(cls, v):
+    def _assert_variable(self, v):
         #Checks if the dependent variable depends on another variable.
         if not isinstance(v, Variable):
             raise TypeError('Dependent variables can only depend on other variables.')
         return v
+
+    def _assert_acyclic(self, g):
+        # confirm dependency graph is free of cycles
+        if not nx.is_directed_acyclic_graph(g):
+            raise RuntimeError('DependentVariable has circular dependencies.')
+        return g
 
 class UnaryOperator(DependentVariable):
     """Abstract base class for dependent variable based on one parameter value."""
@@ -352,11 +355,11 @@ class SameAs(UnaryOperator):
     def value(self):
         return self.a.value
 
-    def _derivative(self, var):
-        if var == 'a':
+    def _derivative(self, param):
+        if param == 'a':
             return 1.0
         else:
-            return 0.0
+            raise ValueError('Unknown parameter')
 
 class BinaryOperator(DependentVariable):
     """Abstract base class for dependent variable based on two parameter values."""
@@ -369,13 +372,13 @@ class ArithmeticMean(BinaryOperator):
     def value(self):
         return 0.5*(self.a.value+self.b.value)
 
-    def _derivative(self, var):
-        if var == 'a':
+    def _derivative(self, param):
+        if param == 'a':
             return 0.5
-        elif var == 'b':
+        elif param == 'b':
             return 0.5
         else:
-            return 0.0
+            raise ValueError('Unknown parameter')
 
 class GeometricMean(BinaryOperator):
     """Binary operator based on geometric mean."""
@@ -383,10 +386,10 @@ class GeometricMean(BinaryOperator):
     def value(self):
         return np.sqrt(self.a.value*self.b.value)
 
-    def _derivative(self, var):
-        if var == 'a':
+    def _derivative(self, param):
+        if param == 'a':
             return 0.5*np.sqrt(self.b.value/self.a.value)
-        elif var == 'b':
+        elif param == 'b':
             return 0.5*np.sqrt(self.a.value/self.b.value)
         else:
-            return 0.0
+            raise ValueError('Unknown parameter')

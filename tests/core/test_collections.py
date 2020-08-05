@@ -271,5 +271,5 @@ class test_PairMatrix(unittest.TestCase):
         self.assertEqual(m['A','A'], {'energy':3.0, 'mass':2.0})
         self.assertEqual(m['B','B'], {'energy':3.0, 'mass':2.0})
 
-if __name__ = '__main__':
+if __name__ == '__main__':
     unittest.main()

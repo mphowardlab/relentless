@@ -83,5 +83,5 @@ class test_Interpolator(unittest.TestCase):
         #test combined extrapolation and interpolation
         np.testing.assert_allclose(f([-2,0.5,2]), [-2.0,1.0,2.0])
 
-if __name__ = '__main__':
+if __name__ == '__main__':
     unittest.main()

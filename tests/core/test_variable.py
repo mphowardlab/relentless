@@ -152,16 +152,16 @@ class DepVar(relentless.DependentVariable):
 
     @property
     def value(self):
-        v = 0.
-        for d in self._attrs:
-            v += d.value
-        return v
+        return np.sum([v.value for p,v in self.depends])
 
-    def _derivative(self, var):
-        if self.depends[var].value > 5.0:
-            return 0.5
+    def _derivative(self, param):
+        if param in self.params:
+            if getattr(self, param).value > 5.0:
+                return 0.5
+            else:
+                return -0.5
         else:
-            return -0.5
+            raise ValueError('Unknown parameter')
 
 class test_DependentVariable(unittest.TestCase):
     """Unit tests for relentless.DependentVariable"""
@@ -174,20 +174,19 @@ class test_DependentVariable(unittest.TestCase):
 
         #test creation with only vardicts
         w = DepVar({'t':t, 'u':u, 'v':v})
-        self.assertCountEqual(w._attrs, (t,u,v))
-        self.assertDictEqual(w.depends, {'t':t,'u':u,'v':v})
+        self.assertCountEqual(w.params, ('t','u','v'))
+        self.assertDictEqual({p:v for p,v in w.depends}, {'t':t,'u':u,'v':v})
         self.assertAlmostEqual(w.value, 6.0)
 
         #test creation with only kwvars
-        w = DepVar(t=t, u=u, v=v)
-        self.assertCountEqual(w._attrs, (t,u,v))
-        self.assertDictEqual(w.depends, {'t':t,'u':u,'v':v})
+        self.assertCountEqual(w.params, ('t','u','v'))
+        self.assertDictEqual({p:v for p,v in w.depends}, {'t':t,'u':u,'v':v})
         self.assertAlmostEqual(w.value, 6.0)
 
         #test creation with vardicts and kwvars
         w = DepVar({'t':t, 'u':u}, v=v)
-        self.assertCountEqual(w._attrs, (t,u,v))
-        self.assertDictEqual(w.depends, {'t':t,'u':u,'v':v})
+        self.assertCountEqual(w.params, ('t','u','v'))
+        self.assertDictEqual({p:v for p,v in w.depends}, {'t':t,'u':u,'v':v})
         self.assertAlmostEqual(w.value, 6.0)
 
     def test_derivative(self):
@@ -203,9 +202,10 @@ class test_DependentVariable(unittest.TestCase):
         dw = w.derivative(v)
         self.assertAlmostEqual(dw, -0.5)
 
+        # derivative of variable not in the graph
         x = DepVar(t=t, v=v)
-        with self.assertRaises(ValueError):
-            dx = x.derivative(u)
+        dx = x.derivative(u)
+        self.assertAlmostEqual(dx, 0.0)
 
         #test derivative with 2 levels of dependency
         y = DepVar(w=w, x=x)
@@ -249,14 +249,14 @@ class test_SameAs(unittest.TestCase):
         v = relentless.DesignVariable(value=1.0)
         w = relentless.SameAs(v)
         self.assertEqual(w.value, 1.0)
-        self.assertCountEqual(w._attrs, (v,))
-        self.assertDictEqual(w.depends, {'a':v})
+        self.assertCountEqual(w.params, ('a',))
+        self.assertDictEqual({p:v for p,v in w.depends}, {'a':v})
 
         #test variable dependent on DependentVariable
         u = relentless.SameAs(w)
         self.assertEqual(u.value, 1.0)
-        self.assertCountEqual(u._attrs, (w,))
-        self.assertDictEqual(u.depends, {'a':w})
+        self.assertCountEqual(u.params, ('a',))
+        self.assertDictEqual({p:v for p,v in u.depends}, {'a':w})
 
         #test invalid variable dependence
         with self.assertRaises(TypeError):
@@ -289,8 +289,8 @@ class test_SameAs(unittest.TestCase):
         self.assertEqual(dw, 1.0)
 
         #test w.r.t. ~a
-        dw = w._derivative('x')
-        self.assertEqual(dw, 0.0)
+        with self.assertRaises(ValueError):
+            w._derivative('x')
 
 class test_ArithmeticMean(unittest.TestCase):
     """Unit tests for relentless.ArithmeticMean"""
@@ -302,33 +302,33 @@ class test_ArithmeticMean(unittest.TestCase):
         v = relentless.DesignVariable(value=2.0)
         w = relentless.ArithmeticMean(u, v)
         self.assertAlmostEqual(w.value, 1.5)
-        self.assertCountEqual(w._attrs, (u,v))
-        self.assertDictEqual(w.depends, {'a':u,'b':v})
+        self.assertCountEqual(w.params, ('a','b'))
+        self.assertDictEqual({p:v for p,v in w.depends}, {'a':u,'b':v})
 
         #test variable dependent on 1 DesignVar, 1 DependentVar
         x = relentless.ArithmeticMean(v,w)
         self.assertAlmostEqual(x.value, 1.75)
-        self.assertCountEqual(x._attrs, (v,w))
-        self.assertDictEqual(x.depends, {'a':v,'b':w})
+        self.assertCountEqual(x.params, ('a','b'))
+        self.assertDictEqual({p:v for p,v in x.depends}, {'a':v,'b':w})
 
         #test variable dependent on 2 DependentVariables
         y = relentless.ArithmeticMean(w,x)
         self.assertAlmostEqual(y.value, 1.625)
-        self.assertCountEqual(y._attrs, (w,x))
-        self.assertDictEqual(y.depends, {'a':w,'b':x})
+        self.assertCountEqual(y.params, ('a','b'))
+        self.assertDictEqual({p:v for p,v in y.depends}, {'a':w,'b':x})
 
         #test same-valued dependencies
         z = relentless.DesignVariable(value=1.0)
         w = relentless.ArithmeticMean(u, z)
         self.assertAlmostEqual(w.value, 1.0)
-        self.assertCountEqual(w._attrs, (u,z))
-        self.assertDictEqual(w.depends, {'a':u,'b':z})
+        self.assertCountEqual(w.params, ('a','b'))
+        self.assertDictEqual({p:v for p,v in w.depends}, {'a':u,'b':z})
 
         #test same-object dependencies
         w = relentless.ArithmeticMean(u, u)
         self.assertAlmostEqual(w.value, 1.0)
-        self.assertCountEqual(w._attrs, (u,))
-        self.assertDictEqual(w.depends, {'a':u,'b':u})
+        self.assertCountEqual(w.params, ('a','b'))
+        self.assertDictEqual({p:v for p,v in w.depends}, {'a':u,'b':u})
 
         #test invalid variable dependence
         with self.assertRaises(TypeError):
@@ -380,8 +380,8 @@ class test_ArithmeticMean(unittest.TestCase):
         self.assertEqual(dw, 0.5)
 
         #test w.r.t. ~a,~b
-        dw = w._derivative('c')
-        self.assertEqual(dw, 0.0)
+        with self.assertRaises(ValueError):
+            w._derivative('c')
 
 class test_GeometricMean(unittest.TestCase):
     """Unit tests for relentless.GeometricMean"""
@@ -393,33 +393,33 @@ class test_GeometricMean(unittest.TestCase):
         v = relentless.DesignVariable(value=2.0)
         w = relentless.GeometricMean(u, v)
         self.assertAlmostEqual(w.value, 1.4142136)
-        self.assertCountEqual(w._attrs, (u,v))
-        self.assertDictEqual(w.depends, {'a':u,'b':v})
+        self.assertCountEqual(w.params, ('a','b'))
+        self.assertDictEqual({p:v for p,v in w.depends}, {'a':u,'b':v})
 
         #test variable dependent on 1 DesignVar, 1 DependentVar
         x = relentless.GeometricMean(v,w)
         self.assertAlmostEqual(x.value, 1.6817928)
-        self.assertCountEqual(x._attrs, (v,w))
-        self.assertDictEqual(x.depends, {'a':v,'b':w})
+        self.assertCountEqual(x.params, ('a','b'))
+        self.assertDictEqual({p:v for p,v in x.depends}, {'a':v,'b':w})
 
         #test variable dependent on 2 DependentVariables
         y = relentless.GeometricMean(w,x)
         self.assertAlmostEqual(y.value, 1.5422108)
-        self.assertCountEqual(y._attrs, (w,x))
-        self.assertDictEqual(y.depends, {'a':w,'b':x})
+        self.assertCountEqual(y.params, ('a','b'))
+        self.assertDictEqual({p:v for p,v in y.depends}, {'a':w,'b':x})
 
         #test same-valued dependencies
         z = relentless.DesignVariable(value=1.0)
         w = relentless.GeometricMean(u, z)
         self.assertAlmostEqual(w.value, 1.0)
-        self.assertCountEqual(w._attrs, (u,z))
-        self.assertDictEqual(w.depends, {'a':u,'b':z})
+        self.assertCountEqual(w.params, ('a','b'))
+        self.assertDictEqual({p:v for p,v in w.depends}, {'a':u,'b':z})
 
         #test same-object dependencies
         w = relentless.GeometricMean(u, u)
         self.assertAlmostEqual(w.value, 1.0)
-        self.assertCountEqual(w._attrs, (u,))
-        self.assertDictEqual(w.depends, {'a':u,'b':u})
+        self.assertCountEqual(w.params, ('a','b'))
+        self.assertDictEqual({p:v for p,v in w.depends}, {'a':u,'b':u})
 
         #test invalid variable dependence
         with self.assertRaises(TypeError):
@@ -471,8 +471,8 @@ class test_GeometricMean(unittest.TestCase):
         self.assertAlmostEqual(dw, 0.3535534)
 
         #test w.r.t. ~a,~b
-        dw = w._derivative('c')
-        self.assertEqual(dw, 0.0)
+        with self.assertRaises(ValueError):
+            w._derivative('c')
 
 if __name__ == '__main__':
     unittest.main()
