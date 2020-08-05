@@ -291,8 +291,8 @@ class DependentVariable(Variable):
                 for neighbor in current_node._attrs:
                     chain.add_node(neighbor)
                 nodes_visited.add(current_node)
-            #else:
-            #    raise TypeError('The specified DependentVariable has circular dependencies.')
+            else:
+                raise TypeError('The specified DependentVariable has circular dependencies.')
             temp_to_add = [i for i in current_node._attrs if isinstance(i, DependentVariable)]
             for j in temp_to_add:
                 nodes_to_add.add(j)
