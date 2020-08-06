@@ -200,6 +200,8 @@ class test_DependentVariable(unittest.TestCase):
         g = w.dependency_graph()
         self.assertCountEqual(g.nodes, [t,u,v,w])
         self.assertCountEqual(g.edges, [(w,t),(w,u),(w,v)])
+        self.assertCountEqual([g.edges[a,b]['params'] for (a,b) in g.edges],
+                              [['t'],['u'],['v']])
 
         #test 2 levels of dependency
         x = DepVar(t=t, v=v)
@@ -207,6 +209,8 @@ class test_DependentVariable(unittest.TestCase):
         g = y.dependency_graph()
         self.assertCountEqual(g.nodes, [t,u,v,w,x,y])
         self.assertCountEqual(g.edges, [(w,t),(w,u),(w,v),(x,t),(x,v),(y,w),(y,x)])
+        self.assertCountEqual([g.edges[a,b]['params'] for (a,b) in g.edges],
+                              [['t'],['u'],['v'],['t'],['v'],['w'],['x']])
 
         #test more complex dependency
         z = DepVar(t=t, w=w, y=y)
@@ -214,17 +218,24 @@ class test_DependentVariable(unittest.TestCase):
         self.assertCountEqual(g.nodes, [t,u,v,w,x,y,z])
         self.assertCountEqual(g.edges, [(w,t),(w,u),(w,v),(x,t),(x,v),(y,w),(y,x),
                                         (z,t),(z,w),(z,y)])
+        self.assertCountEqual([g.edges[a,b]['params'] for (a,b) in g.edges],
+                              [['t'],['u'],['v'],['t'],['v'],['w'],['x'],['t'],['w'],['y']])
 
         #test 'multiple' dependency on same object
         q = DepVar(t=t, u=t, v=t)
         g = q.dependency_graph()
         self.assertCountEqual(g.nodes, [t,q])
         self.assertCountEqual(g.edges, [(q,t)])
+        params = [g.edges[a,b]['params'] for (a,b) in g.edges][0]
+        self.assertCountEqual(params, ['t','u','v'])
 
         q = DepVar(t=t, u=t, v=v, w=v)
         g = q.dependency_graph()
         self.assertCountEqual(g.nodes, [t,v,q])
         self.assertCountEqual(g.edges, [(q,t),(q,v)])
+        params0 = sorted([g.edges[a,b]['params'] for (a,b) in g.edges][0])
+        params1 = sorted([g.edges[a,b]['params'] for (a,b) in g.edges][1])
+        self.assertCountEqual([params0,params1], [['t','u'],['v','w']])
 
         #test circular dependencies
         a = DepVar(t=t)
@@ -232,6 +243,8 @@ class test_DependentVariable(unittest.TestCase):
         g = a.dependency_graph()
         self.assertCountEqual(g.nodes, [a.t,a])
         self.assertCountEqual(g.edges, [(a,a.t),(a.t,a)])
+        self.assertCountEqual([g.edges[a,b]['params'] for (a,b) in g.edges],
+                              [['t'],['t']])
 
         a = DepVar(t=t)
         b = DepVar(t=a)
@@ -240,6 +253,8 @@ class test_DependentVariable(unittest.TestCase):
         g = a.dependency_graph()
         self.assertCountEqual(g.nodes, [a.t,a,b,c])
         self.assertCountEqual(g.edges, [(b,a),(c,b),(a.t,c),(a,a.t)])
+        self.assertCountEqual([g.edges[a,b]['params'] for (a,b) in g.edges],
+                              [['t'],['t'],['t'],['t']])
 
     def test_derivative(self):
         """Test derivative method."""
