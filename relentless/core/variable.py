@@ -1,4 +1,5 @@
-__all__ = ['Variable','DesignVariable','DependentVariable',
+__all__ = ['Variable','IndependentVariable','DependentVariable',
+           'DesignVariable',
            'UnaryOperator','SameAs',
            'BinaryOperator','ArithmeticMean','GeometricMean'
           ]
@@ -20,7 +21,27 @@ class Variable(abc.ABC):
     def value(self):
         pass
 
-class DesignVariable(Variable):
+class IndependentVariable(Variable):
+    """Abstract base class for an independent variable.
+
+    Parameters
+    ----------
+    value : scalar
+        Value of the variable.
+
+    """
+    def __init__(self, value):
+        self._value = value
+
+    @property
+    def value(self):
+        return self._value
+
+    @value.setter
+    def value(self, value):
+        self._value = value
+
+class DesignVariable(IndependentVariable):
     """Designable variable.
 
     Represents a quantity that optionally takes lower and upper bounds.
@@ -84,10 +105,10 @@ class DesignVariable(Variable):
         HIGH = 2
 
     def __init__(self, value, const=False, low=None, high=None):
+        super().__init__(value=value)
         self.const = const
         self.low = low
         self.high = high
-        self.value = value
 
     def clamp(self, value):
         """Clamps a value within the bounds.
@@ -117,12 +138,7 @@ class DesignVariable(Variable):
 
         return v,b
 
-    @property
-    def value(self):
-        """float: The value of the variable"""
-        return self._value
-
-    @value.setter
+    @IndependentVariable.value.setter
     def value(self, value):
         if not isinstance(value,(float,int)):
             raise ValueError('DesignVariable must be a float or int')
@@ -247,42 +263,63 @@ class DependentVariable(Variable):
 
     def __setattr__(self, name, value):
         #Sets the value of the variable on which the specified DependentVariable depends.
-        if name != '_params' and name in self._params:
+        if name != '_params' and name in self.params:
             value = self._assert_variable(value)
         super().__setattr__(name,value)
 
     @property
     def depends(self):
-        """Generator of parameter,object pairs."""
-        for p in self._params:
+        """Generates all the variables and the parameter names on which the specified DependentVariable depends.
+
+        Yields
+        ------
+        str
+            The parameter variable name.
+        :py:class:`DependentVariable`
+            The parameter variable object.
+
+        """
+        for p in self.params:
             yield p,getattr(self,p)
 
     @property
     def params(self):
+        """tuple: Parameter names for all dependencies of the specified DependentVariable."""
         return self._params
 
     def dependency_graph(self):
+        """Constructs a networkx graph of all variable objects on which the specified DependentVariable depends.
+
+        The graph nodes are all variable objects which DependentVariable are dependent on.
+        The directed graph edges represent dependencies as connections between variables.
+        The graph can also take into account the dependencies of a DependentVariable which has
+        multiple parameters as the same object.
+
+        Returns
+        -------
+        :py:class:`networkx.DiGraph`
+            The graph of all dependencies for this DependentVariable.
+
+        """
         # construct graph of variables
 
         # discover all variables (nodes) by quasi-depth first search
         g = nx.DiGraph()
         stack = [self]
+        visited = set()
         while stack:
             a = stack.pop()
-            if a not in g:
+            if a not in visited:
                 g.add_node(a)
-                if isinstance(a,DependentVariable):
-                    stack.extend(b for _,b in a.depends)
-
-        # set edges between all nodes
-        for a in g:
-            if isinstance(a,DependentVariable):
-                for p,b in a.depends:
-                    # add new edge for p if not already present, otherwise append to params list
-                    if (a,b) not in g.edges:
-                        g.add_edge(a,b,params=[p])
-                    else:
-                        g.edges[a,b]['params'].append(p)
+                visited.add(a)
+                if isinstance(a, DependentVariable):
+                    for p,b in a.depends:
+                        stack.append(b)
+                        # add new edge for p if not already present, otherwise append to params list
+                        if (a,b) not in g.edges:
+                            g.add_edge(a,b,params=[p])
+                        else:
+                            g.edges[a,b]['params'].append(p)
 
         return g
 
@@ -345,34 +382,115 @@ class DependentVariable(Variable):
         return g
 
 class UnaryOperator(DependentVariable):
-    """Abstract base class for dependent variable based on one parameter value."""
+    """Abstract base class for a value that depends on one :py:class:`Variable`.
+
+    Parameters
+    ----------
+    a : :py:class:`Variable`
+        The variable object on which the UnaryOperator depends.
+
+    """
     def __init__(self, a):
         super().__init__(a=a)
 
 class SameAs(UnaryOperator):
-    """Unary operator for copying a variable."""
+    """Unary operator for copying a :py:class:`Variable`.
+
+    The SameAs object has the same value as the object it depends on.
+
+    Parameters
+    ----------
+    a : :py:class:`Variable`
+        The variable object on which the UnaryOperator depends.
+
+    """
     @property
     def value(self):
         return self.a.value
 
     def _derivative(self, param):
+        """Calculates the derivative of the specified SameAs object with respect to its parameter.
+
+        Parameters
+        ----------
+        param : str
+            The parameter with respect to which to take the derivative.
+            (Can only be 'a').
+
+        Returns
+        -------
+        float
+            The calculated derivative value.
+
+        Raises
+        ------
+        ValueError
+            If the parameter argument is not 'a'.
+
+        """
         if param == 'a':
             return 1.0
         else:
             raise ValueError('Unknown parameter')
 
 class BinaryOperator(DependentVariable):
-    """Abstract base class for dependent variable based on two parameter values."""
+    """Abstract base class for a value that depends on two :py:class:`Variable`s.
+
+    Parameters
+    ----------
+    a : :py:class:`Variable`
+        The first variable object on which the BinaryOperator depends.
+    b : :py:class:`Variable`
+        The second variable object on which the BinaryOperator depends.
+
+    """
     def __init__(self, a, b):
         super().__init__(a=a, b=b)
 
 class ArithmeticMean(BinaryOperator):
-    """Binary operator based on arithmetic mean."""
+    r"""Binary operator based on arithmetic mean.
+
+    The ArithmeticMean object akes the arithmetic mean of two :py:class:`Variable`s
+    as shown below:
+
+    .. math::
+
+        v = \frac{1}{2}(a+b)
+
+    This class can also be used to implement mixing rules.
+
+    Parameters
+    ----------
+    a : :py:class:`Variable`
+        The first parameter of the ArithmeticMean.
+    b : :py:class:`Variable`
+        The second parameter of the ArithmeticMean.
+
+    """
     @property
     def value(self):
         return 0.5*(self.a.value+self.b.value)
 
     def _derivative(self, param):
+        """Calculates the derivative of the specified ArithmeticMean object with respect to its parameters.
+
+        Parameters
+        ----------
+        param : str
+            The parameter with respect to which to take the derivative.
+            (Can only be 'a' or 'b').
+
+        Returns
+        -------
+        float
+            The calculated derivative value.
+
+        Raises
+        ------
+        ValueError
+            If the parameter argument is not 'a' or 'b'.
+
+        """
         if param == 'a':
             return 0.5
         elif param == 'b':
@@ -381,12 +499,49 @@ class ArithmeticMean(BinaryOperator):
             raise ValueError('Unknown parameter')
 
 class GeometricMean(BinaryOperator):
-    """Binary operator based on geometric mean."""
+    r"""Binary operator based on geometric mean.
+
+    The GeometricMean object akes the geometric mean of two :py:class:`Variable`s
+    as shown below:
+
+    .. math::
+
+        v = \sqrt{ab}
+
+    This class can also be used to implement mixing rules.
+
+    Parameters
+    ----------
+    a : :py:class:`Variable`
+        The first parameter of the GeometricMean.
+    b : :py:class:`Variable`
+        The second parameter of the GeometricMean.
+
+    """
     @property
     def value(self):
         return np.sqrt(self.a.value*self.b.value)
 
     def _derivative(self, param):
+        """Calculates the derivative of the specified GeometricMean object with respect to its parameters.
+
+        Parameters
+        ----------
+        param : str
+            The parameter with respect to which to take the derivative.
+            (Can only be 'a' or 'b').
+
+        Returns
+        -------
+        float
+            The calculated derivative value.
+
+        Raises
+        ------
+        ValueError
+            If the parameter argument is not 'a' or 'b'.
+
+        """
         if param == 'a':
             return 0.5*np.sqrt(self.b.value/self.a.value)
         elif param == 'b':

@@ -164,7 +164,7 @@ class PairParameters(PairMatrix):
                 raise ValueError('Parameter {} is not set for ({},{}).'.format(p,pair[0],pair[1]))
 
             # evaluate the variable
-            if isinstance(v, DesignVariable):
+            if isinstance(v, Variable):
                 params[p] = v.value
             elif np.isscalar(v):
                 params[p] = v
