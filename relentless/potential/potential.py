@@ -8,7 +8,7 @@ import numpy as np
 
 from relentless.core import PairMatrix
 from relentless.core import FixedKeyDict
-from relentless.core import DesignVariable
+from relentless.core import Variable
 
 class PairParameters(PairMatrix):
     """Parameters for pairs of types.
