@@ -189,6 +189,58 @@ class test_DependentVariable(unittest.TestCase):
         self.assertDictEqual({p:v for p,v in w.depends}, {'t':t,'u':u,'v':v})
         self.assertAlmostEqual(w.value, 6.0)
 
+    def test_dependency_graph(self):
+        """Test dependency_graph method."""
+        t = relentless.DesignVariable(value=1.0)
+        u = relentless.DesignVariable(value=2.0)
+        v = relentless.DesignVariable(value=3.0)
+
+        #test 1 level of dependency
+        w = DepVar(t=t, u=u, v=v)
+        g = w.dependency_graph()
+        self.assertCountEqual(g.nodes, [t,u,v,w])
+        self.assertCountEqual(g.edges, [(w,t),(w,u),(w,v)])
+
+        #test 2 levels of dependency
+        x = DepVar(t=t, v=v)
+        y = DepVar(w=w, x=x)
+        g = y.dependency_graph()
+        self.assertCountEqual(g.nodes, [t,u,v,w,x,y])
+        self.assertCountEqual(g.edges, [(w,t),(w,u),(w,v),(x,t),(x,v),(y,w),(y,x)])
+
+        #test more complex dependency
+        z = DepVar(t=t, w=w, y=y)
+        g = z.dependency_graph()
+        self.assertCountEqual(g.nodes, [t,u,v,w,x,y,z])
+        self.assertCountEqual(g.edges, [(w,t),(w,u),(w,v),(x,t),(x,v),(y,w),(y,x),
+                                        (z,t),(z,w),(z,y)])
+
+        #test 'multiple' dependency on same object
+        q = DepVar(t=t, u=t, v=t)
+        g = q.dependency_graph()
+        self.assertCountEqual(g.nodes, [t,q])
+        self.assertCountEqual(g.edges, [(q,t)])
+
+        q = DepVar(t=t, u=t, v=v, w=v)
+        g = q.dependency_graph()
+        self.assertCountEqual(g.nodes, [t,v,q])
+        self.assertCountEqual(g.edges, [(q,t),(q,v)])
+
+        #test circular dependencies
+        a = DepVar(t=t)
+        a.t = DepVar(t=a)
+        g = a.dependency_graph()
+        self.assertCountEqual(g.nodes, [a.t,a])
+        self.assertCountEqual(g.edges, [(a,a.t),(a.t,a)])
+
+        a = DepVar(t=t)
+        b = DepVar(t=a)
+        c = DepVar(t=b)
+        a.t = DepVar(t=c)
+        g = a.dependency_graph()
+        self.assertCountEqual(g.nodes, [a.t,a,b,c])
+        self.assertCountEqual(g.edges, [(b,a),(c,b),(a.t,c),(a,a.t)])
+
     def test_derivative(self):
         """Test derivative method."""
         t = relentless.DesignVariable(value=1.0)
@@ -239,6 +291,19 @@ class test_DependentVariable(unittest.TestCase):
         q = DepVar(w=x, x=x)
         dq = q.derivative(t)
         self.assertAlmostEqual(dq, 0.5)
+
+        #test derivative with circular dependencies
+        a = DepVar(t=t)
+        a.t = DepVar(t=a)
+        with self.assertRaises(RuntimeError):
+            a.derivative(t)
+
+        a = DepVar(t=t)
+        b = DepVar(t=a)
+        c = DepVar(t=b)
+        a.t = DepVar(t=c)
+        with self.assertRaises(RuntimeError):
+            a.derivative(t)
 
 class test_SameAs(unittest.TestCase):
     """Unit tests for relentless.SameAs"""
