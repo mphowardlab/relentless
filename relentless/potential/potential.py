@@ -58,7 +58,7 @@ class PairParameters(PairMatrix):
 
     Set coefficient matrix values by setting parameters in full::
 
-        m['A','B'] = {'energy':Variable(value=2.0,high=1.5), 'mass':0.5}
+        m['A','B'] = {'energy':DesignVariable(value=2.0,high=1.5), 'mass':0.5}
 
     Set coefficient matrix values by iteratively accessing parameters::
 
@@ -76,7 +76,7 @@ class PairParameters(PairMatrix):
         >>> print(m.evaluate(('A','B')))
         {'energy':2.0, 'mass':0.5}
         >>> print(m['A','B'])
-        {'energy':<relentless.core.Variable object at 0x561124456>, 'mass':0.5}
+        {'energy':<relentless.core.DesignVariable object at 0x561124456>, 'mass':0.5}
 
     Assigning to a type sets the specified per-type parameters::
 
