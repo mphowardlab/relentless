@@ -255,7 +255,7 @@ class test_DependentVariable(unittest.TestCase):
         #test creation with repeated attributes
         w = DepVar({'t':t, 'u':u}, u=v)
         self.assertCountEqual(w.params, ('t','u'))
-        self.assertDictEqual({p:v for p,v in w.depends}, {'t':t,'u':u,'u':v})
+        self.assertDictEqual({p:v for p,v in w.depends}, {'t':t,'u':v})
         self.assertAlmostEqual(w.value, 4.0)
 
         #test creation with multiple vardicts
