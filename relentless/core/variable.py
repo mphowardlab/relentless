@@ -22,11 +22,11 @@ class Variable(abc.ABC):
         pass
 
 class IndependentVariable(Variable):
-    """Abstract base class for an independent variable.
+    """Variable representing one independent quantity.
 
     Parameters
     ----------
-    value : scalar
+    value : scalar or array
         Value of the variable.
 
     """
@@ -369,13 +369,15 @@ class DependentVariable(Variable):
     def _derivative(self, param):
         pass
 
-    def _assert_variable(self, v):
+    @classmethod
+    def _assert_variable(cls, v):
         #Checks if the dependent variable depends on another variable.
         if not isinstance(v, Variable):
             raise TypeError('Dependent variables can only depend on other variables.')
         return v
 
-    def _assert_acyclic(self, g):
+    @classmethod
+    def _assert_acyclic(cls, g):
         # confirm dependency graph is free of cycles
         if not nx.is_directed_acyclic_graph(g):
             raise RuntimeError('DependentVariable has circular dependencies.')
@@ -543,8 +545,14 @@ class GeometricMean(BinaryOperator):
 
         """
         if param == 'a':
-            return 0.5*np.sqrt(self.b.value/self.a.value)
+            try:
+                return 0.5*np.sqrt(self.b.value/self.a.value)
+            except ZeroDivisionError:
+                return np.inf
         elif param == 'b':
-            return 0.5*np.sqrt(self.a.value/self.b.value)
+            try:
+                return 0.5*np.sqrt(self.a.value/self.b.value)
+            except ZeroDivisionError:
+                return np.inf
         else:
             raise ValueError('Unknown parameter')

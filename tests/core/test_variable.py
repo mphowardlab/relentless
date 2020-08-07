@@ -5,6 +5,65 @@ import numpy as np
 
 import relentless
 
+class test_IndependentVariable(unittest.TestCase):
+    """Unit tests for relentless.IndependentVariable."""
+
+    def test_init(self):
+        """Test construction with data."""
+        #test scalar values
+        v = relentless.IndependentVariable(1.0)
+        self.assertEqual(v.value, 1.0)
+
+        v = relentless.IndependentVariable('1.0')
+        self.assertEqual(v.value, '1.0')
+
+        v = relentless.IndependentVariable(True)
+        self.assertEqual(v.value, True)
+
+        v = relentless.IndependentVariable(None)
+        self.assertEqual(v.value, None)
+
+        #test "array" values
+        v = relentless.IndependentVariable([1,2])
+        self.assertEqual(v.value, [1,2])
+
+        v = relentless.IndependentVariable((1,2))
+        self.assertEqual(v.value, (1,2))
+
+        v = relentless.IndependentVariable({'1':1,'2':2})
+        self.assertEqual(v.value, {'1':1,'2':2})
+
+        v = relentless.IndependentVariable(set([1,2]))
+        self.assertEqual(v.value, set([1,2]))
+
+    def test_value(self):
+        """Test value setting."""
+        #test scalar values
+        v = relentless.IndependentVariable(1.0)
+        self.assertEqual(v.value, 1.0)
+
+        v.value = '1.0'
+        self.assertEqual(v.value, '1.0')
+
+        v.value = True
+        self.assertEqual(v.value, True)
+
+        v.value = None
+        self.assertEqual(v.value, None)
+
+        #test "array" values
+        v.value = [1,2]
+        self.assertEqual(v.value, [1,2])
+
+        v.value = (1,2)
+        self.assertEqual(v.value, (1,2))
+
+        v.value = {'1':1, '2':2}
+        self.assertEqual(v.value, {'1':1,'2':2})
+
+        v.value = set([1,2])
+        self.assertEqual(v.value, set([1,2]))
+
 class test_DesignVariable(unittest.TestCase):
     """Unit tests for relentless.DesignVariable."""
 
@@ -194,10 +253,10 @@ class test_DependentVariable(unittest.TestCase):
         self.assertAlmostEqual(w.value, 6.0)
 
         #test creation with repeated attributes
-        w = DepVar({'t':t, 'u':u}, v=v, x=u)
-        self.assertCountEqual(w.params, ('t','u','v','x'))
-        self.assertDictEqual({p:v for p,v in w.depends}, {'t':t,'u':u,'v':v,'x':u})
-        self.assertAlmostEqual(w.value, 8.0)
+        w = DepVar({'t':t, 'u':u}, u=v)
+        self.assertCountEqual(w.params, ('t','u'))
+        self.assertDictEqual({p:v for p,v in w.depends}, {'t':t,'u':u,'u':v})
+        self.assertAlmostEqual(w.value, 4.0)
 
         #test creation with multiple vardicts
         w = DepVar({'t':t, 'u':u}, {'v':v})
@@ -245,6 +304,10 @@ class test_DependentVariable(unittest.TestCase):
         self.assertCountEqual(g.edges, [(w,t),(w,u),(w,v),(x,t),(x,v),(y,w),(y,x),
                                         (z,t),(z,w),(z,y)])
 
+        #test that dependencies are acyclic
+        g_acyclic = relentless.DependentVariable._assert_acyclic(g)
+        self.assertEqual(g_acyclic, g)
+
         #test 'multiple' dependency on same object
         q = DepVar(t=t, u=t, v=t)
         g = q.dependency_graph()
@@ -284,6 +347,10 @@ class test_DependentVariable(unittest.TestCase):
         g = a.dependency_graph()
         self.assertCountEqual(g.nodes, [t,a,b,c])
         self.assertCountEqual(g.edges, [(b,a),(a,b),(b,c),(c,t)])
+
+        #test that dependencies are not acyclic
+        with self.assertRaises(RuntimeError):
+            relentless.DependentVariable._assert_acyclic(g)
 
     def test_derivative(self):
         """Test derivative method."""
@@ -583,6 +650,15 @@ class test_GeometricMean(unittest.TestCase):
         #test w.r.t. ~a,~b
         with self.assertRaises(ValueError):
             w._derivative('c')
+
+        #test with 0 denominator
+        u.value = 0.0
+        dw = w._derivative('a')
+        self.assertEqual(dw, np.inf)
+
+        v.value = 0.0
+        dw = w._derivative('b')
+        self.assertEqual(dw, np.inf)
 
 if __name__ == '__main__':
     unittest.main()
