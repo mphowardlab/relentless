@@ -224,11 +224,8 @@ class Spline(PairPotential):
             raise ValueError('u must have the same length as the number of knots')
 
         # convert to r,knot form given the mode
-        rs = np.zeros_like(r, dtype=np.float64)
-        ks = np.zeros_like(r, dtype=np.float64)
-        for i,(ri,ki) in enumerate(zip(r,u)):
-            rs[i] = ri.value if isinstance(ri, core.Variable) else ri
-            ks[i] = ki.value if isinstance(ki, core.Variable) else ki
+        rs = np.asarray(r, dtype=np.float64)
+        ks = np.asarray(u, dtype=np.float64)
         if self.mode == 'diff':
             # difference is next knot minus my knot, with last knot fixed at its current value
             ks[:-1] -= ks[1:]

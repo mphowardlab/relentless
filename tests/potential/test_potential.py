@@ -289,20 +289,30 @@ class test_PairParameters(unittest.TestCase):
 
         temp.close()
 
-    def test_get_design_variables(self):
-        """Test _get_design_variables method."""
+    def test_design_variables(self):
+        """Test design_variables method."""
+        m = relentless.potential.PairParameters(types=('A',), params=('energy','mass','charge'))
+
+        #test complex dependent variables as parameters
         a = relentless.DesignVariable(value=1.0)
         b = relentless.DesignVariable(value=2.0)
         c = relentless.SameAs(a=b)
         d = relentless.ArithmeticMean(a=b, b=c)
 
-        m = relentless.potential.PairParameters(types=('A',), params=('energy','mass','charge'))
         m['A','A']['energy'] = 1.5
         m['A','A']['mass'] = a
         m['A','A']['charge'] = d
 
-        x = m._get_design_variables()
+        x = m.design_variables()
         self.assertCountEqual(x, (a,b))
+
+        #test same variable as multiple parameters
+        m['A','A']['energy'] = a
+        m['A','A']['mass'] = a
+        m['A','A']['charge'] = a
+
+        x = m.design_variables()
+        self.assertCountEqual(x, (a,))
 
 class LinPot(relentless.potential.PairPotential):
     """Linear potential function used to test relentless.potential.PairPotential"""
@@ -328,6 +338,29 @@ class LinPot(relentless.potential.PairPotential):
         r,d,s = self._zeros(r)
         if param == 'm':
             d = r
+        if s:
+            d = d.item()
+        return d
+
+class TwoVarPot(relentless.potential.PairPotential):
+    """Mock potential function used to test relentless.potential.PairPotential.derivative"""
+
+    def __init__(self, types, params):
+        super().__init__(types, params)
+
+    def _energy(self, r, x, y, **params):
+        pass
+
+    def _force(self, r, x, y, **params):
+        pass
+
+    def _derivative(self, param, r, **params):
+        #not real derivative, just used to test functionality
+        r,d,s = self._zeros(r)
+        if param == 'x':
+            d = 2*r
+        elif param == 'y':
+            d = 3*r
         if s:
             d = d.item()
         return d
@@ -589,7 +622,6 @@ class test_PairPotential(unittest.TestCase):
         #test with respect to independent variable on which parameter is dependent
         d = q.derivative(pair=('1','1'), var=x, r=1.5)
         self.assertAlmostEqual(d, 3.0)
-
         d = q.derivative(pair=('1','1'), var=y, r=4.0)
         self.assertAlmostEqual(d, 0.5)
 
@@ -598,6 +630,28 @@ class test_PairPotential(unittest.TestCase):
         q.coeff['1','1']['m'] = a
         with self.assertRaises(TypeError):
             d = q.derivative(pair=('1','1'), var=a, r=2.0)
+
+    #def _derivative(self, param, r, **params):
+    #    r,d,s = self._zeros(r)
+    #    if param == 'x':
+    #        d = 2*r
+    #    elif param == 'y':
+    #        d = 3*r
+    #    if s:
+    #        d = d.item()
+    #    return d
+        #test with respect to independent variable which is related to a SameAs variable
+        r = TwoVarPot(types=('1',), params=('x','y'))
+
+        r.coeff['1','1']['x'] = x
+        r.coeff['1','1']['y'] = relentless.SameAs(x)
+        d = r.derivative(pair=('1','1'), var=x, r=4.0)
+        self.assertAlmostEqual(d, 20.0)
+
+        r.coeff['1','1']['y'] = x
+        r.coeff['1','1']['x'] = relentless.SameAs(x)
+        d = r.derivative(pair=('1','1'), var=x, r=4.0)
+        self.assertAlmostEqual(d, 20.0)
 
     def test_iteration(self):
         """Test iteration on PairPotential object"""

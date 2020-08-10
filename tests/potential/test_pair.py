@@ -230,7 +230,7 @@ class test_Spline(unittest.TestCase):
         s = relentless.potential.Spline(types=('1',), num_knots=3)
         s.from_array(pair=('1','1'), r=r_arr, u=u_arr)
         d_actual = np.array([1.125,0.625,0])
-        param = [i for i in s.knots(('1','1'))][1][1]
+        param = list(s.knots(('1','1')))[1][1]
         d = s.derivative(pair=('1','1'), param=param, r=[1.5,2.5,3.5])
         np.testing.assert_allclose(d, d_actual)
 
@@ -238,7 +238,7 @@ class test_Spline(unittest.TestCase):
         s = relentless.potential.Spline(types=('1',), num_knots=3, mode='value')
         s.from_array(pair=('1','1'), r=r_arr, u=u_arr)
         d_actual = np.array([0.75,0.75,0])
-        param = [i for i in s.knots(('1','1'))][1][1]
+        param = list(s.knots(('1','1')))[1][1]
         d = s.derivative(pair=('1','1'), param=param, r=[1.5,2.5,3.5])
         np.testing.assert_allclose(d, d_actual)
 

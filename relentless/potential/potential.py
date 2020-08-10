@@ -193,13 +193,13 @@ class PairParameters(PairMatrix):
         with open(filename, 'w') as f:
             json.dump(data, f, sort_keys=True, indent=4)
 
-    def _get_design_variables(self):
+    def design_variables(self):
         """Get all unique DesignVariables that are the parameters of the coefficient matrix
            or dependendencies of those parameters.
 
         Returns
         -------
-        set
+        tuple
             The unique DesignVariables on which the specified PairParameters
             object is dependent.
 
@@ -215,7 +215,7 @@ class PairParameters(PairMatrix):
                     for n in g.nodes:
                         if isinstance(n, DesignVariable):
                             d.add(n)
-        return d
+        return tuple(d)
 
     def __getitem__(self, key):
         """Get parameters for the (i,j) pair."""
@@ -385,17 +385,17 @@ class PairPotential(abc.ABC):
         return f
 
     def derivative(self, pair, var, r):
-        """Evaluate derivative for a (i,j) pair with respect to a parameter.
+        """Evaluate derivative for a (i,j) pair with respect to a variable.
 
         The derivative is only evaluated for `r` values between `rmin` and `rmax`, if set.
-        The derivative can only be evaluted with respect to a :py:class:`Variable`
+        The derivative can only be evaluted with respect to a :py:class:`Variable`.
 
         Parameters
         ----------
         pair : array_like
             The pair for which to calculate the derivative.
         var : :py:class:`Variable`
-            The parameter with respect to which the derivative is to be calculated.
+            The variable with respect to which the derivative is to be calculated.
         r : array_like
             The location(s) at which to calculate the derivative.
 
@@ -427,16 +427,16 @@ class PairPotential(abc.ABC):
             flags[r > params['rmax']] = False
 
         # evaluate with respect to parameter
-        deriv[flags] = 0
         d_params = [i for i in self.coeff.params if not(i=='rmin' or i=='rmax' or i=='shift')]
-        for p in d_params:
+        for p in self.coeff.params:
             p_obj = self.coeff[pair][p]
-            if isinstance(p_obj, DependentVariable):
-                deriv[flags] += (p_obj.derivative(var)
-                                *self._derivative(p, r[flags], **params))
+            if p=='rmin' or p=='rmax' or p=='shift':
+                continue
+            elif isinstance(p_obj, DependentVariable):
+                deriv[flags] += (self._derivative(p, r[flags], **params)
+                                *p_obj.derivative(var))
             elif isinstance(p_obj, IndependentVariable) and var is p_obj:
-                deriv[flags] = self._derivative(p, r[flags], **params)
-                break
+                deriv[flags] += self._derivative(p, r[flags], **params)
 
         # coerce derivative back into shape of the input
         if scalar_r:
