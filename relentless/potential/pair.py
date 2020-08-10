@@ -328,8 +328,8 @@ class Spline(PairPotential):
 
         Parameters
         ----------
-        param : :py:class:`Variable`
-            The knot with respect to which to calculate the derivative.
+        param : str
+            The name of the knot with respect to which to calculate the derivative.
         r : array_like
             The value or values of r at which to evaluate the energy.
         params : dict
