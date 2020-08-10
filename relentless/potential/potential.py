@@ -427,7 +427,6 @@ class PairPotential(abc.ABC):
             flags[r > params['rmax']] = False
 
         # evaluate with respect to parameter
-        d_params = [i for i in self.coeff.params if not(i=='rmin' or i=='rmax' or i=='shift')]
         for p in self.coeff.params:
             p_obj = self.coeff[pair][p]
             if p=='rmin' or p=='rmax' or p=='shift':

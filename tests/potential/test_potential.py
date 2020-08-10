@@ -631,15 +631,6 @@ class test_PairPotential(unittest.TestCase):
         with self.assertRaises(TypeError):
             d = q.derivative(pair=('1','1'), var=a, r=2.0)
 
-    #def _derivative(self, param, r, **params):
-    #    r,d,s = self._zeros(r)
-    #    if param == 'x':
-    #        d = 2*r
-    #    elif param == 'y':
-    #        d = 3*r
-    #    if s:
-    #        d = d.item()
-    #    return d
         #test with respect to independent variable which is related to a SameAs variable
         r = TwoVarPot(types=('1',), params=('x','y'))
 
