@@ -8,7 +8,7 @@ import numpy as np
 
 from relentless.core import PairMatrix
 from relentless.core import FixedKeyDict
-from relentless.core import Variable
+from relentless.core import Variable, DependentVariable, IndependentVariable, DesignVariable
 
 class PairParameters(PairMatrix):
     """Parameters for pairs of types.
@@ -193,6 +193,30 @@ class PairParameters(PairMatrix):
         with open(filename, 'w') as f:
             json.dump(data, f, sort_keys=True, indent=4)
 
+    def _get_design_variables(self):
+        """Get all unique DesignVariables that are the parameters of the coefficient matrix
+           or dependendencies of those parameters.
+
+        Returns
+        -------
+        set
+            The unique DesignVariables on which the specified PairParameters
+            object is dependent.
+
+        """
+        d = set()
+        for k in self:
+            for p in self.params:
+                var = self[k][p]
+                if isinstance(var, DesignVariable):
+                    d.add(var)
+                elif isinstance(var, DependentVariable):
+                    g = var.dependency_graph()
+                    for n in g.nodes:
+                        if isinstance(n, DesignVariable):
+                            d.add(n)
+        return d
+
     def __getitem__(self, key):
         """Get parameters for the (i,j) pair."""
         if isinstance(key, str):
@@ -360,16 +384,17 @@ class PairPotential(abc.ABC):
             f = f.item()
         return f
 
-    def derivative(self, pair, param, r):
+    def derivative(self, pair, var, r):
         """Evaluate derivative for a (i,j) pair with respect to a parameter.
 
         The derivative is only evaluated for `r` values between `rmin` and `rmax`, if set.
+        The derivative can only be evaluted with respect to a :py:class:`Variable`
 
         Parameters
         ----------
         pair : array_like
             The pair for which to calculate the derivative.
-        param : `str`
+        var : :py:class:`Variable`
             The parameter with respect to which the derivative is to be calculated.
         r : array_like
             The location(s) at which to calculate the derivative.
@@ -391,6 +416,8 @@ class PairPotential(abc.ABC):
         r,deriv,scalar_r = self._zeros(r)
         if any(r < 0):
             raise ValueError('r cannot be negative')
+        if not isinstance(var, Variable):
+            raise TypeError('Parameter with respect to which to take the derivative must be a Variable.')
 
         # only evaluate at points inside [rmin,rmax], if specified
         flags = np.ones(r.shape[0], dtype=bool)
@@ -398,7 +425,18 @@ class PairPotential(abc.ABC):
             flags[r < params['rmin']] = False
         if params['rmax'] is not False:
             flags[r > params['rmax']] = False
-        deriv[flags] = self._derivative(param, r[flags], **params)
+
+        # evaluate with respect to parameter
+        deriv[flags] = 0
+        d_params = [i for i in self.coeff.params if not(i=='rmin' or i=='rmax' or i=='shift')]
+        for p in d_params:
+            p_obj = self.coeff[pair][p]
+            if isinstance(p_obj, DependentVariable):
+                deriv[flags] += (p_obj.derivative(var)
+                                *self._derivative(p, r[flags], **params))
+            elif isinstance(p_obj, IndependentVariable) and var is p_obj:
+                deriv[flags] = self._derivative(p, r[flags], **params)
+                break
 
         # coerce derivative back into shape of the input
         if scalar_r:
