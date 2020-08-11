@@ -338,6 +338,10 @@ class LinPot(relentless.potential.PairPotential):
         r,d,s = self._zeros(r)
         if param == 'm':
             d = r
+        elif param == 'rmin':
+            d = -1.0  #not real derivative, just used for testing
+        elif param == 'rmax':
+            d = 1.0   #not real derivative, just used for testing
         if s:
             d = d.item()
         return d
@@ -580,32 +584,46 @@ class test_PairPotential(unittest.TestCase):
         np.testing.assert_allclose(d, [0.25,0.75])
 
         #test with rmin set
-        p.coeff['1','1']['rmin'] = 0.5
+        rmin = relentless.DesignVariable(value=0.5)
+        p.coeff['1','1']['rmin'] = rmin
         d = p.derivative(pair=('1','1'), var=x, r=0.6)
         self.assertAlmostEqual(d, 0.6)
         d = p.derivative(pair=('1','1'), var=x, r=[0.25,0.75])
-        np.testing.assert_allclose(d, [0.0,0.75])
+        np.testing.assert_allclose(d, [-1.0,0.75])
 
         #test with rmax set
-        p.coeff['1','1'].update(rmin=False, rmax=1.5)
+        rmax = relentless.DesignVariable(value=1.5)
+        p.coeff['1','1'].update(rmin=False, rmax=rmax)
         d = p.derivative(pair=('1','1'), var=x, r=1.0)
         self.assertAlmostEqual(d, 1.0)
         d = p.derivative(pair=('1','1'), var=x, r=[0.25,1.75])
-        np.testing.assert_allclose(d, [0.25,0.0])
+        np.testing.assert_allclose(d, [0.25,1.0])
 
         #test with rmin and rmax set
-        p.coeff['1','1']['rmin'] = 0.5
+        p.coeff['1','1']['rmin'] = rmin
         d = p.derivative(pair=('1','1'), var=x, r=0.75)
         self.assertAlmostEqual(d, 0.75)
         d = p.derivative(pair=('1','1'), var=x, r=[0.25,0.5,1.5,1.75])
-        np.testing.assert_allclose(d, [0.0,0.5,1.5,0.0])
+        np.testing.assert_allclose(d, [-1.0,0.5,1.5,1.0])
 
-        #test with shift set
+        #test w.r.t. rmin and rmax
+        d = p.derivative(pair=('1','1'), var=rmin, r=[0.25,1.0,2.0])
+        np.testing.assert_allclose(d, [-1.0,0.0,0.0])
+        d = p.derivative(pair=('1','1'), var=rmax, r=[0.25,1.0,2.0])
+        np.testing.assert_allclose(d, [0.0,0.0,1.0])
+
+        #test parameter derivative with shift set
         p.coeff['1','1'].update(shift=True)
         d = p.derivative(pair=('1','1'), var=x, r=0.5)
-        self.assertAlmostEqual(d, 0.5)
+        self.assertAlmostEqual(d, -0.5)
         d = p.derivative(pair=('1','1'), var=x, r=[1.0,1.5])
-        np.testing.assert_allclose(d, [1.0,1.5])
+        np.testing.assert_allclose(d, [0.0,0.5])
+
+        #test w.r.t. rmin and rmax, shift set
+        d = p.derivative(pair=('1','1'), var=rmin, r=[0.25,1.0,2.0])
+        np.testing.assert_allclose(d, [-1.0,0.0,0.0])
+        d = p.derivative(pair=('1','1'), var=rmax, r=[0.25,1.0,2.0])
+        np.testing.assert_allclose(d, [-1.0,-1.0,0.0])
 
     def test_derivative_types(self):
         """Test derivative method with different param types."""

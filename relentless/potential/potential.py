@@ -410,6 +410,9 @@ class PairPotential(abc.ABC):
         ------
         ValueError
             If any value in `r` is negative.
+        TypeError
+            If the parameter with respect to which to take the derivative
+            is not a :py:class:`Variable`.
 
         """
         params = self.coeff.evaluate(pair)
@@ -419,23 +422,41 @@ class PairPotential(abc.ABC):
         if not isinstance(var, Variable):
             raise TypeError('Parameter with respect to which to take the derivative must be a Variable.')
 
-        # only evaluate at points inside [rmin,rmax], if specified
         flags = np.ones(r.shape[0], dtype=bool)
-        if params['rmin'] is not False:
-            flags[r < params['rmin']] = False
-        if params['rmax'] is not False:
-            flags[r > params['rmax']] = False
 
-        # evaluate with respect to parameter
-        for p in self.coeff.params:
-            p_obj = self.coeff[pair][p]
-            if p=='rmin' or p=='rmax' or p=='shift':
-                continue
-            elif isinstance(p_obj, DependentVariable):
-                deriv[flags] += (self._derivative(p, r[flags], **params)
-                                *p_obj.derivative(var))
-            elif isinstance(p_obj, IndependentVariable) and var is p_obj:
-                deriv[flags] += self._derivative(p, r[flags], **params)
+        # evaluate with respect to rmin, if set
+        if params['rmin'] is not False and var is self.coeff[pair]['rmin']:
+            flags[r >= params['rmin']] = False
+            deriv[flags] = self._derivative('rmin', r[flags], **params)
+
+        # evaluate with respect to rmax, if set
+        elif params['rmax'] is not False and var is self.coeff[pair]['rmax']:
+            flags[r <= params['rmax']] = False
+            deriv[flags] = self._derivative('rmax', r[flags], **params)
+            if params['shift']:
+                deriv -= self._derivative('rmax', r, **params)
+
+        # evaluate with respect to other parameter
+        else:
+            if params['rmin'] is not False:
+                below = r < params['rmin']
+                deriv[below] = self._derivative('rmin', r[below], **params)
+                flags[below] = False
+            if params['rmax'] is not False:
+                above = r > params['rmax']
+                deriv[above] = self._derivative('rmax', r[above], **params)
+                flags[above] = False
+            for p in self.coeff.params:
+                p_obj = self.coeff[pair][p]
+                if p=='rmin' or p=='rmax' or p=='shift':
+                    continue
+                if isinstance(p_obj, DependentVariable):
+                    deriv[flags] += (self._derivative(p, r[flags], **params)
+                                    *p_obj.derivative(var))
+                elif isinstance(p_obj, IndependentVariable) and var is p_obj:
+                    deriv[flags] += self._derivative(p, r[flags], **params)
+            if params['shift']:
+                deriv -= self._derivative('rmax', r, **params)
 
         # coerce derivative back into shape of the input
         if scalar_r:
