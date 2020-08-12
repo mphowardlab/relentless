@@ -582,16 +582,16 @@ class test_PairPotential(unittest.TestCase):
         p.coeff['1','1']['m'] = x
 
         #test with no cutoffs
-        #d = p.derivative(pair=('1','1'), var=x, r=0.5)
-        #self.assertAlmostEqual(d, 0.5)
-        #d = p.derivative(pair=('1','1'), var=x, r=[0.25,0.75])
-        #np.testing.assert_allclose(d, [0.25,0.75])
+        d = p.derivative(pair=('1','1'), var=x, r=0.5)
+        self.assertAlmostEqual(d, 0.5)
+        d = p.derivative(pair=('1','1'), var=x, r=[0.25,0.75])
+        np.testing.assert_allclose(d, [0.25,0.75])
 
         #test with rmin set
         rmin = relentless.DesignVariable(value=0.5)
         p.coeff['1','1']['rmin'] = rmin
-        #d = p.derivative(pair=('1','1'), var=x, r=0.6)
-        #self.assertAlmostEqual(d, 0.6)
+        d = p.derivative(pair=('1','1'), var=x, r=0.6)
+        self.assertAlmostEqual(d, 0.6)
         d = p.derivative(pair=('1','1'), var=x, r=[0.25,0.75])
         np.testing.assert_allclose(d, [2.0,0.75])
 
