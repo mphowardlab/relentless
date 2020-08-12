@@ -424,39 +424,51 @@ class PairPotential(abc.ABC):
 
         flags = np.ones(r.shape[0], dtype=bool)
 
-        # evaluate with respect to rmin, if set
-        if params['rmin'] is not False and var is self.coeff[pair]['rmin']:
-            flags[r >= params['rmin']] = False
-            deriv[flags] = self._derivative('rmin', r[flags], **params)
+        for p in self.coeff.params:
+            # skip shift parameter
+            if p == 'shift':
+                continue
 
-        # evaluate with respect to rmax, if set
-        elif params['rmax'] is not False and var is self.coeff[pair]['rmax']:
-            flags[r <= params['rmax']] = False
-            deriv[flags] = self._derivative('rmax', r[flags], **params)
-            if params['shift']:
-                deriv -= self._derivative('rmax', r, **params)
+            # try to take chain rule w.r.t. variable first
+            p_obj = self.coeff[pair][p]
+            if isinstance(p_obj, DependentVariable):
+                dp_dvar = p_obj.derivative(var)
+            elif isinstance(p_obj, IndependentVariable) and var is p_obj:
+                dp_dvar = 1.0
+            else:
+                dp_dvar = 0.0
 
-        # evaluate with respect to other parameter
-        else:
-            if params['rmin'] is not False:
-                below = r < params['rmin']
-                deriv[below] = self._derivative('rmin', r[below], **params)
-                flags[below] = False
-            if params['rmax'] is not False:
-                above = r > params['rmax']
-                deriv[above] = self._derivative('rmax', r[above], **params)
-                flags[above] = False
-            for p in self.coeff.params:
-                p_obj = self.coeff[pair][p]
-                if p=='rmin' or p=='rmax' or p=='shift':
-                    continue
-                if isinstance(p_obj, DependentVariable):
-                    deriv[flags] += (self._derivative(p, r[flags], **params)
-                                    *p_obj.derivative(var))
-                elif isinstance(p_obj, IndependentVariable) and var is p_obj:
-                    deriv[flags] += self._derivative(p, r[flags], **params)
-            if params['shift']:
-                deriv -= self._derivative('rmax', r, **params)
+            # skip when dp_dvar is exactly zero, since this does not contribute
+            if dp_dvar == 0.0:
+                continue
+
+            # now take the parameter derivative
+            if p=='rmin':
+                # rmin deriv
+                flags = r < params['rmin']
+                deriv[flags] = -self._force(params['rmin'], **params)*dp_dvar
+            if p=='rmax':
+                # rmax deriv
+                if params['shift']:
+                    flags = r <= params['rmax']
+                    deriv[flags] += self._force(params['rmax'], **params)*dp_dvar
+                else:
+                    flags = r > params['rmax']
+                    deriv[flags] += -self._force(params['rmax'], **params)*dp_dvar
+            else:
+                # regular parameter derivative
+                below = np.zeros(r.shape[0], dtype=bool)
+                if params['rmin'] is not False:
+                    below = r < params['rmin']
+                    deriv[below] += -self._force(params['rmin'], **params)
+                above = np.zeros(r.shape[0], dtype=bool)
+                if params['rmax'] is not False:
+                    above = r > params['rmax']
+                    deriv[above] += -self._force(params['rmax'], **params)
+                flags = np.logical_and(~below, ~above)
+                deriv[flags] += self._derivative(p, r[flags], **params)*dp_dvar
+                if params['shift']:
+                    deriv[flags] -= -self._force(params['rmax'], **params)
 
         # coerce derivative back into shape of the input
         if scalar_r:
