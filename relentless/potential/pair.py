@@ -695,9 +695,6 @@ class Depletion(PairPotential):
     def __init__(self, types, shift=False):
         super().__init__(types=types, params=('P','sigma_i','sigma_j','sigma_d'))
 
-    def get_bounds(self, sigma_i, sigma_j, sigma_d):
-        lo = core.Dependen
-
     def _energy(self, r, P, sigma_i, sigma_j, sigma_d, **params):
         """Evaluates the depletion potential energy.
 
