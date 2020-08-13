@@ -334,6 +334,112 @@ class test_Yukawa(unittest.TestCase):
         with self.assertRaises(ValueError):
             u = y._derivative(param='kapppa', r=r_input, epsilon=1.0, kappa=1.0)
 
+class test_LowBound(unittest.TestCase):
+    """Unit tests for relentless.potential.Depletion.LowBound"""
+
+    def test_init(self):
+        """Test creation from data"""
+        #create object dependent on scalars
+        w = relentless.potential.Depletion.LowBound(sigma_i=1.0, sigma_j=2.0)
+        self.assertAlmostEqual(w.value, 1.5)
+        self.assertCountEqual(w.params, ('sigma_i','sigma_j'))
+        self.assertDictEqual({p:v.value for p,v in w.depends},
+                             {'sigma_i':1.0, 'sigma_j':2.0})
+
+        #change parameter value
+        w.sigma_j.value = 4.0
+        self.assertAlmostEqual(w.value, 2.5)
+        self.assertCountEqual(w.params, ('sigma_i','sigma_j'))
+        self.assertDictEqual({p:v.value for p,v in w.depends},
+                             {'sigma_i':1.0, 'sigma_j':4.0})
+
+        #create object dependent on variables
+        a = relentless.DesignVariable(value=1.0)
+        b = relentless.DesignVariable(value=2.0)
+        w = relentless.potential.Depletion.LowBound(sigma_i=a, sigma_j=b)
+        self.assertAlmostEqual(w.value, 1.5)
+        self.assertCountEqual(w.params, ('sigma_i','sigma_j'))
+        self.assertDictEqual({p:v for p,v in w.depends},
+                             {'sigma_i':a, 'sigma_j':b})
+
+        #change parameter value
+        b.value = 4.0
+        self.assertAlmostEqual(w.value, 2.5)
+        self.assertCountEqual(w.params, ('sigma_i','sigma_j'))
+        self.assertDictEqual({p:v for p,v in w.depends},
+                             {'sigma_i':a, 'sigma_j':b})
+
+    def test_derivative(self):
+        """Test _derivative method"""
+        w = relentless.potential.Depletion.LowBound(sigma_i=1.0, sigma_j=2.0)
+        #calculate w.r.t. sigma_i
+        dw = w._derivative('sigma_i')
+        self.assertEqual(dw, 0.5)
+
+        #calculate w.r.t. sigma_j
+        dw = w._derivative('sigma_j')
+        self.assertEqual(dw, 0.5)
+
+        #invalid parameter calculation
+        with self.assertRaises(ValueError):
+            dw = w._derivative('sigma')
+
+class test_HighBound(unittest.TestCase):
+    """Unit tests for relentless.potential.Depletion.HighBound"""
+
+    def test_init(self):
+        """Test creation from data"""
+        #create object dependent on scalars
+        w = relentless.potential.Depletion.HighBound(sigma_i=1.0, sigma_j=2.0, sigma_d=0.25)
+        self.assertAlmostEqual(w.value, 1.75)
+        self.assertCountEqual(w.params, ('sigma_i','sigma_j','sigma_d'))
+        self.assertDictEqual({p:v.value for p,v in w.depends},
+                             {'sigma_i':1.0, 'sigma_j':2.0, 'sigma_d':0.25})
+
+        #change parameter value
+        w.sigma_j.value = 4.0
+        self.assertAlmostEqual(w.value, 2.75)
+        self.assertCountEqual(w.params, ('sigma_i','sigma_j','sigma_d'))
+        self.assertDictEqual({p:v.value for p,v in w.depends},
+                             {'sigma_i':1.0, 'sigma_j':4.0, 'sigma_d':0.25})
+
+        #create object dependent on variables
+        a = relentless.DesignVariable(value=1.0)
+        b = relentless.DesignVariable(value=2.0)
+        c = relentless.DesignVariable(value=0.25)
+        w = relentless.potential.Depletion.HighBound(sigma_i=a, sigma_j=b, sigma_d=c)
+        self.assertAlmostEqual(w.value, 1.75)
+        self.assertCountEqual(w.params, ('sigma_i','sigma_j','sigma_d'))
+        self.assertDictEqual({p:v for p,v in w.depends},
+                             {'sigma_i':a, 'sigma_j':b, 'sigma_d':c})
+
+        #change parameter value
+        b.value = 4.0
+        self.assertAlmostEqual(w.value, 2.75)
+        self.assertCountEqual(w.params, ('sigma_i','sigma_j','sigma_d'))
+        self.assertDictEqual({p:v for p,v in w.depends},
+                             {'sigma_i':a, 'sigma_j':b, 'sigma_d':c})
+
+    def test_derivative(self):
+        """Test _derivative method"""
+        w = relentless.potential.Depletion.HighBound(sigma_i=1.0, sigma_j=2.0, sigma_d=0.25)
+
+        #calculate w.r.t. sigma_i
+        dw = w._derivative('sigma_i')
+        self.assertEqual(dw, 0.5)
+
+        #calculate w.r.t. sigma_j
+        dw = w._derivative('sigma_j')
+        self.assertEqual(dw, 0.5)
+
+        #calculate w.r.t. sigma_d
+        dw = w._derivative('sigma_d')
+        self.assertEqual(dw, 1.0)
+
+        #invalid parameter calculation
+        with self.assertRaises(ValueError):
+            dw = w._derivative('sigma')
+
 class test_Depletion(unittest.TestCase):
     """Unit tests for relentless.potential.Depletion"""
 

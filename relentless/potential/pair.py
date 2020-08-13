@@ -589,8 +589,114 @@ class Depletion(PairPotential):
         List of types (A type must be a str).
 
     """
+
+    class LowBound(core.DependentVariable):
+        r"""Dependent variable for the low bound of the depletion pair potential.
+
+        .. math::
+
+            low = \frac{1}{2}(\sigma_i+\sigma_j)
+
+        Parameters
+        ----------
+        sigma_i : int/float or :py:class:`Variable`
+            The `sigma_i` parameter of the low bound.
+        sigma_j : int/float or :py:class:`Variable`
+            The `sigma_j` parameter of the low bound.
+
+        """
+        def __init__(self, sigma_i, sigma_j):
+            super().__init__(sigma_i=sigma_i, sigma_j=sigma_j)
+
+        @property
+        def value(self):
+            return 0.5*(self.sigma_i.value + self.sigma_j.value)
+
+        def _derivative(self, param):
+            """Calculates the derivative of the LowBound object with respect to its parameters.
+
+            Parameters
+            ----------
+            param : str
+                The parameter with respect to which to take the derivative.
+                (Can only be 'sigma_i' or 'sigma_j').
+
+            Returns
+            -------
+            float
+                The calculated derivative value.
+
+            Raises
+            ------
+            ValueError
+                If the parameter argument is not 'sigma_i' or 'sigma_j'.
+
+            """
+            if param == 'sigma_i':
+                return 0.5
+            elif param == 'sigma_j':
+                return 0.5
+            else:
+                raise ValueError('Unknown parameter')
+
+    class HighBound(core.DependentVariable):
+        r"""Dependent variable for the high bound of the depletion pair potential.
+
+        .. math::
+
+            high = \frac{1}{2}(\sigma_i+\sigma_j)+\sigma_d
+
+        Parameters
+        ----------
+        sigma_i : int/float or :py:class:`Variable`
+            The `sigma_i` parameter of the high bound.
+        sigma_j : int/float or :py:class:`Variable`
+            The `sigma_j` parameter of the high bound.
+        sigma_d : int/float or :py:class:`Variable`
+            The `sigma_d` parameter of the high bound.
+
+        """
+        def __init__(self, sigma_i, sigma_j, sigma_d):
+            super().__init__(sigma_i=sigma_i, sigma_j=sigma_j, sigma_d=sigma_d)
+
+        @property
+        def value(self):
+            return 0.5*(self.sigma_i.value + self.sigma_j.value) + self.sigma_d.value
+
+        def _derivative(self, param):
+            """Calculates the derivative of the HighBound object with respect to its parameters.
+
+            Parameters
+            ----------
+            param : str
+                The parameter with respect to which to take the derivative.
+                (Can only be 'sigma_i', 'sigma_j', or 'sigma_d').
+
+            Returns
+            -------
+            float
+                The calculated derivative value.
+
+            Raises
+            ------
+            ValueError
+                If the parameter argument is not 'sigma_i', 'sigma_j', or 'sigma_d'.
+
+            """
+            if param == 'sigma_i':
+                return 0.5
+            elif param == 'sigma_j':
+                return 0.5
+            elif param == 'sigma_d':
+                return 1.0
+            else:
+                raise ValueError('Unknown parameter')
+
     def __init__(self, types, shift=False):
         super().__init__(types=types, params=('P','sigma_i','sigma_j','sigma_d'))
+
+    def get_bounds(self, sigma_i, sigma_j, sigma_d):
+        lo = core.Dependen
 
     def _energy(self, r, P, sigma_i, sigma_j, sigma_d, **params):
         """Evaluates the depletion potential energy.
@@ -624,14 +730,14 @@ class Depletion(PairPotential):
         r,u,s = self._zeros(r)
 
         #clamp lo
-        lo = 0.5*(sigma_i + sigma_j)
+        lo = Depletion.LowBound(sigma_i, sigma_j).value
         u_lo = -np.pi*P*sigma_d**3/6.*(1. + 3.*sigma_i*sigma_j/(sigma_d*(sigma_i + sigma_j)))
         f_lo  = self._force(r=lo, P=P, sigma_i=sigma_i, sigma_j=sigma_j, sigma_d=sigma_d)
         below = r < lo
         u[below] = u_lo - f_lo*(r[below] - lo)
 
         #clamp hi
-        hi = lo + sigma_d
+        hi = Depletion.HighBound(sigma_i, sigma_j, sigma_d).value
         above = r > hi
         u[above] = 0.
 
@@ -679,13 +785,13 @@ class Depletion(PairPotential):
         hi = lo + sigma_d
 
         #clamp lo
-        lo = 0.5*(sigma_i + sigma_j)
+        lo = Depletion.LowBound(sigma_i, sigma_j).value
         below = r < lo
         f[below] = (-np.pi*P*sigma_i*sigma_j*sigma_d*(sigma_i + sigma_j + sigma_d)
                    /(sigma_i + sigma_j)**2)
 
         #clamp hi
-        hi = lo + sigma_d
+        hi = Depletion.HighBound(sigma_i, sigma_j, sigma_d).value
         above = r > hi
         f[above] = 0.
 
@@ -736,7 +842,7 @@ class Depletion(PairPotential):
         r,d,s = self._zeros(r)
 
         #clamp lo
-        lo = 0.5*(sigma_i + sigma_j)
+        lo = Depletion.LowBound(sigma_i, sigma_j).value
         below = r < lo
         f_lo  = self._force(r=lo, P=P, sigma_i=sigma_i, sigma_j=sigma_j, sigma_d=sigma_d)
         if param == 'P':
@@ -764,7 +870,7 @@ class Depletion(PairPotential):
         d[below] = du_lo - df_lo*(r[below] - lo) + f_lo*d_lo
 
         #clamp hi
-        hi = lo + sigma_d
+        hi = Depletion.HighBound(sigma_i, sigma_j, sigma_d).value
         above = r > hi
         d[above] = 0.
 
