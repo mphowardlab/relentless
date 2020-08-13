@@ -325,8 +325,8 @@ class Spline(PairPotential):
 
         Parameters
         ----------
-        pair : tuple
-            The type pair (i,j) for which to initialize the spline potential.
+        param : str
+            The name of the knot with respect to which to calculate the derivative.
         r : array_like
             The value or values of r at which to evaluate the energy.
         params : dict

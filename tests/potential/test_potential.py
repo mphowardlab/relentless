@@ -289,6 +289,31 @@ class test_PairParameters(unittest.TestCase):
 
         temp.close()
 
+    def test_design_variables(self):
+        """Test design_variables method."""
+        m = relentless.potential.PairParameters(types=('A',), params=('energy','mass','charge'))
+
+        #test complex dependent variables as parameters
+        a = relentless.DesignVariable(value=1.0)
+        b = relentless.DesignVariable(value=2.0)
+        c = relentless.SameAs(a=b)
+        d = relentless.ArithmeticMean(a=b, b=c)
+
+        m['A','A']['energy'] = 1.5
+        m['A','A']['mass'] = a
+        m['A','A']['charge'] = d
+
+        x = m.design_variables()
+        self.assertCountEqual(x, (a,b))
+
+        #test same variable as multiple parameters
+        m['A','A']['energy'] = a
+        m['A','A']['mass'] = a
+        m['A','A']['charge'] = a
+
+        x = m.design_variables()
+        self.assertCountEqual(x, (a,))
+
 class LinPot(relentless.potential.PairPotential):
     """Linear potential function used to test relentless.potential.PairPotential"""
 
@@ -297,14 +322,14 @@ class LinPot(relentless.potential.PairPotential):
 
     def _energy(self, r, m, **params):
         r,u,s = self._zeros(r)
-        u = m*r
+        u[:] = m*r
         if s:
             u = u.item()
         return u
 
     def _force(self, r, m, **params):
         r,f,s = self._zeros(r)
-        f = -m
+        f[:] = -m
         if s:
             f = f.item()
         return f
@@ -312,7 +337,30 @@ class LinPot(relentless.potential.PairPotential):
     def _derivative(self, param, r, **params):
         r,d,s = self._zeros(r)
         if param == 'm':
-            d = r
+            d[:] = r
+        if s:
+            d = d.item()
+        return d
+
+class TwoVarPot(relentless.potential.PairPotential):
+    """Mock potential function used to test relentless.potential.PairPotential.derivative"""
+
+    def __init__(self, types, params):
+        super().__init__(types, params)
+
+    def _energy(self, r, x, y, **params):
+        pass
+
+    def _force(self, r, x, y, **params):
+        pass
+
+    def _derivative(self, param, r, **params):
+        #not real derivative, just used to test functionality
+        r,d,s = self._zeros(r)
+        if param == 'x':
+            d[:] = 2*r
+        elif param == 'y':
+            d[:] = 3*r
         if s:
             d = d.item()
         return d
@@ -431,6 +479,14 @@ class test_PairPotential(unittest.TestCase):
         np.testing.assert_allclose(u, u_copy)
         self.assertEqual(s, False)
 
+        #test with 1-element array
+        r = [0.2]
+        r_copy, u, s = p._zeros(r)
+        u_copy = np.zeros(1)
+        np.testing.assert_allclose(r, r_copy)
+        np.testing.assert_allclose(u, u_copy)
+        self.assertEqual(s, False)
+
         #test with non 1-d array r
         r = np.array([[1, 2], [0.2, 0.3]])
         with self.assertRaises(TypeError):
@@ -519,44 +575,96 @@ class test_PairPotential(unittest.TestCase):
         f = p.force(pair=('1','1'), r=[1.0,1.5])
         np.testing.assert_allclose(f, [-2.0,-2.0])
 
-    def test_derivative(self):
-        """Test derivative method"""
+    def test_derivative_values(self):
+        """Test derivative method with different param values"""
         p = LinPot(types=('1',), params=('m',))
-        p.coeff['1','1']['m'] = 2.0
+        x = relentless.DesignVariable(value=2.0)
+        p.coeff['1','1']['m'] = x
 
         #test with no cutoffs
-        d = p.derivative(pair=('1','1'), param='m', r=0.5)
+        d = p.derivative(pair=('1','1'), var=x, r=0.5)
         self.assertAlmostEqual(d, 0.5)
-        d = p.derivative(pair=('1','1'), param='m', r=[0.25,0.75])
+        d = p.derivative(pair=('1','1'), var=x, r=[0.25,0.75])
         np.testing.assert_allclose(d, [0.25,0.75])
 
         #test with rmin set
-        p.coeff['1','1']['rmin'] = 0.5
-        d = p.derivative(pair=('1','1'), param='m', r=0.6)
+        rmin = relentless.DesignVariable(value=0.5)
+        p.coeff['1','1']['rmin'] = rmin
+        d = p.derivative(pair=('1','1'), var=x, r=0.6)
         self.assertAlmostEqual(d, 0.6)
-        d = p.derivative(pair=('1','1'), param='m', r=[0.25,0.75])
-        np.testing.assert_allclose(d, [0.0,0.75])
+        d = p.derivative(pair=('1','1'), var=x, r=[0.25,0.75])
+        np.testing.assert_allclose(d, [0.5,0.75])
 
         #test with rmax set
-        p.coeff['1','1'].update(rmin=False, rmax=1.5)
-        d = p.derivative(pair=('1','1'), param='m', r=1.0)
+        rmax = relentless.DesignVariable(value=1.5)
+        p.coeff['1','1'].update(rmin=False, rmax=rmax)
+        d = p.derivative(pair=('1','1'), var=x, r=1.0)
         self.assertAlmostEqual(d, 1.0)
-        d = p.derivative(pair=('1','1'), param='m', r=[0.25,1.75])
-        np.testing.assert_allclose(d, [0.25,0.0])
+        d = p.derivative(pair=('1','1'), var=x, r=[0.25,1.75])
+        np.testing.assert_allclose(d, [0.25,1.5])
 
         #test with rmin and rmax set
-        p.coeff['1','1']['rmin'] = 0.5
-        d = p.derivative(pair=('1','1'), param='m', r=0.75)
+        p.coeff['1','1']['rmin'] = rmin
+        d = p.derivative(pair=('1','1'), var=x, r=0.75)
         self.assertAlmostEqual(d, 0.75)
-        d = p.derivative(pair=('1','1'), param='m', r=[0.25,0.5,1.5,1.75])
-        np.testing.assert_allclose(d, [0.0,0.5,1.5,0.0])
+        d = p.derivative(pair=('1','1'), var=x, r=[0.25,0.5,1.5,1.75])
+        np.testing.assert_allclose(d, [0.5,0.5,1.5,1.5])
 
-        #test with shift set
+        #test w.r.t. rmin and rmax
+        d = p.derivative(pair=('1','1'), var=rmin, r=[0.25,1.0,2.0])
+        np.testing.assert_allclose(d, [2.0,0.0,0.0])
+        d = p.derivative(pair=('1','1'), var=rmax, r=[0.25,1.0,2.0])
+        np.testing.assert_allclose(d, [0.0,0.0,2.0])
+
+        #test parameter derivative with shift set
         p.coeff['1','1'].update(shift=True)
-        d = p.derivative(pair=('1','1'), param='m', r=0.5)
+        d = p.derivative(pair=('1','1'), var=x, r=0.5)
+        self.assertAlmostEqual(d, -1.0)
+        d = p.derivative(pair=('1','1'), var=x, r=[0.25,1.0,1.5,1.75])
+        np.testing.assert_allclose(d, [-1.0,-0.5,0.0,0.0])
+
+        #test w.r.t. rmin and rmax, shift set
+        d = p.derivative(pair=('1','1'), var=rmin, r=[0.25,1.0,2.0])
+        np.testing.assert_allclose(d, [2.0,0.0,0.0])
+        d = p.derivative(pair=('1','1'), var=rmax, r=[0.25,1.0,2.0])
+        np.testing.assert_allclose(d, [-2.0,-2.0,0.0])
+
+    def test_derivative_types(self):
+        """Test derivative method with different param types."""
+        q = LinPot(types=('1',), params=('m',))
+        x = relentless.DesignVariable(value=4.0)
+        y = relentless.DesignVariable(value=64.0)
+        z = relentless.GeometricMean(x, y)
+        q.coeff['1','1']['m'] = z
+
+        #test with respect to dependent variable parameter
+        d = q.derivative(pair=('1','1'), var=z, r=2.0)
+        self.assertAlmostEqual(d, 2.0)
+
+        #test with respect to independent variable on which parameter is dependent
+        d = q.derivative(pair=('1','1'), var=x, r=1.5)
+        self.assertAlmostEqual(d, 3.0)
+        d = q.derivative(pair=('1','1'), var=y, r=4.0)
         self.assertAlmostEqual(d, 0.5)
-        d = p.derivative(pair=('1','1'), param='m', r=[1.0,1.5])
-        np.testing.assert_allclose(d, [1.0,1.5])
+
+        #test invalid derivative w.r.t. scalar
+        a = 2.5
+        q.coeff['1','1']['m'] = a
+        with self.assertRaises(TypeError):
+            d = q.derivative(pair=('1','1'), var=a, r=2.0)
+
+        #test with respect to independent variable which is related to a SameAs variable
+        r = TwoVarPot(types=('1',), params=('x','y'))
+
+        r.coeff['1','1']['x'] = x
+        r.coeff['1','1']['y'] = relentless.SameAs(x)
+        d = r.derivative(pair=('1','1'), var=x, r=4.0)
+        self.assertAlmostEqual(d, 20.0)
+
+        r.coeff['1','1']['y'] = x
+        r.coeff['1','1']['x'] = relentless.SameAs(x)
+        d = r.derivative(pair=('1','1'), var=x, r=4.0)
+        self.assertAlmostEqual(d, 20.0)
 
     def test_iteration(self):
         """Test iteration on PairPotential object"""

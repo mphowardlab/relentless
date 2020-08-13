@@ -8,7 +8,7 @@ import numpy as np
 
 from relentless.core import PairMatrix
 from relentless.core import FixedKeyDict
-from relentless.core import Variable
+from relentless.core import Variable, DependentVariable, IndependentVariable, DesignVariable
 
 class PairParameters(PairMatrix):
     """Parameters for pairs of types.
@@ -193,6 +193,30 @@ class PairParameters(PairMatrix):
         with open(filename, 'w') as f:
             json.dump(data, f, sort_keys=True, indent=4)
 
+    def design_variables(self):
+        """Get all unique DesignVariables that are the parameters of the coefficient matrix
+           or dependendencies of those parameters.
+
+        Returns
+        -------
+        tuple
+            The unique DesignVariables on which the specified PairParameters
+            object is dependent.
+
+        """
+        d = set()
+        for k in self:
+            for p in self.params:
+                var = self[k][p]
+                if isinstance(var, DesignVariable):
+                    d.add(var)
+                elif isinstance(var, DependentVariable):
+                    g = var.dependency_graph()
+                    for n in g.nodes:
+                        if isinstance(n, DesignVariable):
+                            d.add(n)
+        return tuple(d)
+
     def __getitem__(self, key):
         """Get parameters for the (i,j) pair."""
         if isinstance(key, str):
@@ -283,7 +307,7 @@ class PairPotential(abc.ABC):
         ValueError
             If any value in `r` is negative.
         ValueError
-            If the potential is to be shifted without setting `rmax`.
+            If the potential is shifted without setting `rmax`.
 
         """
         params = self.coeff.evaluate(pair)
@@ -360,17 +384,18 @@ class PairPotential(abc.ABC):
             f = f.item()
         return f
 
-    def derivative(self, pair, param, r):
-        """Evaluate derivative for a (i,j) pair with respect to a parameter.
+    def derivative(self, pair, var, r):
+        """Evaluate derivative for a (i,j) pair with respect to a variable.
 
         The derivative is only evaluated for `r` values between `rmin` and `rmax`, if set.
+        The derivative can only be evaluted with respect to a :py:class:`Variable`.
 
         Parameters
         ----------
         pair : array_like
             The pair for which to calculate the derivative.
-        param : `str`
-            The parameter with respect to which the derivative is to be calculated.
+        var : :py:class:`Variable`
+            The variable with respect to which the derivative is to be calculated.
         r : array_like
             The location(s) at which to calculate the derivative.
 
@@ -385,20 +410,69 @@ class PairPotential(abc.ABC):
         ------
         ValueError
             If any value in `r` is negative.
+        TypeError
+            If the parameter with respect to which to take the derivative
+            is not a :py:class:`Variable`.
+        ValueError
+            If the potential is shifted without setting `rmax`.
 
         """
         params = self.coeff.evaluate(pair)
         r,deriv,scalar_r = self._zeros(r)
         if any(r < 0):
             raise ValueError('r cannot be negative')
+        if not isinstance(var, Variable):
+            raise TypeError('Parameter with respect to which to take the derivative must be a Variable.')
 
-        # only evaluate at points inside [rmin,rmax], if specified
         flags = np.ones(r.shape[0], dtype=bool)
-        if params['rmin'] is not False:
-            flags[r < params['rmin']] = False
-        if params['rmax'] is not False:
-            flags[r > params['rmax']] = False
-        deriv[flags] = self._derivative(param, r[flags], **params)
+
+        for p in self.coeff.params:
+            # skip shift parameter
+            if p == 'shift':
+                continue
+
+            # try to take chain rule w.r.t. variable first
+            p_obj = self.coeff[pair][p]
+            if isinstance(p_obj, DependentVariable):
+                dp_dvar = p_obj.derivative(var)
+            elif isinstance(p_obj, IndependentVariable) and var is p_obj:
+                dp_dvar = 1.0
+            else:
+                dp_dvar = 0.0
+
+            # skip when dp_dvar is exactly zero, since this does not contribute
+            if dp_dvar == 0.0:
+                continue
+
+            # now take the parameter derivative
+            if p=='rmin':
+                # rmin deriv
+                flags = r < params['rmin']
+                deriv[flags] += -self._force(params['rmin'], **params)*dp_dvar
+            if p=='rmax':
+                # rmax deriv
+                if params['shift']:
+                    flags = r <= params['rmax']
+                    deriv[flags] += self._force(params['rmax'], **params)*dp_dvar
+                else:
+                    flags = r > params['rmax']
+                    deriv[flags] += -self._force(params['rmax'], **params)*dp_dvar
+            else:
+                # regular parameter derivative
+                below = np.zeros(r.shape[0], dtype=bool)
+                if params['rmin'] is not False:
+                    below = r < params['rmin']
+                    deriv[below] += self._derivative(p, params['rmin'], **params)*dp_dvar
+                above = np.zeros(r.shape[0], dtype=bool)
+                if params['rmax'] is not False:
+                    above = r > params['rmax']
+                    deriv[above] += self._derivative(p, params['rmax'], **params)*dp_dvar
+                elif params['shift']:
+                    raise ValueError('Cannot shift without setting rmax.')
+                flags = np.logical_and(~below, ~above)
+                deriv[flags] += self._derivative(p, r[flags], **params)*dp_dvar
+                if params['shift']:
+                    deriv -= self._derivative(p, params['rmax'], **params)*dp_dvar
 
         # coerce derivative back into shape of the input
         if scalar_r:
