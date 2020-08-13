@@ -237,6 +237,9 @@ class DependentVariable(Variable):
     value property, it must also supply a derivative method with respect to
     any of its dependent variables.
 
+    The dependent variable attribute can also be set as a scalar value, but during
+    construction the value is casted to a :py:class:`IndepedentVariable`.
+
     The number of dependencies of the variable are locked at construction, but
     their values can be modified.
 
@@ -258,6 +261,8 @@ class DependentVariable(Variable):
             raise AttributeError('No attributes specified for DependentVariable.')
 
         for k,v in attrs.items():
+            if np.isscalar(v):
+                v = IndependentVariable(value=v)
             super().__setattr__(k,self._assert_variable(v))
         self._params = tuple(attrs.keys())
 
