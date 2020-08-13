@@ -483,7 +483,7 @@ class test_PairPotential(unittest.TestCase):
         r = [0.2]
         r_copy, u, s = p._zeros(r)
         u_copy = np.zeros(1)
-        np.testing.assert_allclose(r_copy, r)
+        np.testing.assert_allclose(r, r_copy)
         np.testing.assert_allclose(u, u_copy)
         self.assertEqual(s, False)
 
@@ -639,7 +639,7 @@ class test_PairPotential(unittest.TestCase):
 
         #test with respect to dependent variable parameter
         d = q.derivative(pair=('1','1'), var=z, r=2.0)
-        #self.assertAlmostEqual(d, 2.0)
+        self.assertAlmostEqual(d, 2.0)
 
         #test with respect to independent variable on which parameter is dependent
         d = q.derivative(pair=('1','1'), var=x, r=1.5)
