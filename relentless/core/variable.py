@@ -261,15 +261,13 @@ class DependentVariable(Variable):
             raise AttributeError('No attributes specified for DependentVariable.')
 
         for k,v in attrs.items():
-            if np.isscalar(v):
-                v = IndependentVariable(value=v)
-            super().__setattr__(k,self._assert_variable(v))
+            super().__setattr__(k,self._make_variable(v))
         self._params = tuple(attrs.keys())
 
     def __setattr__(self, name, value):
         #Sets the value of the variable on which the specified DependentVariable depends.
         if name != '_params' and name in self.params:
-            value = self._assert_variable(value)
+            value = self._make_variable(value)
         super().__setattr__(name,value)
 
     @property
@@ -375,10 +373,10 @@ class DependentVariable(Variable):
         pass
 
     @classmethod
-    def _assert_variable(cls, v):
-        #Checks if the dependent variable depends on another variable.
-        if not isinstance(v, Variable):
-            raise TypeError('Dependent variables can only depend on other variables.')
+    def _make_variable(cls, v):
+        #Casts a scalar into an independent variable.
+        if np.isscalar(v):
+            v = IndependentVariable(value=v)
         return v
 
     @classmethod
