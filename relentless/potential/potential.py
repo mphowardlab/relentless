@@ -307,7 +307,7 @@ class PairPotential(abc.ABC):
         ValueError
             If any value in `r` is negative.
         ValueError
-            If the potential is to be shifted without setting `rmax`.
+            If the potential is shifted without setting `rmax`.
 
         """
         params = self.coeff.evaluate(pair)
@@ -413,6 +413,8 @@ class PairPotential(abc.ABC):
         TypeError
             If the parameter with respect to which to take the derivative
             is not a :py:class:`Variable`.
+        ValueError
+            If the potential is shifted without setting `rmax`.
 
         """
         params = self.coeff.evaluate(pair)
@@ -446,7 +448,7 @@ class PairPotential(abc.ABC):
             if p=='rmin':
                 # rmin deriv
                 flags = r < params['rmin']
-                deriv[flags] = -self._force(params['rmin'], **params)*dp_dvar
+                deriv[flags] += -self._force(params['rmin'], **params)*dp_dvar
             if p=='rmax':
                 # rmax deriv
                 if params['shift']:
@@ -460,15 +462,17 @@ class PairPotential(abc.ABC):
                 below = np.zeros(r.shape[0], dtype=bool)
                 if params['rmin'] is not False:
                     below = r < params['rmin']
-                    deriv[below] += -self._force(params['rmin'], **params)
+                    deriv[below] += self._derivative(p, params['rmin'], **params)*dp_dvar
                 above = np.zeros(r.shape[0], dtype=bool)
                 if params['rmax'] is not False:
                     above = r > params['rmax']
-                    deriv[above] += -self._force(params['rmax'], **params)
+                    deriv[above] += self._derivative(p, params['rmax'], **params)*dp_dvar
+                elif params['shift']:
+                    raise ValueError('Cannot shift without setting rmax.')
                 flags = np.logical_and(~below, ~above)
                 deriv[flags] += self._derivative(p, r[flags], **params)*dp_dvar
                 if params['shift']:
-                    deriv[flags] -= -self._force(params['rmax'], **params)
+                    deriv -= self._derivative(p, params['rmax'], **params)*dp_dvar
 
         # coerce derivative back into shape of the input
         if scalar_r:

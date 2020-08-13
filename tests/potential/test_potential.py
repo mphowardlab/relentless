@@ -593,7 +593,7 @@ class test_PairPotential(unittest.TestCase):
         d = p.derivative(pair=('1','1'), var=x, r=0.6)
         self.assertAlmostEqual(d, 0.6)
         d = p.derivative(pair=('1','1'), var=x, r=[0.25,0.75])
-        np.testing.assert_allclose(d, [2.0,0.75])
+        np.testing.assert_allclose(d, [0.5,0.75])
 
         #test with rmax set
         rmax = relentless.DesignVariable(value=1.5)
@@ -601,14 +601,14 @@ class test_PairPotential(unittest.TestCase):
         d = p.derivative(pair=('1','1'), var=x, r=1.0)
         self.assertAlmostEqual(d, 1.0)
         d = p.derivative(pair=('1','1'), var=x, r=[0.25,1.75])
-        np.testing.assert_allclose(d, [0.25,2.0])
+        np.testing.assert_allclose(d, [0.25,1.5])
 
         #test with rmin and rmax set
         p.coeff['1','1']['rmin'] = rmin
         d = p.derivative(pair=('1','1'), var=x, r=0.75)
         self.assertAlmostEqual(d, 0.75)
         d = p.derivative(pair=('1','1'), var=x, r=[0.25,0.5,1.5,1.75])
-        np.testing.assert_allclose(d, [2.0,0.5,1.5,2.0])
+        np.testing.assert_allclose(d, [0.5,0.5,1.5,1.5])
 
         #test w.r.t. rmin and rmax
         d = p.derivative(pair=('1','1'), var=rmin, r=[0.25,1.0,2.0])
@@ -619,9 +619,9 @@ class test_PairPotential(unittest.TestCase):
         #test parameter derivative with shift set
         p.coeff['1','1'].update(shift=True)
         d = p.derivative(pair=('1','1'), var=x, r=0.5)
-        self.assertAlmostEqual(d, -1.5)
+        self.assertAlmostEqual(d, -1.0)
         d = p.derivative(pair=('1','1'), var=x, r=[0.25,1.0,1.5,1.75])
-        np.testing.assert_allclose(d, [0.0,-1.0,-0.5,0.0])
+        np.testing.assert_allclose(d, [-1.0,-0.5,0.0,0.0])
 
         #test w.r.t. rmin and rmax, shift set
         d = p.derivative(pair=('1','1'), var=rmin, r=[0.25,1.0,2.0])
