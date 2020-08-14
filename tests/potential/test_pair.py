@@ -231,7 +231,7 @@ class test_Spline(unittest.TestCase):
         s.from_array(pair=('1','1'), r=r_arr, u=u_arr)
         d_actual = np.array([1.125,0.625,0])
         param = list(s.knots(('1','1')))[1][1]
-        d = s.derivative(pair=('1','1'), param=param, r=[1.5,2.5,3.5])
+        d = s.derivative(pair=('1','1'), var=param, r=[1.5,2.5,3.5])
         np.testing.assert_allclose(d, d_actual)
 
         #test value mode
@@ -239,7 +239,7 @@ class test_Spline(unittest.TestCase):
         s.from_array(pair=('1','1'), r=r_arr, u=u_arr)
         d_actual = np.array([0.75,0.75,0])
         param = list(s.knots(('1','1')))[1][1]
-        d = s.derivative(pair=('1','1'), param=param, r=[1.5,2.5,3.5])
+        d = s.derivative(pair=('1','1'), var=param, r=[1.5,2.5,3.5])
         np.testing.assert_allclose(d, d_actual)
 
 class test_Yukawa(unittest.TestCase):
@@ -345,8 +345,61 @@ class test_Depletion(unittest.TestCase):
         self.assertCountEqual(dp.coeff.types, coeff.types)
         self.assertCountEqual(dp.coeff.params, coeff.params)
 
+    def test_cutoff_init(self):
+        """Test creation of Depletion.Cutoff from data"""
+        #create object dependent on scalars
+        w = relentless.potential.Depletion.Cutoff(sigma_i=1.0, sigma_j=2.0, sigma_d=0.25)
+        self.assertAlmostEqual(w.value, 1.75)
+        self.assertCountEqual(w.params, ('sigma_i','sigma_j','sigma_d'))
+        self.assertDictEqual({p:v.value for p,v in w.depends},
+                             {'sigma_i':1.0, 'sigma_j':2.0, 'sigma_d':0.25})
+
+        #change parameter value
+        w.sigma_j.value = 4.0
+        self.assertAlmostEqual(w.value, 2.75)
+        self.assertCountEqual(w.params, ('sigma_i','sigma_j','sigma_d'))
+        self.assertDictEqual({p:v.value for p,v in w.depends},
+                             {'sigma_i':1.0, 'sigma_j':4.0, 'sigma_d':0.25})
+
+        #create object dependent on variables
+        a = relentless.DesignVariable(value=1.0)
+        b = relentless.DesignVariable(value=2.0)
+        c = relentless.DesignVariable(value=0.25)
+        w = relentless.potential.Depletion.Cutoff(sigma_i=a, sigma_j=b, sigma_d=c)
+        self.assertAlmostEqual(w.value, 1.75)
+        self.assertCountEqual(w.params, ('sigma_i','sigma_j','sigma_d'))
+        self.assertDictEqual({p:v for p,v in w.depends},
+                             {'sigma_i':a, 'sigma_j':b, 'sigma_d':c})
+
+        #change parameter value
+        b.value = 4.0
+        self.assertAlmostEqual(w.value, 2.75)
+        self.assertCountEqual(w.params, ('sigma_i','sigma_j','sigma_d'))
+        self.assertDictEqual({p:v for p,v in w.depends},
+                             {'sigma_i':a, 'sigma_j':b, 'sigma_d':c})
+
+    def test_cutoff_derivative(self):
+        """Test Depletion.Cutoff._derivative method"""
+        w = relentless.potential.Depletion.Cutoff(sigma_i=1.0, sigma_j=2.0, sigma_d=0.25)
+
+        #calculate w.r.t. sigma_i
+        dw = w._derivative('sigma_i')
+        self.assertEqual(dw, 0.5)
+
+        #calculate w.r.t. sigma_j
+        dw = w._derivative('sigma_j')
+        self.assertEqual(dw, 0.5)
+
+        #calculate w.r.t. sigma_d
+        dw = w._derivative('sigma_d')
+        self.assertEqual(dw, 1.0)
+
+        #invalid parameter calculation
+        with self.assertRaises(ValueError):
+            dw = w._derivative('sigma')
+
     def test_energy(self):
-        """Test _energy method"""
+        """Test _energy and energy methods"""
         dp = relentless.potential.Depletion(types=('1',))
 
         #test scalar r
@@ -356,8 +409,8 @@ class test_Depletion(unittest.TestCase):
         self.assertAlmostEqual(u, u_actual)
 
         #test array r
-        r_input = np.array([1,1.75,4.25,5])
-        u_actual = np.array([-25.25161952,-16.59621119,0,0])
+        r_input = np.array([1.75,4.25])
+        u_actual = np.array([-16.59621119,0])
         u = dp._energy(r=r_input, P=1, sigma_i=1.5, sigma_j=2, sigma_d=2.5)
         np.testing.assert_allclose(u, u_actual)
 
@@ -369,8 +422,16 @@ class test_Depletion(unittest.TestCase):
         with self.assertRaises(ValueError):
             u = dp._energy(r=r_input, P=1, sigma_i=1, sigma_j=1, sigma_d=-1)
 
+        #test energy outside of low/high bounds
+        dp.coeff['1','1'].update(P=1, sigma_i=1.5, sigma_j=2, sigma_d=2.5)
+        r_input = np.array([1,5])
+        u_actual = np.array([-25.7514468,0])
+        u = dp.energy(pair=('1','1'), r=r_input)
+        np.testing.assert_allclose(u, u_actual)
+        self.assertAlmostEqual(dp.coeff['1','1']['rmax'].value, 4.25)
+
     def test_force(self):
-        """Test _force method"""
+        """Test _force and force methods"""
         dp = relentless.potential.Depletion(types=('1',))
 
         #test scalar r
@@ -380,8 +441,8 @@ class test_Depletion(unittest.TestCase):
         self.assertAlmostEqual(f, f_actual)
 
         #test array r
-        r_input = np.array([1,1.75,4.25,5])
-        f_actual = np.array([-11.54054444,-11.54054444,0,0])
+        r_input = np.array([1.75,4.25])
+        f_actual = np.array([-11.54054444,0])
         f = dp._force(r=r_input, P=1, sigma_i=1.5, sigma_j=2, sigma_d=2.5)
         np.testing.assert_allclose(f, f_actual)
 
@@ -393,8 +454,16 @@ class test_Depletion(unittest.TestCase):
         with self.assertRaises(ValueError):
             f = dp._force(r=r_input, P=1, sigma_i=1, sigma_j=1, sigma_d=-1)
 
+        #test force outside of low/high bounds
+        dp.coeff['1','1'].update(P=1, sigma_i=1.5, sigma_j=2, sigma_d=2.5)
+        r_input = np.array([1,5])
+        f_actual = np.array([-12.5633027,0])
+        f = dp.force(pair=('1','1'), r=r_input)
+        np.testing.assert_allclose(f, f_actual)
+        self.assertAlmostEqual(dp.coeff['1','1']['rmax'].value, 4.25)
+
     def test_derivative(self):
-        """Test _derivative method"""
+        """Test _derivative and derivative methods"""
         dp = relentless.potential.Depletion(types=('1',))
 
         #w.r.t. P
@@ -405,8 +474,8 @@ class test_Depletion(unittest.TestCase):
         self.assertAlmostEqual(d, d_actual)
 
         #test array r
-        r_input = np.array([1,1.75,4.25,5])
-        d_actual = np.array([-25.25161952,-16.59621119,0,0])
+        r_input = np.array([1.75,4.25])
+        d_actual = np.array([-16.59621119,0])
         d = dp._derivative(param='P', r=r_input, P=1, sigma_i=1.5, sigma_j=2, sigma_d=2.5)
         np.testing.assert_allclose(d, d_actual)
 
@@ -418,8 +487,8 @@ class test_Depletion(unittest.TestCase):
         self.assertAlmostEqual(d, d_actual)
 
         #test array r
-        r_input = np.array([1,1.75,4.25,5])
-        d_actual = np.array([-11.242872,-8.975979,0,0])
+        r_input = np.array([1.75,4.25])
+        d_actual = np.array([-8.975979,0])
         d = dp._derivative(param='sigma_i', r=r_input, P=1, sigma_i=1.5, sigma_j=2, sigma_d=2.5)
         np.testing.assert_allclose(d, d_actual)
 
@@ -431,8 +500,8 @@ class test_Depletion(unittest.TestCase):
         self.assertAlmostEqual(d, d_actual)
 
         #test array r
-        r_input = np.array([1,1.75,4.25,5])
-        d_actual = np.array([-8.397807,-7.573482,0,0])
+        r_input = np.array([1.75,4.25])
+        d_actual = np.array([-7.573482,0])
         d = dp._derivative(param='sigma_j', r=r_input, P=1, sigma_i=1.5, sigma_j=2, sigma_d=2.5)
         np.testing.assert_allclose(d, d_actual)
 
@@ -444,8 +513,8 @@ class test_Depletion(unittest.TestCase):
         self.assertAlmostEqual(d, d_actual)
 
         #test array r
-        r_input = np.array([1,1.75,4.25,5])
-        d_actual = np.array([-21.454193,-16.549461,0,0])
+        r_input = np.array([1.75,4.25])
+        d_actual = np.array([-16.549461,0])
         d = dp._derivative(param='sigma_d', r=r_input, P=1, sigma_i=1.5, sigma_j=2, sigma_d=2.5)
         np.testing.assert_allclose(d, d_actual)
 
@@ -460,6 +529,15 @@ class test_Depletion(unittest.TestCase):
         #test invalid param
         with self.assertRaises(ValueError):
             d = dp._derivative(param='sigmaj', r=r_input, P=1, sigma_i=1, sigma_j=1, sigma_d=1)
+
+        #test derivative outside of low/high bounds
+        P_var = relentless.DesignVariable(value=1.0)
+        dp.coeff['1','1'].update(P=P_var, sigma_i=1.5, sigma_j=2, sigma_d=2.5)
+        r_input = np.array([1,5])
+        d_actual = np.array([-25.7514468,0])
+        d = dp.derivative(pair=('1','1'), var=P_var, r=r_input)
+        np.testing.assert_allclose(d, d_actual)
+        self.assertAlmostEqual(dp.coeff['1','1']['rmax'].value, 4.25)
 
 if __name__ == '__main__':
     unittest.main()

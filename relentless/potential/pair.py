@@ -311,14 +311,14 @@ class Spline(PairPotential):
             f = f.item()
         return f
 
-    def derivative(self, pair, param, r):
+    def derivative(self, pair, var, r):
         #Extending PairPotential method to check if r and knot values are DesignVariables.
         for ri,ki in self.knots(pair):
             if not isinstance(ri, core.DesignVariable):
                 raise TypeError('All r values must be DesignVariables')
             if not isinstance(ki, core.DesignVariable):
                 raise TypeError('All knot values must be DesignVariables')
-        return super().derivative(pair, param, r)
+        return super().derivative(pair, var, r)
 
     def _derivative(self, param, r, **params):
         """Evaluates the spline parameter derivative using finite differencing.
@@ -589,8 +589,70 @@ class Depletion(PairPotential):
         List of types (A type must be a str).
 
     """
+
+    class Cutoff(core.DependentVariable):
+        r"""Dependent variable for the "high bound" or cutoff of the depletion pair potential.
+
+        .. math::
+
+            cutoff = \frac{1}{2}(\sigma_i+\sigma_j)+\sigma_d
+
+        Parameters
+        ----------
+        sigma_i : int/float or :py:class:`Variable`
+            The `sigma_i` parameter of the cutoff.
+        sigma_j : int/float or :py:class:`Variable`
+            The `sigma_j` parameter of the cutoff.
+        sigma_d : int/float or :py:class:`Variable`
+            The `sigma_d` parameter of the cutoff.
+
+        """
+        def __init__(self, sigma_i, sigma_j, sigma_d):
+            super().__init__(sigma_i=sigma_i, sigma_j=sigma_j, sigma_d=sigma_d)
+
+        @property
+        def value(self):
+            return 0.5*(self.sigma_i.value + self.sigma_j.value) + self.sigma_d.value
+
+        def _derivative(self, param):
+            """Calculates the derivative of the Cutoff object with respect to its parameters.
+
+            Parameters
+            ----------
+            param : str
+                The parameter with respect to which to take the derivative.
+                (Can only be 'sigma_i', 'sigma_j', or 'sigma_d').
+
+            Returns
+            -------
+            float
+                The calculated derivative value.
+
+            Raises
+            ------
+            ValueError
+                If the parameter argument is not 'sigma_i', 'sigma_j', or 'sigma_d'.
+
+            """
+            if param == 'sigma_i':
+                return 0.5
+            elif param == 'sigma_j':
+                return 0.5
+            elif param == 'sigma_d':
+                return 1.0
+            else:
+                raise ValueError('Unknown parameter')
+
     def __init__(self, types, shift=False):
         super().__init__(types=types, params=('P','sigma_i','sigma_j','sigma_d'))
+
+    def energy(self, pair, r):
+        # Override parent method to set rmax as cutoff
+        if self.coeff[pair]['rmax'] is False:
+            self.coeff[pair]['rmax'] = self.Cutoff(self.coeff[pair]['sigma_i'],
+                                                   self.coeff[pair]['sigma_j'],
+                                                   self.coeff[pair]['sigma_d'])
+        return super().energy(pair, r)
 
     def _energy(self, r, P, sigma_i, sigma_j, sigma_d, **params):
         """Evaluates the depletion potential energy.
@@ -623,27 +685,21 @@ class Depletion(PairPotential):
             raise ValueError('sigma_i, sigma_j, and sigma_d must all be positive')
         r,u,s = self._zeros(r)
 
-        #clamp lo
-        lo = 0.5*(sigma_i + sigma_j)
-        u_lo = -np.pi*P*sigma_d**3/6.*(1. + 3.*sigma_i*sigma_j/(sigma_d*(sigma_i + sigma_j)))
-        f_lo  = self._force(r=lo, P=P, sigma_i=sigma_i, sigma_j=sigma_j, sigma_d=sigma_d)
-        below = r < lo
-        u[below] = u_lo - f_lo*(r[below] - lo)
-
-        #clamp hi
-        hi = lo + sigma_d
-        above = r > hi
-        u[above] = 0.
-
-        # evaluate in between
-        flags = ~np.logical_or(below, above)
-        p1 = (0.5*(sigma_i + sigma_j) + sigma_d - r[flags])**2
-        p2 = r[flags]**2 + r[flags]*(sigma_i + sigma_j + 2.*sigma_d) - 0.75*(sigma_i - sigma_j)**2
-        u[flags] = -(np.pi*P*p1*p2)/(12.*r[flags])
+        p1 = (0.5*(sigma_i + sigma_j) + sigma_d - r)**2
+        p2 = r**2 + r*(sigma_i + sigma_j + 2.*sigma_d) - 0.75*(sigma_i - sigma_j)**2
+        u = -(np.pi*P*p1*p2)/(12.*r)
 
         if s:
             u = u.item()
         return u
+
+    def force(self, pair, r):
+        # Override parent method to set rmax as cutoff
+        if self.coeff[pair]['rmax'] is False:
+            self.coeff[pair]['rmax'] = self.Cutoff(self.coeff[pair]['sigma_i'],
+                                                   self.coeff[pair]['sigma_j'],
+                                                   self.coeff[pair]['sigma_d'])
+        return super().force(pair, r)
 
     def _force(self, r, P, sigma_i, sigma_j, sigma_d, **params):
         """Evaluates the depletion force.
@@ -675,29 +731,22 @@ class Depletion(PairPotential):
         if sigma_i<=0 or sigma_j<=0 or sigma_d<=0:
             raise ValueError('sigma_i, sigma_j, and sigma_d must all be positive')
         r,f,s = self._zeros(r)
-        lo = 0.5*(sigma_i + sigma_j)
-        hi = lo + sigma_d
 
-        #clamp lo
-        lo = 0.5*(sigma_i + sigma_j)
-        below = r < lo
-        f[below] = (-np.pi*P*sigma_i*sigma_j*sigma_d*(sigma_i + sigma_j + sigma_d)
-                   /(sigma_i + sigma_j)**2)
-
-        #clamp hi
-        hi = lo + sigma_d
-        above = r > hi
-        f[above] = 0.
-
-        # evaluate in between
-        flags = ~np.logical_or(below, above)
-        p1 = r[flags]**2 - 0.25*(sigma_i - sigma_j)**2
-        p2 = (0.5*(sigma_i + sigma_j) + sigma_d)**2 - r[flags]**2
-        f[flags] = -(np.pi*P*p1*p2)/(4.*r[flags]**2)
+        p1 = r**2 - 0.25*(sigma_i - sigma_j)**2
+        p2 = (0.5*(sigma_i + sigma_j) + sigma_d)**2 - r**2
+        f = -(np.pi*P*p1*p2)/(4.*r**2)
 
         if s:
             f = f.item()
         return f
+
+    def derivative(self, pair, var, r):
+        # Override parent method to set rmax as cutoff
+        if self.coeff[pair]['rmax'] is False:
+            self.coeff[pair]['rmax'] = self.Cutoff(self.coeff[pair]['sigma_i'],
+                                                   self.coeff[pair]['sigma_j'],
+                                                   self.coeff[pair]['sigma_d'])
+        return super().derivative(pair, var, r)
 
     def _derivative(self, param, r, P, sigma_i, sigma_j, sigma_d, **params):
         """Evaluates the depletion parameter derivative.
@@ -735,60 +784,25 @@ class Depletion(PairPotential):
             raise ValueError('sigma_i, sigma_j, and sigma_d must all be positive')
         r,d,s = self._zeros(r)
 
-        #clamp lo
-        lo = 0.5*(sigma_i + sigma_j)
-        below = r < lo
-        f_lo  = self._force(r=lo, P=P, sigma_i=sigma_i, sigma_j=sigma_j, sigma_d=sigma_d)
         if param == 'P':
-            du_lo = -np.pi*sigma_d**3/6.*(1. + 3.*sigma_i*sigma_j/(sigma_d*(sigma_i + sigma_j)))
-            df_lo = (-np.pi*sigma_i*sigma_j*sigma_d*(sigma_i + sigma_j + sigma_d)
-                    /(sigma_i + sigma_j)**2)
-            d_lo = 0.
+            p1 = (0.5*(sigma_i + sigma_j) + sigma_d - r)**2
+            p2 = r**2 + r*(sigma_i + sigma_j + 2.*sigma_d) - 0.75*(sigma_i - sigma_j)**2
+            d = -(np.pi*p1*p2)/(12.*r)
         elif param == 'sigma_i':
-            du_lo = -np.pi*P/2.*(sigma_d*sigma_j/(sigma_i + sigma_j))**2
-            df_lo = (-np.pi*P*sigma_d*sigma_j*(sigma_i*(sigma_j - sigma_d) + sigma_j*(sigma_j + sigma_d))
-                    /(sigma_i + sigma_j)**3)
-            d_lo = 0.5
+            p1 = ((0.5*(sigma_i + sigma_j) + sigma_d - r)
+                 *(r**2 + r*(sigma_i + sigma_j + 2.*sigma_d) - 0.75*(sigma_i - sigma_j)**2))
+            p2 = (r + 1.5*(sigma_j - sigma_i))*(0.5*(sigma_i + sigma_j) + sigma_d - r)**2
+            d = -(np.pi*P*(p1 + p2))/(12.*r)
         elif param == 'sigma_j':
-            du_lo = -np.pi*P/2.*(sigma_d*sigma_i/(sigma_i + sigma_j))**2
-            df_lo = (-np.pi*P*sigma_d*sigma_i*(sigma_j*(sigma_i - sigma_d) + sigma_i*(sigma_i + sigma_d))
-                    /(sigma_i + sigma_j)**3)
-            d_lo = 0.5
+            p1 = ((0.5*(sigma_i + sigma_j) + sigma_d - r)
+                 *(r**2 + r*(sigma_i + sigma_j + 2.*sigma_d) - 0.75*(sigma_i - sigma_j)**2))
+            p2 = (r + 1.5*(sigma_i - sigma_j))*(0.5*(sigma_i + sigma_j) + sigma_d - r)**2
+            d = -(np.pi*P*(p1 + p2))/(12.*r)
         elif param == 'sigma_d':
-            du_lo = (-np.pi*P*sigma_d*(sigma_d*(sigma_i + sigma_j) + 2.*sigma_i*sigma_j)
-                    /(2.*(sigma_i + sigma_j)))
-            df_lo = -np.pi*P*sigma_i*sigma_j*(sigma_i + sigma_j + 2.*sigma_d)/(sigma_i + sigma_j)**2
-            d_lo = 0.
-        else:
-            raise ValueError('The depletion parameters are P, sigma_i, sigma_j, and sigma_d.')
-        d[below] = du_lo - df_lo*(r[below] - lo) + f_lo*d_lo
-
-        #clamp hi
-        hi = lo + sigma_d
-        above = r > hi
-        d[above] = 0.
-
-        # evaluate in between
-        flags = ~np.logical_or(below, above)
-        if param == 'P':
-            p1 = (0.5*(sigma_i + sigma_j) + sigma_d - r[flags])**2
-            p2 = r[flags]**2 + r[flags]*(sigma_i + sigma_j + 2.*sigma_d) - 0.75*(sigma_i - sigma_j)**2
-            d[flags] = -(np.pi*p1*p2)/(12.*r[flags])
-        elif param == 'sigma_i':
-            p1 = ((0.5*(sigma_i + sigma_j) + sigma_d - r[flags])
-                 *(r[flags]**2 + r[flags]*(sigma_i + sigma_j + 2.*sigma_d) - 0.75*(sigma_i - sigma_j)**2))
-            p2 = (r[flags] + 1.5*(sigma_j - sigma_i))*(0.5*(sigma_i + sigma_j) + sigma_d - r[flags])**2
-            d[flags] = -(np.pi*P*(p1 + p2))/(12.*r[flags])
-        elif param == 'sigma_j':
-            p1 = ((0.5*(sigma_i + sigma_j) + sigma_d - r[flags])
-                 *(r[flags]**2 + r[flags]*(sigma_i + sigma_j + 2.*sigma_d) - 0.75*(sigma_i - sigma_j)**2))
-            p2 = (r[flags] + 1.5*(sigma_i - sigma_j))*(0.5*(sigma_i + sigma_j) + sigma_d - r[flags])**2
-            d[flags] = -(np.pi*P*(p1 + p2))/(12.*r[flags])
-        elif param == 'sigma_d':
-            p1 = ((sigma_i + sigma_j + 2.*sigma_d - 2.*r[flags])
-                 *(r[flags]**2 + r[flags]*(sigma_i + sigma_j + 2.*sigma_d) - 0.75*(sigma_i - sigma_j)**2))
-            p2 = 2.*r[flags]*(0.5*(sigma_i + sigma_j) + sigma_d - r[flags])**2
-            d[flags] = -(np.pi*P*(p1 + p2))/(12.*r[flags])
+            p1 = ((sigma_i + sigma_j + 2.*sigma_d - 2.*r)
+                 *(r**2 + r*(sigma_i + sigma_j + 2.*sigma_d) - 0.75*(sigma_i - sigma_j)**2))
+            p2 = 2.*r*(0.5*(sigma_i + sigma_j) + sigma_d - r)**2
+            d = -(np.pi*P*(p1 + p2))/(12.*r)
         else:
             raise ValueError('The depletion parameters are P, sigma_i, sigma_j, and sigma_d.')
 

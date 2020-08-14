@@ -264,6 +264,18 @@ class test_DependentVariable(unittest.TestCase):
         self.assertDictEqual({p:v for p,v in w.depends}, {'t':t,'u':u,'v':v})
         self.assertAlmostEqual(w.value, 6.0)
 
+        #test creation with scalar attributes
+        w = DepVar(t=1.0, u=2.0, v=3.0)
+        self.assertCountEqual(w.params, ('t','u','v'))
+        self.assertDictEqual({p:v.value for p,v in w.depends}, {'t':1.0,'u':2.0,'v':3.0})
+        self.assertAlmostEqual(w.value, 6.0)
+
+        #change scalar attribute value
+        w.t = 4.0
+        self.assertCountEqual(w.params, ('t','u','v'))
+        self.assertDictEqual({p:v.value for p,v in w.depends}, {'t':4.0,'u':2.0,'v':3.0})
+        self.assertAlmostEqual(w.value, 9.0)
+
         #test invalid creation with no attributes
         with self.assertRaises(AttributeError):
             w = DepVar()
@@ -438,9 +450,11 @@ class test_SameAs(unittest.TestCase):
         self.assertCountEqual(u.params, ('a',))
         self.assertDictEqual({p:v for p,v in u.depends}, {'a':w})
 
-        #test invalid variable dependence
-        with self.assertRaises(TypeError):
-            u = relentless.SameAs(1.0)
+        #test scalar dependency
+        z = relentless.SameAs(2.0)
+        self.assertAlmostEqual(z.value, 2.0)
+        self.assertCountEqual(z.params, ('a',))
+        self.assertDictEqual({p:v.value for p,v in z.depends}, {'a':2.0})
 
     def test_value(self):
         """Test setting values."""
@@ -508,9 +522,11 @@ class test_ArithmeticMean(unittest.TestCase):
         self.assertCountEqual(w.params, ('a','b'))
         self.assertDictEqual({p:v for p,v in w.depends}, {'a':u,'b':u})
 
-        #test invalid variable dependence
-        with self.assertRaises(TypeError):
-            z = relentless.ArithmeticMean(1.0, 2.0)
+        #test scalar dependencies
+        z = relentless.ArithmeticMean(2.0, 1.0)
+        self.assertAlmostEqual(z.value, 1.5)
+        self.assertCountEqual(z.params, ('a','b'))
+        self.assertDictEqual({p:v.value for p,v in z.depends}, {'a':2.0,'b':1.0})
 
     def test_value(self):
         """Test setting values."""
@@ -598,9 +614,11 @@ class test_GeometricMean(unittest.TestCase):
         self.assertCountEqual(w.params, ('a','b'))
         self.assertDictEqual({p:v for p,v in w.depends}, {'a':v,'b':v})
 
-        #test invalid variable dependence
-        with self.assertRaises(TypeError):
-            z = relentless.GeometricMean(1.0, 2.0)
+        #test scalar dependencies
+        z = relentless.GeometricMean(16.0, 1.0)
+        self.assertAlmostEqual(z.value, 4.0)
+        self.assertCountEqual(z.params, ('a','b'))
+        self.assertDictEqual({p:v.value for p,v in z.depends}, {'a':16.0,'b':1.0})
 
     def test_value(self):
         """Test setting values."""

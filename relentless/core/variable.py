@@ -237,6 +237,9 @@ class DependentVariable(Variable):
     value property, it must also supply a derivative method with respect to
     any of its dependent variables.
 
+    The dependent variable attribute can also be set as a scalar value, but during
+    construction the value is casted to a :py:class:`IndepedentVariable`.
+
     The number of dependencies of the variable are locked at construction, but
     their values can be modified.
 
@@ -258,13 +261,13 @@ class DependentVariable(Variable):
             raise AttributeError('No attributes specified for DependentVariable.')
 
         for k,v in attrs.items():
-            super().__setattr__(k,self._assert_variable(v))
+            super().__setattr__(k,self._make_variable(v))
         self._params = tuple(attrs.keys())
 
     def __setattr__(self, name, value):
         #Sets the value of the variable on which the specified DependentVariable depends.
         if name != '_params' and name in self.params:
-            value = self._assert_variable(value)
+            value = self._make_variable(value)
         super().__setattr__(name,value)
 
     @property
@@ -370,10 +373,12 @@ class DependentVariable(Variable):
         pass
 
     @classmethod
-    def _assert_variable(cls, v):
-        #Checks if the dependent variable depends on another variable.
+    def _make_variable(cls, v):
+        #Casts a scalar into an independent variable.
+        if np.isscalar(v):
+            v = IndependentVariable(value=v)
         if not isinstance(v, Variable):
-            raise TypeError('Dependent variables can only depend on other variables.')
+            raise TypeError('Dependent variables can only depend on scalars or other variables.')
         return v
 
     @classmethod
