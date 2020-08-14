@@ -590,70 +590,21 @@ class Depletion(PairPotential):
 
     """
 
-    class LowBound(core.DependentVariable):
-        r"""Dependent variable for the low bound of the depletion pair potential.
+    class Cutoff(core.DependentVariable):
+        r"""Dependent variable for the "high bound" or cutoff of the depletion pair potential.
 
         .. math::
 
-            low = \frac{1}{2}(\sigma_i+\sigma_j)
+            cutoff = \frac{1}{2}(\sigma_i+\sigma_j)+\sigma_d
 
         Parameters
         ----------
         sigma_i : int/float or :py:class:`Variable`
-            The `sigma_i` parameter of the low bound.
+            The `sigma_i` parameter of the cutoff.
         sigma_j : int/float or :py:class:`Variable`
-            The `sigma_j` parameter of the low bound.
-
-        """
-        def __init__(self, sigma_i, sigma_j):
-            super().__init__(sigma_i=sigma_i, sigma_j=sigma_j)
-
-        @property
-        def value(self):
-            return 0.5*(self.sigma_i.value + self.sigma_j.value)
-
-        def _derivative(self, param):
-            """Calculates the derivative of the LowBound object with respect to its parameters.
-
-            Parameters
-            ----------
-            param : str
-                The parameter with respect to which to take the derivative.
-                (Can only be 'sigma_i' or 'sigma_j').
-
-            Returns
-            -------
-            float
-                The calculated derivative value.
-
-            Raises
-            ------
-            ValueError
-                If the parameter argument is not 'sigma_i' or 'sigma_j'.
-
-            """
-            if param == 'sigma_i':
-                return 0.5
-            elif param == 'sigma_j':
-                return 0.5
-            else:
-                raise ValueError('Unknown parameter')
-
-    class HighBound(core.DependentVariable):
-        r"""Dependent variable for the high bound of the depletion pair potential.
-
-        .. math::
-
-            high = \frac{1}{2}(\sigma_i+\sigma_j)+\sigma_d
-
-        Parameters
-        ----------
-        sigma_i : int/float or :py:class:`Variable`
-            The `sigma_i` parameter of the high bound.
-        sigma_j : int/float or :py:class:`Variable`
-            The `sigma_j` parameter of the high bound.
+            The `sigma_j` parameter of the cutoff.
         sigma_d : int/float or :py:class:`Variable`
-            The `sigma_d` parameter of the high bound.
+            The `sigma_d` parameter of the cutoff.
 
         """
         def __init__(self, sigma_i, sigma_j, sigma_d):
@@ -664,7 +615,7 @@ class Depletion(PairPotential):
             return 0.5*(self.sigma_i.value + self.sigma_j.value) + self.sigma_d.value
 
         def _derivative(self, param):
-            """Calculates the derivative of the HighBound object with respect to its parameters.
+            """Calculates the derivative of the Cutoff object with respect to its parameters.
 
             Parameters
             ----------
@@ -696,14 +647,11 @@ class Depletion(PairPotential):
         super().__init__(types=types, params=('P','sigma_i','sigma_j','sigma_d'))
 
     def energy(self, pair, r):
-        # Override parent method to set rmin and rmax as low and high bounds
-        if self.coeff[pair]['rmin'] is False:
-            self.coeff[pair]['rmin'] = self.LowBound(self.coeff[pair]['sigma_i'],
-                                                     self.coeff[pair]['sigma_j'])
+        # Override parent method to set rmax as cutoff
         if self.coeff[pair]['rmax'] is False:
-            self.coeff[pair]['rmax'] = self.HighBound(self.coeff[pair]['sigma_i'],
-                                                      self.coeff[pair]['sigma_j'],
-                                                      self.coeff[pair]['sigma_d'])
+            self.coeff[pair]['rmax'] = self.Cutoff(self.coeff[pair]['sigma_i'],
+                                                   self.coeff[pair]['sigma_j'],
+                                                   self.coeff[pair]['sigma_d'])
         return super().energy(pair, r)
 
     def _energy(self, r, P, sigma_i, sigma_j, sigma_d, **params):
@@ -746,14 +694,11 @@ class Depletion(PairPotential):
         return u
 
     def force(self, pair, r):
-        # Override parent method to set rmin and rmax as low and high bounds
-        if self.coeff[pair]['rmin'] is False:
-            self.coeff[pair]['rmin'] = self.LowBound(self.coeff[pair]['sigma_i'],
-                                                     self.coeff[pair]['sigma_j'])
+        # Override parent method to set rmax as cutoff
         if self.coeff[pair]['rmax'] is False:
-            self.coeff[pair]['rmax'] = self.HighBound(self.coeff[pair]['sigma_i'],
-                                                      self.coeff[pair]['sigma_j'],
-                                                      self.coeff[pair]['sigma_d'])
+            self.coeff[pair]['rmax'] = self.Cutoff(self.coeff[pair]['sigma_i'],
+                                                   self.coeff[pair]['sigma_j'],
+                                                   self.coeff[pair]['sigma_d'])
         return super().force(pair, r)
 
     def _force(self, r, P, sigma_i, sigma_j, sigma_d, **params):
@@ -796,14 +741,11 @@ class Depletion(PairPotential):
         return f
 
     def derivative(self, pair, var, r):
-        # Override parent method to set rmin and rmax as low and high bounds
-        if self.coeff[pair]['rmin'] is False:
-            self.coeff[pair]['rmin'] = self.LowBound(self.coeff[pair]['sigma_i'],
-                                                     self.coeff[pair]['sigma_j'])
+        # Override parent method to set rmax as cutoff
         if self.coeff[pair]['rmax'] is False:
-            self.coeff[pair]['rmax'] = self.HighBound(self.coeff[pair]['sigma_i'],
-                                                      self.coeff[pair]['sigma_j'],
-                                                      self.coeff[pair]['sigma_d'])
+            self.coeff[pair]['rmax'] = self.Cutoff(self.coeff[pair]['sigma_i'],
+                                                   self.coeff[pair]['sigma_j'],
+                                                   self.coeff[pair]['sigma_d'])
         return super().derivative(pair, var, r)
 
     def _derivative(self, param, r, P, sigma_i, sigma_j, sigma_d, **params):

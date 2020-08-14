@@ -377,6 +377,8 @@ class DependentVariable(Variable):
         #Casts a scalar into an independent variable.
         if np.isscalar(v):
             v = IndependentVariable(value=v)
+        if not isinstance(v, Variable):
+            raise TypeError('Dependent variables can only depend on scalars or other variables.')
         return v
 
     @classmethod

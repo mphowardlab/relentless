@@ -334,63 +334,21 @@ class test_Yukawa(unittest.TestCase):
         with self.assertRaises(ValueError):
             u = y._derivative(param='kapppa', r=r_input, epsilon=1.0, kappa=1.0)
 
-class test_LowBound(unittest.TestCase):
-    """Unit tests for relentless.potential.Depletion.LowBound"""
+class test_Depletion(unittest.TestCase):
+    """Unit tests for relentless.potential.Depletion"""
 
     def test_init(self):
         """Test creation from data"""
+        dp = relentless.potential.Depletion(types=('1','2'))
+        coeff = relentless.potential.PairParameters(types=('1','2'),
+                                                    params=('P','sigma_i','sigma_j','sigma_d','rmin','rmax','shift'))
+        self.assertCountEqual(dp.coeff.types, coeff.types)
+        self.assertCountEqual(dp.coeff.params, coeff.params)
+
+    def test_cutoff_init(self):
+        """Test creation of Depletion.Cutoff from data"""
         #create object dependent on scalars
-        w = relentless.potential.Depletion.LowBound(sigma_i=1.0, sigma_j=2.0)
-        self.assertAlmostEqual(w.value, 1.5)
-        self.assertCountEqual(w.params, ('sigma_i','sigma_j'))
-        self.assertDictEqual({p:v.value for p,v in w.depends},
-                             {'sigma_i':1.0, 'sigma_j':2.0})
-
-        #change parameter value
-        w.sigma_j.value = 4.0
-        self.assertAlmostEqual(w.value, 2.5)
-        self.assertCountEqual(w.params, ('sigma_i','sigma_j'))
-        self.assertDictEqual({p:v.value for p,v in w.depends},
-                             {'sigma_i':1.0, 'sigma_j':4.0})
-
-        #create object dependent on variables
-        a = relentless.DesignVariable(value=1.0)
-        b = relentless.DesignVariable(value=2.0)
-        w = relentless.potential.Depletion.LowBound(sigma_i=a, sigma_j=b)
-        self.assertAlmostEqual(w.value, 1.5)
-        self.assertCountEqual(w.params, ('sigma_i','sigma_j'))
-        self.assertDictEqual({p:v for p,v in w.depends},
-                             {'sigma_i':a, 'sigma_j':b})
-
-        #change parameter value
-        b.value = 4.0
-        self.assertAlmostEqual(w.value, 2.5)
-        self.assertCountEqual(w.params, ('sigma_i','sigma_j'))
-        self.assertDictEqual({p:v for p,v in w.depends},
-                             {'sigma_i':a, 'sigma_j':b})
-
-    def test_derivative(self):
-        """Test _derivative method"""
-        w = relentless.potential.Depletion.LowBound(sigma_i=1.0, sigma_j=2.0)
-        #calculate w.r.t. sigma_i
-        dw = w._derivative('sigma_i')
-        self.assertEqual(dw, 0.5)
-
-        #calculate w.r.t. sigma_j
-        dw = w._derivative('sigma_j')
-        self.assertEqual(dw, 0.5)
-
-        #invalid parameter calculation
-        with self.assertRaises(ValueError):
-            dw = w._derivative('sigma')
-
-class test_HighBound(unittest.TestCase):
-    """Unit tests for relentless.potential.Depletion.HighBound"""
-
-    def test_init(self):
-        """Test creation from data"""
-        #create object dependent on scalars
-        w = relentless.potential.Depletion.HighBound(sigma_i=1.0, sigma_j=2.0, sigma_d=0.25)
+        w = relentless.potential.Depletion.Cutoff(sigma_i=1.0, sigma_j=2.0, sigma_d=0.25)
         self.assertAlmostEqual(w.value, 1.75)
         self.assertCountEqual(w.params, ('sigma_i','sigma_j','sigma_d'))
         self.assertDictEqual({p:v.value for p,v in w.depends},
@@ -407,7 +365,7 @@ class test_HighBound(unittest.TestCase):
         a = relentless.DesignVariable(value=1.0)
         b = relentless.DesignVariable(value=2.0)
         c = relentless.DesignVariable(value=0.25)
-        w = relentless.potential.Depletion.HighBound(sigma_i=a, sigma_j=b, sigma_d=c)
+        w = relentless.potential.Depletion.Cutoff(sigma_i=a, sigma_j=b, sigma_d=c)
         self.assertAlmostEqual(w.value, 1.75)
         self.assertCountEqual(w.params, ('sigma_i','sigma_j','sigma_d'))
         self.assertDictEqual({p:v for p,v in w.depends},
@@ -420,9 +378,9 @@ class test_HighBound(unittest.TestCase):
         self.assertDictEqual({p:v for p,v in w.depends},
                              {'sigma_i':a, 'sigma_j':b, 'sigma_d':c})
 
-    def test_derivative(self):
-        """Test _derivative method"""
-        w = relentless.potential.Depletion.HighBound(sigma_i=1.0, sigma_j=2.0, sigma_d=0.25)
+    def test_cutoff_derivative(self):
+        """Test Depletion.Cutoff._derivative method"""
+        w = relentless.potential.Depletion.Cutoff(sigma_i=1.0, sigma_j=2.0, sigma_d=0.25)
 
         #calculate w.r.t. sigma_i
         dw = w._derivative('sigma_i')
@@ -439,17 +397,6 @@ class test_HighBound(unittest.TestCase):
         #invalid parameter calculation
         with self.assertRaises(ValueError):
             dw = w._derivative('sigma')
-
-class test_Depletion(unittest.TestCase):
-    """Unit tests for relentless.potential.Depletion"""
-
-    def test_init(self):
-        """Test creation from data"""
-        dp = relentless.potential.Depletion(types=('1','2'))
-        coeff = relentless.potential.PairParameters(types=('1','2'),
-                                                    params=('P','sigma_i','sigma_j','sigma_d','rmin','rmax','shift'))
-        self.assertCountEqual(dp.coeff.types, coeff.types)
-        self.assertCountEqual(dp.coeff.params, coeff.params)
 
     def test_energy(self):
         """Test _energy and energy methods"""
@@ -478,10 +425,9 @@ class test_Depletion(unittest.TestCase):
         #test energy outside of low/high bounds
         dp.coeff['1','1'].update(P=1, sigma_i=1.5, sigma_j=2, sigma_d=2.5)
         r_input = np.array([1,5])
-        u_actual = np.array([-16.5962112,0])
+        u_actual = np.array([-25.7514468,0])
         u = dp.energy(pair=('1','1'), r=r_input)
         np.testing.assert_allclose(u, u_actual)
-        self.assertAlmostEqual(dp.coeff['1','1']['rmin'].value, 1.75)
         self.assertAlmostEqual(dp.coeff['1','1']['rmax'].value, 4.25)
 
     def test_force(self):
@@ -511,10 +457,9 @@ class test_Depletion(unittest.TestCase):
         #test force outside of low/high bounds
         dp.coeff['1','1'].update(P=1, sigma_i=1.5, sigma_j=2, sigma_d=2.5)
         r_input = np.array([1,5])
-        f_actual = np.array([0,0])
+        f_actual = np.array([-12.5633027,0])
         f = dp.force(pair=('1','1'), r=r_input)
         np.testing.assert_allclose(f, f_actual)
-        self.assertAlmostEqual(dp.coeff['1','1']['rmin'].value, 1.75)
         self.assertAlmostEqual(dp.coeff['1','1']['rmax'].value, 4.25)
 
     def test_derivative(self):
@@ -589,10 +534,9 @@ class test_Depletion(unittest.TestCase):
         P_var = relentless.DesignVariable(value=1.0)
         dp.coeff['1','1'].update(P=P_var, sigma_i=1.5, sigma_j=2, sigma_d=2.5)
         r_input = np.array([1,5])
-        d_actual = np.array([-16.5962112,0])
+        d_actual = np.array([-25.7514468,0])
         d = dp.derivative(pair=('1','1'), var=P_var, r=r_input)
         np.testing.assert_allclose(d, d_actual)
-        self.assertAlmostEqual(dp.coeff['1','1']['rmin'].value, 1.75)
         self.assertAlmostEqual(dp.coeff['1','1']['rmax'].value, 4.25)
 
 if __name__ == '__main__':
