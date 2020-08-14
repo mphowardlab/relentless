@@ -274,7 +274,7 @@ class test_DependentVariable(unittest.TestCase):
         w.t = 4.0
         self.assertCountEqual(w.params, ('t','u','v'))
         self.assertDictEqual({p:v.value for p,v in w.depends}, {'t':4.0,'u':2.0,'v':3.0})
-        self.assertAlmostEqual(w.value, 10.0)
+        self.assertAlmostEqual(w.value, 9.0)
 
         #test invalid creation with no attributes
         with self.assertRaises(AttributeError):
