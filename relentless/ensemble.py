@@ -8,14 +8,59 @@ import numpy as np
 from . import core
 
 class RDF(core.Interpolator):
+    """Constructs a :py:class:`Interpolator` object interpolating through an RDF
+    function :math:`g(r)`, and creates an `nx2` array with columns as `r` and `g`.
+
+    Parameters
+    ----------
+    r : array_like
+        1-d array of r values, that must be continually increasing.
+    g : array_like
+        1-d array of g values.
+
+    """
     def __init__(self, r, g):
         super().__init__(r,g)
         self.table = np.column_stack((r,g))
 
 class Ensemble(object):
+    """Constructs a thermodynamic ensemble for a set of types with specified parameters.
+
+    Parameters
+    ----------
+    types : array_like
+        List of types (A type must be a `str`).
+    T : float or int
+        Temperature of the system.
+    P : float or int
+        Pressure of the system (defaults to `None`).
+    V : float or int
+        Volume of the system (defaults to `None`).
+    mu : `dict`
+        The chemical potential for each specified type (defaults to empty `dict`).
+    N : `dict`
+        The number of particles for each specified type (defaults to empty `dict`.
+    kB : float
+        Boltzmann constant (defaults to 1.0).
+    conjugates : array_like
+        A list of the conjugate variables that are parameters of the system
+        (defaults to `None`).
+
+    Raises
+    ------
+    ValueError
+        If either `P` or `V` are not set.
+    ValueError
+        If either `mu` or `N` are not set for each type.
+    ValueError
+        If the conjugates are not set, and both `P` and `V` are set.
+    ValueError
+        If the conjugates are not set, and both `mu` and `N` are set for each type.
+
+    """
     def __init__(self, types, T, P=None, V=None, mu={}, N={}, kB=1.0, conjugates=None):
         self.types = tuple(types)
-        self.rdf = core.PairMatrix(self.types)
+        self.rdf = core.PairMatrix(types=self.types)
 
         # temperature
         self.kB = kB
@@ -28,8 +73,8 @@ class Ensemble(object):
             raise ValueError('Either P or V must be set.')
 
         # mu-N, must be set by type
-        self._mu = core.TypeDict(self.types)
-        self._N = core.TypeDict(self.types)
+        self._mu = core.FixedKeyDict(keys=self.types)
+        self._N = core.FixedKeyDict(keys=self.types)
         for t in self.types:
             if (t not in mu or mu[t] is None) and (t not in N or N[t] is None):
                 raise ValueError('Either mu or N must be set for type {}.'.format(t))
@@ -63,10 +108,13 @@ class Ensemble(object):
 
     @property
     def beta(self):
+        """float: The thermodynamic beta/coldness."""
         return 1./(self.kB*self.T)
 
     @property
     def V(self):
+        """float or int: The volume of the system; raises an AttributeError if
+        volume is not a conjugate variable."""
         return self._V
 
     @V.setter
@@ -78,6 +126,8 @@ class Ensemble(object):
 
     @property
     def P(self):
+        """float or int: The pressure of the system; raises an AttributeError if
+        pressure is not a conjugate variable."""
         return self._P
 
     @P.setter
@@ -89,6 +139,7 @@ class Ensemble(object):
 
     @property
     def N(self):
+        """dict: The number of particles for each specified type."""
         return self._N.todict()
 
     @N.setter
@@ -101,6 +152,7 @@ class Ensemble(object):
 
     @property
     def mu(self):
+        """dict: The chemical potential for each specified type."""
         return self._mu.todict()
 
     @mu.setter
@@ -113,9 +165,18 @@ class Ensemble(object):
 
     @property
     def conjugates(self):
+        """array_like: The conjugate variables that are parameters in the system."""
         return self._conjugates
 
     def reset(self):
+        """Resets `V`, `P`, and all values of `N` and `mu` in the ensemble to `None`.
+
+        Returns
+        -------
+        :py:class:`Ensemble`
+            Returns the ensemble with resetted parameters.
+
+        """
         if 'V' in self.conjugates:
             self._V = None
         if 'P' in self.conjugates:
@@ -125,15 +186,32 @@ class Ensemble(object):
                 self._N[t] = None
             if 'mu_{}'.format(t) in self.conjugates:
                 self._mu[t] = None
-        self.rdf = core.PairMatrix(self.types)
+        self.rdf = core.PairMatrix(types=self.types)
 
         return self
 
     def copy(self):
+        """Copies the ensemble and returns the copy with resetted parameters.
+
+        Returns
+        -------
+        :py:class:`Ensemble`
+            A copy of the ensemble with resetted parameters.
+
+        """
         ens = copy.deepcopy(self)
         return ens.reset()
 
     def save(self, basename='ensemble'):
+        """Saves the values of the ensemble parameters into a JSON file,
+        and saves the RDF values into separate JSON files.
+
+        Parameters
+        ----------
+        basename : `str`
+            The basename of the files in which to save data (defaults to 'ensemble').
+
+        """
         # dump thermo data to json file
         data = {'types': self.types,
                 'kB': self.kB,
@@ -154,6 +232,25 @@ class Ensemble(object):
 
     @classmethod
     def load(self, basename='ensemble'):
+        """Loads ensemble parameter values, and RDF values from JSON files into
+        a new :py:class:`Ensemble` object.
+
+        Parameters
+        ----------
+        basename : `str`
+            The basename of the files from which to save data (defaults to 'ensemble').
+
+        Returns
+        -------
+        :py:class:`Ensemble`
+            An ensemble object with parameter values from the JSON files.
+
+        Raises
+        ------
+        FileNotFoundError
+            If a data file is not found for a specific RDF pair value.
+
+        """
         with open('{}.json'.format(basename)) as f:
             data = json.load(f)
 
