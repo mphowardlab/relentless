@@ -43,8 +43,8 @@ class Ensemble(object):
     kB : float
         Boltzmann constant (defaults to 1.0).
     conjugates : array_like
-        A list of the conjugate variables that are parameters of the system
-        (defaults to `None`).
+        A list of the fluctuating variables conjugate to the constant parameters
+        of the ensemble (defaults to `None`).
 
     Raises
     ------
@@ -108,7 +108,7 @@ class Ensemble(object):
 
     @property
     def beta(self):
-        """float: The thermodynamic beta/coldness."""
+        """float: The inverse temperature/thermal energy."""
         return 1./(self.kB*self.T)
 
     @property
@@ -165,7 +165,8 @@ class Ensemble(object):
 
     @property
     def conjugates(self):
-        """array_like: The conjugate variables that are parameters in the system."""
+        """array_like: A list of the fluctuating variables conjugate to the
+        constant parameters of the ensemble."""
         return self._conjugates
 
     def reset(self):
@@ -174,7 +175,7 @@ class Ensemble(object):
         Returns
         -------
         :py:class:`Ensemble`
-            Returns the ensemble with resetted parameters.
+            Returns the ensemble with reset parameters.
 
         """
         if 'V' in self.conjugates:
