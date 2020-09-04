@@ -170,12 +170,12 @@ class Ensemble(object):
         return self._conjugates
 
     def reset(self):
-        """Resets `V`, `P`, and all values of `N` and `mu` in the ensemble to `None`.
+        """Resets all conjugate variables in the ensemble and the *rdf parameter* to `None`.
 
         Returns
         -------
         :py:class:`Ensemble`
-            Returns the ensemble with reset parameters.
+            Returns the ensemble object with reset parameters.
 
         """
         if 'V' in self.conjugates:
@@ -192,12 +192,12 @@ class Ensemble(object):
         return self
 
     def copy(self):
-        """Copies the ensemble and returns the copy with resetted parameters.
+        """Copies the ensemble and returns the copy with reset parameters.
 
         Returns
         -------
         :py:class:`Ensemble`
-            A copy of the ensemble with resetted parameters.
+            A copy of the ensemble object with reset parameters.
 
         """
         ens = copy.deepcopy(self)
