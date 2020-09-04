@@ -42,9 +42,6 @@ class Ensemble(object):
         The number of particles for each specified type (defaults to empty `dict`.
     kB : float
         Boltzmann constant (defaults to 1.0).
-    conjugates : array_like
-        A list of the fluctuating variables conjugate to the constant parameters
-        of the ensemble (defaults to `None`).
 
     Raises
     ------
@@ -83,28 +80,25 @@ class Ensemble(object):
             if t in mu:
                 self._mu[t] = mu[t]
 
-        # conjugates can be specified (and assumed correct), or they can be deduced
-        if conjugates is not None:
-            self._conjugates = tuple(conjugates)
-        else:
-            if self.P is not None and self.V is not None:
-                raise ValueError('Both P and V cannot be set.')
-            for t in self.types:
-                if self.mu[t] is not None and self.N[t] is not None:
-                    raise ValueError('Both mu and N cannot be set for type {}.'.format(t))
+        # conjugates are deduced from the specified parameters
+        if self.P is not None and self.V is not None:
+            raise ValueError('Both P and V cannot be set.')
+        for t in self.types:
+            if self.mu[t] is not None and self.N[t] is not None:
+                raise ValueError('Both mu and N cannot be set for type {}.'.format(t))
 
-            # build the set of conjugate variables from the constructor
-            conjugates = []
-            if self.P is None:
-                conjugates.append('P')
-            if self.V is None:
-                conjugates.append('V')
-            for t in self.types:
-                if self.mu[t] is None:
-                    conjugates.append('mu_{}'.format(t))
-                if self.N[t] is None:
-                    conjugates.append('N_{}'.format(t))
-            self._conjugates = tuple(conjugates)
+        # build the set of conjugate variables from the constructor
+        conjugates = []
+        if self.P is None:
+            conjugates.append('P')
+        if self.V is None:
+            conjugates.append('V')
+        for t in self.types:
+            if self.mu[t] is None:
+                conjugates.append('mu_{}'.format(t))
+            if self.N[t] is None:
+                conjugates.append('N_{}'.format(t))
+        self._conjugates = tuple(conjugates)
 
     @property
     def beta(self):
@@ -113,29 +107,21 @@ class Ensemble(object):
 
     @property
     def V(self):
-        """float or int: The volume of the system; raises an AttributeError if
-        volume is not a conjugate variable."""
+        """float or int: The volume of the system."""
         return self._V
 
     @V.setter
     def V(self, value):
-        if 'V' in self.conjugates:
-            self._V = value
-        else:
-            raise AttributeError('Volume is not a conjugate variable.')
+        self._V = value
 
     @property
     def P(self):
-        """float or int: The pressure of the system; raises an AttributeError if
-        pressure is not a conjugate variable."""
+        """float or int: The pressure of the system."""
         return self._P
 
     @P.setter
     def P(self, value):
-        if 'P' in self.conjugates:
-            self._P = value
-        else:
-            raise AttributeError('Pressure is not a conjugate variable.')
+        self._P = value
 
     @property
     def N(self):
@@ -145,10 +131,7 @@ class Ensemble(object):
     @N.setter
     def N(self, value):
         for t in value:
-            if 'N_{}'.format(t) in self.conjugates:
-                self._N[t] = value[t]
-            else:
-                raise AttributeError('Number is not a conjugate variable.')
+            self._N[t] = value[t]
 
     @property
     def mu(self):
@@ -158,10 +141,7 @@ class Ensemble(object):
     @mu.setter
     def mu(self, value):
         for t in value:
-            if 'mu_{}'.format(t) in self.conjugates:
-                self._mu[t] = value[t]
-            else:
-                raise AttributeError('Chemical potential is not a conjugate variable.')
+            self._mu[t] = value[t]
 
     @property
     def conjugates(self):
@@ -170,7 +150,7 @@ class Ensemble(object):
         return self._conjugates
 
     def reset(self):
-        """Resets all conjugate variables in the ensemble and the *rdf parameter* to `None`.
+        """Resets all conjugate variables and all rdf values in the ensemble to `None`.
 
         Returns
         -------
@@ -245,11 +225,6 @@ class Ensemble(object):
         -------
         :py:class:`Ensemble`
             An ensemble object with parameter values from the JSON files.
-
-        Raises
-        ------
-        FileNotFoundError
-            If a data file is not found for a specific RDF pair value.
 
         """
         with open('{}.json'.format(basename)) as f:
