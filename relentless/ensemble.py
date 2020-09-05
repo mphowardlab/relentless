@@ -28,8 +28,6 @@ class Ensemble(object):
 
     Parameters
     ----------
-    types : array_like
-        List of types (A type must be a `str`).
     T : float or int
         Temperature of the system.
     P : float or int
@@ -49,14 +47,19 @@ class Ensemble(object):
         If either `P` or `V` are not set.
     ValueError
         If either `mu` or `N` are not set for each type.
+    TypeError
+        If all values of N are not integers.
     ValueError
         If the conjugates are not set, and both `P` and `V` are set.
     ValueError
         If the conjugates are not set, and both `mu` and `N` are set for each type.
 
     """
-    def __init__(self, types, T, P=None, V=None, mu={}, N={}, kB=1.0, conjugates=None):
-        self.types = tuple(types)
+    def __init__(self, T, P=None, V=None, mu={}, N={}, kB=1.0, conjugates=None):
+        types = []
+        types += [t for t in mu.keys()]
+        types += [t for t in N.keys()]
+        self.types = tuple(set(types))
         self.rdf = core.PairMatrix(types=self.types)
 
         # temperature
@@ -75,6 +78,8 @@ class Ensemble(object):
         for t in self.types:
             if (t not in mu or mu[t] is None) and (t not in N or N[t] is None):
                 raise ValueError('Either mu or N must be set for type {}.'.format(t))
+            if t in N and N[t] is not None and not isinstance(N[t], int):
+                raise TypeError('All values of N must be integers.')
             if t in N:
                 self._N[t] = N[t]
             if t in mu:
