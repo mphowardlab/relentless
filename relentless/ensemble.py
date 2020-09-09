@@ -1,5 +1,9 @@
-__all__ = ['Ensemble','RDF']
+__all__ = ['Ensemble','RDF',
+           'Volume',
+           'Cube','Cuboid','Parallelepiped'
+          ]
 
+import abc
 import copy
 import json
 
@@ -23,44 +27,133 @@ class RDF(core.Interpolator):
         super().__init__(r,g)
         self.table = np.column_stack((r,g))
 
-class Ensemble(object):
-    """Constructs a thermodynamic ensemble for a set of types with specified parameters.
+class Volume(abc.ABC):
+    """Abstract base class for a defined volume/region."""
+    @property
+    @abc.abstractmethod
+    def volume(self):
+        """Volume of the region."""
+        pass
+
+class Parallelepiped(Volume):
+    """General triclinic box.
 
     Parameters
     ----------
-    T : float or int
+    a : array_like
+        One of the vectors forming the parallelepiped; must be an array
+        containing elements as (`x`,`y`,`z`).
+    b : array_like
+        One of the vectors forming the parallelepiped; must be an array
+        containing elements as (`x`,`y`,`z`).
+    c : array_like
+        One of the vectors forming the parallelepiped; must be an array
+        containing elements as (`x`,`y`,`z`).
+
+    Raises
+    ------
+    TypeError
+        If a, b, and c are not all `3x1` arrays.
+
+    """
+    def __init__(self, a, b, c):
+        self.a = np.asarray(a)
+        self.b = np.asarray(b)
+        self.c = np.asarray(c)
+        if not (self.a.shape==(3,) and self.b.shape==(3,) and self.c.shape==(3,)):
+            raise TypeError('a, b, and c must be 3x1 arrays.')
+        self.matrix = np.column_stack((self.a,self.b,self.c))
+
+    @property
+    def volume(self):
+        """float: Volume computed using scalar triple product."""
+        return np.linalg.norm(np.dot(np.cross(self.a,self.b),self.c))
+
+class Cuboid(Parallelepiped):
+    """Orthorhombic box.
+
+    Parameters
+    ----------
+    Lx : float
+        The length of the cuboid.
+    Ly : float
+        The width of the cuboid.
+    Lz : float
+        The height of the cuboid.
+
+    Raises
+    ------
+    TypeError
+        If Lx, Ly, and Lz are not all integers or floats.
+
+    """
+    def __init__(self, Lx, Ly, Lz):
+        if not (isinstance(Lx,(float,int)) and isinstance(Ly,(float,int)) and isinstance(Lz,(float,int))):
+            raise TypeError('Lx, Ly, and Lz must all be ints or floats.')
+        super().__init__([Lx,0,0],[0,Ly,0],[0,0,Lz])
+
+class Cube(Cuboid):
+    """Cubic box.
+
+    Parameters
+    ----------
+    L : float
+        The edge length of the cube.
+
+    Raises
+    ------
+    TypeError
+        If L is not an integer or float.
+
+    """
+    def __init__(self, L):
+        if not isinstance(L,(float,int)):
+            raise TypeError('L must be an int or float.')
+        super().__init__(L,L,L)
+
+class Ensemble(object):
+    """Thermodynamic ensemble.
+
+    The parameters of the ensemble are defined as follows:
+        - The temperature (`T`) is always a constant.
+        - Either the pressure (`P`) or the volume (`V`) can be specified.
+        - Either the chemical potential (`mu`) or the particle number (`N`)
+          can be specified for each type. The types are only defined in the
+          `mu` or `N` dictionaries.
+
+    Parameters
+    ----------
+    T : float
         Temperature of the system.
-    P : float or int
+    P : float
         Pressure of the system (defaults to `None`).
-    V : float or int
+    V : :py:class:`Volume`
         Volume of the system (defaults to `None`).
     mu : `dict`
         The chemical potential for each specified type (defaults to empty `dict`).
     N : `dict`
-        The number of particles for each specified type (defaults to empty `dict`.
+        The number of particles for each specified type (defaults to empty `dict`).
     kB : float
         Boltzmann constant (defaults to 1.0).
 
     Raises
     ------
-    ValueError
-        If either `P` or `V` are not set.
-    ValueError
-        If either `mu` or `N` are not set for each type.
     TypeError
-        If all values of N are not integers.
+        If `V` is not set as a :py:class:`Volume` object.
     ValueError
-        If the conjugates are not set, and both `P` and `V` are set.
+        If neither `P` nor `V` is set.
+    TypeError
+        If all values of `N` are not integers.
     ValueError
-        If the conjugates are not set, and both `mu` and `N` are set for each type.
+        If both `P` and `V` are set.
+    ValueError
+        If both `mu` and `N` are set for a type.
 
     """
-    def __init__(self, T, P=None, V=None, mu={}, N={}, kB=1.0, conjugates=None):
-        types = []
-        types += [t for t in mu.keys()]
-        types += [t for t in N.keys()]
-        self.types = tuple(set(types))
-        self.rdf = core.PairMatrix(types=self.types)
+    def __init__(self, T, P=None, V=None, mu={}, N={}, kB=1.0):
+        types = list(mu.keys()) + list(N.keys())
+        types = tuple(set(types))
+        self.rdf = core.PairMatrix(types=types)
 
         # temperature
         self.kB = kB
@@ -68,42 +161,34 @@ class Ensemble(object):
 
         # P-V
         self._P = P
+        if V is not None and not isinstance(V, Volume):
+            raise TypeError('V can only be set as a Volume object.')
         self._V = V
         if self.P is None and self.V is None:
             raise ValueError('Either P or V must be set.')
 
-        # mu-N, must be set by type
-        self._mu = core.FixedKeyDict(keys=self.types)
-        self._N = core.FixedKeyDict(keys=self.types)
-        for t in self.types:
-            if (t not in mu or mu[t] is None) and (t not in N or N[t] is None):
-                raise ValueError('Either mu or N must be set for type {}.'.format(t))
-            if t in N and N[t] is not None and not isinstance(N[t], int):
+        # mu-N
+        self._mu = core.FixedKeyDict(keys=types)
+        self._N = core.FixedKeyDict(keys=types)
+        self._mu.update(mu)
+        self._N.update(N)
+        for n in N.values():
+            if not isinstance(n, int):
                 raise TypeError('All values of N must be integers.')
-            if t in N:
-                self._N[t] = N[t]
-            if t in mu:
-                self._mu[t] = mu[t]
 
-        # conjugates are deduced from the specified parameters
+        # check that both parameters in a conjugate pair are not set for a type
         if self.P is not None and self.V is not None:
             raise ValueError('Both P and V cannot be set.')
-        for t in self.types:
+        for t in types:
             if self.mu[t] is not None and self.N[t] is not None:
                 raise ValueError('Both mu and N cannot be set for type {}.'.format(t))
 
-        # build the set of conjugate variables from the constructor
-        conjugates = []
-        if self.P is None:
-            conjugates.append('P')
-        if self.V is None:
-            conjugates.append('V')
-        for t in self.types:
-            if self.mu[t] is None:
-                conjugates.append('mu_{}'.format(t))
-            if self.N[t] is None:
-                conjugates.append('N_{}'.format(t))
-        self._conjugates = tuple(conjugates)
+        # build the set of constant variables from the constructor
+        self._constant = {'P': self.P is not None,
+                          'V': self.V is not None,
+                          'mu': {t:(self.mu[t] is not None) for t in types},
+                          'N': {t:(self.N[t] is not None) for t in types}
+                         }
 
     @property
     def beta(self):
@@ -112,11 +197,13 @@ class Ensemble(object):
 
     @property
     def V(self):
-        """float or int: The volume of the system."""
+        """:py:class:`Volume`: The volume of the system, can only be set as a `Volume` object."""
         return self._V
 
     @V.setter
     def V(self, value):
+        if not isinstance(value, Volume):
+            raise TypeError('V can only be set as a Volume object.')
         self._V = value
 
     @property
@@ -130,63 +217,57 @@ class Ensemble(object):
 
     @property
     def N(self):
-        """dict: The number of particles for each specified type."""
-        return self._N.todict()
-
-    @N.setter
-    def N(self, value):
-        for t in value:
-            self._N[t] = value[t]
+        """:py:class:`FixedKeyDict`: The number of particles for each specified type."""
+        return self._N
 
     @property
     def mu(self):
-        """dict: The chemical potential for each specified type."""
-        return self._mu.todict()
-
-    @mu.setter
-    def mu(self, value):
-        for t in value:
-            self._mu[t] = value[t]
+        """:py:class:`FixedKeyDict`: The chemical potential for each specified type."""
+        return self._mu
 
     @property
-    def conjugates(self):
-        """array_like: A list of the fluctuating variables conjugate to the
-        constant parameters of the ensemble."""
-        return self._conjugates
+    def types(self):
+        """tuple: The types in the ensemble."""
+        return tuple(self._N.todict().keys())
 
-    def reset(self):
-        """Resets all conjugate variables and all rdf values in the ensemble to `None`.
+    @property
+    def constant(self):
+        """dict: The constant variables in the system. READ-ONLY."""
+        return self._constant
+
+    def clear(self):
+        """Clears all conjugate variables and all rdf values in the ensemble
+        (set to `None`).
 
         Returns
         -------
         :py:class:`Ensemble`
-            Returns the ensemble object with reset parameters.
+            Returns the ensemble object with cleared parameters.
 
         """
-        if 'V' in self.conjugates:
+        if not self.constant['V']:
             self._V = None
-        if 'P' in self.conjugates:
+        if not self.constant['P']:
             self._P = None
         for t in self.types:
-            if 'N_{}'.format(t) in self.conjugates:
+            if not self.constant['N'][t]:
                 self._N[t] = None
-            if 'mu_{}'.format(t) in self.conjugates:
+            if not self.constant['mu'][t]:
                 self._mu[t] = None
         self.rdf = core.PairMatrix(types=self.types)
 
         return self
 
     def copy(self):
-        """Copies the ensemble and returns the copy with reset parameters.
+        """Returns a copy of the specified ensemble.
 
         Returns
         -------
         :py:class:`Ensemble`
-            A copy of the ensemble object with reset parameters.
+            A copy of the ensemble object.
 
         """
-        ens = copy.deepcopy(self)
-        return ens.reset()
+        return copy.deepcopy(self)
 
     def save(self, basename='ensemble'):
         """Saves the values of the ensemble parameters into a JSON file,
