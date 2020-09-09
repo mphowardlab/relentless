@@ -19,6 +19,9 @@ class test_RDF(unittest.TestCase):
                                                         [2,9],
                                                         [3,5]]))
 
+        #test interpolation
+        np.testing.assert_allclose(rdf([2.5,3.5]), [8.375,5.0])
+
         #test invalid construction with r and g having different lengths
         r = [1,2,3,4]
         with self.assertRaises(ValueError):
@@ -39,14 +42,13 @@ class test_Parallelepiped(unittest.TestCase):
         np.testing.assert_allclose(p.a, np.array([1,2,1]))
         np.testing.assert_allclose(p.b, np.array([3,4,5]))
         np.testing.assert_allclose(p.c, np.array([9,9,0]))
-        np.testing.assert_allclose(p.matrix, np.array([[1,3,9],
-                                                       [2,4,9],
-                                                       [1,5,0]]))
         self.assertAlmostEqual(p.volume, 36)
 
         #test invalid construction
         with self.assertRaises(TypeError):
             p = relentless.Parallelepiped(a=(1,2,1),b=(3,4,5),c=(9,9))
+        with self.assertRaises(ValueError):
+            p = relentless.Parallelepiped(a=(-1,-2,-1),b=(3,-4,5),c=(2,4,1))
 
 class test_Cuboid(unittest.TestCase):
     """Unit tests for relentless.Cuboid"""
@@ -58,14 +60,11 @@ class test_Cuboid(unittest.TestCase):
         np.testing.assert_allclose(c.a, np.array([3,0,0]))
         np.testing.assert_allclose(c.b, np.array([0,4,0]))
         np.testing.assert_allclose(c.c, np.array([0,0,5]))
-        np.testing.assert_allclose(c.matrix, np.array([[3,0,0],
-                                                       [0,4,0],
-                                                       [0,0,5]]))
-        np.testing.assert_allclose(c.volume, 60)
+        self.assertAlmostEqual(c.volume, 60)
 
         #test invalid construction
-        with self.assertRaises(TypeError):
-            c = relentless.Cuboid(Lx=(3,4),Ly=4,Lz=5)
+        with self.assertRaises(ValueError):
+            c = relentless.Cuboid(Lx=-3,Ly=4,Lz=5)
 
 class test_Cube(unittest.TestCase):
     """Unit tests for relentless.Cube"""
@@ -77,14 +76,11 @@ class test_Cube(unittest.TestCase):
         np.testing.assert_allclose(c.a, np.array([3,0,0]))
         np.testing.assert_allclose(c.b, np.array([0,3,0]))
         np.testing.assert_allclose(c.c, np.array([0,0,3]))
-        np.testing.assert_allclose(c.matrix, np.array([[3,0,0],
-                                                       [0,3,0],
-                                                       [0,0,3]]))
-        np.testing.assert_allclose(c.volume, 27)
+        self.assertAlmostEqual(c.volume, 27)
 
         #test invalid construction
-        with self.assertRaises(TypeError):
-            c = relentless.Cube(L=(3,4,5))
+        with self.assertRaises(ValueError):
+            c = relentless.Cube(L=-1)
 
 class test_Ensemble(unittest.TestCase):
     """Unit tests for relentless.Ensemble"""
@@ -109,13 +105,14 @@ class test_Ensemble(unittest.TestCase):
 
         v_obj = relentless.Cube(L=3.0)
 
-        #V and N set
-        ens = relentless.Ensemble(T=20, V=v_obj, N={'A':1,'B':2})
+        #V and N set, non-default value of kB
+        ens = relentless.Ensemble(T=20, V=v_obj, N={'A':1,'B':2}, kB=2.0)
         self.assertCountEqual(ens.types, ('A','B'))
         self.assertCountEqual(ens.rdf.pairs, (('A','B'),('A','A'),('B','B')))
-        self.assertAlmostEqual(ens.kB, 1.0)
+        self.assertAlmostEqual(ens.kB, 2.0)
         self.assertAlmostEqual(ens.T, 20)
         self.assertEqual(ens.P, None)
+        assert ens.V is v_obj
         self.assertAlmostEqual(ens.V.volume, 27.0)
         self.assertDictEqual(ens.mu.todict(), {'A':None,'B':None})
         self.assertDictEqual(ens.N.todict(), {'A':1,'B':2})
@@ -123,7 +120,7 @@ class test_Ensemble(unittest.TestCase):
                                             'V':True,
                                             'mu':{'A':False,'B':False},
                                             'N':{'A':True,'B':True}})
-        self.assertAlmostEqual(ens.beta, 0.05)
+        self.assertAlmostEqual(ens.beta, 0.025)
 
         #mu and N used for one type each
         ens = relentless.Ensemble(T=100, V=v_obj, mu={'A':0.1}, N={'B':2})
@@ -132,6 +129,7 @@ class test_Ensemble(unittest.TestCase):
         self.assertAlmostEqual(ens.kB, 1.0)
         self.assertAlmostEqual(ens.T, 100)
         self.assertEqual(ens.P, None)
+        assert ens.V is v_obj
         self.assertAlmostEqual(ens.V.volume, 27.0)
         self.assertDictEqual(ens.mu.todict(), {'A':0.1,'B':None})
         self.assertDictEqual(ens.N.todict(), {'A':None,'B':2})
@@ -148,6 +146,7 @@ class test_Ensemble(unittest.TestCase):
         self.assertAlmostEqual(ens.kB, 1.0)
         self.assertAlmostEqual(ens.T, 100)
         self.assertEqual(ens.P, None)
+        assert ens.V is v_obj
         self.assertAlmostEqual(ens.V.volume, 27.0)
         self.assertDictEqual(ens.mu.todict(), {'A':0.1})
         self.assertDictEqual(ens.N.todict(), {'A':None})
@@ -160,12 +159,9 @@ class test_Ensemble(unittest.TestCase):
         #test setting rdf
         ens = relentless.Ensemble(T=100, V=v_obj, mu={'A':0.1}, N={'B':2})
         r = [1,2,3]
-        g_ab = [2,9,5]
-        g_aa = [3,7,4]
-        g_bb = [1,9,3]
-        ens.rdf['A','B'] = relentless.RDF(r=r, g=g_ab)
-        ens.rdf['A','A'] = relentless.RDF(r=r, g=g_aa)
-        ens.rdf['B','B'] = relentless.RDF(r=r, g=g_bb)
+        ens.rdf['A','B'] = relentless.RDF(r=r, g=[2,9,5])
+        ens.rdf['A','A'] = relentless.RDF(r=r, g=[3,7,4])
+        ens.rdf['B','B'] = relentless.RDF(r=r, g=[1,9,3])
         np.testing.assert_allclose(ens.rdf['A','B'].table, np.array([[1,2],
                                                                      [2,9],
                                                                      [3,5]]))
@@ -191,69 +187,46 @@ class test_Ensemble(unittest.TestCase):
         #test invalid setting of both mu and N
         with self.assertRaises(ValueError):
             ens = relentless.Ensemble(T=10, mu={'A':0.1,'B':0.2}, N={'A':1,'B':2})
+        with self.assertRaises(ValueError):
+            ens = relentless.Ensemble(T=10, mu={'A':0.1,'B':0.2}, N={'B':2})
 
         #test setting N as a float
         with self.assertRaises(TypeError):
             ens = relentless.Ensemble(T=10, P=1.0, N={'A':1.0})
 
-    def test_set_conjugates(self):
-        """Test setting constant and conjugate/fluctuating parameter values."""
+    def test_set_params(self):
+        """Test setting constant and fluctuating parameter values."""
         v_obj = relentless.Cube(L=3.0)
         v_obj1 = relentless.Cube(L=4.0)
 
-        #P and mu set
-        ens = relentless.Ensemble(T=10, P=2.0, mu={'A':0.1,'B':0.2})
-        self.assertAlmostEqual(ens.P, 2.0)
-        self.assertEqual(ens.V, None)
-        self.assertDictEqual(ens.mu.todict(), {'A':0.1,'B':0.2})
-        self.assertDictEqual(ens.N.todict(), {'A':None,'B':None})
-        #set conjugate values
-        ens.V = v_obj
-        self.assertAlmostEqual(ens.V.volume, 27.0)
-        ens.N['A'] = 1
-        ens.N['B'] = 2
-        self.assertDictEqual(ens.N.todict(), {'A':1,'B':2})
-        ens.P = 3.0
-        self.assertAlmostEqual(ens.P, 3.0)
-        ens.mu['A'] = 0.3
-        ens.mu['B'] = 0.4
-        self.assertAlmostEqual(ens.mu.todict(), {'A':0.3,'B':0.4})
-
-        #V and N set
-        ens = relentless.Ensemble(T=20, V=v_obj, N={'A':1,'B':2})
+        #NVT ensemble
+        ens = relentless.Ensemble(T=10, V=v_obj, N={'A':1,'B':2})
         self.assertEqual(ens.P, None)
+        assert ens.V is v_obj
         self.assertAlmostEqual(ens.V.volume, 27.0)
         self.assertDictEqual(ens.mu.todict(), {'A':None,'B':None})
         self.assertDictEqual(ens.N.todict(), {'A':1,'B':2})
-        #set constant values
-        ens.P = 1.0
-        self.assertAlmostEqual(ens.P, 1.0)
-        ens.mu['A'] = 0.1
-        ens.mu['B'] = 0.2
-        self.assertDictEqual(ens.mu.todict(), {'A':0.1,'B':0.2})
-        ens.V = v_obj1
-        self.assertAlmostEqual(ens.V.volume, 64.0)
-        ens.N['A'] = 1
-        ens.N['B'] = 2
-        self.assertDictEqual(ens.N.todict(), {'A':1,'B':2})
 
-        #mu and N used for one type each
-        ens = relentless.Ensemble(T=100, V=v_obj, mu={'A':0.1}, N={'B':2})
-        self.assertEqual(ens.P, None)
-        self.assertAlmostEqual(ens.V.volume, 27.0)
-        self.assertDictEqual(ens.mu.todict(), {'A':0.1,'B':None})
-        self.assertDictEqual(ens.N.todict(), {'A':None,'B':2})
         #set constant values
-        ens.P = 1.0
-        self.assertAlmostEqual(ens.P, 1.0)
         ens.V = v_obj1
+        assert ens.V is v_obj1
         self.assertAlmostEqual(ens.V.volume, 64.0)
-        ens.mu['A'] = 0.2
-        ens.mu['B'] = 0.3
-        self.assertDictEqual(ens.mu.todict(), {'A':0.2,'B':0.3})
         ens.N['A'] = 2
         ens.N['B'] = 3
         self.assertDictEqual(ens.N.todict(), {'A':2,'B':3})
+
+        #set fluctuating/conjugate values
+        ens.P = 2.0
+        self.assertAlmostEqual(ens.P, 2.0)
+        ens.mu['A'] = 0.2
+        ens.mu['B'] = 0.3
+        self.assertDictEqual(ens.mu.todict(), {'A':0.2,'B':0.3})
+
+        #test invalid setting of N, mu dicts directly
+        with self.assertRaises(AttributeError):
+            ens.N = {'A':3,'B':4}
+        with self.assertRaises(AttributeError):
+            ens.mu = {'A':0.3,'B':0.4}
 
     def test_clear(self):
         """Test clear method and modifying attribute values"""
@@ -302,9 +275,9 @@ class test_Ensemble(unittest.TestCase):
         ens.rdf['A','A'] = relentless.RDF(r=r, g=g_aa)
         ens.rdf['B','B'] = relentless.RDF(r=r, g=g_bb)
         ens.clear()
-        self.assertDictEqual(ens.rdf['A','B'], {})
-        self.assertDictEqual(ens.rdf['A','A'], {})
-        self.assertDictEqual(ens.rdf['B','B'], {})
+        self.assertEqual(ens.rdf['A','B'], None)
+        self.assertEqual(ens.rdf['A','A'], None)
+        self.assertEqual(ens.rdf['B','B'], None)
 
     def test_copy(self):
         """Test copy method"""
@@ -316,7 +289,7 @@ class test_Ensemble(unittest.TestCase):
         ens.N['A'] = 1
         ens.N['B'] = 2
         ens_ = ens.copy()
-        assert ens_ is not ens
+        self.assertIsNot(ens_, ens)
         self.assertCountEqual(ens.types, ens_.types)
         self.assertCountEqual(ens.rdf.pairs, ens_.rdf.pairs)
         self.assertAlmostEqual(ens.T, ens_.T)
@@ -332,7 +305,7 @@ class test_Ensemble(unittest.TestCase):
         ens.mu['A'] = 0.1
         ens.mu['B'] = 0.2
         ens_ = ens.copy()
-        assert ens_ is not ens
+        self.assertIsNot(ens_, ens)
         self.assertCountEqual(ens.types, ens_.types)
         self.assertCountEqual(ens.rdf.pairs, ens_.rdf.pairs)
         self.assertAlmostEqual(ens.T, ens_.T)
@@ -348,7 +321,7 @@ class test_Ensemble(unittest.TestCase):
         ens.mu['B'] = 0.2
         ens.N['A'] = 1
         ens_ = ens.copy()
-        assert ens_ is not ens
+        self.assertIsNot(ens_, ens)
         self.assertCountEqual(ens.types, ens_.types)
         self.assertCountEqual(ens.rdf.pairs, ens_.rdf.pairs)
         self.assertAlmostEqual(ens.T, ens_.T)
@@ -368,7 +341,8 @@ class test_Ensemble(unittest.TestCase):
         ens.rdf['A','A'] = relentless.RDF(r=r, g=g_aa)
         ens.rdf['B','B'] = relentless.RDF(r=r, g=g_bb)
         ens_ = ens.copy()
-        assert ens_ is not ens
+        self.assertIsNot(ens_, ens)
+        self.assertIsNot(ens_.rdf, ens.rdf)
         np.testing.assert_allclose(ens.rdf['A','B'].table, ens_.rdf['A','B'].table)
         np.testing.assert_allclose(ens.rdf['A','A'].table, ens_.rdf['A','A'].table)
         np.testing.assert_allclose(ens.rdf['B','B'].table, ens_.rdf['B','B'].table)

@@ -12,13 +12,15 @@ import numpy as np
 from . import core
 
 class RDF(core.Interpolator):
-    """Constructs a :py:class:`Interpolator` object interpolating through an RDF
-    function :math:`g(r)`, and creates an `nx2` array with columns as `r` and `g`.
+    r"""Radial distribution function.
+
+    Represents the pair distribution function :math:`g(r)` as an `nx2` table that
+    can also be smoothly interpolated.
 
     Parameters
     ----------
     r : array_like
-        1-d array of r values, that must be continually increasing.
+        1-d array of r values (continually increasing).
     g : array_like
         1-d array of g values.
 
@@ -28,7 +30,7 @@ class RDF(core.Interpolator):
         self.table = np.column_stack((r,g))
 
 class Volume(abc.ABC):
-    """Abstract base class for a defined volume/region."""
+    """Abstract base class defining a region of space."""
     @property
     @abc.abstractmethod
     def volume(self):
@@ -36,79 +38,86 @@ class Volume(abc.ABC):
         pass
 
 class Parallelepiped(Volume):
-    """General triclinic box.
+    r"""Parallelepiped volume defined by three vectors.
+
+    The three vectors **a**, **b**, and **c** must form a right-hand basis
+    so that its volume is positive:
+
+    .. math::
+
+        V = (\mathbf{a} \cross \mathbf{b}) \cdot \mathbf{c} > 0
 
     Parameters
     ----------
     a : array_like
-        One of the vectors forming the parallelepiped; must be an array
-        containing elements as (`x`,`y`,`z`).
+        First vector defining the parallelepiped.
     b : array_like
-        One of the vectors forming the parallelepiped; must be an array
-        containing elements as (`x`,`y`,`z`).
+        Second vector defining the parallelepiped.
     c : array_like
-        One of the vectors forming the parallelepiped; must be an array
-        containing elements as (`x`,`y`,`z`).
+        Third vector defining the parallelepiped.
 
     Raises
     ------
     TypeError
-        If a, b, and c are not all `3x1` arrays.
+        If a, b, and c are not all 3-element vectors.
+    ValueError
+        If the volume is not positive.
 
     """
     def __init__(self, a, b, c):
-        self.a = np.asarray(a)
-        self.b = np.asarray(b)
-        self.c = np.asarray(c)
+        self.a = np.asarray(a,dtype=np.float64)
+        self.b = np.asarray(b,dtype=np.float64)
+        self.c = np.asarray(c,dtype=np.float64)
         if not (self.a.shape==(3,) and self.b.shape==(3,) and self.c.shape==(3,)):
-            raise TypeError('a, b, and c must be 3x1 arrays.')
-        self.matrix = np.column_stack((self.a,self.b,self.c))
+            raise TypeError('a, b, and c must be 3-element vectors.')
+        if self.volume <= 0:
+            raise ValueError('The volume must be positive.')
 
     @property
     def volume(self):
         """float: Volume computed using scalar triple product."""
-        return np.linalg.norm(np.dot(np.cross(self.a,self.b),self.c))
+        return np.dot(np.cross(self.a,self.b),self.c)
 
 class Cuboid(Parallelepiped):
     """Orthorhombic box.
 
+    A cuboid is a special type of :py:class:`Parallelepiped`. The three box vectors
+    point along the *x*, *y*, and *z* axes, so they are all orthogonal. Each vector
+    can have a different length, *Lx*, *Ly*, and *Lz*.
+
     Parameters
     ----------
     Lx : float
-        The length of the cuboid.
+        Length along the *x* axis.
     Ly : float
-        The width of the cuboid.
+        Length along the *y* axis.
     Lz : float
-        The height of the cuboid.
+        Length along the *z* axis.
 
     Raises
     ------
-    TypeError
-        If Lx, Ly, and Lz are not all integers or floats.
+    ValueError
+        If *Lx*, *Ly*, *Lz* are not all positive.
 
     """
     def __init__(self, Lx, Ly, Lz):
-        if not (isinstance(Lx,(float,int)) and isinstance(Ly,(float,int)) and isinstance(Lz,(float,int))):
-            raise TypeError('Lx, Ly, and Lz must all be ints or floats.')
+        if Lx<=0 or Ly<=0 or Lz<= 0:
+            raise ValueError('All side lengths must be positive.')
         super().__init__([Lx,0,0],[0,Ly,0],[0,0,Lz])
 
 class Cube(Cuboid):
     """Cubic box.
+
+    A Cube is a special type of :py:class:`Cuboid` where all vectors have the
+    same length *L*.
 
     Parameters
     ----------
     L : float
         The edge length of the cube.
 
-    Raises
-    ------
-    TypeError
-        If L is not an integer or float.
-
     """
     def __init__(self, L):
-        if not isinstance(L,(float,int)):
-            raise TypeError('L must be an int or float.')
         super().__init__(L,L,L)
 
 class Ensemble(object):
@@ -118,8 +127,14 @@ class Ensemble(object):
         - The temperature (`T`) is always a constant.
         - Either the pressure (`P`) or the volume (`V`) can be specified.
         - Either the chemical potential (`mu`) or the particle number (`N`)
-          can be specified for each type. The types are only defined in the
-          `mu` or `N` dictionaries.
+          can be specified for each type. The particle types in the Ensemble are
+          determined from the keys in the `mu` or `N` dictionaries.
+
+    The variables that are "constants" of the ensemble (e.g. *N*, *V*, and *T*
+    for the canonical ensemble) are determined from the arguments specified in the
+    constructor. The fluctuating (conjugate) variables bmust be set subsequently.
+    It is an error to set both variables in a conjugate pair (e.g. *P* and *V)
+    during construction.
 
     Parameters
     ----------
@@ -142,10 +157,10 @@ class Ensemble(object):
         If `V` is not set as a :py:class:`Volume` object.
     ValueError
         If neither `P` nor `V` is set.
-    TypeError
-        If all values of `N` are not integers.
     ValueError
         If both `P` and `V` are set.
+    TypeError
+        If all values of `N` are not integers.
     ValueError
         If both `mu` and `N` are set for a type.
 
@@ -155,33 +170,32 @@ class Ensemble(object):
         types = tuple(set(types))
         self.rdf = core.PairMatrix(types=types)
 
+        # type checking
+        if V is not None and not isinstance(V, Volume):
+            raise TypeError('V can only be set as a Volume object.')
+        elif P is None and V is None:
+            raise ValueError('Either P or V must be set.')
+        elif P is not None and V is not None:
+            raise ValueError('Both P and V cannot be set.')
+        if not all([isinstance(n, int) for n in N.values()]):
+            raise TypeError('All values of N must be integers.')
+        for t in types:
+            if mu.get(t) is not None and N.get(t) is not None:
+                raise ValueError('Both mu and N cannot be set for type {}.'.format(t))
+
         # temperature
         self.kB = kB
         self.T = T
 
         # P-V
-        self._P = P
-        if V is not None and not isinstance(V, Volume):
-            raise TypeError('V can only be set as a Volume object.')
-        self._V = V
-        if self.P is None and self.V is None:
-            raise ValueError('Either P or V must be set.')
+        self.P = P
+        self.V = V
 
         # mu-N
         self._mu = core.FixedKeyDict(keys=types)
         self._N = core.FixedKeyDict(keys=types)
-        self._mu.update(mu)
-        self._N.update(N)
-        for n in N.values():
-            if not isinstance(n, int):
-                raise TypeError('All values of N must be integers.')
-
-        # check that both parameters in a conjugate pair are not set for a type
-        if self.P is not None and self.V is not None:
-            raise ValueError('Both P and V cannot be set.')
-        for t in types:
-            if self.mu[t] is not None and self.N[t] is not None:
-                raise ValueError('Both mu and N cannot be set for type {}.'.format(t))
+        self.mu.update(mu)
+        self.N.update(N)
 
         # build the set of constant variables from the constructor
         self._constant = {'P': self.P is not None,
@@ -202,8 +216,8 @@ class Ensemble(object):
 
     @V.setter
     def V(self, value):
-        if not isinstance(value, Volume):
-            raise TypeError('V can only be set as a Volume object.')
+        if not (value is None or isinstance(value, Volume)):
+            raise TypeError('V can only be set as a Volume object or as None.')
         self._V = value
 
     @property
@@ -217,22 +231,27 @@ class Ensemble(object):
 
     @property
     def N(self):
-        """:py:class:`FixedKeyDict`: The number of particles for each specified type."""
+        """:py:class:`FixedKeyDict`: Number of particles of each type."""
         return self._N
 
     @property
     def mu(self):
-        """:py:class:`FixedKeyDict`: The chemical potential for each specified type."""
+        """:py:class:`FixedKeyDict`: Chemical potential for each type."""
         return self._mu
 
     @property
     def types(self):
         """tuple: The types in the ensemble."""
-        return tuple(self._N.todict().keys())
+        return self.N.keys
 
     @property
     def constant(self):
-        """dict: The constant variables in the system. READ-ONLY."""
+        """dict: The constant variables in the system.
+
+        No changse should be made to this dictionary, as the constant properties
+        are fixed at construction.
+
+        """
         return self._constant
 
     def clear(self):
@@ -254,12 +273,13 @@ class Ensemble(object):
                 self._N[t] = None
             if not self.constant['mu'][t]:
                 self._mu[t] = None
-        self.rdf = core.PairMatrix(types=self.types)
+        for pair in self.rdf:
+            self.rdf[pair] = None
 
         return self
 
     def copy(self):
-        """Returns a copy of the specified ensemble.
+        """Makes a copy of the ensemble.
 
         Returns
         -------
