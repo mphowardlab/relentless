@@ -1,10 +1,11 @@
 __all__ = ['Ensemble','RDF',
            'Volume',
-           'Cube','Cuboid','Parallelepiped'
+           'Cube','Cuboid','Parallelepiped','Triclinic'
           ]
 
 import abc
 import copy
+from enum import Enum
 import json
 
 import numpy as np
@@ -38,7 +39,7 @@ class Volume(abc.ABC):
         pass
 
 class Parallelepiped(Volume):
-    r"""Parallelepiped volume defined by three vectors.
+    r"""Parallelepiped box defined by three vectors.
 
     The three vectors **a**, **b**, and **c** must form a right-hand basis
     so that its volume is positive:
@@ -77,6 +78,85 @@ class Parallelepiped(Volume):
     def volume(self):
         """float: Volume computed using scalar triple product."""
         return np.dot(np.cross(self.a,self.b),self.c)
+
+class Triclinic(Parallelepiped):
+    """Triclinic box.
+
+    A triclinc box is a special type of :py:class:`Parallelepiped`. The triclinic box
+    is formed by creating an orthorhombic box (with the geometry of a :py:class:`Cuboid`)
+    from three vectors of length *Lx*, *Ly*, *Lz*, then tilting the vectors by factors
+    `xy`, `xy`, and `xz`. The tilt factors result in different basis vectors depending
+    on the convention selected from :py:class:`Triclinic.Convention`.
+
+    Parameters
+    ----------
+    Lx : float
+        Length along the *x* axis.
+    Ly : float
+        Length along the *y* axis.
+    Lz : float
+        Length along the *z* axis.
+    xy : float
+        First tilt factor.
+    xz : float
+        Second tilt factor.
+    yz : float
+        Third tilt factor.
+
+    Raises
+    ------
+    ValueError
+        If *Lx*, *Ly*, *Lz* are not all positive.
+    ValueError
+        If the convention is not `Triclinic.Convention.LAMMPS` or
+        `Triclinic.Convention.HOOMD`.
+
+    """
+
+    class Convention(Enum):
+        """Convention by which the tilt factors are applied to the basis factors.
+
+        Calculation of the basis vectors by the LAMMPS convention:
+
+        .. math::
+
+            `a = (Lx,0,0)`
+            `b = (xy,Ly,0)`
+            `c = (xz,yz,Lz)`
+
+        Calculation of the basis vectors by the HOOMD convention:
+
+        .. math::
+
+            `a = (Lx,0,0)`
+            `b = (xy*Ly,Ly,0)`
+            `c = (xz*Lz,yz*Lz,Lz)`
+
+        Attributes
+        ----------
+        LAMMPS : int
+            LAMMPS convention for applying the tilt factors.
+        HOOMD : int
+            HOOMD convention for applying the tilt factors.
+
+        """
+        LAMMPS = 1
+        HOOMD = 2
+
+    def __init__(self, Lx, Ly, Lz, xy, xz, yz, convention=Convention.LAMMPS):
+        if Lx<=0 or Ly<=0 or Lz<= 0:
+            raise ValueError('All side lengths must be positive.')
+        if convention is Triclinic.Convention.LAMMPS:
+            a = (Lx,0,0)
+            b = (xy,Ly,0)
+            c = (xz,yz,Lz)
+        elif convention is Triclinic.Convention.HOOMD:
+            a = (Lx,0,0)
+            b = (xy*Ly,Ly,0)
+            c = (xz*Lz,yz*Lz,Lz)
+        else:
+            raise ValueError('Triclinic convention must be Triclinic.Convention.LAMMPS or Triclinic.Convention.HOOMD')
+        super().__init__(a,b,c)
 
 class Cuboid(Parallelepiped):
     """Orthorhombic box.

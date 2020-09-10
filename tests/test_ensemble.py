@@ -50,6 +50,34 @@ class test_Parallelepiped(unittest.TestCase):
         with self.assertRaises(ValueError):
             p = relentless.Parallelepiped(a=(-1,-2,-1),b=(3,-4,5),c=(2,4,1))
 
+class test_Triclinic(unittest.TestCase):
+    """Unit tests for relentless.Triclinic"""
+
+    def test_init(self):
+        """Test creation from data."""
+        #test valid construction, LAMMPS convention
+        t = relentless.Triclinic(Lx=1,Ly=2,Lz=3,xy=1,xz=0.75,yz=2.25,
+                                 convention=relentless.Triclinic.Convention.LAMMPS)
+        np.testing.assert_allclose(t.a, np.array([1,0,0]))
+        np.testing.assert_allclose(t.b, np.array([1,2,0]))
+        np.testing.assert_allclose(t.c, np.array([0.75,2.25,3]))
+        self.assertAlmostEqual(t.volume, 6)
+
+        #test valid construction, HOOMD convention
+        t = relentless.Triclinic(Lx=1,Ly=2,Lz=3,xy=0.5,xz=0.25,yz=0.75,
+                                 convention=relentless.Triclinic.Convention.HOOMD)
+        np.testing.assert_allclose(t.a, np.array([1,0,0]))
+        np.testing.assert_allclose(t.b, np.array([1,2,0]))
+        np.testing.assert_allclose(t.c, np.array([0.75,2.25,3]))
+        self.assertAlmostEqual(t.volume, 6)
+
+        #test invalid constructions
+        with self.assertRaises(ValueError):
+            t = relentless.Triclinic(Lx=1,Ly=2,Lz=3,xy=1,xz=0.75,yz=2.25,convention='LAMMPS')
+        with self.assertRaises(ValueError):
+            t = relentless.Triclinic(Lx=-1,Ly=2,Lz=3,xy=1,xz=0.75,yz=2.25,
+                                     convention=relentless.Triclinic.Convention.LAMMPS)
+
 class test_Cuboid(unittest.TestCase):
     """Unit tests for relentless.Cuboid"""
 
