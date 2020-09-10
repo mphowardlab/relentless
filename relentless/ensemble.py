@@ -369,43 +369,44 @@ class Ensemble(object):
         """
         return copy.deepcopy(self)
 
-    def save(self, basename='ensemble'):
-        """Saves the values of the ensemble parameters into a JSON file,
-        and saves the RDF values into separate JSON files.
+    def save(self, filename):
+        """Saves the ensemble parameters and the RDF values into a JSON file.
 
         Parameters
         ----------
-        basename : `str`
-            The basename of the files in which to save data (defaults to 'ensemble').
+        filename : `str`
+            The name of the file to save data in.
 
         """
-        # dump thermo data to json file
-        data = {'types': self.types,
-                'kB': self.kB,
-                'T': self.T,
-                'P': self.P,
-                'V': self.V,
-                'N': self.N,
-                'mu': self.mu,
-                'conjugates': self.conjugates}
-        with open('{}.json'.format(basename),'w') as f:
-            json.dump(data, f, sort_keys=True, indent=4)
+        data = []
 
-        # dump rdfs in separate files
-        for pair in self.rdf:
-            if self.rdf[pair] is not None:
-                i,j = pair
-                np.savetxt('{}.{}.{}.dat'.format(basename,i,j), self.rdf[pair].table, header='r g[{},{}](r)'.format(i,j))
+        # append thermo data
+        thermo = {'T': self.T,
+                  'P': self.P,
+                  'V': self.V,
+                  'mu':self.mu,
+                  'N': self.N,
+                  'kB': self.kB,
+                  'constant': self.constant} #need constant?
+        data.append(thermo)
+
+        # append rdf data
+        rdf = {pair:self.rdf[pair].table for pair in self.rdf}
+        data.append(rdf)
+
+        # dump data to json file
+        with open('{}.json'.format(filename),'w') as f:
+            json.dump(data, f, indent=4)
 
     @classmethod
-    def load(self, basename='ensemble'):
-        """Loads ensemble parameter values, and RDF values from JSON files into
-        a new :py:class:`Ensemble` object.
+    def load(self, filename):
+        """Loads ensemble parameters and RDF values from a JSON file into a new
+        :py:class:`Ensemble` object.
 
         Parameters
         ----------
-        basename : `str`
-            The basename of the files from which to save data (defaults to 'ensemble').
+        filename : `str`
+            The name of the file from which to load data.
 
         Returns
         -------
@@ -413,23 +414,24 @@ class Ensemble(object):
             An ensemble object with parameter values from the JSON files.
 
         """
-        with open('{}.json'.format(basename)) as f:
+        with open('{}.json'.format(filename)) as f:
             data = json.load(f)
 
-        ens = Ensemble(types=data['types'],
-                       T=data['T'],
-                       P=data['P'],
-                       V=data['V'],
-                       N=data['N'],
-                       mu=data['mu'],
-                       kB=data['kB'],
-                       conjugates=data['conjugates'])
+        thermo = data[0]
+        rdf = data[1]
+
+        #reset fluctuating variables?
+
+        ens = Ensemble(T=thermo['T'],
+                       P=thermo['P'],
+                       V=thermo['V'],
+                       mu=thermo['mu'],
+                       N=thermo['N'],
+                       kB=thermo['kB'])
 
         for pair in ens.rdf:
-            try:
-                gr = np.loadtxt('{}.{}.{}.dat'.format(basename,pair[0],pair[1]))
-                ens.rdf[pair] = RDF(gr[:,0], gr[:,1])
-            except FileNotFoundError:
-                pass
+            r = rdf[pair].table[:,1]
+            g = rdf[pair].table[:,2]
+            ens.rdf[pair] = RDF(r=r, g=g)
 
         return ens
