@@ -50,22 +50,33 @@ class test_Parallelepiped(unittest.TestCase):
         with self.assertRaises(ValueError):
             p = relentless.Parallelepiped(a=(-1,-2,-1),b=(3,-4,5),c=(2,4,1))
 
-class test_Triclinic(unittest.TestCase):
-    """Unit tests for relentless.Triclinic"""
+    def test_to_from_json(self):
+        """Test to_json and from_json methods."""
+        p = relentless.Parallelepiped(a=(1,2,1),b=(3,4,5),c=(9,9,0))
+        data = p.to_json()
+        p_ = relentless.Parallelepiped.from_json(data)
+        self.assertIsInstance(p_, relentless.Parallelepiped)
+        np.testing.assert_allclose(p.a, p_.a)
+        np.testing.assert_allclose(p.b, p_.b)
+        np.testing.assert_allclose(p.c, p_.c)
+        self.assertAlmostEqual(p.volume, p_.volume)
+
+class test_TriclinicBox(unittest.TestCase):
+    """Unit tests for relentless.TriclinicBox"""
 
     def test_init(self):
         """Test creation from data."""
         #test valid construction, LAMMPS convention
-        t = relentless.Triclinic(Lx=1,Ly=2,Lz=3,xy=1,xz=0.75,yz=2.25,
-                                 convention=relentless.Triclinic.Convention.LAMMPS)
+        t = relentless.TriclinicBox(Lx=1,Ly=2,Lz=3,xy=1,xz=0.75,yz=2.25,
+                                    convention=relentless.TriclinicBox.Convention.LAMMPS)
         np.testing.assert_allclose(t.a, np.array([1,0,0]))
         np.testing.assert_allclose(t.b, np.array([1,2,0]))
         np.testing.assert_allclose(t.c, np.array([0.75,2.25,3]))
         self.assertAlmostEqual(t.volume, 6)
 
         #test valid construction, HOOMD convention
-        t = relentless.Triclinic(Lx=1,Ly=2,Lz=3,xy=0.5,xz=0.25,yz=0.75,
-                                 convention=relentless.Triclinic.Convention.HOOMD)
+        t = relentless.TriclinicBox(Lx=1,Ly=2,Lz=3,xy=0.5,xz=0.25,yz=0.75,
+                                    convention=relentless.TriclinicBox.Convention.HOOMD)
         np.testing.assert_allclose(t.a, np.array([1,0,0]))
         np.testing.assert_allclose(t.b, np.array([1,2,0]))
         np.testing.assert_allclose(t.c, np.array([0.75,2.25,3]))
@@ -73,10 +84,34 @@ class test_Triclinic(unittest.TestCase):
 
         #test invalid constructions
         with self.assertRaises(ValueError):
-            t = relentless.Triclinic(Lx=1,Ly=2,Lz=3,xy=1,xz=0.75,yz=2.25,convention='LAMMPS')
+            t = relentless.TriclinicBox(Lx=1,Ly=2,Lz=3,xy=1,xz=0.75,yz=2.25,convention='LAMMPS')
         with self.assertRaises(ValueError):
-            t = relentless.Triclinic(Lx=-1,Ly=2,Lz=3,xy=1,xz=0.75,yz=2.25,
-                                     convention=relentless.Triclinic.Convention.LAMMPS)
+            t = relentless.TriclinicBox(Lx=-1,Ly=2,Lz=3,xy=1,xz=0.75,yz=2.25,
+                                        convention=relentless.TriclinicBox.Convention.LAMMPS)
+
+    def test_to_from_json(self):
+        """Test to_json and from_json methods."""
+        #test LAMMPS convention
+        c = relentless.TriclinicBox(Lx=3,Ly=4,Lz=5,xy=2,xz=3,yz=4,
+                                    convention=relentless.TriclinicBox.Convention.LAMMPS)
+        data = c.to_json()
+        c_ = relentless.TriclinicBox.from_json(data)
+        self.assertIsInstance(c_, relentless.TriclinicBox)
+        np.testing.assert_allclose(c.a, c_.a)
+        np.testing.assert_allclose(c.b, c_.b)
+        np.testing.assert_allclose(c.c, c_.c)
+        self.assertAlmostEqual(c.volume, c_.volume)
+
+        #test HOOMD convention
+        c = relentless.TriclinicBox(Lx=3,Ly=4,Lz=5,xy=2,xz=3,yz=4,
+                                    convention=relentless.TriclinicBox.Convention.HOOMD)
+        data = c.to_json()
+        c_ = relentless.TriclinicBox.from_json(data)
+        self.assertIsInstance(c_, relentless.TriclinicBox)
+        np.testing.assert_allclose(c.a, c_.a)
+        np.testing.assert_allclose(c.b, c_.b)
+        np.testing.assert_allclose(c.c, c_.c)
+        self.assertAlmostEqual(c.volume, c_.volume)
 
 class test_Cuboid(unittest.TestCase):
     """Unit tests for relentless.Cuboid"""
@@ -94,6 +129,17 @@ class test_Cuboid(unittest.TestCase):
         with self.assertRaises(ValueError):
             c = relentless.Cuboid(Lx=-3,Ly=4,Lz=5)
 
+    def test_to_from_json(self):
+        """Test to_json and from_json methods."""
+        c = relentless.Cuboid(Lx=3,Ly=4,Lz=5)
+        data = c.to_json()
+        c_ = relentless.Cuboid.from_json(data)
+        self.assertIsInstance(c_, relentless.Cuboid)
+        np.testing.assert_allclose(c.a, c_.a)
+        np.testing.assert_allclose(c.b, c_.b)
+        np.testing.assert_allclose(c.c, c_.c)
+        self.assertAlmostEqual(c.volume, c_.volume)
+
 class test_Cube(unittest.TestCase):
     """Unit tests for relentless.Cube"""
 
@@ -109,6 +155,17 @@ class test_Cube(unittest.TestCase):
         #test invalid construction
         with self.assertRaises(ValueError):
             c = relentless.Cube(L=-1)
+
+    def test_to_from_json(self):
+        """Test to_json and from_json methods."""
+        c = relentless.Cube(L=3)
+        data = c.to_json()
+        c_ = relentless.Cube.from_json(data)
+        self.assertIsInstance(c_, relentless.Cube)
+        np.testing.assert_allclose(c.a, c_.a)
+        np.testing.assert_allclose(c.b, c_.b)
+        np.testing.assert_allclose(c.c, c_.c)
+        self.assertAlmostEqual(c.volume, c_.volume)
 
 class test_Ensemble(unittest.TestCase):
     """Unit tests for relentless.Ensemble"""
@@ -296,12 +353,9 @@ class test_Ensemble(unittest.TestCase):
         #test resetting rdf
         ens = relentless.Ensemble(T=100, V=v_obj, mu={'A':0.1}, N={'B':2})
         r = [1,2,3]
-        g_ab = [2,9,5]
-        g_aa = [3,7,4]
-        g_bb = [1,9,3]
-        ens.rdf['A','B'] = relentless.RDF(r=r, g=g_ab)
-        ens.rdf['A','A'] = relentless.RDF(r=r, g=g_aa)
-        ens.rdf['B','B'] = relentless.RDF(r=r, g=g_bb)
+        ens.rdf['A','B'] = relentless.RDF(r=r, g=[2,9,5])
+        ens.rdf['A','A'] = relentless.RDF(r=r, g=[3,7,4])
+        ens.rdf['B','B'] = relentless.RDF(r=r, g=[1,9,3])
         ens.clear()
         self.assertEqual(ens.rdf['A','B'], None)
         self.assertEqual(ens.rdf['A','A'], None)
@@ -362,12 +416,9 @@ class test_Ensemble(unittest.TestCase):
         #test copying rdf
         ens = relentless.Ensemble(T=100, V=v_obj, mu={'A':0.1}, N={'B':2})
         r = [1,2,3]
-        g_ab = [2,9,5]
-        g_aa = [3,7,4]
-        g_bb = [1,9,3]
-        ens.rdf['A','B'] = relentless.RDF(r=r, g=g_ab)
-        ens.rdf['A','A'] = relentless.RDF(r=r, g=g_aa)
-        ens.rdf['B','B'] = relentless.RDF(r=r, g=g_bb)
+        ens.rdf['A','B'] = relentless.RDF(r=r, g=[2,9,5])
+        ens.rdf['A','A'] = relentless.RDF(r=r, g=[3,7,4])
+        ens.rdf['B','B'] = relentless.RDF(r=r, g=[1,9,3])
         ens_ = ens.copy()
         self.assertIsNot(ens_, ens)
         self.assertIsNot(ens_.rdf, ens.rdf)
@@ -375,9 +426,80 @@ class test_Ensemble(unittest.TestCase):
         np.testing.assert_allclose(ens.rdf['A','A'].table, ens_.rdf['A','A'].table)
         np.testing.assert_allclose(ens.rdf['B','B'].table, ens_.rdf['B','B'].table)
 
-    def test_save_load(self):
-        """Test save and load methods"""
-        pass
+    def test_save_from_file(self):
+        """Test save and from_file methods"""
+        temp = tempfile.NamedTemporaryFile()
+
+        v_obj = relentless.Cube(L=1.0)
+
+        #P and mu set
+        ens = relentless.Ensemble(T=10, P=2.0, mu={'A':0.1,'B':0.2})
+        ens.V = v_obj
+        ens.N['A'] = 1
+        ens.N['B'] = 2
+        ens.save(temp.name)
+        ens_ = relentless.Ensemble.from_file(temp.name)
+        self.assertIsNot(ens_, ens)
+        self.assertCountEqual(ens.types, ens_.types)
+        self.assertCountEqual(ens.rdf.pairs, ens_.rdf.pairs)
+        self.assertAlmostEqual(ens.T, ens_.T)
+        self.assertAlmostEqual(ens.P, ens_.P)
+        self.assertIsInstance(ens_.V, relentless.Cube)
+        self.assertAlmostEqual(ens.V.volume, ens_.V.volume)
+        self.assertDictEqual(ens.mu.todict(), ens_.mu.todict())
+        self.assertDictEqual(ens_.N.todict(), ens.N.todict())
+        self.assertDictEqual(ens_.constant, ens.constant)
+
+        #V and N set
+        ens = relentless.Ensemble(T=20, V=v_obj, N={'A':1,'B':2})
+        ens.P = 1.0
+        ens.mu['A'] = 0.1
+        ens.mu['B'] = 0.2
+        ens.save(temp.name)
+        ens_ = relentless.Ensemble.from_file(temp.name)
+        self.assertIsNot(ens_, ens)
+        self.assertCountEqual(ens.types, ens_.types)
+        self.assertCountEqual(ens.rdf.pairs, ens_.rdf.pairs)
+        self.assertAlmostEqual(ens.T, ens_.T)
+        self.assertAlmostEqual(ens.P, ens_.P)
+        self.assertIsInstance(ens_.V, relentless.Cube)
+        self.assertAlmostEqual(ens.V.volume, ens_.V.volume)
+        self.assertDictEqual(ens.mu.todict(), ens_.mu.todict())
+        self.assertDictEqual(ens_.N.todict(), ens.N.todict())
+        self.assertDictEqual(ens_.constant, ens.constant)
+
+        #mu and N used for one type each
+        ens = relentless.Ensemble(T=100, V=v_obj, mu={'A':0.1}, N={'B':2})
+        ens.P = 1.0
+        ens.mu['B'] = 0.2
+        ens.N['A'] = 1
+        ens.save(temp.name)
+        ens_ = relentless.Ensemble.from_file(temp.name)
+        self.assertIsNot(ens_, ens)
+        self.assertCountEqual(ens.types, ens_.types)
+        self.assertCountEqual(ens.rdf.pairs, ens_.rdf.pairs)
+        self.assertAlmostEqual(ens.T, ens_.T)
+        self.assertAlmostEqual(ens.P, ens_.P)
+        self.assertIsInstance(ens_.V, relentless.Cube)
+        self.assertAlmostEqual(ens.V.volume, ens_.V.volume)
+        self.assertDictEqual(ens.mu.todict(), ens_.mu.todict())
+        self.assertDictEqual(ens_.N.todict(), ens.N.todict())
+        self.assertDictEqual(ens_.constant, ens.constant)
+
+        #test saving/constructing rdf
+        ens = relentless.Ensemble(T=100, V=v_obj, mu={'A':0.1}, N={'B':2})
+        r = [1,2,3]
+        ens.rdf['A','B'] = relentless.RDF(r=r, g=[2,9,5])
+        ens.rdf['A','A'] = relentless.RDF(r=r, g=[3,7,4])
+        ens.save(temp.name)
+        ens_ = relentless.Ensemble.from_file(temp.name)
+        self.assertIsNot(ens_, ens)
+        self.assertIsNot(ens_.rdf, ens.rdf)
+        np.testing.assert_allclose(ens.rdf['A','B'].table, ens_.rdf['A','B'].table)
+        np.testing.assert_allclose(ens.rdf['A','A'].table, ens_.rdf['A','A'].table)
+        self.assertEqual(ens.rdf['B','B'], ens_.rdf['B','B'])
+
+        temp.close()
 
 if __name__ == '__main__':
     unittest.main()

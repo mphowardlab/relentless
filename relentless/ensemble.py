@@ -1,6 +1,6 @@
 __all__ = ['Ensemble','RDF',
            'Volume',
-           'Cube','Cuboid','Parallelepiped','Triclinic'
+           'Cube','Cuboid','Parallelepiped','TriclinicBox'
           ]
 
 import abc
@@ -36,6 +36,17 @@ class Volume(abc.ABC):
     @abc.abstractmethod
     def volume(self):
         """Volume of the region."""
+        pass
+
+    @abc.abstractmethod
+    def to_json(self):
+        """Abstract method to serialize a :py:class:`Volume` object into a JSON equivalent."""
+        pass
+
+    @classmethod
+    @abc.abstractmethod
+    def from_json(cls, data):
+        """Abstract method to serialize JSON data into a :py:class:`Volume` object."""
         pass
 
 class Parallelepiped(Volume):
@@ -79,14 +90,45 @@ class Parallelepiped(Volume):
         """float: Volume computed using scalar triple product."""
         return np.dot(np.cross(self.a,self.b),self.c)
 
-class Triclinic(Parallelepiped):
+    def to_json(self):
+        """Serializes :py:class:`Parallelepiped` object into JSON dictionary equivalent.
+
+        Returns
+        -------
+        dict
+            The serialized version of `self`.
+
+        """
+        return {'a':self.a,
+                'b':self.b,
+                'c':self.c
+               }
+
+    @classmethod
+    def from_json(cls, data):
+        """De-serializes JSON dictionary into a new :py:class:`Parallelepiped` object.
+
+        Parameters
+        ----------
+        data : dict
+            The JSON-serialized equivalent of the Parallelepiped object.
+
+        Returns
+        -------
+        :py:class:`Parallelepiped`
+            A new Parallelepiped object constructed from the data.
+
+        """
+        return Parallelepiped(a=data['a'],b=data['b'],c=data['c'])
+
+class TriclinicBox(Parallelepiped):
     """Triclinic box.
 
-    A triclinc box is a special type of :py:class:`Parallelepiped`. The triclinic box
-    is formed by creating an orthorhombic box (with the geometry of a :py:class:`Cuboid`)
-    from three vectors of length *Lx*, *Ly*, *Lz*, then tilting the vectors by factors
-    `xy`, `xy`, and `xz`. The tilt factors result in different basis vectors depending
-    on the convention selected from :py:class:`Triclinic.Convention`.
+    A TriclinicBox is a special type of :py:class:`Parallelepiped`. The box is
+    formed by creating an orthorhombic box from three vectors of length *Lx*, *Ly*, *Lz*,
+    then tilting the vectors by factors `xy`, `xy`, and `xz`. The tilt factors
+    result in different basis vectors depending on the convention selected from
+    :py:class:`TriclinicBox.Convention`.
 
     Parameters
     ----------
@@ -108,29 +150,29 @@ class Triclinic(Parallelepiped):
     ValueError
         If *Lx*, *Ly*, *Lz* are not all positive.
     ValueError
-        If the convention is not `Triclinic.Convention.LAMMPS` or
-        `Triclinic.Convention.HOOMD`.
+        If the convention is not `TriclinicBox.Convention.LAMMPS` or
+        `TriclinicBox.Convention.HOOMD`.
 
     """
 
     class Convention(Enum):
-        """Convention by which the tilt factors are applied to the basis factors.
+        """Convention by which the tilt factors are applied to the basis vectors.
 
-        Calculation of the basis vectors by the LAMMPS convention:
-
-        .. math::
-
-            `a = (Lx,0,0)`
-            `b = (xy,Ly,0)`
-            `c = (xz,yz,Lz)`
-
-        Calculation of the basis vectors by the HOOMD convention:
+        Calculation of the basis vectors by the `LAMMPS convention <https://lammps.sandia.gov/doc/Howto_triclinic.html>`_:
 
         .. math::
 
-            `a = (Lx,0,0)`
-            `b = (xy*Ly,Ly,0)`
-            `c = (xz*Lz,yz*Lz,Lz)`
+            \mathbf{a} = (L_x,0,0)
+            \mathbf{b} = (xy,L_y,0)
+            \mathbf{c} = (xz,yz,L_z)
+
+        Calculation of the basis vectors by the `HOOMD convention <https://hoomd-blue.readthedocs.io/en/stable/box.html>`_:
+
+        .. math::
+
+            \mathbf{a} = (L_x,0,0)
+            \mathbf{b} = (xy*L_y,L_y,0)
+            \mathbf{c} = (xz*L_z,yz*L_z,L_z)
 
         Attributes
         ----------
@@ -146,24 +188,82 @@ class Triclinic(Parallelepiped):
     def __init__(self, Lx, Ly, Lz, xy, xz, yz, convention=Convention.LAMMPS):
         if Lx<=0 or Ly<=0 or Lz<= 0:
             raise ValueError('All side lengths must be positive.')
-        if convention is Triclinic.Convention.LAMMPS:
+        self._convention = convention
+        if self._convention is TriclinicBox.Convention.LAMMPS:
             a = (Lx,0,0)
             b = (xy,Ly,0)
             c = (xz,yz,Lz)
-        elif convention is Triclinic.Convention.HOOMD:
+        elif self._convention is TriclinicBox.Convention.HOOMD:
             a = (Lx,0,0)
             b = (xy*Ly,Ly,0)
             c = (xz*Lz,yz*Lz,Lz)
         else:
-            raise ValueError('Triclinic convention must be Triclinic.Convention.LAMMPS or Triclinic.Convention.HOOMD')
+            raise ValueError('Triclinic convention must be TriclinicBox.Convention.LAMMPS or TriclinicBox.Convention.HOOMD')
         super().__init__(a,b,c)
 
-class Cuboid(Parallelepiped):
+    def to_json(self):
+        """Serializes :py:class:`TriclinicBox` object into JSON dictionary equivalent.
+
+        Returns
+        -------
+        dict
+            The serialized version of `self`.
+
+        """
+        if self._convention is TriclinicBox.Convention.LAMMPS:
+            xy = self.b[0]
+            xz = self.c[0]
+            yz = self.c[1]
+        elif self._convention is TriclinicBox.Convention.HOOMD:
+            xy = self.b[0]/self.b[1]
+            xz = self.c[0]/self.c[2]
+            yz = self.c[1]/self.c[2]
+        return {'Lx':self.a[0],
+                'Ly':self.b[1],
+                'Lz':self.c[2],
+                'xy':xy,
+                'xz':xz,
+                'yz':yz,
+                'convention':self._convention.name
+               }
+
+    @classmethod
+    def from_json(cls, data):
+        """De-serializes JSON dictionary into a new :py:class:`TriclinicBox` object.
+
+        Parameters
+        ----------
+        data : dict
+            The JSON-serialized equivalent of the TriclinicBox object.
+
+        Returns
+        -------
+        :py:class:`TriclinicBox`
+            A new TriclinicBox object constructed from the data.
+
+        Raises
+        ------
+        ValueError
+            If the convention specified is not LAMMPS or HOOMD.
+
+        """
+        if data['convention']=='LAMMPS':
+            conv = TriclinicBox.Convention.LAMMPS
+        elif data['convention']=='HOOMD':
+            conv = TriclinicBox.Convention.HOOMD
+        else:
+            return ValueError('Only LAMMPS and HOOMD conventions are supported.')
+        return TriclinicBox(Lx=data['Lx'],Ly=data['Ly'],Lz=data['Lz'],
+                            xy=data['xy'],xz=data['xz'],yz=data['yz'],
+                            convention=conv)
+
+class Cuboid(TriclinicBox):
     """Orthorhombic box.
 
-    A cuboid is a special type of :py:class:`Parallelepiped`. The three box vectors
-    point along the *x*, *y*, and *z* axes, so they are all orthogonal. Each vector
-    can have a different length, *Lx*, *Ly*, and *Lz*.
+    A cuboid is a special type of :py:class:`TriclinicBox`. The three box vectors
+    point along the *x*, *y*, and *z* axes, so they are all orthogonal (i.e. the
+    tilt factors `xy`, `xz`, and `yz` are all 0). Each vector can have a different
+    length, *Lx*, *Ly*, and *Lz*.
 
     Parameters
     ----------
@@ -181,9 +281,38 @@ class Cuboid(Parallelepiped):
 
     """
     def __init__(self, Lx, Ly, Lz):
-        if Lx<=0 or Ly<=0 or Lz<= 0:
-            raise ValueError('All side lengths must be positive.')
-        super().__init__([Lx,0,0],[0,Ly,0],[0,0,Lz])
+        super().__init__(Lx,Ly,Lz,0,0,0)
+
+    def to_json(self):
+        """Serializes :py:class:`Cuboid` object into JSON dictionary equivalent.
+
+        Returns
+        -------
+        dict
+            The serialized version of `self`.
+
+        """
+        return {'Lx':self.a[0],
+                'Ly':self.b[1],
+                'Lz':self.c[2],
+               }
+
+    @classmethod
+    def from_json(cls, data):
+        """De-serializes JSON dictionary into a new :py:class:`Cuboid` object.
+
+        Parameters
+        ----------
+        data : dict
+            The JSON-serialized equivalent of the Cuboid object.
+
+        Returns
+        -------
+        :py:class:`Cuboid`
+            A new Cuboid object constructed from the data.
+
+        """
+        return Cuboid(Lx=data['Lx'],Ly=data['Ly'],Lz=data['Lz'])
 
 class Cube(Cuboid):
     """Cubic box.
@@ -199,6 +328,35 @@ class Cube(Cuboid):
     """
     def __init__(self, L):
         super().__init__(L,L,L)
+
+    def to_json(self):
+        """Serializes :py:class:`Cube` object into JSON dictionary equivalent.
+
+        Returns
+        -------
+        dict
+            The serialized version of `self`.
+
+        """
+        return {'L':self.a[0]
+               }
+
+    @classmethod
+    def from_json(cls, data):
+        """De-serializes JSON dictionary into a new :py:class:`Cube` object.
+
+        Parameters
+        ----------
+        data : dict
+            The JSON-serialized equivalent of the Cube object.
+
+        Returns
+        -------
+        :py:class:`Cube`
+            A new Cube object constructed from the data.
+
+        """
+        return Cube(L=data['L'])
 
 class Ensemble(object):
     """Thermodynamic ensemble.
@@ -225,40 +383,42 @@ class Ensemble(object):
     V : :py:class:`Volume`
         Volume of the system (defaults to `None`).
     mu : `dict`
-        The chemical potential for each specified type (defaults to empty `dict`).
+        The chemical potential for each specified type (defaults to `None`).
     N : `dict`
-        The number of particles for each specified type (defaults to empty `dict`).
+        The number of particles for each specified type (defaults to `None`).
     kB : float
         Boltzmann constant (defaults to 1.0).
 
     Raises
     ------
-    TypeError
-        If `V` is not set as a :py:class:`Volume` object.
     ValueError
         If neither `P` nor `V` is set.
     ValueError
         If both `P` and `V` are set.
     TypeError
-        If all values of `N` are not integers.
+        If all values of `N` are not integers or `None`.
     ValueError
         If both `mu` and `N` are set for a type.
 
     """
-    def __init__(self, T, P=None, V=None, mu={}, N={}, kB=1.0):
+    def __init__(self, T, P=None, V=None, mu=None, N=None, kB=1.0):
+        if mu is None:
+            mu = {}
+        if N is None:
+            N = {}
+
         types = list(mu.keys()) + list(N.keys())
         types = tuple(set(types))
         self.rdf = core.PairMatrix(types=types)
 
         # type checking
-        if V is not None and not isinstance(V, Volume):
-            raise TypeError('V can only be set as a Volume object.')
-        elif P is None and V is None:
+        if P is None and V is None:
             raise ValueError('Either P or V must be set.')
         elif P is not None and V is not None:
             raise ValueError('Both P and V cannot be set.')
-        if not all([isinstance(n, int) for n in N.values()]):
-            raise TypeError('All values of N must be integers.')
+
+        if not all([(isinstance(n,int) or n is None) for n in N.values()]):
+            raise TypeError('All values of N must be integers or None.')
         for t in types:
             if mu.get(t) is not None and N.get(t) is not None:
                 raise ValueError('Both mu and N cannot be set for type {}.'.format(t))
@@ -291,12 +451,12 @@ class Ensemble(object):
 
     @property
     def V(self):
-        """:py:class:`Volume`: The volume of the system, can only be set as a `Volume` object."""
+        """:py:class:`Volume`: The volume of the system."""
         return self._V
 
     @V.setter
     def V(self, value):
-        if not (value is None or isinstance(value, Volume)):
+        if value is not None and not isinstance(value, Volume):
             raise TypeError('V can only be set as a Volume object or as None.')
         self._V = value
 
@@ -328,7 +488,7 @@ class Ensemble(object):
     def constant(self):
         """dict: The constant variables in the system.
 
-        No changse should be made to this dictionary, as the constant properties
+        No changes should be made to this dictionary, as the constant properties
         are fixed at construction.
 
         """
@@ -370,42 +530,45 @@ class Ensemble(object):
         return copy.deepcopy(self)
 
     def save(self, filename):
-        """Saves the ensemble parameters and the RDF values into a JSON file.
+        """Saves the parameters of the ensemble (`self`) and its RDF values into a JSON file.
 
         Parameters
         ----------
-        filename : `str`
+        filename : str
             The name of the file to save data in.
 
         """
-        data = []
+        data = {'T': self.T,
+                'P': self.P,
+                'V': {'__name__':type(self.V).__name__,
+                      'data':self.V.to_json()
+                     },
+                'mu':self.mu.todict(),
+                'N': self.N.todict(),
+                'kB': self.kB,
+                'constant': self.constant,
+                'rdf': {}
+               }
 
-        # append thermo data
-        thermo = {'T': self.T,
-                  'P': self.P,
-                  'V': self.V,
-                  'mu':self.mu,
-                  'N': self.N,
-                  'kB': self.kB,
-                  'constant': self.constant} #need constant?
-        data.append(thermo)
-
-        # append rdf data
-        rdf = {pair:self.rdf[pair].table for pair in self.rdf}
-        data.append(rdf)
+        # set the rdf values in data
+        for pair in self.rdf:
+            if self.rdf[pair]:
+                data['rdf'][str(pair)] = self.rdf[pair].table.tolist()
+            else:
+                data['rdf'][str(pair)] = None
 
         # dump data to json file
         with open('{}.json'.format(filename),'w') as f:
             json.dump(data, f, indent=4)
 
     @classmethod
-    def load(self, filename):
-        """Loads ensemble parameters and RDF values from a JSON file into a new
-        :py:class:`Ensemble` object.
+    def from_file(cls, filename):
+        """Constructs a new :py:class:`Ensemble` object from the ensemble parameters
+        and RDF values in a JSON file.
 
         Parameters
         ----------
-        filename : `str`
+        filename : str
             The name of the file from which to load data.
 
         Returns
@@ -417,21 +580,46 @@ class Ensemble(object):
         with open('{}.json'.format(filename)) as f:
             data = json.load(f)
 
-        thermo = data[0]
-        rdf = data[1]
+        # retrieve thermodynamic parameters
+        thermo = {'T':data['T'],
+                  'P':data['P'],
+                  'V':globals()[data['V']['__name__']].from_json(data['V']['data']),
+                  'mu':data['mu'],
+                  'N':data['N'],
+                  'kB':data['kB']
+                 }
 
-        #reset fluctuating variables?
+        # create Ensemble with constant variables only
+        thermo_const = copy.deepcopy(thermo)
+        for var in data['constant']:
+            if var=='mu' or var=='N':
+                for t in data['constant'][var]:
+                    if not data['constant'][var][t]:
+                        thermo_const[var][t] = None
+            else:
+                if not data['constant'][var]:
+                    thermo_const[var] = None
+        ens = Ensemble(T=thermo_const['T'],
+                       P=thermo_const['P'],
+                       V=thermo_const['V'],
+                       mu=thermo_const['mu'],
+                       N=thermo_const['N'],
+                       kB=thermo_const['kB'])
 
-        ens = Ensemble(T=thermo['T'],
-                       P=thermo['P'],
-                       V=thermo['V'],
-                       mu=thermo['mu'],
-                       N=thermo['N'],
-                       kB=thermo['kB'])
+        # set values of conjugate variables
+        for var in thermo:
+            if var=='mu' or var=='N':
+                for t in thermo[var]:
+                    getattr(ens,var).update({t:thermo[var][t]})
+            else:
+                setattr(ens, var, thermo[var])
 
+        # set rdf values
         for pair in ens.rdf:
-            r = rdf[pair].table[:,1]
-            g = rdf[pair].table[:,2]
+            if data['rdf'][str(pair)] is None:
+                continue
+            r = [i[0] for i in data['rdf'][str(pair)]]
+            g = [i[1] for i in data['rdf'][str(pair)]]
             ens.rdf[pair] = RDF(r=r, g=g)
 
         return ens
