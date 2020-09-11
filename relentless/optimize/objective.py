@@ -4,8 +4,7 @@ import numpy as np
 import scipy.integrate
 
 from .core import OptimizationProblem
-from relentless.core import Interpolator
-from relentless.ensemble import Ensemble
+from relentless.core import Interpolator,Ensemble
 
 class RelativeEntropy(OptimizationProblem):
     def __init__(self, engine, target, dr=0.01):

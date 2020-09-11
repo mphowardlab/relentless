@@ -5,9 +5,11 @@ import json
 
 import numpy as np
 
-from . import core
+from .collections import FixedKeyDict,PairMatrix
+from .math import Interpolator
+from .volume import *
 
-class RDF(core.Interpolator):
+class RDF(Interpolator):
     r"""Radial distribution function.
 
     Represents the pair distribution function :math:`g(r)` as an ``(N,2)``
@@ -102,13 +104,13 @@ class Ensemble(object):
         self.V = V
 
         # mu-N
-        self._mu = core.FixedKeyDict(keys=types)
-        self._N = core.FixedKeyDict(keys=types)
+        self._mu = FixedKeyDict(keys=types)
+        self._N = FixedKeyDict(keys=types)
         self.mu.update(mu)
         self.N.update(N)
 
         # rdf per-pair
-        self._rdf = core.PairMatrix(types=types)
+        self._rdf = PairMatrix(types=types)
 
         # build the set of constant variables from the constructor
         self._constant = {'T':True,
@@ -139,7 +141,7 @@ class Ensemble(object):
 
     @V.setter
     def V(self, value):
-        if value is not None and not isinstance(value, core.Volume):
+        if value is not None and not isinstance(value, Volume):
             raise TypeError('V can only be set as a Volume object or as None.')
         self._V = value
 
@@ -273,7 +275,7 @@ class Ensemble(object):
         # retrieve thermodynamic parameters
         thermo = {'T':data['T'],
                   'P':data['P'],
-                  'V':getattr(core,data['V']['__name__']).from_json(data['V']['data']),
+                  'V':globals()[data['V']['__name__']].from_json(data['V']['data']),
                   'mu':data['mu'],
                   'N':data['N']
                  }

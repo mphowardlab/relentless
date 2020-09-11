@@ -1,5 +1,7 @@
 from . import collections
 from .collections import *
+from . import ensemble
+from .ensemble import *
 from . import math
 from .math import *
 from . import variable
