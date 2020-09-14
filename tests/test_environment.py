@@ -5,25 +5,6 @@ import os
 import relentless
 
 @unittest.skip
-class test_Directory(unittest.TestCase):
-    """Unit tests for environment.core.Directory."""
-    def setUp(self):
-        # create temporary scratch space
-        pass
-
-    def test_basic(self):
-        """Test basic creation and methods of Directory."""
-        raise NotImplementedError()
-
-    def test_context(self):
-        """Test context methods for Directory."""
-        raise NotImplementedError()
-
-    def tearDown(self):
-        # clean up temporary space
-        pass
-
-@unittest.skip
 class test_Policy(unittest.TestCase):
     """Unit tests for environment.core.Policy."""
     def test_basic(self):
