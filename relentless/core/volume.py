@@ -1,4 +1,4 @@
-__all__ =  ['Volume', 'Cube','Cuboid','Parallelepiped','TriclinicBox']
+__all__ =  ['Volume','Cube','Cuboid','Parallelepiped','TriclinicBox']
 
 import abc
 from enum import Enum
@@ -8,7 +8,7 @@ import numpy as np
 class Volume(abc.ABC):
     r"""Abstract base class defining a region of space.
 
-    A Volume can be any region of space; typically, it is a simulation "box".
+    A Volume can be any region of space; typically, it is a simulation "box."
     Any deriving class must implement the volume method that computes the scalar
     volume of the region. Additionally, methods to serialize and deserialize a
     Volume must be specified so that the object can be saved to disk.
@@ -137,7 +137,6 @@ class TriclinicBox(Parallelepiped):
     In the `LAMMPS <https://lammps.sandia.gov/doc/Howto_triclinic.html>`_
     simulation convention, specified using ``TriclinicBox.Convention.LAMMPS``,
 
-
     .. math::
 
         \mathbf{a} = (L_x,0,0)
@@ -212,11 +211,11 @@ class TriclinicBox(Parallelepiped):
         if Lx<=0 or Ly<=0 or Lz<= 0:
             raise ValueError('All side lengths must be positive.')
         self._convention = convention
-        if self._convention is TriclinicBox.Convention.LAMMPS:
+        if self.convention is TriclinicBox.Convention.LAMMPS:
             a = (Lx,0,0)
             b = (xy,Ly,0)
             c = (xz,yz,Lz)
-        elif self._convention is TriclinicBox.Convention.HOOMD:
+        elif self.convention is TriclinicBox.Convention.HOOMD:
             a = (Lx,0,0)
             b = (xy*Ly,Ly,0)
             c = (xz*Lz,yz*Lz,Lz)
@@ -250,13 +249,13 @@ class TriclinicBox(Parallelepiped):
             xy = self.b[0]/self.b[1]
             xz = self.c[0]/self.c[2]
             yz = self.c[1]/self.c[2]
-        return {'Lx':self.a[0],
-                'Ly':self.b[1],
-                'Lz':self.c[2],
-                'xy':xy,
-                'xz':xz,
-                'yz':yz,
-                'convention':self._convention.name
+        return {'Lx': self.a[0],
+                'Ly': self.b[1],
+                'Lz': self.c[2],
+                'xy': xy,
+                'xz': xz,
+                'yz': yz,
+                'convention': self._convention.name
                }
 
     @classmethod
@@ -308,11 +307,6 @@ class Cuboid(TriclinicBox):
     Lz : float
         Length along the *z* axis.
 
-    Raises
-    ------
-    ValueError
-        If *Lx*, *Ly*, *Lz* are not all positive.
-
     """
     def __init__(self, Lx, Ly, Lz):
         super().__init__(Lx,Ly,Lz,0,0,0)
@@ -328,9 +322,9 @@ class Cuboid(TriclinicBox):
             The serialized Cuboid.
 
         """
-        return {'Lx':self.a[0],
-                'Ly':self.b[1],
-                'Lz':self.c[2],
+        return {'Lx': self.a[0],
+                'Ly': self.b[1],
+                'Lz': self.c[2],
                }
 
     @classmethod
@@ -378,7 +372,7 @@ class Cube(Cuboid):
             The serialized Cube.
 
         """
-        return {'L':self.a[0]}
+        return {'L': self.a[0]}
 
     @classmethod
     def from_json(cls, data):

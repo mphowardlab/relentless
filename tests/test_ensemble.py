@@ -54,16 +54,15 @@ class test_Ensemble(unittest.TestCase):
                                             'N':{'A':False,'B':False}})
         self.assertAlmostEqual(ens.beta, 0.1)
 
-        v_obj = relentless.Cube(L=3.0)
-
         #V and N set, non-default value of kB
+        v_obj = relentless.Cube(L=3.0)
         ens = relentless.Ensemble(T=20, V=v_obj, N={'A':1,'B':2}, kB=2.0)
         self.assertCountEqual(ens.types, ('A','B'))
         self.assertCountEqual(ens.rdf.pairs, (('A','B'),('A','A'),('B','B')))
         self.assertAlmostEqual(ens.kB, 2.0)
         self.assertAlmostEqual(ens.T, 20)
         self.assertEqual(ens.P, None)
-        assert ens.V is v_obj
+        self.assertIs(ens.V,v_obj)
         self.assertAlmostEqual(ens.V.volume, 27.0)
         self.assertDictEqual(ens.mu.todict(), {'A':None,'B':None})
         self.assertDictEqual(ens.N.todict(), {'A':1,'B':2})
@@ -81,7 +80,7 @@ class test_Ensemble(unittest.TestCase):
         self.assertAlmostEqual(ens.kB, 1.0)
         self.assertAlmostEqual(ens.T, 100)
         self.assertEqual(ens.P, None)
-        assert ens.V is v_obj
+        self.assertIs(ens.V,v_obj)
         self.assertAlmostEqual(ens.V.volume, 27.0)
         self.assertDictEqual(ens.mu.todict(), {'A':0.1,'B':None})
         self.assertDictEqual(ens.N.todict(), {'A':None,'B':2})
@@ -99,7 +98,7 @@ class test_Ensemble(unittest.TestCase):
         self.assertAlmostEqual(ens.kB, 1.0)
         self.assertAlmostEqual(ens.T, 100)
         self.assertEqual(ens.P, None)
-        assert ens.V is v_obj
+        self.assertIs(ens.V,v_obj)
         self.assertAlmostEqual(ens.V.volume, 27.0)
         self.assertDictEqual(ens.mu.todict(), {'A':0.1})
         self.assertDictEqual(ens.N.todict(), {'A':None})
@@ -156,14 +155,14 @@ class test_Ensemble(unittest.TestCase):
         #NVT ensemble
         ens = relentless.Ensemble(T=10, V=v_obj, N={'A':1,'B':2})
         self.assertEqual(ens.P, None)
-        assert ens.V is v_obj
+        self.assertIs(ens.V,v_obj)
         self.assertAlmostEqual(ens.V.volume, 27.0)
         self.assertDictEqual(ens.mu.todict(), {'A':None,'B':None})
         self.assertDictEqual(ens.N.todict(), {'A':1,'B':2})
 
         #set constant values
         ens.V = v_obj1
-        assert ens.V is v_obj1
+        self.assertIs(ens.V,v_obj1)
         self.assertAlmostEqual(ens.V.volume, 64.0)
         ens.N['A'] = 2
         ens.N['B'] = 3
@@ -240,7 +239,7 @@ class test_Ensemble(unittest.TestCase):
         ens.N['A'] = 1
         ens.N['B'] = 2
         ens_ = ens.copy()
-        self.assertIsNot(ens_, ens)
+        self.assertIsNot(ens, ens_)
         self.assertCountEqual(ens.types, ens_.types)
         self.assertCountEqual(ens.rdf.pairs, ens_.rdf.pairs)
         self.assertAlmostEqual(ens.T, ens_.T)

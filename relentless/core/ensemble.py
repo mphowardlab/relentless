@@ -40,7 +40,7 @@ class Ensemble(object):
     The variables that are "constants" of the ensemble (e.g. *N*, *V*, and *T*
     for the canonical ensemble) are determined from the arguments specified in the
     constructor. The fluctuating (conjugate) variables must be set subsequently.
-    It is an error to set both variables in a conjugate pair (e.g. *P* and *V)
+    It is an error to set both variables in a conjugate pair (e.g. *P* and *V*)
     during construction.
 
     Parameters
@@ -68,6 +68,8 @@ class Ensemble(object):
         If all values of ``N`` are not integers or None.
     ValueError
         If both ``mu`` and ``N`` are set for a type.
+    ValueError
+        If both ``mu`` and ``N`` are None.
 
     """
     def __init__(self, T, P=None, V=None, mu=None, N=None, kB=1.0):
@@ -113,7 +115,7 @@ class Ensemble(object):
         self._rdf = PairMatrix(types=types)
 
         # build the set of constant variables from the constructor
-        self._constant = {'T':True,
+        self._constant = {'T': True,
                           'P': self.P is not None,
                           'V': self.V is not None,
                           'mu': {t: (self.mu[t] is not None) for t in types},
@@ -161,7 +163,7 @@ class Ensemble(object):
 
     @property
     def mu(self):
-        r""":py:class:`FixedKeyDict`: Chemical potential for each type."""
+        r""":py:class:`FixedKeyDict`: Chemical potential of each type."""
         return self._mu
 
     @property
@@ -236,7 +238,7 @@ class Ensemble(object):
                 'V': {'__name__':type(self.V).__name__,
                       'data':self.V.to_json()
                      },
-                'mu':self.mu.todict(),
+                'mu': self.mu.todict(),
                 'N': self.N.todict(),
                 'kB': self.kB,
                 'constant': self.constant,
@@ -273,11 +275,11 @@ class Ensemble(object):
             data = json.load(f)
 
         # retrieve thermodynamic parameters
-        thermo = {'T':data['T'],
-                  'P':data['P'],
-                  'V':globals()[data['V']['__name__']].from_json(data['V']['data']),
-                  'mu':data['mu'],
-                  'N':data['N']
+        thermo = {'T': data['T'],
+                  'P': data['P'],
+                  'V': globals()[data['V']['__name__']].from_json(data['V']['data']),
+                  'mu': data['mu'],
+                  'N': data['N']
                  }
 
         # create Ensemble with constant variables only
