@@ -1,8 +1,8 @@
 import jinja2
 import numpy as np
 
+from relentless.core import RDF
 from relentless.engine import Engine
-from relentless.ensemble import RDF
 from relentless.environment import Policy
 
 class LAMMPS(Engine):

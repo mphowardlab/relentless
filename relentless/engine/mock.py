@@ -1,7 +1,7 @@
 import numpy as np
 
 from relentless.engine import Engine
-from relentless.ensemble import RDF
+from relentless.core import RDF
 
 class Mock(Engine):
     def __init__(self, ensemble, table, potentials=None):
