@@ -28,6 +28,11 @@ class Directory:
     path : str
         Absolute or relative directory path.
 
+    Raises
+    ------
+    OSError
+        If the specified path is not a valid directory.
+
     Examples
     --------
     Creating a directory::
@@ -46,7 +51,8 @@ class Directory:
             os.makedirs(self.path)
         self._start = None
 
-        # TODO: this should check if path is a valid directory
+        if not os.path.isdir(self.path):
+            raise OSError('The specified path is not a valid directory.')
 
     def __enter__(self):
         """Enter the directory context.
@@ -62,9 +68,11 @@ class Directory:
         # try to change directory to the path
         start = os.getcwd()
         os.chdir(self.path)
+        start_ch = os.getcwd()
 
         # only set the start variable if we successfully changed directories
-        self._start = start
+        if start != start_ch:
+            self._start = start
 
         return self
 
@@ -109,7 +117,7 @@ class Directory:
             f = open(d.file('bar.txt'))
 
         """
-        return os.join(self.path, name)
+        return os.path.join(self.path, name)
 
     def directory(self, name):
         """Get a child directory.
@@ -135,8 +143,7 @@ class Directory:
             bar = foo.directory('bar')
 
         """
-        # TODO: this should also accept tuples, which get joined into a directory path
-        return Directory(os.join(self.path, name))
+        return Directory(os.path.join(self.path, name))
 
     def clear(self):
         r"""Clear the contents of a directory.
@@ -145,11 +152,12 @@ class Directory:
         directories), so it should be used carefully!
 
         """
-        for entry in os.scandir(self.path):
-            if entry.is_file():
-                os.remove(entry)
-            elif entry.is_dir():
-                shutil.rmtree(entry)
+        with self:
+            for entry in os.scandir(self.path):
+                if entry.is_file():
+                    os.remove(entry.name)
+                elif entry.is_dir():
+                    shutil.rmtree(entry.name)
 
 class Project:
     r"""Project data.
@@ -192,7 +200,7 @@ class Project:
             else:
                 self._work = Directory(workspace)
         else:
-            self._work = Directory(os.join(os.getcwd(),'workspace'))
+            self._work = Directory(os.path.join(os.getcwd(),'workspace'))
 
         # use system scratch if specified, otherwise make one
         if scratch is not None:
@@ -201,7 +209,7 @@ class Project:
             else:
                 self._scratch = Directory(scratch)
         else:
-            self._scratch = self.work.directory('scratch')
+            self._scratch = self.workspace.directory('scratch')
 
     @property
     def workspace(self):
