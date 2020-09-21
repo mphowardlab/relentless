@@ -49,7 +49,7 @@ class Directory:
         self.path = os.path.abspath(path)
         if not os.path.exists(self.path):
             os.makedirs(self.path)
-        self._start = None
+        self._start = []
 
         if not os.path.isdir(self.path):
             raise OSError('The specified path is not a valid directory.')
@@ -65,14 +65,8 @@ class Directory:
             This directory.
 
         """
-        # try to change directory to the path
-        start = os.getcwd()
+        self._start.append(os.getcwd())
         os.chdir(self.path)
-        start_ch = os.getcwd()
-
-        # only set the start variable if we successfully changed directories
-        if start != start_ch:
-            self._start = start
 
         return self
 
@@ -85,13 +79,10 @@ class Directory:
 
         """
         try:
-            if self._start is not None:
-                os.chdir(self._start)
+            if self._start[-1] is not os.getcwd():
+                os.chdir(self._start.pop())
         except OSError:
             pass
-
-        # clear the previous location
-        self._start = None
 
     def file(self, name):
         """Get the absolute path to a file in the directory.

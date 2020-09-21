@@ -15,61 +15,67 @@ class test_Directory(unittest.TestCase):
         cwd = os.getcwd()
 
         #test creation with existing path
-        d = relentless.data.Directory(f.name)
+        d = relentless.Directory(f.name)
         self.assertEqual(d.path, f.name)
-        self.assertEqual(d._start, None)
+        self.assertEqual(d._start, [])
         #enter and exit
         with d:
-            self.assertEqual(d._start, cwd)
-        self.assertEqual(d._start, None)
+            self.assertEqual(d._start, [cwd])
+            self.assertEqual(os.getcwd(), f.name)
+        self.assertEqual(d._start, [])
 
         #test creation with non-existent path (absolute)
-        foo = f.name + '/foo'
-        d1 = relentless.data.Directory(foo)
+        foo = os.path.join(f.name,'foo')
+        d1 = relentless.Directory(foo)
         self.assertEqual(d1.path, foo)
-        self.assertEqual(d1._start, None)
+        self.assertEqual(d1._start, [])
         #enter and exit
         with d1:
-            self.assertEqual(d1._start, cwd)
-        self.assertEqual(d1._start, None)
+            self.assertEqual(d1._start, [cwd])
+            self.assertEqual(os.getcwd(), foo)
+        self.assertEqual(d1._start, [])
 
         #test creation with non-existent path (recursive)
-        foobar = foo + '/bar/foobar'
-        d2 = relentless.data.Directory(foobar)
+        foobar = os.path.join(f.name,'bar','foobar')
+        d2 = relentless.Directory(foobar)
         self.assertEqual(d2.path, foobar)
-        self.assertEqual(d2._start, None)
+        self.assertEqual(d2._start, [])
         #enter and exit
         with d2:
-            self.assertEqual(d2._start, cwd)
-        self.assertEqual(d2._start, None)
+            self.assertEqual(d2._start, [cwd])
+            self.assertEqual(os.getcwd(), foobar)
+        self.assertEqual(d2._start, [])
 
         #test creation with invalid directory path
         x = tempfile.NamedTemporaryFile(dir=f.name)
         with self.assertRaises(OSError):
-            d3 = relentless.data.Directory(x.name)
+            d3 = relentless.Directory(x.name)
         x.close()
 
         #test unsuccessfully changing directories (by redundancy)
         with d:
-            self.assertEqual(d._start, cwd)
+            self.assertEqual(d._start, [cwd])
             with d1:
-                self.assertEqual(d1._start, d.path)
+                self.assertEqual(d1._start, [d.path])
                 with d1:
-                    self.assertEqual(d1._start, d.path) #_start is unchanged
-                self.assertEqual(d1._start, None)
+                    self.assertEqual(d1._start, [d.path,d1.path])
+                self.assertEqual(d1._start, [d.path])
                 with d2:
-                    self.assertEqual(d2._start, d.path)
-                self.assertEqual(d2._start, None)
-            self.assertEqual(d1._start, None)
-        self.assertEqual(d._start, None)
+                    self.assertEqual(d2._start, [d1.path])
+                    with d2:
+                        self.assertEqual(d2._start, [d1.path,d2.path])
+                    self.assertEqual(d2._start, [d1.path])
+                self.assertEqual(d2._start, [])
+            self.assertEqual(d1._start, [])
+        self.assertEqual(d._start, [])
 
         #test unsuccessful exit after successful enter
         with d2:
-            self.assertEqual(d2._start, cwd)
+            self.assertEqual(d2._start, [cwd])
             with d1:
-                self.assertEqual(d1._start, d2.path)
+                self.assertEqual(d1._start, [d2.path])
                 shutil.rmtree(foobar)
-            self.assertEqual(d1._start, None)
+            self.assertEqual(d1._start, [])
             self.assertEqual(os.getcwd(), d1.path) #no exit
 
         f.cleanup()
@@ -79,44 +85,40 @@ class test_Directory(unittest.TestCase):
         f = tempfile.TemporaryDirectory()
 
         #create nested directory structure
-        d = relentless.data.Directory(f.name)
+        d = relentless.Directory(f.name)
         d1 = d.directory('foo')
         d2 = d.directory('bar')
-        d3 = d1.directory('bar/foobar')
+        d3 = d1.directory(os.path.join('bar','foobar'))
         self.assertEqual(d.path, f.name)
-        self.assertEqual(d1.path, f.name+'/foo')
-        self.assertEqual(d2.path, f.name+'/bar')
-        self.assertEqual(d3.path, f.name+'/foo/bar/foobar')
+        self.assertEqual(d1.path, os.path.join(f.name,'foo'))
+        self.assertEqual(d2.path, os.path.join(f.name,'bar'))
+        self.assertEqual(d3.path, os.path.join(f.name,'foo','bar','foobar'))
 
         #test creating files
         x = d.file('spam.txt')
         x1 = d1.file('ham.txt')
         x2 = d1.file('eggs.txt')
         x3 = d3.file('baz.txt')
-        o = open(x, 'w')
-        o.close()
-        o1 = open(x1, 'w')
-        o1.close()
-        o2 = open(x2, 'w')
-        o2.close()
-        o3 = open(x3, 'w')
-        o3.close()
-        self.assertEqual(os.path.abspath(x), f.name+'/spam.txt')
-        self.assertEqual(os.path.abspath(x1), f.name+'/foo/ham.txt')
-        self.assertEqual(os.path.abspath(x2), f.name+'/foo/eggs.txt')
-        self.assertEqual(os.path.abspath(x3), f.name+'/foo/bar/foobar/baz.txt')
+        open(x,'w').close()
+        open(x1,'w').close()
+        open(x2,'w').close()
+        open(x3,'w').close()
+        self.assertEqual(os.path.abspath(x), os.path.join(d.path,'spam.txt'))
+        self.assertEqual(os.path.abspath(x1), os.path.join(d1.path,'ham.txt'))
+        self.assertEqual(os.path.abspath(x2), os.path.join(d1.path,'eggs.txt'))
+        self.assertEqual(os.path.abspath(x3), os.path.join(d3.path,'baz.txt'))
 
         #test clearing directory structure
         #delete sub-directory
-        self.assertCountEqual(os.listdir(f.name+'/foo'), ['bar','ham.txt','eggs.txt'])
-        self.assertCountEqual(os.listdir(f.name+'/foo/bar/foobar'), ['baz.txt'])
+        self.assertCountEqual(os.listdir(d1.path), ['bar','ham.txt','eggs.txt'])
+        self.assertCountEqual(os.listdir(d3.path), ['baz.txt'])
         d3.clear()
-        self.assertCountEqual(os.listdir(f.name+'/foo'), ['bar','ham.txt','eggs.txt'])
-        self.assertCountEqual(os.listdir(f.name+'/foo/bar/foobar'), [])
+        self.assertCountEqual(os.listdir(d1.path), ['bar','ham.txt','eggs.txt'])
+        self.assertCountEqual(os.listdir(d3.path), [])
         #delete parent directory
-        self.assertCountEqual(os.listdir(f.name), ['foo','bar','spam.txt'])
+        self.assertCountEqual(os.listdir(d.path), ['foo','bar','spam.txt'])
         d.clear()
-        self.assertCountEqual(os.listdir(f.name), [])
+        self.assertCountEqual(os.listdir(d.path), [])
 
         f.cleanup()
 
@@ -129,23 +131,27 @@ class test_Project(unittest.TestCase):
 
         #unspecified workspace and scratch
         p = relentless.data.Project()
-        self.assertEqual(p.workspace.path, f.name+'/workspace')
-        self.assertEqual(p.scratch.path, f.name+'/workspace/scratch')
+        self.assertIsInstance(p.workspace, relentless.Directory)
+        self.assertEqual(p.workspace.path, os.path.join(f.name,'workspace'))
+        self.assertEqual(p.scratch.path, os.path.join(f.name,'workspace','scratch'))
 
         #specified workspace, unspecified scratch
-        p = relentless.data.Project(workspace=relentless.data.Directory(f.name))
+        p = relentless.Project(workspace=relentless.data.Directory(f.name))
+        self.assertIsInstance(p.workspace, relentless.Directory)
         self.assertEqual(p.workspace.path, f.name)
-        self.assertEqual(p.scratch.path, f.name+'/scratch')
+        self.assertEqual(p.scratch.path, os.path.join(f.name,'scratch'))
 
         #unspecified workspace, specified scratch
-        p = relentless.data.Project(scratch=relentless.data.Directory(f.name))
-        self.assertEqual(p.workspace.path, f.name+'/workspace')
+        p = relentless.Project(scratch=relentless.data.Directory(f.name))
+        self.assertIsInstance(p.workspace, relentless.Directory)
+        self.assertEqual(p.workspace.path, os.path.join(f.name,'workspace'))
         self.assertEqual(p.scratch.path, f.name)
 
         #specified workspace and scratch (as strings)
-        p = relentless.data.Project(workspace='wrksp',scratch='scr')
-        self.assertEqual(p.workspace.path, f.name+'/wrksp')
-        self.assertEqual(p.scratch.path, f.name+'/scr')
+        p = relentless.Project(workspace='wrksp',scratch='scr')
+        self.assertIsInstance(p.workspace, relentless.Directory)
+        self.assertEqual(p.workspace.path, os.path.join(f.name,'wrksp'))
+        self.assertEqual(p.scratch.path, os.path.join(f.name,'scr'))
 
         f.cleanup()
 
