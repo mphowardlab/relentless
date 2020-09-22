@@ -79,8 +79,7 @@ class Directory:
 
         """
         try:
-            if self._start[-1] is not os.getcwd():
-                os.chdir(self._start.pop())
+            os.chdir(self._start.pop())
         except OSError:
             pass
 
