@@ -5,6 +5,20 @@ import abc
 from relentless.potential import PairPotential
 
 class Simulation(abc.ABC):
+    """Ensemble simulation container.
+
+    Abstract base class that initializes a :py:class:`Ensemble, runs a simulation,
+    and analyzes the results.
+
+    Parameters
+    ----------
+    operations : array_like
+        Array of Python-callable functions to call during the simulation
+        (defaults to `None`).
+    options : kwargs
+        Arguments for the initialize, analyze, and operations functions.
+
+    """
     default_options = {}
 
     def __init__(self, operations=None, **options):
@@ -22,17 +36,17 @@ class Simulation(abc.ABC):
 
         Parameters
         ----------
-        ensemble : :py:class:`relentless.Ensemble`
+        ensemble : :py:class:`Ensemble`
             Simulation ensemble. Must include values for *N* and *V* even if
             these variables fluctuate.
-        potentials : :py:class:`relentless.core.PairMatrix`
+        potentials : :py:class:`PairMatrix`
             Matrix of tabulated potentials for each pair.
 
         """
-        self.initialize(ensemble,potentials,options)
+        self.initialize(ensemble,potentials,self.options)
         for op in self.operations:
-            op(ensemble,potentials,options)
-        return self.analyze(ensemble,potentials,options)
+            op(ensemble,potentials,self.options)
+        return self.analyze(ensemble,potentials,self.options)
 
     @abc.abstractmethod
     def initialize(self, ensemble, potentials, options):
