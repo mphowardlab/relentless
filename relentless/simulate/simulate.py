@@ -13,10 +13,10 @@ class Simulation(abc.ABC):
     Parameters
     ----------
     operations : array_like
-        Array of Python-callable functions to call during the simulation
+        Array of :py:class:`Callable` functions to call during the simulation
         (defaults to `None`).
     options : kwargs
-        Arguments for the initialize, analyze, and operations functions.
+        Optional arguments for the initialize, analyze, and defined "operations" functions.
 
     """
     default_options = {}
