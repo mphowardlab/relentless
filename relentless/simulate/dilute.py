@@ -10,10 +10,16 @@ class Dilute(Simulation):
         """Initializes the Dilute simulation.
 
         Parameters
-        ----------
+        ensemble : :py:class:`Ensemble`
+            Simulation ensemble; must contain values for *N* and *V*.
+        potentials : :py:class:`PairMatrix`
+            Matrix of tabulated potentials for each pair.
+        options : kwargs
 
         Raises
         ------
+        ValueError
+            If the ensemble does not have set constant values for T, V, and N for all types.
 
         """
         if (not ensemble.constant['T']
