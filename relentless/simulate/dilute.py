@@ -80,10 +80,8 @@ class Dilute(Simulation):
                 u = potentials[a,b].get('u')
                 f = potentials[a,b].get('f')
                 if f is None:
-                    f = np.zeros_like(u)
                     ur = Interpolator(r,u)
-                    for i,ri in enumerate(r):
-                        f[i] = -ur.derivative(ri,1)
+                    f = -ur.derivative(r,1)
                 gr = new_ens.rdf[pair].table[:,1]
                 new_ens.P += (2.*np.pi/3.)*rho_a*rho_b*np.trapz(f*gr*r**3, x=r)
 
