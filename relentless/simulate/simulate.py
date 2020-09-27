@@ -2,8 +2,6 @@ __all__ = ['Simulation']
 
 import abc
 
-from relentless.potential import PairPotential
-
 class Simulation(abc.ABC):
     """Ensemble simulation container.
 
@@ -34,6 +32,9 @@ class Simulation(abc.ABC):
     def run(self, ensemble, potentials):
         """Run the simulation and return the result of analyze.
 
+        A new simulation instance is created to perform the run. It is intended
+        to be destroyed at the end of the run to prevent memory leaks.
+
         Parameters
         ----------
         ensemble : :py:class:`Ensemble`
@@ -43,17 +44,43 @@ class Simulation(abc.ABC):
             Matrix of tabulated potentials for each pair.
 
         """
-        self.initialize(ensemble,potentials,self.options)
+        sim = SimulationInstance(ensemble,potentials,**self.options)
+        self.initialize(sim)
         for op in self.operations:
-            op(ensemble,potentials,self.options)
-        return self.analyze(ensemble,potentials,self.options)
+            op(sim)
+        result = self.analyze(sim)
+        del sim
+
+        return result
 
     @abc.abstractmethod
-    def initialize(self, ensemble, potentials, options):
-        """Initialize the simulation."""
+    def initialize(self, sim):
+        """Initialize the simulation.
+
+        Parameters
+        ----------
+        sim : :py:class:`SimulationInstance`
+            Instance to initialize.
+
+        """
         pass
 
     @abc.abstractmethod
-    def analyze(self, ensemble, potentials, options):
-        """Analyze the simulation and return the ensemble."""
+    def analyze(self, sim):
+        """Analyze the simulation.
+
+        Parameters
+        ----------
+        sim : :py:class:`SimulationInstance`
+            Instance to analyze.
+
+        """
         pass
+
+class SimulationInstance:
+    """Specific instance of a simulation and its data."""
+    def __init__(self, ensemble, potentials, **options):
+        self.ensemble = ensemble
+        self.potentials = potentials
+        for opt,val in options.items():
+            setattr(self,opt,val)

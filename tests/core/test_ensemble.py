@@ -181,6 +181,33 @@ class test_Ensemble(unittest.TestCase):
         with self.assertRaises(AttributeError):
             ens.mu = {'A':0.3,'B':0.4}
 
+    def test_aka(self):
+        """Test checking alternative names of ensembles."""
+        nvt = relentless.Ensemble(T=1.0,V=relentless.Cube(1.0),N={'A':1})
+        self.assertTrue(nvt.aka("NVT"))
+        self.assertTrue(nvt.aka("canonical"))
+        self.assertFalse(nvt.aka("NPT"))
+        self.assertFalse(nvt.aka("muVT"))
+        with self.assertRaises(ValueError):
+            nvt.aka("alchemical")
+
+        npt = relentless.Ensemble(T=1.0,P=0.0,N={'A':1})
+        self.assertFalse(npt.aka("NVT"))
+        self.assertTrue(npt.aka("NPT"))
+        self.assertTrue(npt.aka("isothermal-isobaric"))
+        self.assertFalse(npt.aka("muVT"))
+
+        grand = relentless.Ensemble(T=1.0,V=relentless.Cube(1.0),mu={'A':0.0})
+        self.assertFalse(grand.aka("NVT"))
+        self.assertFalse(grand.aka("NPT"))
+        self.assertTrue(grand.aka("muVT"))
+        self.assertTrue(grand.aka("grand canonical"))
+
+        semigrand = relentless.Ensemble(T=1.0,V=relentless.Cube(1.0),N={'A':1},mu={'B':0.0})
+        self.assertFalse(semigrand.aka("NVT"))
+        self.assertFalse(semigrand.aka("NPT"))
+        self.assertFalse(semigrand.aka("muVT"))
+
     def test_clear(self):
         """Test clear method and modifying attribute values"""
         v_obj = relentless.Cube(L=1.0)

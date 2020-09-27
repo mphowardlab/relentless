@@ -9,20 +9,28 @@ class test_Dilute(unittest.TestCase):
     """Unit tests for relentless.Dilute"""
 
     #mock functions for use as operations
-    def update_ens(self, ensemble, potentials, options):
-        if options.get('constant_ens', False):
-            return
-        ensemble.T += 2.0
-        ensemble.V = relentless.Cube(L=4.0)
-        for t in ensemble.types:
-            ensemble.N[t] += 1.0
+    def update_ens(self, sim):
+        try:
+            const = sim.constant_ens
+        except AttributeError:
+            const = False
 
-    def update_pot(self, ensemble, potentials, options):
-        if options.get('constant_pot', False):
-            return
-        for pair in potentials:
-            potentials[pair]['r'] *= 2.0
-            potentials[pair]['u'] *= 3.0
+        if not const:
+            sim.ensemble.T += 2.0
+            sim.ensemble.V = relentless.Cube(L=4.0)
+            for t in sim.ensemble.types:
+                sim.ensemble.N[t] += 1.0
+
+    def update_pot(self, sim):
+        try:
+            const = sim.constant_pot
+        except AttributeError:
+            const = False
+
+        if not const:
+            for pair in sim.potentials:
+                sim.potentials[pair]['r'] *= 2.0
+                sim.potentials[pair]['u'] *= 3.0
 
     def test_init(self):
         """Test creation from data."""

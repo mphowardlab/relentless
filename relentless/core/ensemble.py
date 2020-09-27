@@ -182,6 +182,42 @@ class Ensemble(object):
         """
         return self._constant
 
+    def aka(self,name):
+        """Check if the ensemble is also known by a common type.
+
+        Parameters
+        ----------
+        name : str
+            Common name of a thermodynamic ensemble. The recognized names are:
+
+            - "NVT" or "canonical" for constant *N*, *V*, and *T*.
+            - "NPT or "isothermal-isobaric for constant *N*, *P*, and *T*.
+            - "muVT" or "grand canonical" for constant :math:`\mu`, *V*, and *T*.
+
+        Returns
+        -------
+        bool:
+            True if the ensemble matches the name, and False otherwise.
+
+        Raises
+        ------
+        ValueError:
+            The name is not one of the recognized types.
+
+        """
+        if name in ("NVT","canonical"):
+            return (self.constant['T'] and self.constant['V']
+                and all(self.constant['N'][t] for t in self.types))
+        elif name in ("NPT","isothermal-isobaric"):
+            return (self.constant['T'] and self.constant['P']
+                and all(self.constant['N'][t] for t in self.types))
+        elif name in ("muVT","grand canonical"):
+            return (self.constant['T'] and self.constant['V']
+                and all(self.constant['mu'][t] for t in self.types))
+        else:
+            raise ValueError("Ensemble name not recognized")
+
+
     @property
     def rdf(self):
         r""":py:class:`PairMatrix`: Radial distribution function per pair."""
