@@ -46,7 +46,7 @@ class Directory:
 
     """
     def __init__(self, path):
-        self.path = os.path.abspath(path)
+        self.path = os.path.realpath(path)
         if not os.path.exists(self.path):
             os.makedirs(self.path)
         self._start = []
