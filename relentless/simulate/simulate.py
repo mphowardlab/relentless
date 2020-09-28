@@ -1,4 +1,4 @@
-__all__ = ['Simulation']
+__all__ = ['Simulation','SimulationInstance']
 
 import abc
 
@@ -78,7 +78,19 @@ class Simulation(abc.ABC):
         pass
 
 class SimulationInstance:
-    """Specific instance of a simulation and its data."""
+    """Specific instance of a simulation and its data.
+
+    Parameters
+    ----------
+    ensemble : :py:class:`Ensemble`
+        Simulation ensemble. Must include values for *N* and *V* even if
+        these variables fluctuate.
+    potentials : :py:class:`PairMatrix`
+        Matrix of tabulated potentials for each pair.
+    options : kwargs
+        Optional arguments for the initialize, analyze, and defined "operations" functions.
+
+    """
     def __init__(self, ensemble, potentials, **options):
         self.ensemble = ensemble
         self.potentials = potentials
