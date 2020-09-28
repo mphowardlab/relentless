@@ -7,47 +7,51 @@ import unittest
 import relentless
 
 class test_Directory(unittest.TestCase):
+    def setUp(self):
+        self.f = tempfile.TemporaryDirectory()
+        self.real_f = os.path.realpath(self.f.name)
+
     """Unit tests for core.data.Directory."""
     def test_init(self):
         """Test basic creation and methods of Directory."""
-        f = tempfile.TemporaryDirectory()
-
         cwd = os.getcwd()
 
         #test creation with existing path
-        d = relentless.Directory(f.name)
-        self.assertEqual(d.path, f.name)
+        d = relentless.Directory(self.f.name)
+        self.assertEqual(d.path, self.real_f)
         self.assertEqual(d._start, [])
         #enter and exit
         with d:
             self.assertEqual(d._start, [cwd])
-            self.assertEqual(os.getcwd(), f.name)
+            self.assertEqual(os.getcwd(), self.real_f)
         self.assertEqual(d._start, [])
 
         #test creation with non-existent path (absolute)
-        foo = os.path.join(f.name,'foo')
+        foo = os.path.join(self.f.name,'foo')
+        real_foo = os.path.realpath(foo)
         d1 = relentless.Directory(foo)
-        self.assertEqual(d1.path, foo)
+        self.assertEqual(d1.path, real_foo)
         self.assertEqual(d1._start, [])
         #enter and exit
         with d1:
             self.assertEqual(d1._start, [cwd])
-            self.assertEqual(os.getcwd(), foo)
+            self.assertEqual(os.getcwd(), real_foo)
         self.assertEqual(d1._start, [])
 
         #test creation with non-existent path (recursive)
-        foobar = os.path.join(f.name,'bar','foobar')
+        foobar = os.path.join(self.f.name,'bar','foobar')
+        real_foobar = os.path.realpath(foobar)
         d2 = relentless.Directory(foobar)
-        self.assertEqual(d2.path, foobar)
+        self.assertEqual(d2.path, real_foobar)
         self.assertEqual(d2._start, [])
         #enter and exit
         with d2:
             self.assertEqual(d2._start, [cwd])
-            self.assertEqual(os.getcwd(), foobar)
+            self.assertEqual(os.getcwd(), real_foobar)
         self.assertEqual(d2._start, [])
 
         #test creation with invalid directory path
-        x = tempfile.NamedTemporaryFile(dir=f.name)
+        x = tempfile.NamedTemporaryFile(dir=self.f.name)
         with self.assertRaises(OSError):
             d3 = relentless.Directory(x.name)
         x.close()
@@ -78,21 +82,17 @@ class test_Directory(unittest.TestCase):
             self.assertEqual(d1._start, [])
             self.assertEqual(os.getcwd(), d1.path) #no exit
 
-        f.cleanup()
-
     def test_context(self):
         """Test context methods for Directory."""
-        f = tempfile.TemporaryDirectory()
-
         #create nested directory structure
-        d = relentless.Directory(f.name)
+        d = relentless.Directory(self.f.name)
         d1 = d.directory('foo')
         d2 = d.directory('bar')
         d3 = d1.directory(os.path.join('bar','foobar'))
-        self.assertEqual(d.path, f.name)
-        self.assertEqual(d1.path, os.path.join(f.name,'foo'))
-        self.assertEqual(d2.path, os.path.join(f.name,'bar'))
-        self.assertEqual(d3.path, os.path.join(f.name,'foo','bar','foobar'))
+        self.assertEqual(d.path, self.real_f)
+        self.assertEqual(d1.path, os.path.join(self.real_f,'foo'))
+        self.assertEqual(d2.path, os.path.join(self.real_f,'bar'))
+        self.assertEqual(d3.path, os.path.join(self.real_f,'foo','bar','foobar'))
 
         #test creating files
         x = d.file('spam.txt')
@@ -120,40 +120,50 @@ class test_Directory(unittest.TestCase):
         d.clear()
         self.assertCountEqual(os.listdir(d.path), [])
 
-        f.cleanup()
+
+    def tearDown(self):
+        self.f.cleanup()
+        self.real_f = None
+        del self.f
 
 class test_Project(unittest.TestCase):
+    def setUp(self):
+        self.f = tempfile.TemporaryDirectory()
+        self.real_f = os.path.realpath(self.f.name)
+
     """Unit tests for core.data.Project."""
     def test_init(self):
         """Test basic creation of Project."""
-        f = tempfile.TemporaryDirectory()
-        os.chdir(f.name)
+        os.chdir(self.f.name)
 
         #unspecified workspace and scratch
         p = relentless.data.Project()
         self.assertIsInstance(p.workspace, relentless.Directory)
-        self.assertEqual(p.workspace.path, os.path.join(f.name,'workspace'))
-        self.assertEqual(p.scratch.path, os.path.join(f.name,'workspace','scratch'))
+        self.assertEqual(p.workspace.path, os.path.join(self.real_f,'workspace'))
+        self.assertEqual(p.scratch.path, os.path.join(self.real_f,'workspace','scratch'))
 
         #specified workspace, unspecified scratch
-        p = relentless.Project(workspace=relentless.data.Directory(f.name))
+        p = relentless.Project(workspace=relentless.data.Directory(self.f.name))
         self.assertIsInstance(p.workspace, relentless.Directory)
-        self.assertEqual(p.workspace.path, f.name)
-        self.assertEqual(p.scratch.path, os.path.join(f.name,'scratch'))
+        self.assertEqual(p.workspace.path, self.real_f)
+        self.assertEqual(p.scratch.path, os.path.join(self.real_f,'scratch'))
 
         #unspecified workspace, specified scratch
-        p = relentless.Project(scratch=relentless.data.Directory(f.name))
+        p = relentless.Project(scratch=relentless.data.Directory(self.f.name))
         self.assertIsInstance(p.workspace, relentless.Directory)
-        self.assertEqual(p.workspace.path, os.path.join(f.name,'workspace'))
-        self.assertEqual(p.scratch.path, f.name)
+        self.assertEqual(p.workspace.path, os.path.join(self.real_f,'workspace'))
+        self.assertEqual(p.scratch.path, self.real_f)
 
         #specified workspace and scratch (as strings)
         p = relentless.Project(workspace='wrksp',scratch='scr')
         self.assertIsInstance(p.workspace, relentless.Directory)
-        self.assertEqual(p.workspace.path, os.path.join(f.name,'wrksp'))
-        self.assertEqual(p.scratch.path, os.path.join(f.name,'scr'))
+        self.assertEqual(p.workspace.path, os.path.join(self.real_f,'wrksp'))
+        self.assertEqual(p.scratch.path, os.path.join(self.real_f,'scr'))
 
-        f.cleanup()
+    def tearDown(self):
+        self.f.cleanup()
+        self.real_f = None
+        del self.f
 
 if __name__ == '__main__':
     unittest.main()
