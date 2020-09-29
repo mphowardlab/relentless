@@ -10,7 +10,7 @@ class test_SimulationInstance(unittest.TestCase):
 
     def test_init(self):
         """Test creation from data."""
-        options = {'constant_ens':True, 'constant_pot':True}
+        options = {'constant_ens':True, 'constant_pot':False}
         ens = relentless.Ensemble(T=1.0, V=relentless.Cube(L=2.0), N={'A':2,'B':3})
         pot = relentless.PairMatrix(types=ens.types)
         for pair in pot:
@@ -21,15 +21,15 @@ class test_SimulationInstance(unittest.TestCase):
         sim = relentless.simulate.SimulationInstance(ens, pot)
         self.assertEqual(sim.ensemble, ens)
         self.assertEqual(sim.potentials, pot)
+        with self.assertRaises(AttributeError):
+            sim.constant_ens
 
         #with options
         sim = relentless.simulate.SimulationInstance(ens, pot, **options)
         self.assertEqual(sim.ensemble, ens)
         self.assertEqual(sim.potentials, pot)
-
-        #invalid creation
-        with self.assertRaises(TypeError):
-            sim = relentless.simulate.SimulationInstance()
+        self.assertTrue(sim.constant_ens)
+        self.assertFalse(sim.constant_pot)
 
 class test_Dilute(unittest.TestCase):
     """Unit tests for relentless.Dilute"""
