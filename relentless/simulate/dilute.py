@@ -1,33 +1,22 @@
 import numpy as np
 
-from .simulate import Simulation
-from relentless.core import RDF
-from relentless.core import Interpolator
+from relentless.core import Interpolator,RDF
+from . import simulate
 
-class Dilute(Simulation):
+class Dilute(simulate.Simulation):
     """Simulation of a dilute system.
 
     The :py:class:`Ensemble` must be canonical (constant *N*, *V*, and *T*).
 
     """
-    def initialize(self, sim):
-        """Initializes the simulation.
+    pass
 
-        Parameters
-        ----------
-        sim : :py:class:`relentless.simulate.SimulationInstance`
-            Instance to initialize.
+class AddEnsembleAnalyzer(simulate.AddAnalyzer):
+    def __init__(self):
+        super().__init__(every=None)
+        self.ensemble = None
 
-        Raises
-        ------
-        ValueError
-            If the ensemble does not have set constant values for T, V, and N for all types.
-
-        """
-        if not sim.ensemble.aka("NVT"):
-            raise ValueError('Dilute simulations must be run in the NVT ensemble.')
-
-    def analyze(self, sim):
+    def __call__(self, sim):
         r"""Creates a copy of the ensemble with cleared fluctuating/conjugate variables.
         The pressure *P* and :math:`g(r)` parameters for the new ensemble are calculated
         as follows:
@@ -80,4 +69,4 @@ class Dilute(Simulation):
                 gr = new_ens.rdf[pair].table[:,1]
                 new_ens.P += (2.*np.pi/3.)*rho_a*rho_b*np.trapz(y=f*gr*r**3,x=r)
 
-        return new_ens
+        self.ensemble = new_ens

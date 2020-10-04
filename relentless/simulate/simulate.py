@@ -1,35 +1,33 @@
-__all__ = ['Simulation','SimulationInstance']
+__all__ = ['Simulation','SimulationInstance','SimulationOperation']
 
 import abc
 
-class Simulation(abc.ABC):
+class Simulation:
     """Ensemble simulation container.
 
-    Abstract base class that initializes a :py:class:`Ensemble, runs a simulation,
-    and analyzes the results.
+    Base class that initializes and runs a simulation described by a set of
+    :py:class:`SimulationOperation`s.
 
     Parameters
     ----------
     operations : array_like
-        Array of :py:class:`Callable` functions to call during the simulation
-        (defaults to `None`).
+        Array of :py:class:`SimulationOperation` to call.
     options : kwargs
-        Optional arguments for the initialize, analyze, and defined "operations" functions.
+        Optional arguments to attach to each instance of a simulation.
 
     """
-    default_options = {}
-
     def __init__(self, operations=None, **options):
         if operations is not None:
-            self.operations = list(operations)
+            try:
+                self.operations = list(operations)
+            except TypeError:
+                self.operations = [operations]
         else:
             self.operations = []
 
-        # load up options, including user overrides
-        self.options = dict(self.default_options)
-        self.options.update(options)
+        self.options = options
 
-    def run(self, ensemble, potentials):
+    def run(self, ensemble, potentials, directory):
         """Run the simulation and return the result of analyze.
 
         A new simulation instance is created to perform the run. It is intended
@@ -42,40 +40,18 @@ class Simulation(abc.ABC):
             these variables fluctuate.
         potentials : :py:class:`PairMatrix`
             Matrix of tabulated potentials for each pair.
+        directory : :py:class:`Directory`
+            Directory to use for writing data.
 
         """
-        sim = SimulationInstance(ensemble,potentials,**self.options)
-        self.initialize(sim)
+        sim = SimulationInstance(ensemble,potentials,directory,**self.options)
+
+        if not all([isinstance(op,SimulationOperation) for op in self.operations]):
+            raise TypeError('Only SimulationOperations can be run by a Simulation.')
         for op in self.operations:
             op(sim)
-        result = self.analyze(sim)
+
         del sim
-
-        return result
-
-    @abc.abstractmethod
-    def initialize(self, sim):
-        """Initialize the simulation.
-
-        Parameters
-        ----------
-        sim : :py:class:`SimulationInstance`
-            Instance to initialize.
-
-        """
-        pass
-
-    @abc.abstractmethod
-    def analyze(self, sim):
-        """Analyze the simulation.
-
-        Parameters
-        ----------
-        sim : :py:class:`SimulationInstance`
-            Instance to analyze.
-
-        """
-        pass
 
 class SimulationInstance:
     """Specific instance of a simulation and its data.
@@ -91,8 +67,26 @@ class SimulationInstance:
         Optional arguments for the initialize, analyze, and defined "operations" functions.
 
     """
-    def __init__(self, ensemble, potentials, **options):
+    def __init__(self, ensemble, potentials, directory, **options):
         self.ensemble = ensemble
         self.potentials = potentials
+        self.directory = directory
         for opt,val in options.items():
             setattr(self,opt,val)
+
+class SimulationOperation(abc.ABC):
+    @abc.abstractmethod
+    def __call__(self, sim):
+        pass
+
+class AddIntegrator(SimulationOperation):
+    def __init__(self, dt):
+        self.dt = dt
+
+class Run(SimulationOperation):
+    def __init__(self, steps):
+        self.steps = steps
+
+class AddAnalyzer(SimulationOperation):
+    def __init__(self, every):
+        self.every = every
