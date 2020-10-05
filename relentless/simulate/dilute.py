@@ -24,6 +24,8 @@ class InitiializeRandomly(Initialize):
     pass
 
 ## integrators
+class MinimizeEnergy(_NullOperation):
+    pass
 class AddMDIntegrator(_NullOperation):
     pass
 class RemoveMDIntegrator(_NullOperation):

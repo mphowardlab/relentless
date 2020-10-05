@@ -178,6 +178,37 @@ class InitializeRandomly(Initialize):
         self.attach_potentials(sim)
 
 ## integrators
+class MinimizeEnergy(simulate.SimulationOperation):
+    def __init__(self, energy_tolerance, force_tolerance, max_iterations, dt):
+        self.energy_tolerance = energy_tolerance
+        self.force_tolerance = force_tolerance
+        self.max_iterations = max_iterations
+        self.dt = dt
+
+    def __call__(self, sim):
+        with sim.context:
+            # setup FIRE minimization
+            fire = hoomd.md.integrate.mode_minimize_fire(dt=dt,
+                                                         etol=self.energy_tolerance,
+                                                         ftol=self.force_tolerance)
+            all_ = hoomd.group.all()
+            nve = hoomd.md.integrate.nve(all_)
+
+            # run while not yet converged
+            it = 0
+            while not fire.has_converged() and iteration < self.max_iterations:
+                hoomd.run(100)
+                it += 1
+
+            if not fire.has_converged():
+                raise RuntimeError('Energy minimization failed to converge.')
+
+            # try to cleanup these integrators from the system
+            # we want them to ideally be isolated to this method
+            nve.disable()
+            del nve
+            del fire
+
 class AddMDIntegrator(simulate.SimulationOperation):
     def __init__(self, dt):
         self.dt = dt
