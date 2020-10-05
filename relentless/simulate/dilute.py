@@ -4,51 +4,48 @@ from relentless.core import Interpolator,RDF
 from . import simulate
 
 class Dilute(simulate.Simulation):
-    """Simulation of a dilute system.
-
-    The :py:class:`Ensemble` must be canonical (constant *N*, *V*, and *T*).
-
-    """
+    """Simulation of a dilute system."""
     pass
 
-## initializers
-class Initialize(simulate.SimulationOperation):
+class _NullOperation(simulate.SimulationOperation):
+    """Dummy operation that eats all arguments and doesn't do anything."""
     def __init__(self, **ignore):
         pass
 
-    def __call__(self, **ignore):
+    def __call__(self, sim):
         pass
 
+## initializers
+class Initialize(_NullOperation):
+    pass
 class InitializeFromFile(Initialize):
     pass
-
 class InitiializeRandomly(Initialize):
     pass
 
 ## integrators
-class AddMDIntegrator(simulate.SimulationOperation):
-    def __init__(self, **ignore):
-        pass
-    def __call__(self, sim):
-        pass
-
+class AddMDIntegrator(_NullOperation):
+    pass
+class RemoveMDIntegrator(_NullOperation):
+    pass
 class AddBrownianIntegrator(AddMDIntegrator):
     pass
-
+class RemoveBrownianIntegrator(RemoveMDIntegrator):
+    pass
 class AddLangevinIntegrator(AddMDIntegrator):
     pass
-
-class AddNPTIntegrator(AddMDIntegrator):
+class RemoveLangevinIntegrator(RemoveMDIntegrator):
     pass
-
+# NPT integrators are not supported (only NVT)
+# skipping AddNPTIntegrator / RemoveNPTIntegrator
 class AddNVTIntegrator(AddMDIntegrator):
     pass
-
-class Run(simulate.SimulationOperation):
-    def __init__(self, **ignore):
-        pass
-    def __call__(self, sim):
-        pass
+class RemoveNVTIntegrator(RemoveMDIntegrator):
+    pass
+class Run(_NullOperation):
+    pass
+class RunUpTo(_NullOperation):
+    pass
 
 ## analyzers
 class AddEnsembleAnalyzer(simulate.SimulationOperation):

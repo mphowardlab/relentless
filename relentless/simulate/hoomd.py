@@ -46,14 +46,7 @@ class Initialize(simulate.SimulationOperation):
     def __init__(self, r_buff=0.4):
         self.r_buff = r_buff
 
-    def make_snapshot(self, sim):
-        # get total number of particles
-        N = 0
-        for t in sim.ensemble.types:
-            if sim.ensemble.N[t] is None:
-                raise ValueError('Number of particles for type {} must be set.'.format(t))
-            N += sim.ensemble.N[t]
-
+    def extract_box_params(self, sim):
         # cast simulation box in HOOMD parameters
         V = sim.ensemble.volume
         if V is None:
@@ -66,6 +59,18 @@ class Initialize(simulate.SimulationOperation):
         xy = V.b[0]/Ly
         xz = V.c[0]/Lz
         yz = V.c[1]/Lz
+        return np.array([Lx,Ly,Lz,xy,xz,yz])
+
+    def make_snapshot(self, sim):
+        # get total number of particles
+        N = 0
+        for t in sim.ensemble.types:
+            if sim.ensemble.N[t] is None:
+                raise ValueError('Number of particles for type {} must be set.'.format(t))
+            N += sim.ensemble.N[t]
+
+        # cast simulation box in HOOMD parameters
+        Lx,Ly,Lz,xy,xz,yz = self.extract_box_params(sim)
 
         # make the empty snapshot in the current context
         with sim.context:
@@ -117,6 +122,20 @@ class InitializeFromFile(Initialize):
     def __call__(self, sim):
         with sim.context:
             sim.system = hoomd.init.read_gsd(self.filename,**self.options)
+
+            # check that the boxes are consistent in constant volume sims.
+            if sim.ensemble.constant('V'):
+                system_box = sim.system.box
+                box_from_file = np.array([system_box.Lx,
+                                          system_box.Ly,
+                                          system_box.Lz,
+                                          system_box.xy,
+                                          system_box.xy,
+                                          system_box.yz])
+                box_from_ensemble = self.extract_box_params(sim)
+                if not np.all(np.isclose(box_from_file,box_from_ensemble)):
+                    raise ValueError('Box from file is is inconsistent with ensemble volume.')
+
         self.attach_potentials(sim)
 
 class InitializeRandomly(Initialize):
@@ -159,7 +178,6 @@ class InitializeRandomly(Initialize):
         self.attach_potentials(sim)
 
 ## integrators
-
 class AddMDIntegrator(simulate.SimulationOperation):
     def __init__(self, dt):
         self.dt = dt
@@ -173,6 +191,13 @@ class AddMDIntegrator(simulate.SimulationOperation):
         # doing it this way now because the integration methods all work on all().
         with sim.context:
             hoomd.md.integrate.mode_standard(self.dt)
+
+class RemoveMDIntegrator(simulate.SimulationOperation):
+    def __init__(self, add_op):
+        self.add_op = add_op
+
+    def __call__(self, sim):
+        sim[self.add_op].integrator.disable()
 
 class AddBrownianIntegrator(AddMDIntegrator):
     """Brownian dynamics."""
@@ -200,6 +225,12 @@ class AddBrownianIntegrator(AddMDIntegrator):
                     gamma = self.friction
                 sim[self].integrator.set_gamma(t,gamma)
 
+class RemoveBrownianIntegrator(RemoveMDIntegrator):
+    def __init__(self, add_op):
+        if not isinstance(add_op, AddBrownianIntegrator):
+            raise TypeError('Addition operation is not AddBrownianIntegrator.')
+        super().__init__(add_op)
+
 class AddLangevinIntegrator(AddMDIntegrator):
     """Langevin dynamics."""
     def __init__(self, dt, friction, seed, **options):
@@ -226,6 +257,12 @@ class AddLangevinIntegrator(AddMDIntegrator):
                     gamma = self.friction
                 sim[self].integrator.set_gamma(t,gamma)
 
+class RemoveLangevinIntegrator(RemoveMDIntegrator):
+    def __init__(self, add_op):
+        if not isinstance(add_op, AddLangevinIntegrator):
+            raise TypeError('Addition operation is not AddLangevinIntegrator.')
+        super().__init__(add_op)
+
 class AddNPTIntegrator(AddMDIntegrator):
     """NPT velocity Verlet."""
     def __init__(self, dt, tau_T, tau_P, **options):
@@ -248,6 +285,12 @@ class AddNPTIntegrator(AddMDIntegrator):
                                                           tauP=self.tau_P,
                                                           **self.options)
 
+class RemoveNPTIntegrator(RemoveMDIntegrator):
+    def __init__(self, add_op):
+        if not isinstance(add_op, AddNPTIntegrator):
+            raise TypeError('Addition operation is not AddNPTIntegrator.')
+        super().__init__(add_op)
+
 class AddNVTIntegrator(AddMDIntegrator):
     """NVT velocity Verlet."""
     def __init__(self, dt, tau_T, **options):
@@ -267,6 +310,12 @@ class AddNVTIntegrator(AddMDIntegrator):
                                                           tau=self.tau_T,
                                                           **self.options)
 
+class RemoveNVTIntegrator(RemoveMDIntegrator):
+    def __init__(self, add_op):
+        if not isinstance(add_op, AddNVTIntegrator):
+            raise TypeError('Addition operation is not AddNVTIntegrator.')
+        super().__init__(add_op)
+
 class Run(simulate.SimulationOperation):
     """Advance the simulation."""
     def __init__(self, steps):
@@ -276,8 +325,15 @@ class Run(simulate.SimulationOperation):
         with sim.context:
             hoomd.run(self.steps)
 
-## analyzers
+class RunUpTo(simulate.SimulationOperation):
+    def __init__(self, step):
+        self.step = step
 
+    def __call__(self, sim):
+        with sim.context:
+            hoomd.run_upto(self.step)
+
+## analyzers
 class ThermodynamicsCallback:
     """HOOMD callback for averaging thermodynamic properties."""
     def __init__(self, logger):
