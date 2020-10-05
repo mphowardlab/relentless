@@ -11,10 +11,50 @@ class Dilute(simulate.Simulation):
     """
     pass
 
-class AddEnsembleAnalyzer(simulate.AddAnalyzer):
-    def __init__(self):
-        super().__init__(every=None)
-        self.ensemble = None
+## initializers
+class Initialize(simulate.SimulationOperation):
+    def __init__(self, **ignore):
+        pass
+
+    def __call__(self, **ignore):
+        pass
+
+class InitializeFromFile(Initialize):
+    pass
+
+class InitiializeRandomly(Initialize):
+    pass
+
+## integrators
+class AddMDIntegrator(simulate.SimulationOperation):
+    def __init__(self, **ignore):
+        pass
+    def __call__(self, sim):
+        pass
+
+class AddBrownianIntegrator(AddMDIntegrator):
+    pass
+
+class AddLangevinIntegrator(AddMDIntegrator):
+    pass
+
+class AddNPTIntegrator(AddMDIntegrator):
+    pass
+
+class AddNVTIntegrator(AddMDIntegrator):
+    pass
+
+class Run(simulate.SimulationOperation):
+    def __init__(self, **ignore):
+        pass
+    def __call__(self, sim):
+        pass
+
+## analyzers
+class AddEnsembleAnalyzer(simulate.SimulationOperation):
+    def __init__(self, **ignore):
+        # catch options that are used by other AddEnsembleAnalyzer methods and ignore them
+        pass
 
     def __call__(self, sim):
         r"""Creates a copy of the ensemble with cleared fluctuating/conjugate variables.
@@ -42,31 +82,36 @@ class AddEnsembleAnalyzer(simulate.AddAnalyzer):
         """
         if not sim.ensemble.aka("NVT"):
             raise ValueError('Dilute simulations must be run in the NVT ensemble.')
-        new_ens = sim.ensemble.copy()
-        new_ens.clear()
 
+        ens = sim.ensemble.copy()
+        ens.clear()
+
+        # pair distribution function
         for pair in sim.potentials:
             r = sim.potentials[pair].get('r')
             u = sim.potentials[pair].get('u')
             if r is None or u is None:
                 raise ValueError('r and u must be set in the potentials matrix.')
             gr = np.exp(-sim.ensemble.beta*u)
-            new_ens.rdf[pair] = RDF(r,gr)
+            ens.rdf[pair] = RDF(r,gr)
 
-        #calculate pressure
-        new_ens.P = 0.
-        for a in new_ens.types:
-            rho_a = new_ens.N[a]/new_ens.V.volume
-            new_ens.P += new_ens.kB*new_ens.T*rho_a
-            for b in new_ens.types:
-                rho_b = new_ens.N[b]/new_ens.V.volume
+        # compute pressure
+        ens.P = 0.
+        for a in ens.types:
+            rho_a = ens.N[a]/ens.V.volume
+            ens.P += ens.kB*ens.T*rho_a
+            for b in ens.types:
+                rho_b = ens.N[b]/ens.V.volume
                 r = sim.potentials[a,b].get('r')
                 u = sim.potentials[a,b].get('u')
                 f = sim.potentials[a,b].get('f')
                 if f is None:
                     ur = Interpolator(r,u)
                     f = -ur.derivative(r,1)
-                gr = new_ens.rdf[pair].table[:,1]
-                new_ens.P += (2.*np.pi/3.)*rho_a*rho_b*np.trapz(y=f*gr*r**3,x=r)
+                gr = ens.rdf[pair].table[:,1]
+                ens.P += (2.*np.pi/3.)*rho_a*rho_b*np.trapz(y=f*gr*r**3,x=r)
 
-        self.ensemble = new_ens
+        sim[self].ensemble = ens
+
+    def extract_ensemble(self, sim):
+        return sim[self].ensemble

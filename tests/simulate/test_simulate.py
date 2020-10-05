@@ -121,27 +121,28 @@ class test_Dilute(unittest.TestCase):
         #different run configurations
         #no operations (other than analyzer)
         d = relentless.simulate.Dilute(analyzer)
-        d.run(ensemble=ens, potentials=pot, directory=self.directory)
-        self.assertAlmostEqual(analyzer.ensemble.T, 1.0)
-        self.assertAlmostEqual(analyzer.ensemble.V.volume, 8.0)
-        self.assertAlmostEqual(analyzer.ensemble.P, 0.2197740)
-        self.assertDictEqual(analyzer.ensemble.N.todict(), {'A':2,'B':3})
-        for pair in analyzer.ensemble.rdf:
-            np.testing.assert_allclose(analyzer.ensemble.rdf[pair].table,
+        sim = d.run(ensemble=ens, potentials=pot, directory=self.directory)
+        ens_ = analyzer.extract_ensemble(sim)
+        self.assertAlmostEqual(ens_.T, 1.0)
+        self.assertAlmostEqual(ens_.V.volume, 8.0)
+        self.assertAlmostEqual(ens_.P, 0.2197740)
+        self.assertDictEqual(ens_.N.todict(), {'A':2,'B':3})
+        for pair in ens_.rdf:
+            np.testing.assert_allclose(ens_.rdf[pair].table,
                                        np.array([[1.,np.exp(-2./1.)],
                                                  [2.,np.exp(-4./1.)],
                                                  [3.,np.exp(-6./1.)]]))
 
         #with operations, no options
-        analyzer.ensemble = None
         d = relentless.simulate.Dilute(operations + [analyzer])
-        d.run(ensemble=ens, potentials=pot, directory=self.directory)
-        self.assertAlmostEqual(analyzer.ensemble.T, 3.0)
-        self.assertAlmostEqual(analyzer.ensemble.V.volume, 64.0)
-        self.assertAlmostEqual(analyzer.ensemble.P, 0.0302839)
-        self.assertDictEqual(analyzer.ensemble.N.todict(), {'A':3,'B':4})
-        for pair in analyzer.ensemble.rdf:
-            np.testing.assert_allclose(analyzer.ensemble.rdf[pair].table,
+        sim = d.run(ensemble=ens, potentials=pot, directory=self.directory)
+        ens_ = analyzer.extract_ensemble(sim)
+        self.assertAlmostEqual(ens_.T, 3.0)
+        self.assertAlmostEqual(ens_.V.volume, 64.0)
+        self.assertAlmostEqual(ens_.P, 0.0302839)
+        self.assertDictEqual(ens_.N.todict(), {'A':3,'B':4})
+        for pair in ens_.rdf:
+            np.testing.assert_allclose(ens_.rdf[pair].table,
                                        np.array([[2.,np.exp(-6./3.)],
                                                  [4.,np.exp(-12./3.)],
                                                  [6.,np.exp(-18./3.)]]))
@@ -150,29 +151,29 @@ class test_Dilute(unittest.TestCase):
         for pair in pot:
             pot[pair]['f'] = np.array([-3.,-3.,-3.])
         #with operations, only one option enabled
-        analyzer.ensemble = None
         d = relentless.simulate.Dilute(operations + [analyzer], constant_pot=True)
-        d.run(ensemble=ens, potentials=pot, directory=self.directory)
-        self.assertAlmostEqual(analyzer.ensemble.T, 5.0)
-        self.assertAlmostEqual(analyzer.ensemble.V.volume, 64.0)
-        self.assertAlmostEqual(analyzer.ensemble.P, -1.7724031)
-        self.assertDictEqual(analyzer.ensemble.N.todict(), {'A':4,'B':5})
-        for pair in analyzer.ensemble.rdf:
-            np.testing.assert_allclose(analyzer.ensemble.rdf[pair].table,
+        sim = d.run(ensemble=ens, potentials=pot, directory=self.directory)
+        ens_ = analyzer.extract_ensemble(sim)
+        self.assertAlmostEqual(ens_.T, 5.0)
+        self.assertAlmostEqual(ens_.V.volume, 64.0)
+        self.assertAlmostEqual(ens_.P, -1.7724031)
+        self.assertDictEqual(ens_.N.todict(), {'A':4,'B':5})
+        for pair in ens_.rdf:
+            np.testing.assert_allclose(ens_.rdf[pair].table,
                                        np.array([[2.,np.exp(-6./5.)],
                                                  [4.,np.exp(-12./5.)],
                                                  [6.,np.exp(-18./5.)]]))
 
         #with operations, both options enabled
-        analyzer.ensemble = None
         d = relentless.simulate.Dilute(operations + [analyzer], constant_ens=True, constant_pot=True)
-        d.run(ensemble=ens, potentials=pot, directory=self.directory)
-        self.assertAlmostEqual(analyzer.ensemble.T, 5.0)
-        self.assertAlmostEqual(analyzer.ensemble.V.volume, 64.0)
-        self.assertAlmostEqual(analyzer.ensemble.P, -1.7724031)
-        self.assertDictEqual(analyzer.ensemble.N.todict(), {'A':4,'B':5})
-        for pair in analyzer.ensemble.rdf:
-            np.testing.assert_allclose(analyzer.ensemble.rdf[pair].table,
+        sim = d.run(ensemble=ens, potentials=pot, directory=self.directory)
+        ens_ = analyzer.extract_ensemble(sim)
+        self.assertAlmostEqual(ens_.T, 5.0)
+        self.assertAlmostEqual(ens_.V.volume, 64.0)
+        self.assertAlmostEqual(ens_.P, -1.7724031)
+        self.assertDictEqual(ens_.N.todict(), {'A':4,'B':5})
+        for pair in ens_.rdf:
+            np.testing.assert_allclose(ens_.rdf[pair].table,
                                        np.array([[2.,np.exp(-6./5.)],
                                                  [4.,np.exp(-12./5.)],
                                                  [6.,np.exp(-18./5.)]]))

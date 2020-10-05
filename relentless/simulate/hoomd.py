@@ -1,8 +1,10 @@
+import os
 from packaging import version
 
 import numpy as np
 
 from relentless.core.collections import PairMatrix
+from relentless.core.ensemble import RDF
 from relentless.core.volume import TriclinicBox
 from . import simulate
 
@@ -33,21 +35,16 @@ class HOOMD(simulate.Simulation):
 
         super().__init__(operations,**options)
 
-    def run(self,ensemble, potentials, directory):
-        if not isinstance(self.operations[0],Initialize):
-            raise TypeError('First operation must be a HOOMD initializer.')
-        super().run(ensemble,potentials,directory)
+    def _new_instance(self, ensemble, potentials, directory):
+        sim = super()._new_instance(ensemble,potentials,directory,**self.options)
+        sim.context = hoomd.SimulationContext()
+        sim.system = None
+        return sim
 
 ## initializers
-
 class Initialize(simulate.SimulationOperation):
     def __init__(self, r_buff=0.4):
         self.r_buff = r_buff
-
-    def __call__(self, sim):
-        # inject a context and system into the SimulationInstance
-        sim.context = hoomd.SimulationContext()
-        sim.system = None
 
     def make_snapshot(self, sim):
         # get total number of particles
@@ -106,22 +103,20 @@ class Initialize(simulate.SimulationOperation):
 
         # create potentials in HOOMD script
         with sim.context:
-            nl = hoomd.md.nlist.tree(r_buff=self.r_buff)
-            pot = hoomd.md.pair.table(width=table_size,
-                                      nlist=nl)
+            sim[self].neighbor_list = hoomd.md.nlist.tree(r_buff=self.r_buff)
+            sim[self].pair_potential = hoomd.md.pair.table(width=table_size,
+                                                           nlist=sim[self].neighbor_list)
             for i,j in files:
-                pot.set_from_file(i,j,files[i,j])
+                sim[self].pair_potential.set_from_file(i,j,files[i,j])
 
-class InitializeFromGSD(Initialize):
+class InitializeFromFile(Initialize):
     def __init__(self, filename, **options):
-        self.filename = filename
+        self.filename = os.path.realpath(filename)
         self.options = options
 
     def __call__(self, sim):
-        super().__call__(sim)
-
         with sim.context:
-            sim.system = hoomd.init.read_gsd(filename,**self.options)
+            sim.system = hoomd.init.read_gsd(self.filename,**self.options)
         self.attach_potentials(sim)
 
 class InitializeRandomly(Initialize):
@@ -129,43 +124,57 @@ class InitializeRandomly(Initialize):
         self.seed = seed
 
     def __call__(self, sim):
-        super().__call__(sim)
+        # if setting seed, preserve the current RNG state
+        if seed is not None:
+            old_state = np.random.get_state()
+            np.random.seed(seed)
+        else:
+            old_state = None
 
-        with sim.context:
-            snap,box = self.make_snapshot(sim)
+        try:
+            # randomly place the particles
+            with sim.context:
+                snap,box = self.make_snapshot(sim)
 
-            # randomly place particles in fractional coordinates
-            if seed is not None:
-                np.random.seed(seed)
-            rs = np.random.uniform(size=(snap.particles.N,3))
-            snap.particles.position[:] = box.make_absolute(rs)
+                # randomly place particles in fractional coordinates
+                rs = np.random.uniform(size=(snap.particles.N,3))
+                snap.particles.position[:] = box.make_absolute(rs)
 
-            # set types of each
-            snap.particles.types = tuple(sim.ensemble.types)
-            snap.particles.typeid[:] = np.repeat(np.arange(len(sim.ensemble.types)),
-                                                [sim.ensemble.N[t] for t in sim.ensemble.types])
+                # set types of each
+                snap.particles.typeid[:] = np.repeat(np.arange(len(sim.ensemble.types)),
+                                                    [sim.ensemble.N[t] for t in sim.ensemble.types])
 
-            # assume unit mass and thermalize to Maxwell-Boltzmann distribution
-            snap.particles.mass[:] = 1.0
-            vel = np.random.normal(scale=np.sqrt(sim.ensemble.kT))
-            snap.particles.velocity[:] = vel-np.mean(vel,axis=1)
+                # assume unit mass and thermalize to Maxwell-Boltzmann distribution
+                snap.particles.mass[:] = 1.0
+                vel = np.random.normal(scale=np.sqrt(sim.ensemble.kT))
+                snap.particles.velocity[:] = vel-np.mean(vel,axis=1)
 
-            # read snapshot
-            sim.system = hoomd.init.read_snapshot(snap)
+                # read snapshot
+                sim.system = hoomd.init.read_snapshot(snap)
+        finally:
+            # always restore old state if it exists
+            if old_state is not None:
+                np.random.set_state(old_state)
 
         self.attach_potentials(sim)
 
 ## integrators
 
-class AddIntegrator(simulate.AddIntegrator):
+class AddMDIntegrator(simulate.SimulationOperation):
     def __init__(self, dt):
-        super().__init__(dt)
+        self.dt = dt
 
     def attach_integrator(self, sim):
+        # note that this assumes you can only have ONE integrator in the system
+        #
+        # to support multiple methods, you would need to only attach this only if
+        # the integrator was not set on the SimulationInstance already
+        #
+        # doing it this way now because the integration methods all work on all().
         with sim.context:
             hoomd.md.integrate.mode_standard(self.dt)
 
-class AddBrownianIntegrator(AddIntegrator):
+class AddBrownianIntegrator(AddMDIntegrator):
     """Brownian dynamics."""
     def __init__(self, dt, friction, seed, **options):
         super().__init__(dt)
@@ -180,18 +189,18 @@ class AddBrownianIntegrator(AddIntegrator):
         self.attach_integrator(sim)
         with sim.context:
             all_ = hoomd.group.all()
-            ld = hoomd.md.integrate.brownian(group=all_,
-                                             kT=sim.ensemble.kT,
-                                             seed=seed,
-                                             **self.options)
+            sim[self].integrator = hoomd.md.integrate.brownian(group=all_,
+                                                               kT=sim.ensemble.kT,
+                                                               seed=seed,
+                                                               **self.options)
             for t in sim.ensemble:
                 try:
                     gamma = self.friction[t]
                 except TypeError:
                     gamma = self.friction
-                ld.set_gamma(t,gamma)
+                sim[self].integrator.set_gamma(t,gamma)
 
-class AddLangevinIntegrator(AddIntegrator):
+class AddLangevinIntegrator(AddMDIntegrator):
     """Langevin dynamics."""
     def __init__(self, dt, friction, seed, **options):
         super().__init__(dt)
@@ -206,18 +215,18 @@ class AddLangevinIntegrator(AddIntegrator):
         self.attach_integrator(sim)
         with sim.context:
             all_ = hoomd.group.all()
-            ld = hoomd.md.integrate.langevin(group=all_,
-                                             kT=sim.ensemble.kT,
-                                             seed=seed,
-                                             **self.options)
+            sim[self].integrator = hoomd.md.integrate.langevin(group=all_,
+                                                               kT=sim.ensemble.kT,
+                                                               seed=seed,
+                                                               **self.options)
             for t in sim.ensemble:
                 try:
                     gamma = self.friction[t]
                 except TypeError:
                     gamma = self.friction
-                ld.set_gamma(t,gamma)
+                sim[self].integrator.set_gamma(t,gamma)
 
-class AddNPTIntegrator(AddIntegrator):
+class AddNPTIntegrator(AddMDIntegrator):
     """NPT velocity Verlet."""
     def __init__(self, dt, tau_T, tau_P, **options):
         super().__init__(dt)
@@ -232,14 +241,14 @@ class AddNPTIntegrator(AddIntegrator):
         self.attach_integrator(sim)
         with sim.context:
             all_ = hoomd.group.all()
-            hoomd.md.integrate.npt(group=all_,
-                                   kT=sim.ensemble.kT,
-                                   tau=self.tau_T,
-                                   P=sim.ensemble.P,
-                                   tauP=self.tau_P,
-                                   **self.options)
+            sim[self].integrator = hoomd.md.integrate.npt(group=all_,
+                                                          kT=sim.ensemble.kT,
+                                                          tau=self.tau_T,
+                                                          P=sim.ensemble.P,
+                                                          tauP=self.tau_P,
+                                                          **self.options)
 
-class AddNVTIntegrator(AddIntegrator):
+class AddNVTIntegrator(AddMDIntegrator):
     """NVT velocity Verlet."""
     def __init__(self, dt, tau_T, **options):
         super().__init__(dt)
@@ -253,53 +262,129 @@ class AddNVTIntegrator(AddIntegrator):
         self.attach_integrator(sim)
         with sim.context:
             all_ = hoomd.group.all()
-            hoomd.md.integrate.nvt(group=all_,
-                                   kT=sim.ensemble.kT,
-                                   tau=self.tau_T,
-                                   **self.options)
+            sim[self].integrator = hoomd.md.integrate.nvt(group=all_,
+                                                          kT=sim.ensemble.kT,
+                                                          tau=self.tau_T,
+                                                          **self.options)
 
-class Run(simulate.Run):
+class Run(simulate.SimulationOperation):
     """Advance the simulation."""
+    def __init__(self, steps):
+        self.steps = steps
+
     def __call__(self, sim):
         with sim.context:
             hoomd.run(self.steps)
 
 ## analyzers
 
-class AddEnsembleAnalyzer(simulate.AddAnalyzer):
-    def __init__(self, every):
-        super().__init__(self, every)
-        self.recorder = None
+class ThermodynamicsCallback:
+    """HOOMD callback for averaging thermodynamic properties."""
+    def __init__(self, logger):
+        self.logger = logger
+        self.reset()
 
-    class StateRecorder:
-        def __init__(self, sim, logger):
-            self.sim = sim
-            self.logger = logger
-            self.P = []
-            self.V = []
+    def __call__(self, timestep):
+        self.num_samples += 1
+        self._T += self.logger.query('temperature')
+        self._P += self.logger.query('pressure')
+        for key in self._V:
+            self._V[key] += self.logger.query(key.lower())
 
-        def __call__(self, timestep):
-            self.P.append(self.logger.query('pressure'))
-            self.V.append(self.logger.query('volume'))
-
-    def __call__(self, sim):
-        with sim.context:
-            # thermodynamic properties
-            logger = hoomd.analyze.log(filename=None,
-                                       quantities=['pressure','volume'],
-                                       period=self.every)
-            self.recorder = StateRecorder(sim,logger)
-            hoomd.analyze.callback(callback=self.recorder,period=self.every)
+    def reset(self):
+        self.num_samples = 0
+        self._T = 0.
+        self._P = 0.
+        self._V = {'Lx' : 0., 'Ly': 0., 'Lz': 0., 'xy': 0., 'xz': 0., 'yz': 0.}
 
     @property
-    def ensemble(self):
-        sim = self.recorder.sim
+    def T(self):
+        if self.num_samples > 0:
+            return self._T / self.num_samples
+        else:
+            return None
+
+    @property
+    def P(self):
+        if self.num_samples > 0:
+            return self._P / self.num_samples
+        else:
+            return None
+
+    @property
+    def V(self):
+        if self.num_samples > 0:
+            _V = {key: self._V[key]/self.num_samples for key in self._V}
+            vol = TriclinicBox(**_V,convention=TriclinicBox.Convention.HOOMD)
+        else:
+            return None
+
+class RDFCallback:
+    """HOOMD callback for averaging radial distribution function."""
+    def __init__(self, system, params):
+        self.system = system
+        self.rdf = PairMatrix(params.types)
+        for i,j in self.rdf:
+            self.rdf[i,j] = freud.rdf.RDF(**params[i,j],normalize=(i==j))
+
+    def __call__(self, timestep):
+        with sim.context:
+            hoomd.util.quiet_status()
+            snap = self.system.take_snapshot()
+            hoomd.util.unquiet_status()
+
+            box = freud.box.Box.from_box(snap.configuration.box)
+            for i,j in self._rdf:
+                typei = (snap.particles.typeid == snap.particles.types.index(i))
+                typej = (snap.particles.typeid == snap.particles.types.index(j))
+                aabb = freud.locality.AABBQuery(box,snap.particles.position[typej])
+                self.rdf[i,j].compute(aabb,
+                                      snap.particles.position[typei],
+                                      reset=False)
+
+class AddEnsembleAnalyzer(simulate.SimulationOperation):
+    def __init__(self, check_thermo_every, check_rdf_every, rdf_dr):
+        self.check_thermo_every = check_thermo_every
+        self.check_rdf_every = check_rdf_every
+        self.rdf_dr = rdf_dr
+
+    def __call__(self, sim):
+        if not all([sim.ensemble.constant['N'][t] for t in sim.ensemble.types]):
+            return ValueError('This analyzer requires constant N.')
+
+        with sim.context:
+            # thermodynamic properties
+            sim[self].logger = hoomd.analyze.log(filename=None,
+                                                 quantities=['temperature',
+                                                             'pressure',
+                                                             'lx','ly','lz','xy','xz','yz'],
+                                                 period=self.check_thermo_every)
+            sim[self].thermo_callback = ThermodynamicsCallback(sim[self].logger)
+            hoomd.analyze.callback(callback=sim[self].thermo_callback,
+                                   period=self.check_thermo_every)
+
+            # pair distribution function
+            rdf_params = PairMatrix(sim.ensemble.types)
+            for pair in rdf_params:
+                rmax = sim.potentials[pair]['r'][-1]
+                bins = np.round(rmax/dr).astype(int)
+                rdf_params[pair] = {'bins': bins, 'rmax': rmax}
+            sim[self].rdf_callback = RDFCallback(sim.system,rdf_params)
+            hoomd.analyze.callback(callback=sim[self].rdf_callback,
+                                   period=self.check_rdf_every)
+
+    def extract_ensemble(self, sim):
         ens = sim.ensemble.copy()
         ens.clear()
 
-        if not ens.constant('P'):
-            ens.P = np.mean(self.recorder.P)
-        if not ens.constant('V'):
-            ens.V = np.mean(self.recorder.V)
+        thermo_recorder = sim[self].thermo_callback
+        ens.T = thermo_recorder.T
+        ens.P = thermo_recorder.P
+        ens.V = thermo_recorder.V
+
+        rdf_recorder = sim[self].rdf_callback
+        for pair in rdf_recorder:
+            ens.rdf[pair] = RDF(rdf_recorder[pair].bin_centers,
+                                rdf_recorder[pair].rdf)
 
         return ens
