@@ -1,8 +1,409 @@
-__all__ = ['Depletion','LennardJones','Spline','Yukawa']
+__all__ = ['PairParameters','PairPotential','PairPotentialTabulator',
+           'Depletion','LennardJones','Spline','Yukawa']
+
+import abc
+
 import numpy as np
 
 from relentless import core
-from .potential import PairPotential
+from . import potential
+
+class PairParameters(potential.Parameters):
+    """Parameters for pairs of types.
+
+    Defines one or more parameters for a set of types. The parameters can be set
+    per-pair, per-type, or shared between all pairs. The per-pair parameters take
+    precedence over the shared parameters. The per-type parameters are not included in
+    the evaluation of pair parameters, but can be used to set per-pair or shared parameters.
+
+    Parameters
+    ----------
+    types : array_like
+        List of types (A type must be a `str`).
+    params : array_like
+        List of parameters (A parameter must be a `str`).
+
+    Raises
+    ------
+    ValueError
+        If params is initialized as empty
+    TypeError
+        If params does not consist of only strings
+
+    Examples
+    --------
+    Create a coefficient matrix with defined types and params::
+
+        m = PairParameters(types=('A','B'), params=('energy','mass'))
+
+    Set coefficient matrix values by accessing parameter directly::
+
+        m['A','A']['energy'] = 2.0
+
+    Assigning to a pair using `update()` overwrites the specified per-pair parameters::
+
+        m['A','A'].update({'mass':2.5})  #does not reset 'energy' value to `None`
+        m['A','A'].update(mass=2.5)      #equivalent statement
+        >>> print(m['A','A'])
+        {'energy':2.0, 'mass':2.5}
+
+    Assigning to a pair using `=` operator overwrites the specified per-pair parameters
+    and resets the other parameters::
+
+        m['A','A'] = {'mass':2.5}  #does reset 'energy' value to `None`
+        >>> print(m['A','A'])
+        {'energy': None, 'mass':2.5}
+
+    Set coefficient matrix values by setting parameters in full::
+
+        m['A','B'] = {'energy':DesignVariable(value=2.0,high=1.5), 'mass':0.5}
+
+    Set coefficient matrix values by iteratively accessing parameters::
+
+        for p in m.params:
+            m['B','B'][p] = 0.1
+
+    Evaluate (retrieve) pair parameters::
+
+        >>> print(m.evaluate(('B','B')))
+        {'energy':0.1, 'mass':0.1}
+
+    Utilizing `evaluate()` computes the defined values of all objects,
+    while directly accessing values returns the objects themselves::
+
+        >>> print(m.evaluate(('A','B')))
+        {'energy':2.0, 'mass':0.5}
+        >>> print(m['A','B'])
+        {'energy':<relentless.core.DesignVariable object at 0x561124456>, 'mass':0.5}
+
+    Assigning to a type sets the specified per-type parameters::
+
+        m['A'].update(energy=1.0, mass=2.0)
+        >>> print(m['A'])
+        {'energy':1.0, 'mass':2.0}
+
+    Assigning to shared sets the specified shared parameters::
+
+        m.shared['energy'] = 0.5
+        >>> print(m.shared)
+        {'energy':0.5, 'mass':None}
+
+    Shared parameters will be used in `evaluate()` if the per-pair parameter is not set::
+
+        >>> m['B','B'] = {'mass': 0.1}
+        >>> m.shared = {'energy': 0.5}
+        >>> print(m['B','B'])
+        {'energy': None, 'mass': 0.1}
+        >>> print(m.shared)
+        {'energy': 0.5, 'mass': None}
+        >>> print(m.evaluate(('B','B'))
+        {'energy':0.5, 'mass':0.1}
+
+    """
+    def __init__(self, types, params):
+        super().__init__(types, params)
+
+        # per-pair params
+        self._per_pair = core.PairMatrix(types)
+        for pair in self:
+            self._per_pair[pair] = core.FixedKeyDict(keys=self.params)
+
+    def __getitem__(self, pair):
+        """Get parameters for the (i,j) pair."""
+        if isinstance(pair, str):
+            return self._per_type[pair]
+        else:
+            return self._per_pair[pair]
+
+    def __iter__(self):
+        return iter(self._per_pair)
+
+    def __next__(self):
+        return next(self._per_pair)
+
+    @property
+    def pairs(self):
+        return self._per_pair.pairs
+
+class PairPotential(potential.Potential):
+    """Generic pair potential evaluator.
+
+    A PairPotential object is created with coefficients as a PairParameters object.
+    This abstract base class can be extended in order to evaluate custom force,
+    energy, and derivative/gradient functions.
+
+    Parameters
+    ----------
+    types : array_like
+        List of types (A type must be a `str`).
+    params : array_like
+        List of parameters (A parameter must be a `str`).
+
+    Todo
+    ----
+    1. Inspect _energy() call signature for parameters.
+
+    """
+    def __init__(self, types, params):
+        # force in standard potential parameters if they are not explicitly set
+        params = list(params)
+        if 'rmin' not in params:
+            params.append('rmin')
+        if 'rmax' not in params:
+            params.append('rmax')
+        if 'shift' not in params:
+            params.append('shift')
+
+        super().__init__(types, params, PairParameters)
+
+        for p in self.coeff:
+            self.coeff[p]['rmin'] = False
+            self.coeff[p]['rmax'] = False
+            self.coeff[p]['shift'] = False
+
+    def energy(self, pair, r):
+        """Evaluate energy for a (i,j) pair.
+
+        If an `rmin` or `rmax` value is set, then any energy evaluated at an `r`
+        value greater than `rmax` or less than `rmin` is set to the value of energy
+        evaluated or `rmax` or `rmin`, respectively.
+
+        Additionally, if the `shift` parameter is set to be `True`, all energy values
+        are shifted so that the energy is `rmax` is 0.
+
+        Parameters
+        ----------
+        pair : array_like
+            The pair for which to calculate the energy.
+        r : array_like
+            The location(s) at which to evaluate the energy.
+
+        Returns
+        -------
+        scalar or array_like
+            The energy at the specified location(s).
+            The returned quantity will be a scalar if `r` is scalar
+            or a numpy array if `r` is array_like.
+
+        Raises
+        ------
+        ValueError
+            If any value in `r` is negative.
+        ValueError
+            If the potential is shifted without setting `rmax`.
+
+        """
+        params = self.coeff.evaluate(pair)
+        r,u,scalar_r = self._zeros(r)
+        if any(r < 0):
+            raise ValueError('r cannot be negative')
+
+        # evaluate at points below rmax (if set) first, including rmin cutoff (if set)
+        flags = np.ones(r.shape[0], dtype=bool)
+        if params['rmin'] is not False:
+            range_ = r < params['rmin']
+            flags[range_] = False
+            u[range_] = self._energy(params['rmin'], **params)
+        if params['rmax'] is not False:
+            flags[r > params['rmax']] = False
+        u[flags] = self._energy(r[flags], **params)
+
+        # if rmax is set, truncate or shift depending on the mode
+        if params['rmax'] is not False:
+            # with shifting, move the whole potential up
+            # otherwise, set energy to constant for any r beyond rmax
+            if params['shift']:
+                u[r <= params['rmax']] -= self._energy(params['rmax'], **params)
+            else:
+                u[r > params['rmax']] = self._energy(params['rmax'], **params)
+        elif params['shift'] is True:
+            raise ValueError('Cannot shift potential without rmax')
+
+        # coerce u back into shape of the input
+        if scalar_r:
+            u = u.item()
+        return u
+
+    def force(self, pair, r):
+        """Evaluate force for a (i,j) pair.
+
+        The force is only evaluated for `r` values between `rmin` and `rmax`, if set.
+
+        Parameters
+        ----------
+        pair : array_like
+            The pair for which to calculate the force.
+        r : array_like
+            The location(s) at which to evaluate the force.
+
+        Returns
+        -------
+        scalar or array_like
+            The force at the specified location(s).
+            The returned quantity will be a scalar if `r` is scalar
+            or a numpy array if `r` is array_like.
+
+        Raises
+        ------
+        ValueError
+            If any value in `r` is negative.
+
+        """
+        params = self.coeff.evaluate(pair)
+        r,f,scalar_r = self._zeros(r)
+        if any(r < 0):
+            raise ValueError('r cannot be negative')
+
+        # only evaluate at points inside [rmin,rmax], if specified
+        flags = np.ones(r.shape[0], dtype=bool)
+        if params['rmin'] is not False:
+            flags[r < params['rmin']] = False
+        if params['rmax'] is not False:
+            flags[r > params['rmax']] = False
+        f[flags] = self._force(r[flags], **params)
+
+        # coerce f back into shape of the input
+        if scalar_r:
+            f = f.item()
+        return f
+
+    def derivative(self, pair, var, r):
+        """Evaluate derivative for a (i,j) pair with respect to a variable.
+
+        The derivative is only evaluated for `r` values between `rmin` and `rmax`, if set.
+        The derivative can only be evaluted with respect to a :py:class:`Variable`.
+
+        Parameters
+        ----------
+        pair : array_like
+            The pair for which to calculate the derivative.
+        var : :py:class:`Variable`
+            The variable with respect to which the derivative is to be calculated.
+        r : array_like
+            The location(s) at which to calculate the derivative.
+
+        Returns
+        -------
+        scalar or array_like
+            The derivative at the specified location(s).
+            The returned quantity will be a scalar if `r` is scalar
+            or a numpy array if `r` is array_like.
+
+        Raises
+        ------
+        ValueError
+            If any value in `r` is negative.
+        TypeError
+            If the parameter with respect to which to take the derivative
+            is not a :py:class:`Variable`.
+        ValueError
+            If the potential is shifted without setting `rmax`.
+
+        """
+        params = self.coeff.evaluate(pair)
+        r,deriv,scalar_r = self._zeros(r)
+        if any(r < 0):
+            raise ValueError('r cannot be negative')
+        if not isinstance(var, core.Variable):
+            raise TypeError('Parameter with respect to which to take the derivative must be a Variable.')
+
+        flags = np.ones(r.shape[0], dtype=bool)
+
+        for p in self.coeff.params:
+            # skip shift parameter
+            if p == 'shift':
+                continue
+
+            # try to take chain rule w.r.t. variable first
+            p_obj = self.coeff[pair][p]
+            if isinstance(p_obj, core.DependentVariable):
+                dp_dvar = p_obj.derivative(var)
+            elif isinstance(p_obj, core.IndependentVariable) and var is p_obj:
+                dp_dvar = 1.0
+            else:
+                dp_dvar = 0.0
+
+            # skip when dp_dvar is exactly zero, since this does not contribute
+            if dp_dvar == 0.0:
+                continue
+
+            # now take the parameter derivative
+            if p=='rmin':
+                # rmin deriv
+                flags = r < params['rmin']
+                deriv[flags] += -self._force(params['rmin'], **params)*dp_dvar
+            if p=='rmax':
+                # rmax deriv
+                if params['shift']:
+                    flags = r <= params['rmax']
+                    deriv[flags] += self._force(params['rmax'], **params)*dp_dvar
+                else:
+                    flags = r > params['rmax']
+                    deriv[flags] += -self._force(params['rmax'], **params)*dp_dvar
+            else:
+                # regular parameter derivative
+                below = np.zeros(r.shape[0], dtype=bool)
+                if params['rmin'] is not False:
+                    below = r < params['rmin']
+                    deriv[below] += self._derivative(p, params['rmin'], **params)*dp_dvar
+                above = np.zeros(r.shape[0], dtype=bool)
+                if params['rmax'] is not False:
+                    above = r > params['rmax']
+                    deriv[above] += self._derivative(p, params['rmax'], **params)*dp_dvar
+                elif params['shift']:
+                    raise ValueError('Cannot shift without setting rmax.')
+                flags = np.logical_and(~below, ~above)
+                deriv[flags] += self._derivative(p, r[flags], **params)*dp_dvar
+                if params['shift']:
+                    deriv -= self._derivative(p, params['rmax'], **params)*dp_dvar
+
+        # coerce derivative back into shape of the input
+        if scalar_r:
+            deriv = deriv.item()
+        return deriv
+
+    @abc.abstractmethod
+    def _energy(self, r, **params):
+        pass
+
+    @abc.abstractmethod
+    def _force(self, r, **params):
+        pass
+
+    @abc.abstractmethod
+    def _derivative(self, param, r, **params):
+        pass
+
+class PairPotentialTabulator(potential.PotentialTabulator):
+    def __init__(self, rmax, num_r, potentials=None, fmax=None):
+        super().__init__(rmax,num_r,potentials)
+        self.fmax = fmax
+
+    @property
+    def fmax(self):
+        return self._fmax
+
+    @fmax.setter
+    def fmax(self, val):
+        if val is not None and val <= 0:
+            raise ValueError('Force cutoff must be positive.')
+        self._fmax = val
+
+    def energy(self, pair):
+        u = super().energy(pair)
+        u -= u[-1]
+        return u
+
+    def force(self, pair):
+        f = super().force(pair)
+        if self.fmax is not None:
+            f[f >= self.fmax] = self.fmax
+        return f
+
+    def derivative(self, pair, var):
+        d = super().derivative(pair, var)
+        d -= d[-1]
+        return d
 
 class LennardJones(PairPotential):
     """Lennard-Jones 12-6 pair potential.
