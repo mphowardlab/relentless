@@ -45,19 +45,19 @@ class test_SimulationInstance(unittest.TestCase):
         """Test creation from data."""
         options = {'constant_ens':True, 'constant_pot':False}
         ens = relentless.Ensemble(T=1.0, V=relentless.Cube(L=2.0), N={'A':2,'B':3})
-        ff = relentless.simulate.ForceField()
+        pots = relentless.simulate.Potentials()
 
         #no options
-        sim = relentless.simulate.SimulationInstance(ens, ff, self.directory)
+        sim = relentless.simulate.SimulationInstance(ens, pots, self.directory)
         self.assertEqual(sim.ensemble, ens)
-        self.assertEqual(sim.force_field, ff)
+        self.assertEqual(sim.potentials, pots)
         with self.assertRaises(AttributeError):
             sim.constant_ens
 
         #with options
-        sim = relentless.simulate.SimulationInstance(ens, ff, self.directory, **options)
+        sim = relentless.simulate.SimulationInstance(ens, pots, self.directory, **options)
         self.assertEqual(sim.ensemble, ens)
-        self.assertEqual(sim.force_field, ff)
+        self.assertEqual(sim.potentials, pots)
         self.assertTrue(sim.constant_ens)
         self.assertFalse(sim.constant_pot)
 

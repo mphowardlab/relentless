@@ -87,8 +87,8 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
 
         # pair distribution function
         for pair in ens.rdf:
-            u = sim.force_field.pair.energy(pair)
-            ens.rdf[pair] = RDF(sim.force_field.pair.r,
+            u = sim.potentials.pair.energy(pair)
+            ens.rdf[pair] = RDF(sim.potentials.pair.r,
                                 np.exp(-sim.ensemble.beta*u))
 
         # compute pressure
@@ -99,9 +99,9 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
             for b in ens.types:
                 rho_b = ens.N[b]/ens.V.volume
 
-                r = sim.force_field.pair.r
-                u = sim.force_field.pair.energy((a,b))
-                f = sim.force_field.pair.force((a,b))
+                r = sim.potentials.pair.r
+                u = sim.potentials.pair.energy((a,b))
+                f = sim.potentials.pair.force((a,b))
                 gr = ens.rdf[a,b].table[:,1]
 
                 ens.P += (2.*np.pi/3.)*rho_a*rho_b*np.trapz(y=f*gr*r**3,x=r)

@@ -76,21 +76,21 @@ class test_Dilute(unittest.TestCase):
         pot = LinPot(ens.types,params=('m',))
         for pair in pot.coeff:
             pot.coeff[pair]['m'] = 2.0
-        ff = relentless.simulate.ForceField()
-        ff.pair.potentials.append(pot)
-        ff.pair.rmax = 3.0
-        ff.pair.num = 4
+        pots = relentless.simulate.Potentials()
+        pots.pair.potentials.append(pot)
+        pots.pair.rmax = 3.0
+        pots.pair.num = 4
 
         #invalid ensemble (non-NVT)
         ens_ = relentless.Ensemble(T=1, V=relentless.Cube(1), N={'A':2}, mu={'B':0.2})
         d = relentless.simulate.Dilute(analyzer)
         with self.assertRaises(ValueError):
-            d.run(ens_,ff,self.directory)
+            d.run(ens_,pots,self.directory)
 
         #different run configurations
         #no operations (other than analyzer)
         d = relentless.simulate.Dilute(analyzer)
-        sim = d.run(ens,ff,self.directory)
+        sim = d.run(ens,pots,self.directory)
         ens_ = analyzer.extract_ensemble(sim)
         self.assertAlmostEqual(ens_.T, 1.0)
         self.assertAlmostEqual(ens_.V.volume, 8.0)
@@ -105,7 +105,7 @@ class test_Dilute(unittest.TestCase):
 
         #with operations, no options
         d = relentless.simulate.Dilute(operations + [analyzer])
-        sim = d.run(ens,ff,self.directory)
+        sim = d.run(ens,pots,self.directory)
         ens_ = analyzer.extract_ensemble(sim)
         self.assertAlmostEqual(ens_.T, 3.0)
         self.assertAlmostEqual(ens_.V.volume, 64.0)
@@ -122,7 +122,7 @@ class test_Dilute(unittest.TestCase):
             pot[pair]['f'] = np.array([-3.,-3.,-3.])
         #with operations, only one option enabled
         d = relentless.simulate.Dilute(operations + [analyzer], constant_pot=True)
-        sim = d.run(ens,ff,self.directory)
+        sim = d.run(ens,pots,self.directory)
         ens_ = analyzer.extract_ensemble(sim)
         self.assertAlmostEqual(ens_.T, 5.0)
         self.assertAlmostEqual(ens_.V.volume, 64.0)
@@ -136,7 +136,7 @@ class test_Dilute(unittest.TestCase):
 
         #with operations, both options enabled
         d = relentless.simulate.Dilute(operations + [analyzer], constant_ens=True, constant_pot=True)
-        sim = d.run(ens,ff,self.directory)
+        sim = d.run(ens,pots,self.directory)
         ens_ = analyzer.extract_ensemble(sim)
         self.assertAlmostEqual(ens_.T, 5.0)
         self.assertAlmostEqual(ens_.V.volume, 64.0)

@@ -1,5 +1,5 @@
 __all__ = ['Simulation','SimulationInstance','SimulationOperation',
-           'ForceField','PotentialTabulator','PairPotentialTabulator']
+           'Potentials','PotentialTabulator','PairPotentialTabulator']
 
 import abc
 
@@ -26,7 +26,7 @@ class Simulation:
             self.operations = []
         self.options = options
 
-    def run(self, ensemble, force_field, directory):
+    def run(self, ensemble, potentials, directory):
         """Run the simulation and return the result of analyze.
 
         A new simulation instance is created to perform the run. It is intended
@@ -37,7 +37,7 @@ class Simulation:
         ensemble : :py:class:`Ensemble`
             Simulation ensemble. Must include values for *N* and *V* even if
             these variables fluctuate.
-        force_field : :py:class:`ForceField`
+        potentials : :py:class:`Potentials`
             Description.
         directory : :py:class:`Directory`
             Directory to use for writing data.
@@ -46,7 +46,7 @@ class Simulation:
         if not all([isinstance(op,SimulationOperation) for op in self.operations]):
             raise TypeError('All operations must be SimulationOperations.')
 
-        sim = self._new_instance(ensemble, force_field, directory)
+        sim = self._new_instance(ensemble, potentials, directory)
         for op in self.operations:
             op(sim)
         return sim
@@ -62,8 +62,8 @@ class Simulation:
         except TypeError:
             self._operations = [ops]
 
-    def _new_instance(self, ensemble, force_field, directory):
-        return SimulationInstance(ensemble,force_field,directory,**self.options)
+    def _new_instance(self, ensemble, potentials, directory):
+        return SimulationInstance(ensemble,potentials,directory,**self.options)
 
 class SimulationInstance:
     """Specific instance of a simulation and its data.
@@ -73,7 +73,7 @@ class SimulationInstance:
     ensemble : :py:class:`Ensemble`
         Simulation ensemble. Must include values for *N* and *V* even if
         these variables fluctuate.
-    force_field : :py:class:`ForceField`
+    potentials : :py:class:`Potentials`
         Description.
     directory : :py:class:`Directory`
         Directory for output.
@@ -81,9 +81,9 @@ class SimulationInstance:
         Optional arguments for the initialize, analyze, and defined "operations" functions.
 
     """
-    def __init__(self, ensemble, force_field, directory, **options):
+    def __init__(self, ensemble, potentials, directory, **options):
         self.ensemble = ensemble
-        self.force_field = force_field
+        self.potentials = potentials
         self.directory = directory
         for opt,val in options.items():
             setattr(self,opt,val)
@@ -102,7 +102,7 @@ class SimulationOperation(abc.ABC):
     def __call__(self, sim):
         pass
 
-class ForceField:
+class Potentials:
     """Combination of multiple potentials.
     """
     def __init__(self):
