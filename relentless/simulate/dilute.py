@@ -86,28 +86,24 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
         ens.clear()
 
         # pair distribution function
-        for pair in sim.potentials:
-            r = sim.potentials[pair].get('r')
-            u = sim.potentials[pair].get('u')
-            if r is None or u is None:
-                raise ValueError('r and u must be set in the potentials matrix.')
-            gr = np.exp(-sim.ensemble.beta*u)
-            ens.rdf[pair] = RDF(r,gr)
+        for pair in ens.rdf:
+            u = sim.force_field.pair.energy(pair)
+            ens.rdf[pair] = RDF(sim.force_field.pair.r,
+                                np.exp(-sim.ensemble.beta*u))
 
         # compute pressure
         ens.P = 0.
         for a in ens.types:
             rho_a = ens.N[a]/ens.V.volume
-            ens.P += ens.kB*ens.T*rho_a
+            ens.P += ens.kT*rho_a
             for b in ens.types:
                 rho_b = ens.N[b]/ens.V.volume
-                r = sim.potentials[a,b].get('r')
-                u = sim.potentials[a,b].get('u')
-                f = sim.potentials[a,b].get('f')
-                if f is None:
-                    ur = Interpolator(r,u)
-                    f = -ur.derivative(r,1)
-                gr = ens.rdf[pair].table[:,1]
+
+                r = sim.force_field.pair.r
+                u = sim.force_field.pair.energy((a,b))
+                f = sim.force_field.pair.force((a,b))
+                gr = ens.rdf[a,b].table[:,1]
+
                 ens.P += (2.*np.pi/3.)*rho_a*rho_b*np.trapz(y=f*gr*r**3,x=r)
 
         sim[self].ensemble = ens

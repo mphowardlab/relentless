@@ -6,6 +6,8 @@ import numpy as np
 
 import relentless
 
+from ..potential.test_potential import LinPot
+
 class test_Dilute(unittest.TestCase):
     """Unit tests for relentless.Dilute"""
 
@@ -69,26 +71,26 @@ class test_Dilute(unittest.TestCase):
         analyzer = relentless.simulate.dilute.AddEnsembleAnalyzer()
         operations = [self.UpdateEnsemble(),self.UpdatePotential()]
         ens = relentless.Ensemble(T=1.0, V=relentless.Cube(L=2.0), N={'A':2,'B':3})
-        pot = relentless.PairMatrix(types=ens.types)
-        for pair in pot:
-            pot[pair]['r'] = np.array([1.,2.,3.])
-            pot[pair]['u'] = np.array([2.,4.,6.])
+
+        # setup potentials
+        pot = LinPot(ens.types,params=('m',))
+        for pair in pot.coeff:
+            pot.coeff[pair]['m'] = 2.0
+        ff = relentless.simulate.ForceField()
+        ff.pair.potentials.append(pot)
+        ff.pair.rmax = 3.0
+        ff.pair.num = 4
 
         #invalid ensemble (non-NVT)
         ens_ = relentless.Ensemble(T=1, V=relentless.Cube(1), N={'A':2}, mu={'B':0.2})
         d = relentless.simulate.Dilute(analyzer)
         with self.assertRaises(ValueError):
-            d.run(ensemble=ens_, potentials=pot, directory=self.directory)
-
-        #invalid potential (r and u not defined)
-        pot_ = relentless.PairMatrix(types=ens.types)
-        with self.assertRaises(ValueError):
-            d.run(ensemble=ens, potentials=pot_, directory=self.directory)
+            d.run(ens_,ff,self.directory)
 
         #different run configurations
         #no operations (other than analyzer)
         d = relentless.simulate.Dilute(analyzer)
-        sim = d.run(ensemble=ens, potentials=pot, directory=self.directory)
+        sim = d.run(ens,ff,self.directory)
         ens_ = analyzer.extract_ensemble(sim)
         self.assertAlmostEqual(ens_.T, 1.0)
         self.assertAlmostEqual(ens_.V.volume, 8.0)
@@ -96,13 +98,14 @@ class test_Dilute(unittest.TestCase):
         self.assertDictEqual(ens_.N.todict(), {'A':2,'B':3})
         for pair in ens_.rdf:
             np.testing.assert_allclose(ens_.rdf[pair].table,
-                                       np.array([[1.,np.exp(-2./1.)],
+                                       np.array([[0.,np.exp(-0./1.)],
+                                                 [1.,np.exp(-2./1.)],
                                                  [2.,np.exp(-4./1.)],
                                                  [3.,np.exp(-6./1.)]]))
 
         #with operations, no options
         d = relentless.simulate.Dilute(operations + [analyzer])
-        sim = d.run(ensemble=ens, potentials=pot, directory=self.directory)
+        sim = d.run(ens,ff,self.directory)
         ens_ = analyzer.extract_ensemble(sim)
         self.assertAlmostEqual(ens_.T, 3.0)
         self.assertAlmostEqual(ens_.V.volume, 64.0)
@@ -119,7 +122,7 @@ class test_Dilute(unittest.TestCase):
             pot[pair]['f'] = np.array([-3.,-3.,-3.])
         #with operations, only one option enabled
         d = relentless.simulate.Dilute(operations + [analyzer], constant_pot=True)
-        sim = d.run(ensemble=ens, potentials=pot, directory=self.directory)
+        sim = d.run(ens,ff,self.directory)
         ens_ = analyzer.extract_ensemble(sim)
         self.assertAlmostEqual(ens_.T, 5.0)
         self.assertAlmostEqual(ens_.V.volume, 64.0)
@@ -133,7 +136,7 @@ class test_Dilute(unittest.TestCase):
 
         #with operations, both options enabled
         d = relentless.simulate.Dilute(operations + [analyzer], constant_ens=True, constant_pot=True)
-        sim = d.run(ensemble=ens, potentials=pot, directory=self.directory)
+        sim = d.run(ens,ff,self.directory)
         ens_ = analyzer.extract_ensemble(sim)
         self.assertAlmostEqual(ens_.T, 5.0)
         self.assertAlmostEqual(ens_.V.volume, 64.0)

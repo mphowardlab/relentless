@@ -1,4 +1,4 @@
-__all__ = ['PairParameters','PairPotential','PairPotentialTabulator',
+__all__ = ['PairParameters','PairPotential',
            'Depletion','LennardJones','Spline','Yukawa']
 
 import abc
@@ -373,37 +373,6 @@ class PairPotential(potential.Potential):
     @abc.abstractmethod
     def _derivative(self, param, r, **params):
         pass
-
-class PairPotentialTabulator(potential.PotentialTabulator):
-    def __init__(self, rmax, num_r, potentials=None, fmax=None):
-        super().__init__(rmax,num_r,potentials)
-        self.fmax = fmax
-
-    @property
-    def fmax(self):
-        return self._fmax
-
-    @fmax.setter
-    def fmax(self, val):
-        if val is not None and val <= 0:
-            raise ValueError('Force cutoff must be positive.')
-        self._fmax = val
-
-    def energy(self, pair):
-        u = super().energy(pair)
-        u -= u[-1]
-        return u
-
-    def force(self, pair):
-        f = super().force(pair)
-        if self.fmax is not None:
-            f[f >= self.fmax] = self.fmax
-        return f
-
-    def derivative(self, pair, var):
-        d = super().derivative(pair, var)
-        d -= d[-1]
-        return d
 
 class LennardJones(PairPotential):
     """Lennard-Jones 12-6 pair potential.

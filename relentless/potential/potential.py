@@ -1,14 +1,9 @@
-__all__ = ['Parameters','Potential','PotentialTabulator']
-
 import abc
 import json
-import warnings
 
 import numpy as np
 
-from relentless.core import PairMatrix
-from relentless.core import FixedKeyDict
-from relentless.core import Variable, DependentVariable, IndependentVariable, DesignVariable
+from relentless import core
 
 class Parameters:
     def __init__(self, types, params):
@@ -25,12 +20,12 @@ class Parameters:
         self.params = tuple(params)
 
         # shared params
-        self._shared = FixedKeyDict(keys=self.params)
+        self._shared = core.FixedKeyDict(keys=self.params)
 
         # per-type params
-        self._per_type = FixedKeyDict(keys=self.types)
+        self._per_type = core.FixedKeyDict(keys=self.types)
         for t in self.types:
-            self._per_type[t] = FixedKeyDict(keys=self.params)
+            self._per_type[t] = core.FixedKeyDict(keys=self.params)
 
     def evaluate(self, key):
         params = {}
@@ -44,7 +39,7 @@ class Parameters:
                 raise ValueError('Parameter {} is not set for {}.'.format(p,str(key)))
 
             # evaluate the variable
-            if isinstance(v, Variable):
+            if isinstance(v, core.Variable):
                 params[p] = v.value
             elif np.isscalar(v):
                 params[p] = v
@@ -88,12 +83,12 @@ class Parameters:
         for k in self:
             for p in self.params:
                 var = self[k][p]
-                if isinstance(var, DesignVariable):
+                if isinstance(var, core.DesignVariable):
                     d.add(var)
-                elif isinstance(var, DependentVariable):
+                elif isinstance(var, core.DependentVariable):
                     g = var.dependency_graph()
                     for n in g.nodes:
-                        if isinstance(n, DesignVariable):
+                        if isinstance(n, core.DesignVariable):
                             d.add(n)
         return tuple(d)
 
@@ -121,173 +116,58 @@ class Parameters:
 class Potential(abc.ABC):
     def __init__(self, types, params, container=None):
         if container is None:
-            container = PotentialParameters
+            container = Parameters
         self.coeff = container(types,params)
 
     @abc.abstractmethod
-    def energy(self, key, r):
+    def energy(self, key, x):
         pass
 
     @abc.abstractmethod
-    def force(self, key, r):
+    def force(self, key, x):
         pass
 
     @abc.abstractmethod
-    def derivative(self, key, var, r):
+    def derivative(self, key, var, x):
         pass
 
     @classmethod
-    def _zeros(cls, r):
+    def _zeros(cls, x):
         """Force input to a 1-dimensional array and make matching array of zeros.
 
         Parameters
         ----------
-        r : array_like
+        x : array_like
             The location(s) provided as input.
 
         Returns
         -------
         array_like
-            The r parameter
+            The x parameter
         array_like
-            An array of 0 with the same shape as r
+            An array of 0 with the same shape as x
         bool
-            Value indicating if r is scalar
+            Value indicating if x is scalar
 
         Raises
         ------
         TypeError
-            If r is not a 1-dimensional array
+            If x is not a 1-dimensional array
 
         """
-        s = np.isscalar(r)
-        r = np.array(r, dtype=np.float64, ndmin=1)
-        if len(r.shape) != 1:
-            raise TypeError('Expecting 1D array for r')
-        return r,np.zeros_like(r),s
+        s = np.isscalar(x)
+        x = np.array(x, dtype=np.float64, ndmin=1)
+        if len(x.shape) != 1:
+            raise TypeError('Expecting 1D array.')
+        return x,np.zeros_like(x),s
 
     def save(self, filename):
         """Saves the coefficient matrix to file as JSON data.
 
         Parameters
         ----------
-        filename : `str`
+        filename : str
             The name of the file to which to save the data.
 
         """
         self.coeff.save(filename)
-
-    def __iter__(self):
-        return iter(self.coeff)
-
-    def __next__(self):
-        return next(self.coeff)
-
-class PotentialTabulator:
-    """Tabulate a potential."""
-    def __init__(self, rmax, num_r, potentials=None):
-        self.rmax = rmax
-        self.num_r = num_r
-
-        if potentials is not None:
-            self._potentials = list(potentials)
-        else:
-            self._potentials = []
-
-    @property
-    def potentials(self):
-        return self._potentials
-
-    @property
-    def rmax(self):
-        return self._rmax
-
-    @rmax.setter
-    def rmax(self, val):
-        if val is not None and val < 0:
-            raise ValueError('Maximum radius must be positive.')
-        self._rmax = val
-        self._compute_r = True
-
-    @property
-    def num_r(self):
-        return self._num_r
-
-    @num_r.setter
-    def num_r(self, val):
-        if val is not None and (not isinstance(val,int) or val < 2):
-            raise ValueError('Number of points must be at least 2.')
-        self._num_r = val
-        self._compute_r = True
-
-    @property
-    def r(self):
-        """array_like: The values of r at which to evaluate energy and force."""
-        if self._compute_r:
-            if self.rmax is None:
-                raise ValueError('Maximum radius must be set.')
-            if self.num_r is None:
-                raise ValueError('Number of points must be set.')
-            self._r = np.linspace(0,self.rmax,self.num_r,dtype=np.float64)
-            self._compute_r = False
-        return self._r
-
-    def energy(self, key):
-        """Evaluates and accumulates energy for all potentials.
-
-        Parameters
-        ----------
-
-        Returns
-        -------
-        array_like
-            Total energy at each r value.
-
-        """
-        u = np.zeros_like(self.r)
-        for pot in self.potentials:
-            try:
-                u += pot.energy(key,self.r)
-            except KeyError:
-                pass
-        return u
-
-    def force(self, key):
-        """Evaluates and accumulates force for all potentials.
-
-        Parameters
-        ----------
-
-        Returns
-        -------
-        array_like
-            Total force at each r value.
-
-        """
-        f = np.zeros_like(self.r)
-        for pot in self.potentials:
-            try:
-                f += pot.force(key,self.r)
-            except KeyError:
-                pass
-        return f
-
-    def derivative(self, key, var):
-        """Evaluates and accumulates derivative for all potentials.
-
-        Parameters
-        ----------
-
-        Returns
-        -------
-        array_like
-            Total force at each r value.
-
-        """
-        d = np.zeros(self.r)
-        for pot in self.potentials:
-            try:
-                d += pot.derivative(key,var,self.r)
-            except KeyError:
-                pass
-        return d
