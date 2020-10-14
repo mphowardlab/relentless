@@ -1,4 +1,4 @@
-"""Unit tests for simulate module."""
+"""Unit tests for dilute module."""
 import tempfile
 import unittest
 
@@ -7,7 +7,7 @@ import numpy as np
 import relentless
 
 class test_Dilute(unittest.TestCase):
-    """Unit tests for relentless.Dilute"""
+    """Unit tests for relentless.simulate.Dilute"""
 
     #mock functions for use as operations
     class UpdateEnsemble(relentless.simulate.SimulationOperation):

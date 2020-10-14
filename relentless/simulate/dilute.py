@@ -20,7 +20,7 @@ class Initialize(_NullOperation):
     pass
 class InitializeFromFile(Initialize):
     pass
-class InitiializeRandomly(Initialize):
+class InitializeRandomly(Initialize):
     pass
 
 ## integrators
