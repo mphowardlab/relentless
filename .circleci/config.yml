@@ -24,8 +24,8 @@ commands:
     - run:
         name: Install dependencies
         command: |
-          conda create -y --prefix=~/env python=<< parameters.version >>
-          conda activate ~/env
+          conda create -y -n relentless python=<< parameters.version >>
+          conda activate relentless
           conda install -y -c defaults --file requirements.txt
           conda install -y -c conda-forge -c defaults --file tests/requirements.txt
 
@@ -35,7 +35,7 @@ commands:
     - run:
         name: Run tests
         command: |
-          conda activate ~/env
+          conda activate relentless
           python3 -m unittest discover -v
 
 jobs:
