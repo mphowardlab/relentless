@@ -46,6 +46,10 @@ class HOOMD(simulate.Simulation):
 
         super().__init__(operations,**options)
 
+        # initialize hoomd exec conf once
+        if hoomd.context.exec_conf is None:
+            hoomd.context.initialize('')
+
     def _new_instance(self, ensemble, potentials, directory):
         sim = super()._new_instance(ensemble,potentials,directory,**self.options)
         sim.context = hoomd.context.SimulationContext()
