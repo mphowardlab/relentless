@@ -49,6 +49,5 @@ workflows:
     jobs:
       - test:
           context: docker-hub-creds
-          matrix:
-            parameters:
-              version: ["3.6","3.7","3.8"]
+          name: test-3.6
+          version: "3.6"
