@@ -3,20 +3,21 @@ version: 2.1
 executors:
   miniconda3:
     docker:
-      - image: continuumio/miniconda3:latest
-        auth:
-          username: $DOCKERHUB_USERNAME
-          password: $DOCKERHUB_PASSWORD
+    - image: continuumio/miniconda3:latest
+      auth:
+        username: $DOCKERHUB_USERNAME
+        password: $DOCKERHUB_PASSWORD
     working_directory: ~/project
 
 commands:
   install-deps:
+    description: Install dependencies via conda.
     parameters:
       version:
+        description: Python version.
         type: string
     steps:
-      - run:
-        name: Install dependencies via conda.
+    - run:
         command: |
           conda create --prefix=~/env python=<< parameters.version >>
           conda activate ~/env
@@ -24,9 +25,9 @@ commands:
           conda install -y -c conda-forge -c defaults --file tests/requirements.txt
 
   test:
+    description: Run tests.
     steps:
-      - run:
-        name: Run tests.
+    - run:
         command: |
           python3 -m unittest discover -v
 
@@ -39,15 +40,16 @@ jobs:
       name: miniconda3
     resource_class: small
     steps:
-      - checkout
-      - install-deps
-          version: "3.6"
-      - test
+    - checkout
+    - install-deps:
+        version: << parameters.version >>
+    - test
 
 workflows:
   test:
     jobs:
-      - test:
-          context: docker-hub-creds
-          name: test-3.6
-          version: "3.6"
+    - test:
+        context: docker-hub-creds
+        matrix:
+          parameters:
+            version: ["3.6","3.7","3.8"]
