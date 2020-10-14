@@ -403,7 +403,7 @@ class AddBrownianIntegrator(AddMDIntegrator):
             all_ = hoomd.group.all()
             sim[self].integrator = hoomd.md.integrate.brownian(group=all_,
                                                                kT=sim.ensemble.kT,
-                                                               seed=seed,
+                                                               seed=self.seed,
                                                                **self.options)
             for t in sim.ensemble.N:
                 try:
@@ -456,9 +456,9 @@ class AddLangevinIntegrator(AddMDIntegrator):
             all_ = hoomd.group.all()
             sim[self].integrator = hoomd.md.integrate.langevin(group=all_,
                                                                kT=sim.ensemble.kT,
-                                                               seed=seed,
+                                                               seed=self.seed,
                                                                **self.options)
-            for t in sim.ensemble:
+            for t in sim.ensemble.types:
                 try:
                     gamma = self.friction[t]
                 except TypeError:
@@ -672,7 +672,9 @@ class RDFCallback:
         self.system = system
         self.rdf = PairMatrix(params.types)
         for i,j in self.rdf:
-            self.rdf[i,j] = freud.rdf.RDF(**params[i,j],normalize=(i==j))
+            self.rdf[i,j] = freud.density.RDF(bins=params[i,j]['bins'],
+                                              r_max=params[i,j]['rmax'],
+                                              normalize=(i==j))
 
     def __call__(self, timestep):
         with sim.context:
