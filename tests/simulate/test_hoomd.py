@@ -18,16 +18,14 @@ class test_HOOMD(unittest.TestCase):
 
     #mock gsd file for testing
     def create_gsd(self):
-        os.chdir(self.directory.path)
-        f = gsd.hoomd.open(name='test.gsd', mode='wb')
-        s = gsd.hoomd.Snapshot()
-        s.particles.N = 5
-        s.particles.types = ['A','B']
-        s.particles.typeid = [0,0,1,1,1]
-        s.particles.position = np.random.random(size=(5,3))
-        s.configuration.box = [2,2,2,0,0,0]
-        f.append(s)
-        f.close()
+        with gsd.hoomd.open(name=self.directory.file('test.gsd'), mode='wb') as f:
+            s = gsd.hoomd.Snapshot()
+            s.particles.N = 5
+            s.particles.types = ['A','B']
+            s.particles.typeid = [0,0,1,1,1]
+            s.particles.position = np.random.random(size=(5,3))
+            s.configuration.box = [2,2,2,0,0,0]
+            f.append(s)
         return f
 
     def test_initialize(self):
@@ -37,23 +35,22 @@ class test_HOOMD(unittest.TestCase):
         for pair in pot:
             pot[pair]['r'] = np.array([1.,2.,3.])
             pot[pair]['u'] = np.array([2.,4.,6.])
+            pot[pair]['f'] = np.array([-2.,-2.,-2.])
 
         #InitializeFromFile
         f = self.create_gsd()
         op = relentless.simulate.hoomd.InitializeFromFile(filename=f.file.name)
         h = relentless.simulate.hoomd.HOOMD(operations=op)
-        sim = h._new_instance(ens, pot, self.directory)
-        op(sim)
-        self.assertIsInstance(sim._opdata[op].neighbor_list, hoomd.md.nlist.tree)
-        self.assertIsInstance(sim._opdata[op].pair_potential, hoomd.md.pair.table)
+        sim = h.run(ensemble=ens, potentials=pot, directory=self.directory)
+        self.assertIsInstance(sim[op].neighbor_list, hoomd.md.nlist.tree)
+        self.assertIsInstance(sim[op].pair_potential, hoomd.md.pair.table)
 
         #InitializeRandomly
         op = relentless.simulate.hoomd.InitializeRandomly(seed=1)
         h = relentless.simulate.hoomd.HOOMD(operations=op)
-        sim = h._new_instance(ens, pot, self.directory)
-        op(sim)
-        self.assertIsInstance(sim._opdata[op].neighbor_list, hoomd.md.nlist.tree)
-        self.assertIsInstance(sim._opdata[op].pair_potential, hoomd.md.pair.table)
+        sim = h.run(ensemble=ens, potentials=pot, directory=self.directory)
+        self.assertIsInstance(sim[op].neighbor_list, hoomd.md.nlist.tree)
+        self.assertIsInstance(sim[op].pair_potential, hoomd.md.pair.table)
 
     def test_minimization(self):
         """Test running energy minimization simulation operation."""
@@ -62,6 +59,7 @@ class test_HOOMD(unittest.TestCase):
         for pair in pot:
             pot[pair]['r'] = np.array([1.,2.,3.])
             pot[pair]['u'] = np.array([2.,4.,6.])
+            pot[pair]['f'] = np.array([-2.,-2.,-2.])
 
         #MinimizeEnergy
         op = [relentless.simulate.hoomd.InitializeRandomly(seed=1),
@@ -71,9 +69,7 @@ class test_HOOMD(unittest.TestCase):
                                                        dt=0.5)
              ]
         h = relentless.simulate.hoomd.HOOMD(operations=op)
-        sim = h._new_instance(ens, pot, self.directory)
-        for i in op:
-            i(sim)
+        sim = h.run(ensemble=ens, potentials=pot, directory=self.directory)
 
     def test_integrators(self):
         """Test adding and removing integrator operations."""

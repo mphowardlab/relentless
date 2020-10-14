@@ -160,61 +160,34 @@ class Initialize(simulate.SimulationOperation):
             If the length of the *r*, *u*, and *f* arrays are not all equal.
 
         """
-        # first write all potentials to disk
-        os.chdir(sim.directory.path)
         table_size = None
-        files = PairMatrix(sim.ensemble.types)
-        for i,j in sim.potentials:
-            r = sim.potentials[i,j].get('r')
-            u = sim.potentials[i,j].get('u')
-            f = sim.potentials[i,j].get('f')
-            if f is None:
-                ur = Interpolator(r,u)
-                f  = -ur.derivative(r,1)
-
-            # validate table size
-            if table_size is None:
-                table_size = len(r)
-            if len(r) != table_size or len(u) != table_size or len(f) != table_size:
-                raise ValueError('HOOMD requires equal sized tables.')
-
-            files[i,j] = sim.directory.file('table_{i}_{j}.dat'.format(i=i,j=j))
-            header = '# Tabulated pair for ({i},{j})\n'.format(i=i,j=j)
-            header += '# r u f'
-            np.savetxt(files[i,j],
-                       np.column_stack((r,u,f)),
-                       header=header,
-                       comments='')
-
-        # create potentials in HOOMD script
         with sim.context:
+            # extract potentials
+            for i,j in sim.potentials:
+                r = sim.potentials[i,j].get('r')
+                u = sim.potentials[i,j].get('u')
+                f = sim.potentials[i,j].get('f')
+
+                # validate table size
+                if table_size is None:
+                    table_size = len(r)
+                if len(r) != table_size or len(u) != table_size or len(f) != table_size:
+                    raise ValueError('HOOMD requires equal sized tables.')
+
+            # create potentials in HOOMD script
             sim[self].neighbor_list = hoomd.md.nlist.tree(r_buff=self.r_buff)
             sim[self].pair_potential = hoomd.md.pair.table(width=table_size,
                                                            nlist=sim[self].neighbor_list)
-            for i,j in files:
-                with open(files[i,j]) as f:
-                    r,u,f = self._extract_table(f.name)
-                    sim[self].pair_potential.pair_coeff.set(i,j,func=self._table_eval,
-                                                            rmin=r[0],rmax=r[-1],
-                                                            coeff=dict(r=r,u=u,f=f))
+            for i,j in sim.potentials:
+                r = sim.potentials[i,j].get('r')
+                u = sim.potentials[i,j].get('u')
+                f = sim.potentials[i,j].get('f')
 
-    #helper methods for attach_potentials
-    def _extract_table(self, filename):
-        r = []
-        u = []
-        f = []
-        with open(filename) as n:
-            for line in n.readlines():
-                line = line.strip()
-                if line[0] == '#':
-                    continue
-                cols = line.split()
-                values = [float(i) for i in cols]
-                r.append(values[0])
-                u.append(values[1])
-                f.append(values[2])
-        return (r, u, f)
+                sim[self].pair_potential.pair_coeff.set(i,j,func=self._table_eval,
+                                                        rmin=r[0],rmax=r[-1],
+                                                        coeff=dict(r=r,u=u,f=f))
 
+    #helper method for attach_potentials
     def _table_eval(self, r_i, rmin, rmax, **coeff):
         r = coeff['r']
         u = coeff['u']
@@ -232,12 +205,14 @@ class InitializeFromFile(Initialize):
         The file from which to read the system data.
     options : kwargs
         Options for file reading (as used in :py:func:`hoomd.init.read_gsd()`).
+    r_buff : float
+        Buffer width (defaults to 0.4).
 
     """
-    def __init__(self, filename, **options):
+    def __init__(self, filename, r_buff=0.4, **options):
+        super().__init__(r_buff=r_buff)
         self.filename = os.path.realpath(filename)
         self.options = options
-        super().__init__()
 
     def __call__(self, sim):
         with sim.context:
@@ -265,11 +240,13 @@ class InitializeRandomly(Initialize):
     ----------
     seed : int
         The seed to randomly initialize the particle locations (defaults to `None`).
+    r_buff : float
+        Buffer width (defaults to 0.4).
 
     """
-    def __init__(self, seed=None):
+    def __init__(self, seed=None, r_buff=0.4):
+        super().__init__(r_buff=r_buff)
         self.seed = seed
-        super().__init__()
 
     def __call__(self, sim):
         # if setting seed, preserve the current RNG state
