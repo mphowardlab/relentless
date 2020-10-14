@@ -18,10 +18,6 @@ commands:
         type: string
     steps:
     - run:
-        name: Initialize conda
-        command: |
-          conda init bash
-    - run:
         name: Install dependencies
         command: |
           conda create -y -n relentless python=<< parameters.version >>
