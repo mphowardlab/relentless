@@ -49,7 +49,6 @@ class HOOMD(simulate.Simulation):
     def _new_instance(self, ensemble, potentials, directory):
         sim = super()._new_instance(ensemble,potentials,directory,**self.options)
         sim.context = hoomd.context.SimulationContext()
-        hoomd.context.initialize()
         sim.system = None
         return sim
 
