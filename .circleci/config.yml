@@ -25,8 +25,9 @@ commands:
         name: Install dependencies
         command: |
           conda create -y --prefix=~/env python=<< parameters.version >>
-          conda install -y -n ~/env -c defaults --file requirements.txt
-          conda install -y -n ~/env -c conda-forge -c defaults --file tests/requirements.txt
+          conda activate ~/env
+          conda install -y -c defaults --file requirements.txt
+          conda install -y -c conda-forge -c defaults --file tests/requirements.txt
 
   test:
     description: Run tests
