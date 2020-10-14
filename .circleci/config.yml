@@ -19,7 +19,7 @@ commands:
     steps:
     - run:
         command: |
-          conda create --prefix=~/env python=<< parameters.version >>
+          conda create -y --prefix=~/env python=<< parameters.version >>
           conda activate ~/env
           conda install -y -c defaults --file requirements.txt
           conda install -y -c conda-forge -c defaults --file tests/requirements.txt
