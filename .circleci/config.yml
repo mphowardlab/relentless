@@ -1,7 +1,34 @@
 version: 2.1
 
-orbs:
-  python: circleci/python@0.3.0
+executors:
+  miniconda3:
+    docker:
+      - image: continuumio/miniconda3:latest
+        auth:
+          username: $DOCKERHUB_USERNAME
+          password: $DOCKERHUB_PASSWORD
+    working_directory: ~/project
+
+commands:
+  install-deps:
+    parameters:
+      version:
+        type: string
+    steps:
+      - run:
+        description: Install dependencies via conda.
+        command: |
+          conda create --prefix=~/env python=<< parameters.version >>
+          conda activate ~/env
+          conda install -y -c defaults --file requirements.txt
+          conda install -y -c conda-forge -c defaults --file tests/requirements.txt
+
+  test:
+    steps:
+      - run:
+        description: Run tests.
+        command: |
+          python3 -m unittest discover -v
 
 jobs:
   test:
@@ -9,20 +36,19 @@ jobs:
       version:
         type: string
     executor:
-      name: python/default
-      tag: << parameters.version >>
+      name: miniconda3
     resource_class: small
     steps:
       - checkout
-      - python/load-cache
-      - python/install-deps
-      - python/save-cache
-      - python/test
+      - install-deps
+          version: << parameters.version >>
+      - test
 
 workflows:
   test:
     jobs:
       - test:
+          context: docker-hub-creds
           matrix:
             parameters:
               version: ["3.6","3.7","3.8"]
