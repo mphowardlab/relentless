@@ -24,7 +24,7 @@ commands:
           conda create -y -n relentless-test python=<< parameters.version >>
           conda activate relentless-test
           conda install -y -c defaults --file requirements.txt
-          conda install -y -f tests/environment.yml
+          conda install -y --file tests/environment.yml
 
   test:
     description: Run tests
