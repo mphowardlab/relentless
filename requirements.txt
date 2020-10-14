@@ -1,5 +1,3 @@
-gsd
-hoomd
 jinja2
 networkx
 numpy
