@@ -16,7 +16,7 @@ commands:
         type: string
     steps:
       - run:
-        description: Install dependencies via conda.
+        name: Install dependencies via conda.
         command: |
           conda create --prefix=~/env python=<< parameters.version >>
           conda activate ~/env
@@ -26,7 +26,7 @@ commands:
   test:
     steps:
       - run:
-        description: Run tests.
+        name: Run tests.
         command: |
           python3 -m unittest discover -v
 
@@ -41,7 +41,7 @@ jobs:
     steps:
       - checkout
       - install-deps
-          version: << parameters.version >>
+          version: "3.6"
       - test
 
 workflows:
