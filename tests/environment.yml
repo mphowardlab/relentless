@@ -1,0 +1,8 @@
+name: relentless-test
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - hoomd=2.9.3
+  - freud=2.2.0
+  - gsd=2.2.0
