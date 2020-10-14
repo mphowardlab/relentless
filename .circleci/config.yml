@@ -8,6 +8,7 @@ executors:
         username: $DOCKERHUB_USERNAME
         password: $DOCKERHUB_PASSWORD
     working_directory: ~/project
+    shell: /bin/bash --login -eo pipefail
 
 commands:
   install-deps:
@@ -20,7 +21,6 @@ commands:
     - run:
         name: Install dependencies
         command: |
-          source ~/.bashrc
           conda create -y -n relentless python=<< parameters.version >>
           conda activate relentless
           conda install -y -c defaults --file requirements.txt
