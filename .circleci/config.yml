@@ -21,10 +21,8 @@ commands:
     - run:
         name: Install dependencies
         command: |
-          conda create -y -n relentless-test python=<< parameters.version >>
-          conda activate relentless-test
-          conda install -y -c defaults --file requirements.txt
-          conda install -y --file tests/environment.yml
+          conda create -y -n relentless python=<< parameters.version >>
+          conda install -y -n relentless -c defaults --file requirements.txt --file tests/requirements.txt
 
   test:
     description: Run tests
@@ -32,7 +30,7 @@ commands:
     - run:
         name: Run tests
         command: |
-          conda activate relentless-test
+          conda activate relentless
           python3 -m unittest discover -v
 
 jobs:
