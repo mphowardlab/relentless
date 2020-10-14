@@ -20,6 +20,7 @@ commands:
     - run:
         name: Install dependencies
         command: |
+          source ~/.bashrc
           conda create -y -n relentless python=<< parameters.version >>
           conda activate relentless
           conda install -y -c defaults --file requirements.txt
