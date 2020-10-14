@@ -18,16 +18,19 @@ commands:
         type: string
     steps:
     - run:
+        name: Install dependencies
         command: |
+          conda init bash
           conda create -y --prefix=~/env python=<< parameters.version >>
           conda activate ~/env
           conda install -y -c defaults --file requirements.txt
           conda install -y -c conda-forge -c defaults --file tests/requirements.txt
 
   test:
-    description: Run tests.
+    description: Run tests
     steps:
     - run:
+        name: Run tests
         command: |
           python3 -m unittest discover -v
 
