@@ -148,34 +148,33 @@ class test_HOOMD(unittest.TestCase):
         """Test ensemble analyzer simulation operation."""
         ens,pot = self.ens_pot()
         init = relentless.simulate.hoomd.InitializeRandomly(seed=1)
-        emin = relentless.simulate.hoomd.MinimizeEnergy(energy_tolerance=1e-7,
-                                                        force_tolerance=1e-7,
-                                                        max_iterations=1000,
-                                                        dt=10)
         analyzer = relentless.simulate.hoomd.AddEnsembleAnalyzer(check_thermo_every=5,
                                                                  check_rdf_every=5,
                                                                  rdf_dr=1.0)
-        op = [init,emin,analyzer]
+        run = relentless.simulate.hoomd.Run(steps=500)
+        nvt = relentless.simulate.hoomd.AddNVTIntegrator(dt=0.1,
+                                                         tau_T=1.0)
+        op = [init,nvt,analyzer,run]
         h = relentless.simulate.hoomd.HOOMD(operations=op)
         sim = h.run(ensemble=ens, potentials=pot, directory=self.directory)
-
-        #thermo callback
         thermo = sim[analyzer].thermo_callback
-        self.assertAlmostEqual(thermo.T, 100.0)
-        self.assertAlmostEqual(thermo.P, 5.0)
-        self.assertAlmostEqual(thermo.V.volume, 1000.0)
-        self.assertAlmostEqual(thermo.num_samples, 100)
-
-        #rdf callback
-        
 
         #extract ensemble
-        
-        #reset thermo properties
+        ens_ = analyzer.extract_ensemble(sim)
+        self.assertIsNotNone(ens_.T)
+        self.assertNotEqual(ens_.T, 0)
+        self.assertIsNotNone(ens_.P)
+        self.assertNotEqual(ens_.P, 0)
+        self.assertIsNotNone(ens_.V)
+        self.assertNotEqual(ens_.V.volume, 0)
+        self.assertEqual(thermo.num_samples, 100)
+
+        #reset callback
         thermo.reset()
-        self.assertAlmostEqual(thermo.T, 0)
-        self.assertAlmostEqual(thermo.P, 0)
-        self.assertAlmostEqual(thermo.V.volume, 0)
+        self.assertEqual(thermo.num_samples, 0)
+        self.assertIsNone(thermo.T)
+        self.assertIsNone(thermo.P)
+        self.assertIsNone(thermo.V)
 
     def tearDown(self):
         self._tmp.cleanup()

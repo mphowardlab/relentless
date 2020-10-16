@@ -656,7 +656,7 @@ class ThermodynamicsCallback:
         """float: Average volume across samples."""
         if self.num_samples > 0:
             _V = {key: self._V[key]/self.num_samples for key in self._V}
-            vol = TriclinicBox(**_V,convention=TriclinicBox.Convention.HOOMD)
+            return TriclinicBox(**_V,convention=TriclinicBox.Convention.HOOMD)
         else:
             return None
 
@@ -680,19 +680,18 @@ class RDFCallback:
                                               normalize=(i==j))
 
     def __call__(self, timestep):
-        with sim.context:
-            hoomd.util.quiet_status()
-            snap = self.system.take_snapshot()
-            hoomd.util.unquiet_status()
+        hoomd.util.quiet_status()
+        snap = self.system.take_snapshot()
+        hoomd.util.unquiet_status()
 
-            box = freud.box.Box.from_box(snap.configuration.box)
-            for i,j in self._rdf:
-                typei = (snap.particles.typeid == snap.particles.types.index(i))
-                typej = (snap.particles.typeid == snap.particles.types.index(j))
-                aabb = freud.locality.AABBQuery(box,snap.particles.position[typej])
-                self.rdf[i,j].compute(aabb,
-                                      snap.particles.position[typei],
-                                      reset=False)
+        box = freud.box.Box.from_box(snap.box)
+        for i,j in self.rdf:
+            typei = (snap.particles.typeid == snap.particles.types.index(i))
+            typej = (snap.particles.typeid == snap.particles.types.index(j))
+            aabb = freud.locality.AABBQuery(box,snap.particles.position[typej])
+            self.rdf[i,j].compute(aabb,
+                                  snap.particles.position[typei],
+                                  reset=False)
 
 class AddEnsembleAnalyzer(simulate.SimulationOperation):
     """:py:class:`SimulationOperation` that analyzes the simulation ensemble and rdf at specified timestep intervals.
@@ -759,8 +758,8 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
         ens.V = thermo_recorder.V
 
         rdf_recorder = sim[self].rdf_callback
-        for pair in rdf_recorder:
-            ens.rdf[pair] = RDF(rdf_recorder[pair].bin_centers,
-                                rdf_recorder[pair].rdf)
+        for pair in rdf_recorder.rdf:
+            ens.rdf[pair] = RDF(rdf_recorder.rdf[pair].bin_centers,
+                                rdf_recorder.rdf[pair].rdf)
 
         return ens
