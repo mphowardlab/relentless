@@ -48,7 +48,8 @@ class HOOMD(simulate.Simulation):
 
         # initialize hoomd exec conf once
         if hoomd.context.exec_conf is None:
-            hoomd.context.initialize('')
+            hoomd.context.initialize('--notice-level=0')
+            hoomd.util.quiet_status()
 
     def _new_instance(self, ensemble, potentials, directory):
         sim = super()._new_instance(ensemble,potentials,directory,**self.options)
@@ -274,8 +275,8 @@ class InitializeRandomly(Initialize):
 
                 # assume unit mass and thermalize to Maxwell-Boltzmann distribution
                 snap.particles.mass[:] = 1.0
-                vel = np.random.normal(scale=np.sqrt(sim.ensemble.kT),size=3)
-                snap.particles.velocity[:] = vel-np.mean(vel)
+                vel = np.random.normal(scale=np.sqrt(sim.ensemble.kT),size=(snap.particles.N,3))
+                snap.particles.velocity[:] = vel-np.mean(vel,axis=0)
 
                 # read snapshot
                 sim.system = hoomd.init.read_snapshot(snap)
@@ -374,7 +375,11 @@ class RemoveMDIntegrator(simulate.SimulationOperation):
         self.add_op = add_op
 
     def __call__(self, sim):
-        sim[self.add_op].integrator.disable()
+        if sim[self.add_op].integrator is not None:
+            sim[self.add_op].integrator.disable()
+            sim[self.add_op].integrator = None
+        else:
+            raise AttributeError('The specified integrator has already been removed.')
 
 class AddBrownianIntegrator(AddMDIntegrator):
     """Brownian dynamics for a NVT ensemble.
@@ -417,6 +422,11 @@ class AddBrownianIntegrator(AddMDIntegrator):
 
 class RemoveBrownianIntegrator(RemoveMDIntegrator):
     """Removes the Brownian integrator operation.
+
+    Parameters
+    ----------
+    add_op : :py:class:`AddBrownianIntegrator`
+        The integrator addition operation to be removed.
 
     Raises
     ------
@@ -471,6 +481,11 @@ class AddLangevinIntegrator(AddMDIntegrator):
 class RemoveLangevinIntegrator(RemoveMDIntegrator):
     """Removes the Langevin integrator operation.
 
+    Parameters
+    ----------
+    add_op : :py:class:`AddLangevinIntegrator`
+        The integrator addition operation to be removed.
+
     Raises
     ------
     TypeError
@@ -520,6 +535,11 @@ class AddNPTIntegrator(AddMDIntegrator):
 class RemoveNPTIntegrator(RemoveMDIntegrator):
     """Removes the NPT integrator operation.
 
+    Parameters
+    ----------
+    add_op : :py:class:`AddNPTIntegrator`
+        The integrator addition operation to be removed.
+
     Raises
     ------
     TypeError
@@ -536,12 +556,17 @@ class AddNVTIntegrator(AddMDIntegrator):
 
     Parameters
     ----------
+    add_op : :py:class:`AddNVTIntegrator`
+        The integrator addition operation to be removed.
+
+    Parameters
+    ----------
     dt : float
         Time step size for each simulation iteration
     tau_T : float
         Coupling constant for the thermostat.
     options : kwargs
-        Options used in :py:func:`hoomd.md.integrate.npt()`
+        Options used in :py:func:`hoomd.md.integrate.nvt()`
 
     """
     def __init__(self, dt, tau_T, **options):
@@ -562,12 +587,12 @@ class AddNVTIntegrator(AddMDIntegrator):
                                                           **self.options)
 
 class RemoveNVTIntegrator(RemoveMDIntegrator):
-    """Removes the NPT integrator operation.
+    """Removes the NVT integrator operation.
 
     Raises
     ------
     TypeError
-        If the specified addition operation is not a NPT integrator.
+        If the specified addition operation is not a NVT integrator.
 
     """
     def __init__(self, add_op):
@@ -665,9 +690,9 @@ class RDFCallback:
 
     Parameters
     ----------
-    system : `hoomd.data` snapshot
+    system : `hoomd.data` system
         Simulation system object.
-    params : dict
+    params : :py:class:`PairMatrix`
         Parameters to be used to initialize an instance of :py:class:`freud.density.RDF`.
 
     """
@@ -680,9 +705,7 @@ class RDFCallback:
                                               normalize=(i==j))
 
     def __call__(self, timestep):
-        hoomd.util.quiet_status()
         snap = self.system.take_snapshot()
-        hoomd.util.unquiet_status()
 
         box = freud.box.Box.from_box(snap.box)
         for i,j in self.rdf:

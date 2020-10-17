@@ -9,7 +9,7 @@ class Dilute(simulate.Simulation):
 
 class _NullOperation(simulate.SimulationOperation):
     """Dummy operation that eats all arguments and doesn't do anything."""
-    def __init__(self, **ignore):
+    def __init__(self, *args, **ignore):
         pass
 
     def __call__(self, sim):
@@ -51,7 +51,7 @@ class RunUpTo(_NullOperation):
 
 ## analyzers
 class AddEnsembleAnalyzer(simulate.SimulationOperation):
-    def __init__(self, **ignore):
+    def __init__(self, *args, **ignore):
         # catch options that are used by other AddEnsembleAnalyzer methods and ignore them
         pass
 
@@ -98,7 +98,7 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
         ens.P = 0.
         for a in ens.types:
             rho_a = ens.N[a]/ens.V.volume
-            ens.P += ens.kB*ens.T*rho_a
+            ens.P += ens.kT*rho_a
             for b in ens.types:
                 rho_b = ens.N[b]/ens.V.volume
                 r = sim.potentials[a,b].get('r')

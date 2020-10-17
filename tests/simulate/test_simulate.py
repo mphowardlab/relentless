@@ -9,35 +9,45 @@ import relentless
 class test_Simulation(unittest.TestCase):
     """Unit tests for relentless.Simulation"""
 
-    #mock function for use as operation
-    class OperationA(relentless.simulate.SimulationOperation):
+    #mock functions for use as operations
+    class CheckEnsemble(relentless.simulate.SimulationOperation):
         def __call__(self, sim):
             try:
-                a = sim.a
+                sim[self].value = sim.constant_ens
             except AttributeError:
-                a = False
-            if a:
-                sim.ensemble.T += 3.0
-            else:
-                for pair in sim.potentials:
-                    sim.potentials[pair]['u'] += 2.0
+                sim[self].value = False
+
+    class CheckPotential(relentless.simulate.SimulationOperation):
+        def __call__(self, sim):
+            try:
+                sim[self].value = sim.constant_pot
+            except AttributeError:
+                sim[self].value = False
 
     def test_init(self):
         """Test creation from data."""
+        operations = [self.CheckEnsemble(), self.CheckPotential()]
+        options = {'constant_ens':True, 'constant_pot':True}
+
         #no operations, no options
-        sim = relentless.simulate.Simulation()
-        self.assertEqual(sim.operations, [])
-        self.assertEqual(sim.options, {})
+        d = relentless.simulate.Simulation()
+        self.assertCountEqual(d.operations, [])
+        self.assertDictEqual(d.options, {})
 
         #with operations, no options
-        sim = relentless.simulate.Simulation(operations=self.OperationA())
-        self.assertIsInstance(sim.operations[0], self.OperationA)
-        self.assertEqual(sim.options, {})
+        d = relentless.simulate.Simulation(operations)
+        self.assertCountEqual(d.operations, operations)
+        self.assertDictEqual(d.options, {})
 
-        #with operations, options
-        sim = relentless.simulate.Simulation(operations=[self.OperationA()], a=True)
-        self.assertIsInstance(sim.operations[0], self.OperationA)
-        self.assertDictEqual(sim.options, {'a':True})
+        #no operations, with options
+        d = relentless.simulate.Simulation(**options)
+        self.assertCountEqual(d.operations, [])
+        self.assertDictEqual(d.options, options)
+
+        #with operations, with options
+        d = relentless.simulate.Simulation(operations, **options)
+        self.assertCountEqual(d.operations, operations)
+        self.assertDictEqual(d.options, options)
 
     def test_run(self):
         """Test run method."""
@@ -47,29 +57,34 @@ class test_Simulation(unittest.TestCase):
             pot[pair]['r'] = np.array([1.,2.,3.])
             pot[pair]['u'] = np.array([2.,3.,4.])
         dirc = 'mock'
+        sim = relentless.simulate.Simulation()
+        operations = [self.CheckEnsemble(), self.CheckPotential()]
+        options = {'constant_ens':True, 'constant_pot':True}
 
         #no operations, no options
         sim = relentless.simulate.Simulation()
         sim_ = sim.run(ensemble=ens, potentials=pot, directory=dirc)
-        self.assertAlmostEqual(sim_.ensemble.T, 1.0)
-        np.testing.assert_allclose(sim_.potentials['A','A']['u'], np.array([2.,3.,4.]))
+        with self.assertRaises(AttributeError):
+            sim_[operations[0]].value
+        with self.assertRaises(AttributeError):
+            sim_[operations[1]].value
 
         #with operations, no options
-        sim = relentless.simulate.Simulation(operations=self.OperationA())
+        sim = relentless.simulate.Simulation(operations=operations)
         sim_ = sim.run(ensemble=ens, potentials=pot, directory=dirc)
-        self.assertAlmostEqual(sim_.ensemble.T, 1.0)
-        np.testing.assert_allclose(sim_.potentials['A','A']['u'], np.array([4.,5.,6.]))
+        self.assertFalse(sim_[operations[0]].value)
+        self.assertFalse(sim_[operations[1]].value)
 
         #with operations, options
-        sim = relentless.simulate.Simulation(operations=self.OperationA(), a=True)
+        sim = relentless.simulate.Simulation(operations=operations, **options)
         sim_ = sim.run(ensemble=ens, potentials=pot, directory=dirc)
-        self.assertAlmostEqual(sim_.ensemble.T, 4.0)
-        np.testing.assert_allclose(sim_.potentials['A','A']['u'], np.array([4.,5.,6.]))
+        self.assertTrue(sim_[operations[0]].value)
+        self.assertTrue(sim_[operations[1]].value)
 
         #invalid operation type
         sim = relentless.simulate.Simulation(operations='a')
         with self.assertRaises(TypeError):
-            sim_ = sim.run(ensemble=ens, potential=pot, directory=dirc)
+            sim.run(ensemble=ens, potential=pot, directory=dirc)
 
 class test_SimulationInstance(unittest.TestCase):
     """Unit tests for relentless.SimulationInstance"""
