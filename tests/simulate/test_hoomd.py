@@ -170,7 +170,7 @@ class test_HOOMD(unittest.TestCase):
         self.assertIsNotNone(ens_.V)
         self.assertNotEqual(ens_.V.volume, 0)
         for i,j in ens_.rdf:
-            self.assertCountEqual(ens_.rdf[i,j].table.shape, (pot[i,j]['r'].size,2))
+            self.assertCountEqual(ens_.rdf[i,j].table.shape, (len(pot.pair.r),2))
         self.assertEqual(thermo.num_samples, 100)
 
         #reset callback
