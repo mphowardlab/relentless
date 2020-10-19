@@ -739,9 +739,9 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
 
             # pair distribution function
             rdf_params = PairMatrix(sim.ensemble.types)
+            rmax = sim.potentials.pair.r[-1]
+            bins = np.round(rmax/self.rdf_dr).astype(int)
             for pair in rdf_params:
-                rmax = sim.potentials[pair]['r'][-1]
-                bins = np.round(rmax/self.rdf_dr).astype(int)
                 rdf_params[pair] = {'bins': bins, 'rmax': rmax}
             sim[self].rdf_callback = RDFCallback(sim.system,rdf_params)
             hoomd.analyze.callback(callback=sim[self].rdf_callback,
