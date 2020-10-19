@@ -1,4 +1,4 @@
-jinja2
 networkx
 numpy
+packaging
 scipy

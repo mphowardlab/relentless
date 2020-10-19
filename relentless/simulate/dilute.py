@@ -1,33 +1,61 @@
 import numpy as np
 
-from .simulate import Simulation
-from relentless.core import RDF
-from relentless.core import Interpolator
+from relentless.core import Interpolator,RDF
+from . import simulate
 
-class Dilute(Simulation):
-    """Simulation of a dilute system.
+class Dilute(simulate.Simulation):
+    """Simulation of a dilute system."""
+    pass
 
-    The :py:class:`Ensemble` must be canonical (constant *N*, *V*, and *T*).
+class _NullOperation(simulate.SimulationOperation):
+    """Dummy operation that eats all arguments and doesn't do anything."""
+    def __init__(self, *args, **ignore):
+        pass
 
-    """
-    def initialize(self, sim):
-        """Initializes the simulation.
+    def __call__(self, sim):
+        pass
 
-        Parameters
-        ----------
-        sim : :py:class:`relentless.simulate.SimulationInstance`
-            Instance to initialize.
+## initializers
+class Initialize(_NullOperation):
+    pass
+class InitializeFromFile(Initialize):
+    pass
+class InitializeRandomly(Initialize):
+    pass
 
-        Raises
-        ------
-        ValueError
-            If the ensemble does not have set constant values for T, V, and N for all types.
+## integrators
+class MinimizeEnergy(_NullOperation):
+    pass
+class AddMDIntegrator(_NullOperation):
+    pass
+class RemoveMDIntegrator(_NullOperation):
+    pass
+class AddBrownianIntegrator(AddMDIntegrator):
+    pass
+class RemoveBrownianIntegrator(RemoveMDIntegrator):
+    pass
+class AddLangevinIntegrator(AddMDIntegrator):
+    pass
+class RemoveLangevinIntegrator(RemoveMDIntegrator):
+    pass
+# NPT integrators are not supported (only NVT)
+# skipping AddNPTIntegrator / RemoveNPTIntegrator
+class AddNVTIntegrator(AddMDIntegrator):
+    pass
+class RemoveNVTIntegrator(RemoveMDIntegrator):
+    pass
+class Run(_NullOperation):
+    pass
+class RunUpTo(_NullOperation):
+    pass
 
-        """
-        if not sim.ensemble.aka("NVT"):
-            raise ValueError('Dilute simulations must be run in the NVT ensemble.')
+## analyzers
+class AddEnsembleAnalyzer(simulate.SimulationOperation):
+    def __init__(self, *args, **ignore):
+        # catch options that are used by other AddEnsembleAnalyzer methods and ignore them
+        pass
 
-    def analyze(self, sim):
+    def __call__(self, sim):
         r"""Creates a copy of the ensemble with cleared fluctuating/conjugate variables.
         The pressure *P* and :math:`g(r)` parameters for the new ensemble are calculated
         as follows:
@@ -53,31 +81,36 @@ class Dilute(Simulation):
         """
         if not sim.ensemble.aka("NVT"):
             raise ValueError('Dilute simulations must be run in the NVT ensemble.')
-        new_ens = sim.ensemble.copy()
-        new_ens.clear()
 
+        ens = sim.ensemble.copy()
+        ens.clear()
+
+        # pair distribution function
         for pair in sim.potentials:
             r = sim.potentials[pair].get('r')
             u = sim.potentials[pair].get('u')
             if r is None or u is None:
                 raise ValueError('r and u must be set in the potentials matrix.')
             gr = np.exp(-sim.ensemble.beta*u)
-            new_ens.rdf[pair] = RDF(r,gr)
+            ens.rdf[pair] = RDF(r,gr)
 
-        #calculate pressure
-        new_ens.P = 0.
-        for a in new_ens.types:
-            rho_a = new_ens.N[a]/new_ens.V.volume
-            new_ens.P += new_ens.kB*new_ens.T*rho_a
-            for b in new_ens.types:
-                rho_b = new_ens.N[b]/new_ens.V.volume
+        # compute pressure
+        ens.P = 0.
+        for a in ens.types:
+            rho_a = ens.N[a]/ens.V.volume
+            ens.P += ens.kT*rho_a
+            for b in ens.types:
+                rho_b = ens.N[b]/ens.V.volume
                 r = sim.potentials[a,b].get('r')
                 u = sim.potentials[a,b].get('u')
                 f = sim.potentials[a,b].get('f')
                 if f is None:
                     ur = Interpolator(r,u)
                     f = -ur.derivative(r,1)
-                gr = new_ens.rdf[pair].table[:,1]
-                new_ens.P += (2.*np.pi/3.)*rho_a*rho_b*np.trapz(y=f*gr*r**3,x=r)
+                gr = ens.rdf[pair].table[:,1]
+                ens.P += (2.*np.pi/3.)*rho_a*rho_b*np.trapz(y=f*gr*r**3,x=r)
 
-        return new_ens
+        sim[self].ensemble = ens
+
+    def extract_ensemble(self, sim):
+        return sim[self].ensemble

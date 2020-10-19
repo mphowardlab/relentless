@@ -132,9 +132,14 @@ class Ensemble(object):
         self._T = value
 
     @property
+    def kT(self):
+        """float: The thermal energy."""
+        return self.kB*self.T
+
+    @property
     def beta(self):
         r"""float: The inverse temperature/thermal energy."""
-        return 1./(self.kB*self.T)
+        return 1./self.kT
 
     @property
     def V(self):
