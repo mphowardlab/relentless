@@ -170,12 +170,13 @@ class Initialize(simulate.SimulationOperation):
             sim[self].pair_potential = hoomd.md.pair.table(width=len(sim.potentials.pair.r),
                                                            nlist=sim[self].neighbor_list)
             for i,j in sim.ensemble.pairs:
+                r = sim.potentials.pair.r
                 u = sim.potentials.pair.energy((i,j))
                 f = sim.potentials.pair.force((i,j))
                 sim[self].pair_potential.pair_coeff.set(i,j,
                                                         func=self._table_eval,
-                                                        rmin=sim.potentials.pair.r[0],
-                                                        rmax=sim.potentials.pair.r[-1],
+                                                        rmin=r[0],
+                                                        rmax=r[-1],
                                                         coeff=dict(r=r,u=u,f=f))
 
     #helper method for attach_potentials
