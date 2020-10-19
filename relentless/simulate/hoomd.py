@@ -169,7 +169,7 @@ class Initialize(simulate.SimulationOperation):
             sim[self].neighbor_list = hoomd.md.nlist.tree(r_buff=self.r_buff)
             sim[self].pair_potential = hoomd.md.pair.table(width=len(sim.potentials.pair.r),
                                                            nlist=sim[self].neighbor_list)
-            for i,j in sim.potentials:
+            for i,j in sim.ensemble.pairs:
                 u = sim.potentials.pair.energy((i,j))
                 f = sim.potentials.pair.force((i,j))
                 sim[self].pair_potential.pair_coeff.set(i,j,
