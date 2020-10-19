@@ -5,6 +5,7 @@ import numpy as np
 
 from relentless.core.collections import PairMatrix
 from relentless.core.ensemble import RDF
+from relentless.core.math import Interpolator
 from relentless.core.volume import TriclinicBox
 from . import simulate
 
@@ -163,31 +164,18 @@ class Initialize(simulate.SimulationOperation):
             If the length of the *r*, *u*, and *f* arrays are not all equal.
 
         """
-        table_size = None
         with sim.context:
-            # extract potentials
-            for i,j in sim.potentials:
-                r = sim.potentials[i,j].get('r')
-                u = sim.potentials[i,j].get('u')
-                f = sim.potentials[i,j].get('f')
-
-                # validate table size
-                if table_size is None:
-                    table_size = len(r)
-                if len(r) != table_size or len(u) != table_size or len(f) != table_size:
-                    raise ValueError('HOOMD requires equal sized tables.')
-
             # create potentials in HOOMD script
             sim[self].neighbor_list = hoomd.md.nlist.tree(r_buff=self.r_buff)
-            sim[self].pair_potential = hoomd.md.pair.table(width=table_size,
+            sim[self].pair_potential = hoomd.md.pair.table(width=len(sim.potentials.pair.r),
                                                            nlist=sim[self].neighbor_list)
             for i,j in sim.potentials:
-                r = sim.potentials[i,j].get('r')
-                u = sim.potentials[i,j].get('u')
-                f = sim.potentials[i,j].get('f')
-
-                sim[self].pair_potential.pair_coeff.set(i,j,func=self._table_eval,
-                                                        rmin=r[0],rmax=r[-1],
+                u = sim.potentials.pair.energy((i,j))
+                f = sim.potentials.pair.force((i,j))
+                sim[self].pair_potential.pair_coeff.set(i,j,
+                                                        func=self._table_eval,
+                                                        rmin=sim.potentials.pair.r[0],
+                                                        rmax=sim.potentials.pair.r[-1],
                                                         coeff=dict(r=r,u=u,f=f))
 
     #helper method for attach_potentials

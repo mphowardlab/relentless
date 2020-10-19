@@ -33,10 +33,10 @@ class test_Dilute(unittest.TestCase):
         ens_ = relentless.Ensemble(T=1, V=relentless.Cube(1), N={'A':2}, mu={'B':0.2})
         d = relentless.simulate.Dilute(analyzer)
         with self.assertRaises(ValueError):
-            d.run(ensemble=ens_, potentials=pot, directory=self.directory)
+            d.run(ensemble=ens_, potentials=pots, directory=self.directory)
 
         d = relentless.simulate.Dilute(operations=analyzer)
-        sim = d.run(ensemble=ens, potentials=pot, directory=self.directory)
+        sim = d.run(ensemble=ens, potentials=pots, directory=self.directory)
         ens_ = analyzer.extract_ensemble(sim)
         self.assertAlmostEqual(ens_.P, 0.2197740)
 
