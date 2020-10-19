@@ -42,6 +42,16 @@ class Simulation:
         directory : :py:class:`Directory`
             Directory to use for writing data.
 
+        Returns
+        -------
+        :py:class:`Simulation`
+            The simulation instance after the operations are performed.
+
+        Raises
+        ------
+        TypeError
+            If all operations are not :py:class:`SimulationOperation`s.
+
         """
         if not all([isinstance(op,SimulationOperation) for op in self.operations]):
             raise TypeError('All operations must be SimulationOperations.')
@@ -53,6 +63,7 @@ class Simulation:
 
     @property
     def operations(self):
+        """list: The operations to be performed during a simulation run."""
         return self._operations
 
     @operations.setter

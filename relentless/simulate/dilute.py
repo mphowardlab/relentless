@@ -9,7 +9,7 @@ class Dilute(simulate.Simulation):
 
 class _NullOperation(simulate.SimulationOperation):
     """Dummy operation that eats all arguments and doesn't do anything."""
-    def __init__(self, **ignore):
+    def __init__(self, *args, **ignore):
         pass
 
     def __call__(self, sim):
@@ -20,7 +20,7 @@ class Initialize(_NullOperation):
     pass
 class InitializeFromFile(Initialize):
     pass
-class InitiializeRandomly(Initialize):
+class InitializeRandomly(Initialize):
     pass
 
 ## integrators
@@ -51,7 +51,7 @@ class RunUpTo(_NullOperation):
 
 ## analyzers
 class AddEnsembleAnalyzer(simulate.SimulationOperation):
-    def __init__(self, **ignore):
+    def __init__(self, *args, **ignore):
         # catch options that are used by other AddEnsembleAnalyzer methods and ignore them
         pass
 
@@ -98,12 +98,10 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
             ens.P += ens.kT*rho_a
             for b in ens.types:
                 rho_b = ens.N[b]/ens.V.volume
-
                 r = sim.potentials.pair.r
                 u = sim.potentials.pair.energy((a,b))
                 f = sim.potentials.pair.force((a,b))
                 gr = ens.rdf[a,b].table[:,1]
-
                 ens.P += (2.*np.pi/3.)*rho_a*rho_b*np.trapz(y=f*gr*r**3,x=r)
 
         sim[self].ensemble = ens

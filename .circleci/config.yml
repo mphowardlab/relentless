@@ -1,7 +1,37 @@
 version: 2.1
 
-orbs:
-  python: circleci/python@0.3.0
+executors:
+  miniconda3:
+    docker:
+    - image: continuumio/miniconda3:latest
+      auth:
+        username: $DOCKERHUB_USERNAME
+        password: $DOCKERHUB_PASSWORD
+    working_directory: ~/project
+    shell: /bin/bash --login -eo pipefail
+
+commands:
+  install-deps:
+    description: Install dependencies via conda.
+    parameters:
+      version:
+        description: Python version.
+        type: string
+    steps:
+    - run:
+        name: Install dependencies
+        command: |
+          conda create -y -n relentless python=<< parameters.version >>
+          conda install -y -n relentless -c conda-forge -c defaults --file requirements.txt --file tests/requirements.txt
+
+  test:
+    description: Run tests
+    steps:
+    - run:
+        name: Run tests
+        command: |
+          conda activate relentless
+          python3 -m unittest discover -v
 
 jobs:
   test:
@@ -9,20 +39,19 @@ jobs:
       version:
         type: string
     executor:
-      name: python/default
-      tag: << parameters.version >>
+      name: miniconda3
     resource_class: small
     steps:
-      - checkout
-      - python/load-cache
-      - python/install-deps
-      - python/save-cache
-      - python/test
+    - checkout
+    - install-deps:
+        version: << parameters.version >>
+    - test
 
 workflows:
   test:
     jobs:
-      - test:
-          matrix:
-            parameters:
-              version: ["3.6","3.7","3.8"]
+    - test:
+        context: docker-hub-creds
+        matrix:
+          parameters:
+            version: ["3.6","3.7","3.8"]
