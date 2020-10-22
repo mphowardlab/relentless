@@ -38,7 +38,7 @@ class Simulation:
             Simulation ensemble. Must include values for *N* and *V* even if
             these variables fluctuate.
         potentials : :py:class:`Potentials`
-            Description.
+            The tabulated potentials.
         directory : :py:class:`Directory`
             Directory to use for writing data.
 
@@ -85,7 +85,7 @@ class SimulationInstance:
         Simulation ensemble. Must include values for *N* and *V* even if
         these variables fluctuate.
     potentials : :py:class:`Potentials`
-        Description.
+        The tabulated potentials.
     directory : :py:class:`Directory`
         Directory for output.
     options : kwargs
@@ -115,16 +115,43 @@ class SimulationOperation(abc.ABC):
 
 class Potentials:
     """Combination of multiple potentials.
+
+    Iniitializes a :py:class:`PairPotentialTabulator` object that can store multiple potentials.
+
+    Parameters
+    ----------
+    pair_potentials : array_like
+        The pair potentials to be combined and tabulated. (Defaults to `None`,
+        resulting in an empty :py:class:`PairPotentialTabulator` object).
+
     """
-    def __init__(self):
-        self._pair = PairPotentialTabulator(None,None)
+    def __init__(self, pair_potentials=None):
+        self._pair = PairPotentialTabulator(rmax=None,num=None,potentials=pair_potentials)
 
     @property
     def pair(self):
+        """:py:class:`PairPotentialTabulator`: The combined potentials."""
         return self._pair
 
 class PotentialTabulator:
-    """Tabulate a potential."""
+    """Tabulates one or more potentials.
+
+    Enables evaluation of energy, force, and derivative at different
+    positional values (i.e. *x*).
+
+    Parameters
+    ----------
+    start : float
+        The positional value of *x* at which to begin tabulation.
+    stop : float
+        The positional value of *x* at which to end tabulation.
+    num : int
+        The number of points (value of *x*) at which to tabulate and evaluate the potential.
+    potentials : :py:class:`Potential` or array_like
+        The potential(s) to be tabulated. If array_like, all elements must
+        be :py:class:`Potential`s. (Defaults to `None`).
+
+    """
     def __init__(self, start, stop, num, potentials=None):
         self.start = start
         self.stop = stop
@@ -133,6 +160,7 @@ class PotentialTabulator:
 
     @property
     def potentials(self):
+        """array_like: The individual potentials that are tabulated."""
         return self._potentials
 
     @potentials.setter
@@ -147,6 +175,7 @@ class PotentialTabulator:
 
     @property
     def start(self):
+        """float: The *x* value at which to start tabulation."""
         return self._start
 
     @start.setter
@@ -156,6 +185,7 @@ class PotentialTabulator:
 
     @property
     def stop(self):
+        """float: The *x* value at which to stop tabulation."""
         return self._stop
 
     @stop.setter
@@ -165,6 +195,8 @@ class PotentialTabulator:
 
     @property
     def num(self):
+        """int: The number of points at which to tabulate/evaluate the potential,
+        must be at least 2."""
         return self._num
 
     @num.setter
@@ -176,7 +208,7 @@ class PotentialTabulator:
 
     @property
     def x(self):
-        """array_like: The values of r at which to evaluate energy and force."""
+        """array_like: The values of *x* at which to evaluate energy, force, and derivative."""
         if self._compute_x:
             if self.start is None:
                 raise ValueError('Start of range must be set.')
@@ -193,11 +225,13 @@ class PotentialTabulator:
 
         Parameters
         ----------
+        key : str
+            The key for which to evaluate the energy for each potential.
 
         Returns
         -------
         array_like
-            Total energy at each x value.
+            Accumulated energy at each *x* value.
 
         """
         u = np.zeros_like(self.x)
@@ -213,11 +247,13 @@ class PotentialTabulator:
 
         Parameters
         ----------
+        key : str
+            The key for which to evaluate the force for each potential.
 
         Returns
         -------
         array_like
-            Total force at each x value.
+            Accumulated force at each *x* value.
 
         """
         f = np.zeros_like(self.x)
@@ -233,11 +269,13 @@ class PotentialTabulator:
 
         Parameters
         ----------
+        key : str
+            The key for which to evaluate the derivative for each potential.
 
         Returns
         -------
         array_like
-            Total force at each r value.
+            Accumulated force at each *x* value.
 
         """
         d = np.zeros_like(self.x)
@@ -249,16 +287,36 @@ class PotentialTabulator:
         return d
 
 class PairPotentialTabulator(PotentialTabulator):
+    """Tabulates one or more pair potentials.
+
+    Enables evaluation of energy, force, and derivative at different
+    positional values (i.e. *r*).
+
+    Parameters
+    ----------
+    rmax : float
+        The maximum value of *r* at which to tabulate.
+    num : int
+        The number of points (value of *r) at which to tabulate and evaluate the potential.
+    potentials : :py:class:`PairPotential` or array_like
+        The pair potential(s) to be tabulated. If array_like, all elements must
+        be :py:class:`PairPotential`s. (Defaults to `None`).
+    fmax : float
+        The maximum value of force at which to allow evaluation.
+
+    """
     def __init__(self, rmax, num, potentials=None, fmax=None):
         super().__init__(0,rmax,num,potentials)
         self.fmax = fmax
 
     @property
     def r(self):
+        """array_like: The values of *r* at which to evaluate energy, force, and derivative."""
         return self.x
 
     @property
     def rmax(self):
+        """float: The maximum value of *r* at which to allow tabulation."""
         return self.stop
 
     @rmax.setter
@@ -267,6 +325,7 @@ class PairPotentialTabulator(PotentialTabulator):
 
     @property
     def fmax(self):
+        """float: The maximum value of force at which to allow evaluation."""
         return self._fmax
 
     @fmax.setter
@@ -277,11 +336,41 @@ class PairPotentialTabulator(PotentialTabulator):
             self._fmax = None
 
     def energy(self, pair):
+        """Evaluates and accumulates energy for all potentials.
+
+        Shifts the energy to be 0 at rmax.
+
+        Parameters
+        ----------
+        pair : str
+            The pair for which to evaluate the energy for each potential.
+
+        Returns
+        -------
+        array_like
+            Accumulated energy at each *r* value.
+
+        """
         u = super().energy(pair)
         u -= u[-1]
         return u
 
     def force(self, pair):
+        """Evaluates and accumulates force for all potentials.
+
+        All forces greater than or equal to fmax are set to 0.
+
+        Parameters
+        ----------
+        pair : str
+            The pair for which to evaluate the force for each potential.
+
+        Returns
+        -------
+        array_like
+            Accumulated force at each *r* value.
+
+        """
         f = super().force(pair)
         if self.fmax is not None:
             flags = np.fabs(f) >= self.fmax
@@ -290,6 +379,21 @@ class PairPotentialTabulator(PotentialTabulator):
         return f
 
     def derivative(self, pair, var):
+        """Evaluates and accumulates derivative for all potentials.
+
+        Shifts the derivative to be 0 at rmax.
+
+        Parameters
+        ----------
+        pair : str
+            The pair for which to evaluate the derivative for each potential.
+
+        Returns
+        -------
+        array_like
+            Accumulated derivative at each *r* value.
+
+        """
         d = super().derivative(pair, var)
         d -= d[-1]
         return d

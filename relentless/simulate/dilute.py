@@ -86,7 +86,7 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
         ens.clear()
 
         # pair distribution function
-        for pair in ens.rdf:
+        for pair in ens.pairs:
             u = sim.potentials.pair.energy(pair)
             ens.rdf[pair] = RDF(sim.potentials.pair.r,
                                 np.exp(-sim.ensemble.beta*u))
