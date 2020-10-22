@@ -38,7 +38,7 @@ class Simulation:
             Simulation ensemble. Must include values for *N* and *V* even if
             these variables fluctuate.
         potentials : :py:class:`Potentials`
-            The tabulated potentials.
+            The interaction potentials.
         directory : :py:class:`Directory`
             Directory to use for writing data.
 
@@ -85,7 +85,7 @@ class SimulationInstance:
         Simulation ensemble. Must include values for *N* and *V* even if
         these variables fluctuate.
     potentials : :py:class:`Potentials`
-        The tabulated potentials.
+        The interaction potentials.
     directory : :py:class:`Directory`
         Directory for output.
     options : kwargs
@@ -117,6 +117,8 @@ class Potentials:
     """Combination of multiple potentials.
 
     Iniitializes a :py:class:`PairPotentialTabulator` object that can store multiple potentials.
+    Before the :py:class:`Potentials` object can be used, the ``rmax`` and ``num``
+    attributes of all ``pair``s (that are not `None`) must be set.
 
     Parameters
     ----------
@@ -358,7 +360,7 @@ class PairPotentialTabulator(PotentialTabulator):
     def force(self, pair):
         """Evaluates and accumulates force for all potentials.
 
-        All forces greater than or equal to fmax are set to 0.
+        If set, all forces are truncated to be less than or equal to ``|fmax|``.
 
         Parameters
         ----------

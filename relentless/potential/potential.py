@@ -17,7 +17,7 @@ class Parameters:
     types : array_like
         List of types (A type must be a `str`).
     params : array_like
-        List of types (A parameter must be a `str`).
+        List of parameters (A parameter must be a `str`).
 
     Raises
     ------
@@ -157,7 +157,7 @@ class Parameters:
         return self._shared
 
 class Potential(abc.ABC):
-    """Abstract base class for potential coefficients.
+    """Abstract base class for interaction potential.
 
     To implement this class, concrete `energy`, `force`, `derivative` methods must be defined.
 
