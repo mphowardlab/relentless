@@ -107,7 +107,7 @@ class test_SimulationInstance(unittest.TestCase):
             sim.constant_ens
 
         #with options
-        sim = relentless.simulate.SimulationInstance(None, ens, pots, self.directory)
+        sim = relentless.simulate.SimulationInstance(None, ens, pots, self.directory, **options)
         self.assertEqual(sim.ensemble, ens)
         self.assertEqual(sim.potentials, pots)
         self.assertTrue(sim.constant_ens)
