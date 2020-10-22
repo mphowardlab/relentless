@@ -7,6 +7,7 @@ import hoomd
 import numpy as np
 
 import relentless
+from ..potential.test_pair import LinPot
 
 class test_HOOMD(unittest.TestCase):
     """Unit tests for relentless.HOOMD"""
@@ -18,12 +19,17 @@ class test_HOOMD(unittest.TestCase):
     #mock (NVT) ensemble and potential for testing
     def ens_pot(self):
         ens = relentless.Ensemble(T=2.0, V=relentless.Cube(L=10.0), N={'A':2,'B':3})
-        pot = relentless.PairMatrix(types=ens.types)
-        for pair in pot:
-            pot[pair]['r'] = np.array([1.,2.,3.])
-            pot[pair]['u'] = np.array([2.,4.,6.])
-            pot[pair]['f'] = np.array([-2.,-2.,-2.])
-        return (ens,pot)
+
+        # setup potentials
+        pot = LinPot(ens.types,params=('m',))
+        for pair in pot.coeff:
+            pot.coeff[pair]['m'] = 2.0
+        pots = relentless.simulate.Potentials()
+        pots.pair.potentials.append(pot)
+        pots.pair.rmax = 3.0
+        pots.pair.num = 4
+
+        return (ens,pots)
 
     #mock gsd file for testing
     def create_gsd(self):
@@ -164,7 +170,7 @@ class test_HOOMD(unittest.TestCase):
         self.assertIsNotNone(ens_.V)
         self.assertNotEqual(ens_.V.volume, 0)
         for i,j in ens_.rdf:
-            self.assertCountEqual(ens_.rdf[i,j].table.shape, (pot[i,j]['r'].size,2))
+            self.assertEqual(ens_.rdf[i,j].table.shape, (len(pot.pair.r)-1,2))
         self.assertEqual(thermo.num_samples, 100)
 
         #reset callback

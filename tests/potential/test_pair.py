@@ -1,9 +1,452 @@
 """Unit tests for pair module."""
+import json
+import tempfile
 import unittest
 
 import numpy as np
 
 import relentless
+
+class test_PairParameters(unittest.TestCase):
+    """Unit tests for relentless.pair.PairParameters"""
+
+    def test_init(self):
+        """Test creation from data"""
+        types = ('A','B')
+        pairs = (('A','B'), ('B','B'), ('A','A'))
+        params = ('energy', 'mass')
+
+        #test construction with tuple input
+        m = relentless.potential.PairParameters(types=('A','B'), params=('energy','mass'))
+        self.assertEqual(m.types, types)
+        self.assertEqual(m.params, params)
+        self.assertCountEqual(m.pairs, pairs)
+
+        #test construction with list input
+        m = relentless.potential.PairParameters(types=['A','B'], params=('energy','mass'))
+        self.assertEqual(m.types, types)
+        self.assertEqual(m.params, params)
+        self.assertCountEqual(m.pairs, pairs)
+
+        #test construction with mixed tuple/list input
+        m = relentless.potential.PairParameters(types=('A','B'), params=['energy','mass'])
+        self.assertEqual(m.types, types)
+        self.assertEqual(m.params, params)
+        self.assertCountEqual(m.pairs, pairs)
+
+        #test construction with int type parameters
+        with self.assertRaises(TypeError):
+            m = relentless.potential.PairParameters(types=('A','B'), params=(1,2))
+
+        #test construction with mixed type parameters
+        with self.assertRaises(TypeError):
+            m = relentless.potential.PairParameters(types=('A','B'), params=('1',2))
+
+    def test_param_types(self):
+        """Test various get and set methods on pair parameter types"""
+        m = relentless.potential.PairParameters(types=('A','B'), params=('energy', 'mass'))
+
+        self.assertEqual(m.shared['energy'], None)
+        self.assertEqual(m.shared['mass'], None)
+        self.assertEqual(m['A','A']['energy'], None)
+        self.assertEqual(m['A','A']['mass'], None)
+        self.assertEqual(m['A','B']['energy'], None)
+        self.assertEqual(m['A','B']['mass'], None)
+        self.assertEqual(m['B','B']['energy'], None)
+        self.assertEqual(m['B','B']['mass'], None)
+        self.assertEqual(m['A']['energy'], None)
+        self.assertEqual(m['A']['mass'], None)
+        self.assertEqual(m['B']['energy'], None)
+        self.assertEqual(m['B']['mass'], None)
+
+        #test setting shared params
+        m.shared.update(energy=1.0, mass=2.0)
+
+        self.assertEqual(m.shared['energy'], 1.0)
+        self.assertEqual(m.shared['mass'], 2.0)
+        self.assertEqual(m['A','A']['energy'], None)
+        self.assertEqual(m['A','A']['mass'], None)
+        self.assertEqual(m['A','B']['energy'], None)
+        self.assertEqual(m['A','B']['mass'], None)
+        self.assertEqual(m['B','B']['energy'], None)
+        self.assertEqual(m['B','B']['mass'], None)
+        self.assertEqual(m['A']['energy'], None)
+        self.assertEqual(m['A']['mass'], None)
+        self.assertEqual(m['B']['energy'], None)
+        self.assertEqual(m['B']['mass'], None)
+
+        #test setting per-pair params
+        m['A','A'].update(energy=1.5, mass=2.5)
+        m['A','B'].update(energy=2.0, mass=3.0)
+        m['B','B'].update(energy=0.5, mass=0.7)
+
+        self.assertEqual(m.shared['energy'], 1.0)
+        self.assertEqual(m.shared['mass'], 2.0)
+        self.assertEqual(m['A','A']['energy'], 1.5)
+        self.assertEqual(m['A','A']['mass'], 2.5)
+        self.assertEqual(m['A','B']['energy'], 2.0)
+        self.assertEqual(m['A','B']['mass'], 3.0)
+        self.assertEqual(m['B','B']['energy'], 0.5)
+        self.assertEqual(m['B','B']['mass'], 0.7)
+        self.assertEqual(m['A']['energy'], None)
+        self.assertEqual(m['A']['mass'], None)
+        self.assertEqual(m['B']['energy'], None)
+        self.assertEqual(m['B']['mass'], None)
+
+        #test setting per-type params
+        m['A'].update(energy=0.1, mass=0.2)
+        m['B'].update(energy=0.2, mass=0.1)
+
+        self.assertEqual(m.shared['energy'], 1.0)
+        self.assertEqual(m.shared['mass'], 2.0)
+        self.assertEqual(m['A','A']['energy'], 1.5)
+        self.assertEqual(m['A','A']['mass'], 2.5)
+        self.assertEqual(m['A','B']['energy'], 2.0)
+        self.assertEqual(m['A','B']['mass'], 3.0)
+        self.assertEqual(m['B','B']['energy'], 0.5)
+        self.assertEqual(m['B','B']['mass'], 0.7)
+        self.assertEqual(m['A']['energy'], 0.1)
+        self.assertEqual(m['A']['mass'], 0.2)
+        self.assertEqual(m['B']['energy'], 0.2)
+        self.assertEqual(m['B']['mass'], 0.1)
+
+class LinPot(relentless.potential.PairPotential):
+    """Linear potential function used to test relentless.potential.PairPotential"""
+
+    def __init__(self, types, params):
+        super().__init__(types, params)
+
+    def _energy(self, r, m, **params):
+        r,u,s = self._zeros(r)
+        u[:] = m*r
+        if s:
+            u = u.item()
+        return u
+
+    def _force(self, r, m, **params):
+        r,f,s = self._zeros(r)
+        f[:] = -m
+        if s:
+            f = f.item()
+        return f
+
+    def _derivative(self, param, r, **params):
+        r,d,s = self._zeros(r)
+        if param == 'm':
+            d[:] = r
+        if s:
+            d = d.item()
+        return d
+
+class TwoVarPot(relentless.potential.PairPotential):
+    """Mock potential function used to test relentless.potential.PairPotential.derivative"""
+
+    def __init__(self, types, params):
+        super().__init__(types, params)
+
+    def _energy(self, r, x, y, **params):
+        pass
+
+    def _force(self, r, x, y, **params):
+        pass
+
+    def _derivative(self, param, r, **params):
+        #not real derivative, just used to test functionality
+        r,d,s = self._zeros(r)
+        if param == 'x':
+            d[:] = 2*r
+        elif param == 'y':
+            d[:] = 3*r
+        if s:
+            d = d.item()
+        return d
+
+class test_PairPotential(unittest.TestCase):
+    """Unit tests for relentless.potential.PairPotential"""
+
+    def test_init(self):
+        """Test creation from data"""
+        #test creation with only m
+        p = LinPot(types=('1',), params=('m',))
+        p.coeff['1','1']['m'] = 3.5
+
+        coeff = relentless.potential.PairParameters(types=('1',), params=('m','rmin','rmax','shift'))
+        coeff['1','1']['m'] = 3.5
+        coeff['1','1']['rmin'] = False
+        coeff['1','1']['rmax'] = False
+        coeff['1','1']['shift'] = False
+
+        self.assertCountEqual(p.coeff.types, coeff.types)
+        self.assertCountEqual(p.coeff.params, coeff.params)
+        self.assertDictEqual(p.coeff.evaluate(('1','1')), coeff.evaluate(('1','1')))
+
+        #test creation with m and rmin
+        p = LinPot(types=('1',), params=('m','rmin'))
+        p.coeff['1','1']['m'] = 3.5
+        p.coeff['1','1']['rmin'] = 0.0
+
+        coeff = relentless.potential.PairParameters(types=('1',), params=('m','rmin','rmax','shift'))
+        coeff['1','1']['m'] = 3.5
+        coeff['1','1']['rmin'] = 0.0
+        coeff['1','1']['rmax'] = False
+        coeff['1','1']['shift'] = False
+
+        self.assertCountEqual(p.coeff.types, coeff.types)
+        self.assertCountEqual(p.coeff.params, coeff.params)
+        self.assertDictEqual(p.coeff.evaluate(('1','1')), coeff.evaluate(('1','1')))
+
+        #test creation with m and rmax
+        p = LinPot(types=('1',), params=('m','rmax'))
+        p.coeff['1','1']['m'] = 3.5
+        p.coeff['1','1']['rmax'] = 1.0
+
+        coeff = relentless.potential.PairParameters(types=('1',), params=('m','rmin','rmax','shift'))
+        coeff['1','1']['m'] = 3.5
+        coeff['1','1']['rmin'] = False
+        coeff['1','1']['rmax'] = 1.0
+        coeff['1','1']['shift'] = False
+
+        self.assertCountEqual(p.coeff.types, coeff.types)
+        self.assertCountEqual(p.coeff.params, coeff.params)
+        self.assertDictEqual(p.coeff.evaluate(('1','1')), coeff.evaluate(('1','1')))
+
+        #test creation with m and shift
+        p = LinPot(types=('1',), params=('m','shift'))
+        p.coeff['1','1']['m'] = 3.5
+        p.coeff['1','1']['shift'] = True
+
+        coeff = relentless.potential.PairParameters(types=('1',), params=('m','rmin','rmax','shift'))
+        coeff['1','1']['m'] = 3.5
+        coeff['1','1']['rmin'] = False
+        coeff['1','1']['rmax'] = False
+        coeff['1','1']['shift'] = True
+
+        self.assertCountEqual(p.coeff.types, coeff.types)
+        self.assertCountEqual(p.coeff.params, coeff.params)
+        self.assertDictEqual(p.coeff.evaluate(('1','1')), coeff.evaluate(('1','1')))
+
+        #test creation with all params
+        p = LinPot(types=('1',), params=('m','rmin','rmax','shift'))
+        p.coeff['1','1']['m'] = 3.5
+        p.coeff['1','1']['rmin'] = 0.0
+        p.coeff['1','1']['rmax'] = 1.0
+        p.coeff['1','1']['shift'] = True
+
+        coeff = relentless.potential.PairParameters(types=('1',), params=('m','rmin','rmax','shift'))
+        coeff['1','1']['m'] = 3.5
+        coeff['1','1']['rmin'] = 0.0
+        coeff['1','1']['rmax'] = 1.0
+        coeff['1','1']['shift'] = True
+
+        self.assertCountEqual(p.coeff.types, coeff.types)
+        self.assertCountEqual(p.coeff.params, coeff.params)
+        self.assertDictEqual(p.coeff.evaluate(('1','1')), coeff.evaluate(('1','1')))
+
+    def test_energy(self):
+        """Test energy method"""
+        p = LinPot(types=('1',), params=('m',))
+        p.coeff['1','1']['m'] = 2.0
+
+        #test with no cutoffs
+        u = p.energy(pair=('1','1'), r=0.5)
+        self.assertAlmostEqual(u, 1.0)
+        u = p.energy(pair=('1','1'), r=[0.25,0.75])
+        np.testing.assert_allclose(u, [0.5,1.5])
+
+        #test with rmin set
+        p.coeff['1','1']['rmin'] = 0.5
+        u = p.energy(pair=('1','1'), r=0.6)
+        self.assertAlmostEqual(u, 1.2)
+        u = p.energy(pair=('1','1'), r=[0.25,0.75])
+        np.testing.assert_allclose(u, [1.0,1.5])
+
+        #test with rmax set
+        p.coeff['1','1'].update(rmin=False, rmax=1.5)
+        u = p.energy(pair=('1','1'), r=1.0)
+        self.assertAlmostEqual(u, 2.0)
+        u = p.energy(pair=('1','1'), r=[0.25,1.75])
+        np.testing.assert_allclose(u, [0.5,3.0])
+
+        #test with rmin and rmax set
+        p.coeff['1','1']['rmin'] = 0.5
+        u = p.energy(pair=('1','1'), r=0.75)
+        self.assertAlmostEqual(u, 1.5)
+        u = p.energy(pair=('1','1'), r=[0.25,0.5,1.5,1.75])
+        np.testing.assert_allclose(u, [1.0,1.0,3.0,3.0])
+
+        #test with shift set
+        p.coeff['1','1'].update(shift=True)
+        u = p.energy(pair=('1','1'), r=0.5)
+        self.assertAlmostEqual(u, -2.0)
+        u = p.energy(pair=('1','1'), r=[0.25,0.75,1.0,1.5])
+        np.testing.assert_allclose(u, [-2.0,-1.5,-1.0,0.0])
+
+        #test with shift set without rmax
+        p.coeff['1','1'].update(rmax=False)
+        with self.assertRaises(ValueError):
+            u = p.energy(pair=('1','1'), r=0.5)
+
+    def test_force(self):
+        """Test force method"""
+        p = LinPot(types=('1',), params=('m',))
+        p.coeff['1','1']['m'] = 2.0
+
+        #test with no cutoffs
+        f = p.force(pair=('1','1'), r=0.5)
+        self.assertAlmostEqual(f, -2.0)
+        f = p.force(pair=('1','1'), r=[0.25,0.75])
+        np.testing.assert_allclose(f, [-2.0,-2.0])
+
+        #test with rmin set
+        p.coeff['1','1']['rmin'] = 0.5
+        f = p.force(pair=('1','1'), r=0.6)
+        self.assertAlmostEqual(f, -2.0)
+        f = p.force(pair=('1','1'), r=[0.25,0.75])
+        np.testing.assert_allclose(f, [0.0,-2.0])
+
+        #test with rmax set
+        p.coeff['1','1'].update(rmin=False, rmax=1.5)
+        f = p.force(pair=('1','1'), r=1.0)
+        self.assertAlmostEqual(f, -2.0)
+        f = p.force(pair=('1','1'), r=[0.25,1.75])
+        np.testing.assert_allclose(f, [-2.0,0.0])
+
+        #test with rmin and rmax set
+        p.coeff['1','1']['rmin'] = 0.5
+        f = p.force(pair=('1','1'), r=0.75)
+        self.assertAlmostEqual(f, -2.0)
+        f = p.force(pair=('1','1'), r=[0.25,0.5,1.5,1.75])
+        np.testing.assert_allclose(f, [0.0,-2.0,-2.0,0.0])
+
+        #test with shift set
+        p.coeff['1','1'].update(shift=True)
+        f = p.force(pair=('1','1'), r=0.5)
+        self.assertAlmostEqual(f, -2.0)
+        f = p.force(pair=('1','1'), r=[1.0,1.5])
+        np.testing.assert_allclose(f, [-2.0,-2.0])
+
+    def test_derivative_values(self):
+        """Test derivative method with different param values"""
+        p = LinPot(types=('1',), params=('m',))
+        x = relentless.DesignVariable(value=2.0)
+        p.coeff['1','1']['m'] = x
+
+        #test with no cutoffs
+        d = p.derivative(pair=('1','1'), var=x, r=0.5)
+        self.assertAlmostEqual(d, 0.5)
+        d = p.derivative(pair=('1','1'), var=x, r=[0.25,0.75])
+        np.testing.assert_allclose(d, [0.25,0.75])
+
+        #test with rmin set
+        rmin = relentless.DesignVariable(value=0.5)
+        p.coeff['1','1']['rmin'] = rmin
+        d = p.derivative(pair=('1','1'), var=x, r=0.6)
+        self.assertAlmostEqual(d, 0.6)
+        d = p.derivative(pair=('1','1'), var=x, r=[0.25,0.75])
+        np.testing.assert_allclose(d, [0.5,0.75])
+
+        #test with rmax set
+        rmax = relentless.DesignVariable(value=1.5)
+        p.coeff['1','1'].update(rmin=False, rmax=rmax)
+        d = p.derivative(pair=('1','1'), var=x, r=1.0)
+        self.assertAlmostEqual(d, 1.0)
+        d = p.derivative(pair=('1','1'), var=x, r=[0.25,1.75])
+        np.testing.assert_allclose(d, [0.25,1.5])
+
+        #test with rmin and rmax set
+        p.coeff['1','1']['rmin'] = rmin
+        d = p.derivative(pair=('1','1'), var=x, r=0.75)
+        self.assertAlmostEqual(d, 0.75)
+        d = p.derivative(pair=('1','1'), var=x, r=[0.25,0.5,1.5,1.75])
+        np.testing.assert_allclose(d, [0.5,0.5,1.5,1.5])
+
+        #test w.r.t. rmin and rmax
+        d = p.derivative(pair=('1','1'), var=rmin, r=[0.25,1.0,2.0])
+        np.testing.assert_allclose(d, [2.0,0.0,0.0])
+        d = p.derivative(pair=('1','1'), var=rmax, r=[0.25,1.0,2.0])
+        np.testing.assert_allclose(d, [0.0,0.0,2.0])
+
+        #test parameter derivative with shift set
+        p.coeff['1','1'].update(shift=True)
+        d = p.derivative(pair=('1','1'), var=x, r=0.5)
+        self.assertAlmostEqual(d, -1.0)
+        d = p.derivative(pair=('1','1'), var=x, r=[0.25,1.0,1.5,1.75])
+        np.testing.assert_allclose(d, [-1.0,-0.5,0.0,0.0])
+
+        #test w.r.t. rmin and rmax, shift set
+        d = p.derivative(pair=('1','1'), var=rmin, r=[0.25,1.0,2.0])
+        np.testing.assert_allclose(d, [2.0,0.0,0.0])
+        d = p.derivative(pair=('1','1'), var=rmax, r=[0.25,1.0,2.0])
+        np.testing.assert_allclose(d, [-2.0,-2.0,0.0])
+
+    def test_derivative_types(self):
+        """Test derivative method with different param types."""
+        q = LinPot(types=('1',), params=('m',))
+        x = relentless.DesignVariable(value=4.0)
+        y = relentless.DesignVariable(value=64.0)
+        z = relentless.GeometricMean(x, y)
+        q.coeff['1','1']['m'] = z
+
+        #test with respect to dependent variable parameter
+        d = q.derivative(pair=('1','1'), var=z, r=2.0)
+        self.assertAlmostEqual(d, 2.0)
+
+        #test with respect to independent variable on which parameter is dependent
+        d = q.derivative(pair=('1','1'), var=x, r=1.5)
+        self.assertAlmostEqual(d, 3.0)
+        d = q.derivative(pair=('1','1'), var=y, r=4.0)
+        self.assertAlmostEqual(d, 0.5)
+
+        #test invalid derivative w.r.t. scalar
+        a = 2.5
+        q.coeff['1','1']['m'] = a
+        with self.assertRaises(TypeError):
+            d = q.derivative(pair=('1','1'), var=a, r=2.0)
+
+        #test with respect to independent variable which is related to a SameAs variable
+        r = TwoVarPot(types=('1',), params=('x','y'))
+
+        r.coeff['1','1']['x'] = x
+        r.coeff['1','1']['y'] = relentless.SameAs(x)
+        d = r.derivative(pair=('1','1'), var=x, r=4.0)
+        self.assertAlmostEqual(d, 20.0)
+
+        r.coeff['1','1']['y'] = x
+        r.coeff['1','1']['x'] = relentless.SameAs(x)
+        d = r.derivative(pair=('1','1'), var=x, r=4.0)
+        self.assertAlmostEqual(d, 20.0)
+
+    def test_iteration(self):
+        """Test iteration on PairPotential object"""
+        p = LinPot(types=('1','2'), params=('m',))
+        for pair in p.coeff:
+            p.coeff[pair]['m'] = 2.0
+            p.coeff[pair]['rmin'] = 0.0
+            p.coeff[pair]['rmax'] = 1.0
+
+        self.assertDictEqual(p.coeff['1','1'].todict(), {'m':2.0, 'rmin':0.0, 'rmax':1.0, 'shift':False})
+        self.assertDictEqual(p.coeff['1','2'].todict(), {'m':2.0, 'rmin':0.0, 'rmax':1.0, 'shift':False})
+        self.assertDictEqual(p.coeff['2','2'].todict(), {'m':2.0, 'rmin':0.0, 'rmax':1.0, 'shift':False})
+
+    def test_save(self):
+        """Test saving to file"""
+        temp = tempfile.NamedTemporaryFile()
+        p = LinPot(types=('1',), params=('m','rmin','rmax'))
+        p.coeff['1','1']['m'] = 2.0
+        p.coeff['1','1']['rmin'] = 0.0
+        p.coeff['1','1']['rmax'] = 1.0
+        p.coeff['1','1']['shift'] = True
+
+        p.save(temp.name)
+        with open(temp.name, 'r') as f:
+            x = json.load(f)
+
+        self.assertEqual(p.coeff['1','1']['m'], x["('1', '1')"]['m'])
+        self.assertEqual(p.coeff['1','1']['rmin'], x["('1', '1')"]['rmin'])
+        self.assertEqual(p.coeff['1','1']['rmax'], x["('1', '1')"]['rmax'])
+        self.assertEqual(p.coeff['1','1']['shift'], x["('1', '1')"]['shift'])
+
+        temp.close()
 
 class test_LennardJones(unittest.TestCase):
     """Unit tests for relentless.potential.LennardJones"""

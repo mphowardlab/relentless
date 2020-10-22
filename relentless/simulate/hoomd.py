@@ -164,31 +164,19 @@ class Initialize(simulate.SimulationOperation):
             If the length of the *r*, *u*, and *f* arrays are not all equal.
 
         """
-        table_size = None
         with sim.context:
-            # extract potentials
-            for i,j in sim.potentials:
-                r = sim.potentials[i,j].get('r')
-                u = sim.potentials[i,j].get('u')
-                f = sim.potentials[i,j].get('f')
-
-                # validate table size
-                if table_size is None:
-                    table_size = len(r)
-                if len(r) != table_size or len(u) != table_size or len(f) != table_size:
-                    raise ValueError('HOOMD requires equal sized tables.')
-
             # create potentials in HOOMD script
             sim[self].neighbor_list = hoomd.md.nlist.tree(r_buff=self.r_buff)
-            sim[self].pair_potential = hoomd.md.pair.table(width=table_size,
+            sim[self].pair_potential = hoomd.md.pair.table(width=len(sim.potentials.pair.r),
                                                            nlist=sim[self].neighbor_list)
-            for i,j in sim.potentials:
-                r = sim.potentials[i,j].get('r')
-                u = sim.potentials[i,j].get('u')
-                f = sim.potentials[i,j].get('f')
-
-                sim[self].pair_potential.pair_coeff.set(i,j,func=self._table_eval,
-                                                        rmin=r[0],rmax=r[-1],
+            for i,j in sim.ensemble.pairs:
+                r = sim.potentials.pair.r
+                u = sim.potentials.pair.energy((i,j))
+                f = sim.potentials.pair.force((i,j))
+                sim[self].pair_potential.pair_coeff.set(i,j,
+                                                        func=self._table_eval,
+                                                        rmin=r[0],
+                                                        rmax=r[-1],
                                                         coeff=dict(r=r,u=u,f=f))
 
     #helper method for attach_potentials
@@ -751,9 +739,9 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
 
             # pair distribution function
             rdf_params = PairMatrix(sim.ensemble.types)
+            rmax = sim.potentials.pair.r[-1]
+            bins = np.round(rmax/self.rdf_dr).astype(int)
             for pair in rdf_params:
-                rmax = sim.potentials[pair]['r'][-1]
-                bins = np.round(rmax/self.rdf_dr).astype(int)
                 rdf_params[pair] = {'bins': bins, 'rmax': rmax}
             sim[self].rdf_callback = RDFCallback(sim.system,rdf_params)
             hoomd.analyze.callback(callback=sim[self].rdf_callback,

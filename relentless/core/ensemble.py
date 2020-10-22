@@ -177,6 +177,11 @@ class Ensemble(object):
         return self.N.keys
 
     @property
+    def pairs(self):
+        r"""tuple: The pairs in the ensemble."""
+        return self.rdf.pairs
+
+    @property
     def constant(self):
         r"""dict: The constant variables in the system.
 
