@@ -6,6 +6,27 @@ import numpy as np
 from relentless import core
 
 class Parameters:
+    """Parameters for a set of types.
+
+    Defines one or more parameters for a set of types. The parameters can be set
+    per-type, or shared between all parameters. The per-type parameters take precedence
+    over the shared parameters.
+
+    Parameters
+    ----------
+    types : array_like
+        List of types (A type must be a `str`).
+    params : array_like
+        List of types (A parameter must be a `str`).
+
+    Raises
+    ------
+    ValueError
+        If no types or no parameters are specified.
+    TypeError
+        If all types and all parameters are not strings.
+
+    """
     def __init__(self, types, params):
         if len(types) == 0:
             raise ValueError('Cannot initialize with empty types')
@@ -28,6 +49,28 @@ class Parameters:
             self._per_type[t] = core.FixedKeyDict(keys=self.params)
 
     def evaluate(self, key):
+        """Evaluate parameters.
+
+        Returns a dictionary of the parameters and values for a specified key.
+
+        Parameters
+        ----------
+        key : `str`
+            Key for which the parameters are called.
+
+        Returns
+        -------
+        params : dict
+            The evaluated parameters.
+
+        Raises
+        ------
+        TypeError
+            If a parameter is of an unrecognizable type.
+        ValueError
+            If a parameter is not set for the specified key.
+
+        """
         params = {}
         for p in self.params:
             # use keyed parameter if set, otherwise use shared parameter
@@ -114,10 +157,24 @@ class Parameters:
         return self._shared
 
 class Potential(abc.ABC):
+    """Abstract base class for potential coefficients.
+
+    To implement this class, concrete `energy`, `force`, `derivative` methods must be defined.
+
+    Parameters
+    ----------
+    types : array_like
+        List of types (A type must be a `str`).
+    params : array_like
+        List of parameters (A parameter must be a `str`).
+    container : `callable` class storing types and parameters
+        Coefficient matrix class (defaults to `None`, and the container used is :py:class:`Parameters`).
+
+    """
     def __init__(self, types, params, container=None):
         if container is None:
             container = Parameters
-        self.coeff = container(types,params)
+        self.coeff = container(types=types, params=params)
 
     @abc.abstractmethod
     def energy(self, key, x):
