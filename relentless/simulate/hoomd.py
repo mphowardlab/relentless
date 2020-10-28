@@ -577,6 +577,11 @@ class AddNVTIntegrator(AddMDIntegrator):
 class RemoveNVTIntegrator(RemoveMDIntegrator):
     """Removes the NVT integrator operation.
 
+    Parameters
+    ----------
+    add_op : :py:class:`AddNVTIntegrator`
+        The integrator addition operation to be removed.
+
     Raises
     ------
     TypeError

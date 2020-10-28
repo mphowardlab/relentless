@@ -85,7 +85,7 @@ class SimulationInstance:
 
     Parameters
     ----------
-    backend : ??
+    backend : :py:class:`Simulation`
         Type of the simulation class.
     ensemble : :py:class:`Ensemble`
         Simulation ensemble. Must include values for *N* and *V* even if

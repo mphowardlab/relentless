@@ -6,9 +6,9 @@ from .dilute import Dilute
 from . import hoomd
 from .hoomd import HOOMD
 
-# setup default (adapter) objects
-from . import default
-from .default import (InitializeFromFile,
+# setup generic (adapter) objects
+from . import generic
+from .generic import (InitializeFromFile,
                       InitializeRandomly,
                       MinimizeEnergy,
                       AddMDIntegrator,
@@ -25,5 +25,5 @@ from .default import (InitializeFromFile,
                       RunUpTo,
                       AddEnsembleAnalyzer,
                       )
-default.SimulationOperationAdapter.add_backend(Dilute)
-default.SimulationOperationAdapter.add_backend(HOOMD)
+generic.SimulationOperationAdapter.add_backend(Dilute)
+generic.SimulationOperationAdapter.add_backend(HOOMD)
