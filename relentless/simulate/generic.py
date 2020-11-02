@@ -6,7 +6,18 @@ import numpy as np
 from . import simulate
 
 class SimulationOperationAdapter(simulate.SimulationOperation):
-    """
+    """Generic simulation operation adapter.
+
+    Generic simulation operation is used to call simulation operation for a backend
+    class of type :py:class:`Simulation`.
+
+    Parameters
+    ----------
+    args : args
+        Positional arguments for simulation operation.
+    kwargs : kwargs
+        Keyword arguments for simulation operation.
+
     """
     backends = {}
 
@@ -35,7 +46,15 @@ class SimulationOperationAdapter(simulate.SimulationOperation):
 
     @classmethod
     def add_backend(cls, backend, module=None):
-        """
+        """Adds backend attribute to :py:class:`SimulationOperationAdapter`.
+
+        Parameters
+        ----------
+        backend : :py:class:`Simulation`
+            Class to add as a backend.
+        module : ??
+            Name of the module in which the backend is defined (defaults to `None`).
+
         """
         # try to deduce module from backend class
         if module is None:
@@ -57,12 +76,12 @@ class InitializeFromFile(SimulationOperationAdapter):
         The file from which to read the system data.
     options : kwargs
         Options for file reading.
-    r_buff : float
-        Buffer width (defaults to 0.4).
+    neighbor_buffer : float
+        Buffer width for neighbor list (defaults to 0.4).
 
     """
-    def __init__(self, filename, r_buff=0.4, **options):
-        super().__init__(filename, r_buff, **options)
+    def __init__(self, filename, neighbor_buffer=0.4, **options):
+        super().__init__(filename, neighbor_buffer, **options)
 
 class InitializeRandomly(SimulationOperationAdapter):
     """Initializes a randomly generated simulation box and pair potentials.
@@ -71,12 +90,12 @@ class InitializeRandomly(SimulationOperationAdapter):
     ----------
     seed : int
         The seed to randomly initialize the particle locations (defaults to `None`).
-    r_buff : float
-        Buffer width (defaults to 0.4).
+    neighbor_buffer : float
+        Buffer width for neighbor list (defaults to 0.4).
 
     """
-    def __init__(self, seed=None, r_buff=0.4):
-        super().__init__(seed, r_buff)
+    def __init__(self, seed=None, neighbor_buffer=0.4):
+        super().__init__(seed, neighbor_buffer)
 
 ## integrators
 class MinimizeEnergy(SimulationOperationAdapter):
@@ -90,36 +109,12 @@ class MinimizeEnergy(SimulationOperationAdapter):
         Force convergence criterion.
     max_iterations : int
         Maximum number of iterations to run the minimization.
-    dt : float
-        Maximum step size.
+    options : kwargs
+        Options for energy minimizer.
 
     """
-    def __init__(self, energy_tolerance, force_tolerance, max_iterations, dt):
-        super().__init__(energy_tolerance, force_tolerance, max_iterations, dt)
-
-class AddMDIntegrator(SimulationOperationAdapter):
-    """:py:class:`SimulationOperation` to add an integrator (for equations of motion) to the simulation.
-
-    Parameters
-    ----------
-    dt : float
-        Time step size for each simulation iteration.
-
-    """
-    def __init__(self, dt):
-        super().__init__(dt)
-
-class RemoveMDIntegrator(SimulationOperationAdapter):
-    """:py:class:`SimulationOperation` that removes a specified integration operation.
-
-    Parameters
-    ----------
-    add_op : :py:class:`SimulationOperation`
-        The addition/integration operation to be removed.
-
-    """
-    def __init__(self, add_op):
-        super().__init__(add_op)
+    def __init__(self, energy_tolerance, force_tolerance, max_iterations, **options):
+        super().__init__(energy_tolerance, force_tolerance, max_iterations, **options)
 
 class AddBrownianIntegrator(SimulationOperationAdapter):
     """Brownian dynamics for a NVT ensemble.
@@ -197,7 +192,7 @@ class AddNPTIntegrator(SimulationOperationAdapter):
 
     """
     def __init__(self, dt, tau_T, tau_P, **options):
-        super().__init__(dt, tau_t, tau_P, **options)
+        super().__init__(dt, tau_T, tau_P, **options)
 
 class RemoveNPTIntegrator(SimulationOperationAdapter):
     """Removes the NPT integrator operation.

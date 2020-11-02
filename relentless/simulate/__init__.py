@@ -11,8 +11,6 @@ from . import generic
 from .generic import (InitializeFromFile,
                       InitializeRandomly,
                       MinimizeEnergy,
-                      AddMDIntegrator,
-                      RemoveMDIntegrator,
                       AddBrownianIntegrator,
                       RemoveBrownianIntegrator,
                       AddLangevinIntegrator,
