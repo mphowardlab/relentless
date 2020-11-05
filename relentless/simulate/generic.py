@@ -8,8 +8,9 @@ from . import simulate
 class GenericOperation(simulate.SimulationOperation):
     """Generic simulation operation adapter.
 
-    Translates a ``generic`` operation into a specific implementation for a
-    :py:class:`Simulation` backend.
+    Translates a ``generic`` simulation operation into an implemented operation
+    for a valid :py:class:`Simulation` backend. The backend must be an attribute
+    of the :py:class:`GenericOperation`.
 
     Parameters
     ----------
