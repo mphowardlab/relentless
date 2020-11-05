@@ -23,5 +23,5 @@ from .generic import (InitializeFromFile,
                       RunUpTo,
                       AddEnsembleAnalyzer,
                       )
-generic.SimulationOperationAdapter.add_backend(Dilute)
-generic.SimulationOperationAdapter.add_backend(HOOMD)
+generic.GenericOperation.add_backend(Dilute)
+generic.GenericOperation.add_backend(HOOMD)

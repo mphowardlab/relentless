@@ -59,15 +59,15 @@ class HOOMD(simulate.Simulation):
 
 ## initializers
 class Initialize(simulate.SimulationOperation):
-    """:py:class:`SimulationOperation` that initializes a simulation box and pair potentials.
+    """Initializes a simulation box and pair potentials.
 
     Parameters
     ----------
     r_buff : float
-        Buffer width (defaults to 0.4).
+        Buffer width.
 
     """
-    def __init__(self, r_buff=0.4):
+    def __init__(self, r_buff):
         self.r_buff = r_buff
 
     def extract_box_params(self, sim):
@@ -195,13 +195,13 @@ class InitializeFromFile(Initialize):
     ----------
     filename : str
         The file from which to read the system data.
+    r_buff : float
+        Buffer width.
     options : kwargs
         Options for file reading (as used in :py:func:`hoomd.init.read_gsd()`).
-    r_buff : float
-        Buffer width (defaults to 0.4).
 
     """
-    def __init__(self, filename, r_buff=0.4, **options):
+    def __init__(self, filename, r_buff, **options):
         super().__init__(r_buff=r_buff)
         self.filename = os.path.realpath(filename)
         self.options = options
@@ -230,13 +230,15 @@ class InitializeRandomly(Initialize):
 
     Parameters
     ----------
+    r_buff : float
+        Buffer width.
     seed : int
         The seed to randomly initialize the particle locations (defaults to `None`).
-    r_buff : float
-        Buffer width (defaults to 0.4).
+    options : kwargs
+        Options for random initialization.
 
     """
-    def __init__(self, seed=None, r_buff=0.4):
+    def __init__(self, r_buff, seed=None, **options):
         super().__init__(r_buff=r_buff)
         self.seed = seed
 
@@ -277,7 +279,7 @@ class InitializeRandomly(Initialize):
 
 ## integrators
 class MinimizeEnergy(simulate.SimulationOperation):
-    """:py:class:`SimulationOperation` that runs a FIRE energy minimzation until converged.
+    """Runs an energy minimzation until converged.
 
     Parameters
     ----------
@@ -321,7 +323,7 @@ class MinimizeEnergy(simulate.SimulationOperation):
             del fire
 
 class AddMDIntegrator(simulate.SimulationOperation):
-    """:py:class:`SimulationOperation` to add an integrator (for equations of motion) to the simulation.
+    """Adds an integrator (for equations of motion) to the simulation.
 
     Parameters
     ----------
@@ -351,7 +353,7 @@ class AddMDIntegrator(simulate.SimulationOperation):
             hoomd.md.integrate.mode_standard(self.dt)
 
 class RemoveMDIntegrator(simulate.SimulationOperation):
-    """:py:class:`SimulationOperation` that removes a specified integration operation.
+    """Removes a specified integration operation.
 
     Parameters
     ----------
@@ -594,7 +596,7 @@ class RemoveNVTIntegrator(RemoveMDIntegrator):
         super().__init__(add_op)
 
 class Run(simulate.SimulationOperation):
-    """:py:class:`SimulationOperation` that advances the simulation by a given number of time steps.
+    """Advances the simulation by a given number of time steps.
 
     Parameters
     ----------
@@ -610,7 +612,7 @@ class Run(simulate.SimulationOperation):
             hoomd.run(self.steps)
 
 class RunUpTo(simulate.SimulationOperation):
-    """:py:class:`SimulationOperation` that advances the simulation up to a given time step number.
+    """Advances the simulation up to a given time step number.
 
     Parameters
     ----------
@@ -710,7 +712,7 @@ class RDFCallback:
                                   reset=False)
 
 class AddEnsembleAnalyzer(simulate.SimulationOperation):
-    """:py:class:`SimulationOperation` that analyzes the simulation ensemble and rdf at specified timestep intervals.
+    """Analyzes the simulation ensemble and rdf at specified timestep intervals.
 
     Parameters
     ----------

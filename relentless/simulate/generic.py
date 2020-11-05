@@ -5,11 +5,11 @@ import numpy as np
 
 from . import simulate
 
-class SimulationOperationAdapter(simulate.SimulationOperation):
+class GenericOperation(simulate.SimulationOperation):
     """Generic simulation operation adapter.
 
-    Generic simulation operation is used to call simulation operation for a backend
-    class of type :py:class:`Simulation`.
+    Translates a ``generic`` operation into a specific implementation for a
+    :py:class:`Simulation` backend.
 
     Parameters
     ----------
@@ -46,14 +46,16 @@ class SimulationOperationAdapter(simulate.SimulationOperation):
 
     @classmethod
     def add_backend(cls, backend, module=None):
-        """Adds backend attribute to :py:class:`SimulationOperationAdapter`.
+        """Adds backend attribute to :py:class:`GenericOperation`.
 
         Parameters
         ----------
         backend : :py:class:`Simulation`
             Class to add as a backend.
-        module : ??
-            Name of the module in which the backend is defined (defaults to `None`).
+        module : module or str or `None`
+            Module in which the backend is defined. If `None` (default), try to
+            deduce the module from ``backend.__module__``. ``module`` will be
+            imported if it has not already been.
 
         """
         # try to deduce module from backend class
@@ -67,39 +69,41 @@ class SimulationOperationAdapter(simulate.SimulationOperation):
         cls.backends[backend] = module
 
 ## initializers
-class InitializeFromFile(SimulationOperationAdapter):
+class InitializeFromFile(GenericOperation):
     """Initializes a simulation box and pair potentials from a file.
 
     Parameters
     ----------
     filename : str
         The file from which to read the system data.
+    neighbor_buffer : float
+        Buffer width for neighbor list.
     options : kwargs
         Options for file reading.
-    neighbor_buffer : float
-        Buffer width for neighbor list (defaults to 0.4).
 
     """
-    def __init__(self, filename, neighbor_buffer=0.4, **options):
+    def __init__(self, filename, neighbor_buffer, **options):
         super().__init__(filename, neighbor_buffer, **options)
 
-class InitializeRandomly(SimulationOperationAdapter):
+class InitializeRandomly(GenericOperation):
     """Initializes a randomly generated simulation box and pair potentials.
 
     Parameters
     ----------
+    neighbor_buffer : float
+        Buffer width for neighbor list.
     seed : int
         The seed to randomly initialize the particle locations (defaults to `None`).
-    neighbor_buffer : float
-        Buffer width for neighbor list (defaults to 0.4).
+    options : kwargs
+        Options for random initialization.
 
     """
-    def __init__(self, seed=None, neighbor_buffer=0.4):
-        super().__init__(seed, neighbor_buffer)
+    def __init__(self, neighbor_buffer, seed=None, **options):
+        super().__init__(neighbor_buffer, seed, **options)
 
 ## integrators
-class MinimizeEnergy(SimulationOperationAdapter):
-    """:py:class:`SimulationOperation` that runs a FIRE energy minimzation until converged.
+class MinimizeEnergy(GenericOperation):
+    """Runs an energy minimzation until converged.
 
     Parameters
     ----------
@@ -116,7 +120,7 @@ class MinimizeEnergy(SimulationOperationAdapter):
     def __init__(self, energy_tolerance, force_tolerance, max_iterations, **options):
         super().__init__(energy_tolerance, force_tolerance, max_iterations, **options)
 
-class AddBrownianIntegrator(SimulationOperationAdapter):
+class AddBrownianIntegrator(GenericOperation):
     """Brownian dynamics for a NVT ensemble.
 
     Parameters
@@ -134,7 +138,7 @@ class AddBrownianIntegrator(SimulationOperationAdapter):
     def __init__(self, dt, friction, seed, **options):
         super().__init__(dt, friction, seed, **options)
 
-class RemoveBrownianIntegrator(SimulationOperationAdapter):
+class RemoveBrownianIntegrator(GenericOperation):
     """Removes the Brownian integrator operation.
 
     Parameters
@@ -146,7 +150,7 @@ class RemoveBrownianIntegrator(SimulationOperationAdapter):
     def __init__(self, add_op):
         super().__init__(add_op)
 
-class AddLangevinIntegrator(SimulationOperationAdapter):
+class AddLangevinIntegrator(GenericOperation):
     """Langevin dynamics for a NVT ensemble.
 
     Parameters
@@ -164,7 +168,7 @@ class AddLangevinIntegrator(SimulationOperationAdapter):
     def __init__(self, dt, friction, seed, **options):
         super().__init__(dt, friction, seed, **options)
 
-class RemoveLangevinIntegrator(SimulationOperationAdapter):
+class RemoveLangevinIntegrator(GenericOperation):
     """Removes the Langevin integrator operation.
 
     Parameters
@@ -176,7 +180,7 @@ class RemoveLangevinIntegrator(SimulationOperationAdapter):
     def __init__(self, add_op):
         super().__init__(add_op)
 
-class AddNPTIntegrator(SimulationOperationAdapter):
+class AddNPTIntegrator(GenericOperation):
     """NPT integration via MTK barostat-thermostat.
 
     Parameters
@@ -194,7 +198,7 @@ class AddNPTIntegrator(SimulationOperationAdapter):
     def __init__(self, dt, tau_T, tau_P, **options):
         super().__init__(dt, tau_T, tau_P, **options)
 
-class RemoveNPTIntegrator(SimulationOperationAdapter):
+class RemoveNPTIntegrator(GenericOperation):
     """Removes the NPT integrator operation.
 
     Parameters
@@ -206,7 +210,7 @@ class RemoveNPTIntegrator(SimulationOperationAdapter):
     def __init__(self, add_op):
         super().__init__(add_op)
 
-class AddNVTIntegrator(SimulationOperationAdapter):
+class AddNVTIntegrator(GenericOperation):
     r"""NVT integration via Nos\'e-Hoover thermostat.
 
     Parameters
@@ -227,7 +231,7 @@ class AddNVTIntegrator(SimulationOperationAdapter):
     def __init__(self, dt, tau_T, **options):
         super().__init__(dt, tau_T, **options)
 
-class RemoveNVTIntegrator(SimulationOperationAdapter):
+class RemoveNVTIntegrator(GenericOperation):
     """Removes the NVT integrator operation.
 
     Parameters
@@ -239,8 +243,8 @@ class RemoveNVTIntegrator(SimulationOperationAdapter):
     def __init__(self, add_op):
         super().__init__(add_op)
 
-class Run(SimulationOperationAdapter):
-    """:py:class:`SimulationOperation` that advances the simulation by a given number of time steps.
+class Run(GenericOperation):
+    """Advances the simulation by a given number of time steps.
 
     Parameters
     ----------
@@ -251,8 +255,8 @@ class Run(SimulationOperationAdapter):
     def __init__(self, steps):
         super().__init__(steps)
 
-class RunUpTo(SimulationOperationAdapter):
-    """:py:class:`SimulationOperation` that advances the simulation up to a given time step number.
+class RunUpTo(GenericOperation):
+    """Advances the simulation up to a given time step number.
 
     Parameters
     ----------
@@ -264,8 +268,8 @@ class RunUpTo(SimulationOperationAdapter):
         super().__init__(step)
 
 ## analyzers
-class AddEnsembleAnalyzer(SimulationOperationAdapter):
-    """:py:class:`SimulationOperation` that analyzes the simulation ensemble and rdf at specified timestep intervals.
+class AddEnsembleAnalyzer(GenericOperation):
+    """Analyzes the simulation ensemble and rdf at specified timestep intervals.
 
     Parameters
     ----------
