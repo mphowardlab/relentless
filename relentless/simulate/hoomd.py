@@ -52,7 +52,7 @@ class HOOMD(simulate.Simulation):
             hoomd.util.quiet_status()
 
     def _new_instance(self, ensemble, potentials, directory):
-        sim = super()._new_instance(ensemble,potentials,directory,**self.options)
+        sim = super()._new_instance(ensemble,potentials,directory)
         sim.context = hoomd.context.SimulationContext()
         sim.system = None
         return sim
