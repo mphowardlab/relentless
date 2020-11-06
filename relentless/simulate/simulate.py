@@ -74,13 +74,19 @@ class Simulation:
             self._operations = [ops]
 
     def _new_instance(self, ensemble, potentials, directory):
-        return SimulationInstance(ensemble,potentials,directory,**self.options)
+        return SimulationInstance(type(self),
+                                  ensemble,
+                                  potentials,
+                                  directory,
+                                  **self.options)
 
 class SimulationInstance:
     """Specific instance of a simulation and its data.
 
     Parameters
     ----------
+    backend : type
+        Type of the simulation class.
     ensemble : :py:class:`Ensemble`
         Simulation ensemble. Must include values for *N* and *V* even if
         these variables fluctuate.
@@ -92,7 +98,8 @@ class SimulationInstance:
         Optional arguments for the initialize, analyze, and defined "operations" functions.
 
     """
-    def __init__(self, ensemble, potentials, directory, **options):
+    def __init__(self, backend, ensemble, potentials, directory, **options):
+        self.backend = backend
         self.ensemble = ensemble
         self.potentials = potentials
         self.directory = directory
