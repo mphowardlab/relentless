@@ -48,7 +48,7 @@ class test_HOOMD(unittest.TestCase):
         #InitializeFromFile
         ens,pot = self.ens_pot()
         f = self.create_gsd()
-        op = relentless.simulate.hoomd.InitializeFromFile(filename=f.file.name, r_buff=0.4)
+        op = relentless.simulate.hoomd.InitializeFromFile(filename=f.file.name, neighbor_buffer=0.4)
         h = relentless.simulate.hoomd.HOOMD(operations=op)
         sim = h.run(ensemble=ens, potentials=pot, directory=self.directory)
         self.assertIsInstance(sim[op].neighbor_list, hoomd.md.nlist.tree)
@@ -56,7 +56,7 @@ class test_HOOMD(unittest.TestCase):
 
         #InitializeRandomly
         ens,pot = self.ens_pot()
-        op = relentless.simulate.hoomd.InitializeRandomly(r_buff=0.4, seed=1)
+        op = relentless.simulate.hoomd.InitializeRandomly(neighbor_buffer=0.4, seed=1)
         h = relentless.simulate.hoomd.HOOMD(operations=op)
         sim = h.run(ensemble=ens, potentials=pot, directory=self.directory)
         self.assertIsInstance(sim[op].neighbor_list, hoomd.md.nlist.tree)
@@ -66,7 +66,7 @@ class test_HOOMD(unittest.TestCase):
         """Test running energy minimization simulation operation."""
         #MinimizeEnergy
         ens,pot = self.ens_pot()
-        op = [relentless.simulate.hoomd.InitializeRandomly(r_buff=0.4, seed=1),
+        op = [relentless.simulate.hoomd.InitializeRandomly(neighbor_buffer=0.4, seed=1),
               relentless.simulate.hoomd.MinimizeEnergy(energy_tolerance=1e-7,
                                                        force_tolerance=1e-7,
                                                        max_iterations=1000,
@@ -77,7 +77,7 @@ class test_HOOMD(unittest.TestCase):
 
     def test_integrators(self):
         """Test adding and removing integrator operations."""
-        init = relentless.simulate.hoomd.InitializeRandomly(r_buff=0.4, seed=1)
+        init = relentless.simulate.hoomd.InitializeRandomly(neighbor_buffer=0.4, seed=1)
         h = relentless.simulate.hoomd.HOOMD(operations=init)
 
         #BrownianIntegrator
@@ -131,7 +131,7 @@ class test_HOOMD(unittest.TestCase):
 
     def test_run(self):
         """Test run simulation operations."""
-        init = relentless.simulate.hoomd.InitializeRandomly(r_buff=0.4, seed=1)
+        init = relentless.simulate.hoomd.InitializeRandomly(neighbor_buffer=0.4, seed=1)
         h = relentless.simulate.hoomd.HOOMD(operations=init)
 
         #Run
@@ -149,7 +149,7 @@ class test_HOOMD(unittest.TestCase):
     def test_analyzer(self):
         """Test ensemble analyzer simulation operation."""
         ens,pot = self.ens_pot()
-        init = relentless.simulate.hoomd.InitializeRandomly(r_buff=0.4, seed=1)
+        init = relentless.simulate.hoomd.InitializeRandomly(neighbor_buffer=0.4, seed=1)
         analyzer = relentless.simulate.hoomd.AddEnsembleAnalyzer(check_thermo_every=5,
                                                                  check_rdf_every=5,
                                                                  rdf_dr=1.0)

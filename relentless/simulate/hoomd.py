@@ -63,12 +63,12 @@ class Initialize(simulate.SimulationOperation):
 
     Parameters
     ----------
-    r_buff : float
+    neighbor_buffer : float
         Buffer width.
 
     """
-    def __init__(self, r_buff):
-        self.r_buff = r_buff
+    def __init__(self, neighbor_buffer):
+        self.neighbor_buffer = neighbor_buffer
 
     def extract_box_params(self, sim):
         """Extracts HOOMD box parameters (*Lx*, *Ly*, *Lz*, *xy*, *xz*, *yz*)
@@ -166,7 +166,7 @@ class Initialize(simulate.SimulationOperation):
         """
         with sim.context:
             # create potentials in HOOMD script
-            sim[self].neighbor_list = hoomd.md.nlist.tree(r_buff=self.r_buff)
+            sim[self].neighbor_list = hoomd.md.nlist.tree(r_buff=self.neighbor_buffer)
             sim[self].pair_potential = hoomd.md.pair.table(width=len(sim.potentials.pair.r),
                                                            nlist=sim[self].neighbor_list)
             for i,j in sim.ensemble.pairs:
@@ -195,14 +195,14 @@ class InitializeFromFile(Initialize):
     ----------
     filename : str
         The file from which to read the system data.
-    r_buff : float
+    neighbor_buffer : float
         Buffer width.
     options : kwargs
         Options for file reading (as used in :py:func:`hoomd.init.read_gsd()`).
 
     """
-    def __init__(self, filename, r_buff, **options):
-        super().__init__(r_buff=r_buff)
+    def __init__(self, filename, neighbor_buffer, **options):
+        super().__init__(neighbor_buffer)
         self.filename = os.path.realpath(filename)
         self.options = options
 
@@ -230,7 +230,7 @@ class InitializeRandomly(Initialize):
 
     Parameters
     ----------
-    r_buff : float
+    neighbor_buffer : float
         Buffer width.
     seed : int
         The seed to randomly initialize the particle locations (defaults to `None`).
@@ -238,8 +238,8 @@ class InitializeRandomly(Initialize):
         Options for random initialization.
 
     """
-    def __init__(self, r_buff, seed=None, **options):
-        super().__init__(r_buff=r_buff)
+    def __init__(self, neighbor_buffer, seed=None, **options):
+        super().__init__(neighbor_buffer)
         self.seed = seed
 
     def __call__(self, sim):
