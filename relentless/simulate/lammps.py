@@ -18,6 +18,8 @@ class LAMMPS(simulate.Simulation):
         if not _lammps_found:
             raise ImportError('LAMMPS not found.')
 
+        super().__init__(operations,**options)
+
     def _new_instance(self, ensemble, potentials, directory):
         sim = super()._new_instance(ensemble,potentials,directory)
 
@@ -56,7 +58,7 @@ class Initialize(LAMMPSOperation):
         if V is None:
             raise ValueError('Box volume must be set.')
         elif not isinstance(V, TriclinicBox):
-            raise TypeError('HOOMD boxes must be derived from TriclinicBox')
+            raise TypeError('LAMMPS boxes must be derived from TriclinicBox')
 
         Lx = V.a[0]
         Ly = V.b[1]
@@ -70,9 +72,9 @@ class Initialize(LAMMPSOperation):
         return np.concatenate((lo,hi,(xy,xz,yz)))
 
     def attach_potentials(self, sim):
-        cmds = ["neighbor {} multi".format(self.neighbor_width)]
+        cmds = ["neighbor {} multi".format(self.neighbor_buffer)]
         cmds += ['pair_style table linear {}'.format(len(sim.potentials.pair.r))]
-        for i.j in sim.ensemble.pairs:
+        for i,j in sim.ensemble.pairs:
             # these will need to be written into (potentially temporary) files and read in
             # make sure to drop any entries with r = 0, since these are not allowed in lammps
             pass
@@ -80,7 +82,7 @@ class Initialize(LAMMPSOperation):
 
 class InitializeRandomly(Initialize):
     def __init__(self, neighbor_buffer, seed, units="lj", atom_style="atomic"):
-        super().__init__(neighbor_buffer, units, atom_style)
+        super().__init__(neighbor_buffer)
         self.seed = seed
         self.units = units
         self.atom_style = atom_style
@@ -102,11 +104,10 @@ class InitializeRandomly(Initialize):
         for i in sim.ensemble.types:
             cmds += ["create_atoms {typeid} random {N} {seed} box".format(typeid=sim.type_map[i],
                                                                           N=sim.ensemble.N[i],
-                                                                          seed=self.seed+sim.sim.type_map[i])]
+                                                                          seed=self.seed+sim.type_map[i])]
         cmds += ["mass * 1.0",
                  "velocity all create {} {}".format(sim.ensemble.T,self.seed)]
 
         cmds += self.attach_potentials(sim)
 
         return cmds
-
