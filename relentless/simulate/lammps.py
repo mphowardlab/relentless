@@ -24,11 +24,11 @@ class LAMMPS(simulate.Simulation):
         sim = super()._new_instance(ensemble,potentials,directory)
 
         # create lammps instance with all output disabled
-        quiet_launch = ['-echo','none',
-                        '-log','none',
-                        '-screen','none',
-                        '-nocite']
-        sim.lammps = lammps.lammps(cmdargs=quiet_launch)
+        #quiet_launch = ['-echo','none',
+        #                '-log','none',
+        #                '-screen','none',
+        #                '-nocite']
+        sim.lammps = lammps.lammps()#cmdargs=quiet_launch)
 
         # lammps uses 1-indexed ints for types, so build mapping in both direction
         sim.type_map = {}
@@ -69,7 +69,14 @@ class Initialize(LAMMPSOperation):
 
         lo = -0.5*np.array([Lx,Ly,Lz])
         hi = lo + V.a + V.b + V.c
-        return np.concatenate((lo,hi,(xy,xz,yz)))
+        xlo = lo[0]
+        xhi = hi[0]
+        ylo = lo[1]
+        yhi = hi[1]
+        zlo = lo[2]
+        zhi = hi[2]
+
+        return np.array([xlo,xhi,ylo,yhi,zlo,zhi,xy,xz,yz])
 
     def attach_potentials(self, sim):
         cmds = ["neighbor {} multi".format(self.neighbor_buffer)]
