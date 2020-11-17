@@ -86,23 +86,12 @@ class Initialize(LAMMPSOperation):
 
             # write and read potential data
             _file = sim.directory.file('pair.{i}.{j}.dat'.format(i=i,j=j))
-            cmds += ['pair_write {itype} {jtype} {N} r {inner} {outer} pair.{i}.{j}.dat TABLE_{i}_{j}'.format(itype=ord(i)-64,
-                                                                                                              jtype=ord(i)-64,
-                                                                                                              N=len(r),
-                                                                                                              inner=r[0],
-                                                                                                              outer=r[-1],
-                                                                                                              i=i,
-                                                                                                              j=j),
-                    'pair_coeff {itype} {jtype} pair.{i}.{j}.dat TABLE_{i}_{j}'.format(itype=ord(i)-64,jtype=ord(j)-64,i=i,j=j)]
-           # with open(_file,'w') as t:
-           #     t.write(('# Tabulated pair for ({i},{j})\n'
-           #              '\n'
-           #              'TABLE_{i}_{j}\n').format(i=i,j=j))
-           #     t.write(('N {N} R {rmin} {rmax}\n\n').format(N=len(r),rmin=r[0],rmax=r[-1]))
-           #     for idx,(ri,ui,fi) in enumerate(zip(r,u,f)):
-           #         t.write('{idx} {ri} {ui} {fi}\n'.format(idx=idx+1,ri=ri,ui=ui,fi=fi))
-           #
-           # cmds += ['read_data {filename} add merge'.format(filename=t.name)]
+            cmds += ['pair_write {i} {j} {N} r {inner} {outer} pair.{i}.{j}.dat TABLE_{i}_{j}'.format(i=i,
+                                                                                                      j=i,
+                                                                                                      N=len(r),
+                                                                                                      inner=r[0],
+                                                                                                      outer=r[-1]),
+                    'pair_coeff {i} {j} pair.{i}.{j}.dat TABLE_{i}_{j}'.format(i=i,j=j)]
 
         return cmds
 

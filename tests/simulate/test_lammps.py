@@ -17,7 +17,7 @@ class test_LAMMPS(unittest.TestCase):
 
     #mock (NVT) ensemble and potential for testing
     def ens_pot(self):
-        ens = relentless.Ensemble(T=2.0, V=relentless.Cube(L=10.0), N={'A':2,'B':3})
+        ens = relentless.Ensemble(T=2.0, V=relentless.Cube(L=10.0), N={'1':2,'2':3})
 
         # setup potentials
         pot = LinPot(ens.types,params=('m',))
