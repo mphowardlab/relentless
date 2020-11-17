@@ -1,6 +1,5 @@
 import abc
 import os
-from packaging import version
 
 import numpy as np
 
@@ -69,52 +68,104 @@ class Initialize(LAMMPSOperation):
 
         lo = -0.5*np.array([Lx,Ly,Lz])
         hi = lo + V.a + V.b + V.c
-        xlo = lo[0]
-        xhi = hi[0]
-        ylo = lo[1]
-        yhi = hi[1]
-        zlo = lo[2]
-        zhi = hi[2]
 
-        return np.array([xlo,xhi,ylo,yhi,zlo,zhi,xy,xz,yz])
+        return np.array([lo[0],hi[0],lo[1],hi[1],lo[2],hi[2],xy,xz,yz])
 
     def attach_potentials(self, sim):
-        cmds = ["neighbor {} multi".format(self.neighbor_buffer)]
-        cmds += ['pair_style table linear {}'.format(len(sim.potentials.pair.r))]
+        #tabulate, drop entries where r = 0
+        k = np.where(sim.potentials.pair.r==0)
+        r = np.delete(sim.potentials.pair.r,k)
+
+        cmds = ['neighbor {skin} multi'.format(skin=self.neighbor_buffer)]
+        cmds += ['pair_style table linear {N}'.format(N=len(r))]
+
         for i,j in sim.ensemble.pairs:
-            # these will need to be written into (potentially temporary) files and read in
-            # make sure to drop any entries with r = 0, since these are not allowed in lammps
-            pass
+            #tabulate, drop entries where r = 0
+            u = np.delete(sim.potentials.pair.energy((i,j)),k)
+            f = np.delete(sim.potentials.pair.force((i,j)),k)
+
+            # write and read potential data
+            _file = sim.directory.file('pair.{i}.{j}.dat'.format(i=i,j=j))
+            cmds += ['pair_write {itype} {jtype} {N} r {inner} {outer} pair.{i}.{j}.dat TABLE_{i}_{j}'.format(itype=ord(i)-64,
+                                                                                                              jtype=ord(i)-64,
+                                                                                                              N=len(r),
+                                                                                                              inner=r[0],
+                                                                                                              outer=r[-1],
+                                                                                                              i=i,
+                                                                                                              j=j),
+                    'pair_coeff {itype} {jtype} pair.{i}.{j}.dat TABLE_{i}_{j}'.format(itype=ord(i)-64,jtype=ord(j)-64,i=i,j=j)]
+           # with open(_file,'w') as t:
+           #     t.write(('# Tabulated pair for ({i},{j})\n'
+           #              '\n'
+           #              'TABLE_{i}_{j}\n').format(i=i,j=j))
+           #     t.write(('N {N} R {rmin} {rmax}\n\n').format(N=len(r),rmin=r[0],rmax=r[-1]))
+           #     for idx,(ri,ui,fi) in enumerate(zip(r,u,f)):
+           #         t.write('{idx} {ri} {ui} {fi}\n'.format(idx=idx+1,ri=ri,ui=ui,fi=fi))
+           #
+           # cmds += ['read_data {filename} add merge'.format(filename=t.name)]
+
         return cmds
 
+class InitializeFromFile(Initialize):
+    pass
+
 class InitializeRandomly(Initialize):
-    def __init__(self, neighbor_buffer, seed, units="lj", atom_style="atomic"):
+    def __init__(self, neighbor_buffer, seed, units='lj', atom_style='atomic'):
         super().__init__(neighbor_buffer)
         self.seed = seed
         self.units = units
         self.atom_style = atom_style
 
     def to_commands(self, sim):
-        cmds = ["units {}".format(self.units),
-                "boundary p p p",
-                "atom_style {}".format(self.atom_style)]
+        cmds = ['units {style}'.format(style=self.units),
+                'boundary p p p',
+                'atom_style {style}'.format(style=self.atom_style)]
 
         # make box from ensemble
         box = self.extract_box_params(sim)
         if not np.all(np.isclose(box[-3:],0)):
-            cmds += ["region box prism {} {} {} {} {} {} {} {} {}".format(*box)]
+            cmds += ['region box prism {} {} {} {} {} {} {} {} {}'.format(*box)]
         else:
-            cmds += ["region box block {} {} {} {} {} {}".format(*box[:-3])]
-        cmds += ["create_box {} box".format(len(sim.ensemble.types))]
+            cmds += ['region box block {} {} {} {} {} {}'.format(*box[:-3])]
+        cmds += ['create_box {N} box'.format(N=len(sim.ensemble.types))]
 
         # use lammps random initialization routines
         for i in sim.ensemble.types:
-            cmds += ["create_atoms {typeid} random {N} {seed} box".format(typeid=sim.type_map[i],
+            cmds += ['create_atoms {typeid} random {N} {seed} box'.format(typeid=sim.type_map[i],
                                                                           N=sim.ensemble.N[i],
-                                                                          seed=self.seed+sim.type_map[i])]
-        cmds += ["mass * 1.0",
-                 "velocity all create {} {}".format(sim.ensemble.T,self.seed)]
+                                                                          seed=self.seed+sim.type_map[i]-1)]
+        cmds += ['mass * 1.0',
+                 'velocity all create {temp} {seed}'.format(temp=sim.ensemble.T,seed=self.seed)]
 
         cmds += self.attach_potentials(sim)
 
         return cmds
+
+class MinimizeEnergy(simulate.SimulationOperation):
+    pass
+class AddMDIntegrator(simulate.SimulationOperation):
+    pass
+class RemoveMDIntegrator(simulate.SimulationOperation):
+    pass
+class AddBrownianIntegrator(AddMDIntegrator):
+    pass
+class RemoveBrownianIntegrator(RemoveMDIntegrator):
+    pass
+class AddLangevinIntegrator(AddMDIntegrator):
+    pass
+class RemoveLangevinIntegrator(RemoveMDIntegrator):
+    pass
+class AddNPTIntegrator(AddMDIntegrator):
+    pass
+class RemoveNPTIntegrator(RemoveMDIntegrator):
+    pass
+class AddNVTIntegrator(AddMDIntegrator):
+    pass
+class RemoveNVTIntegrator(RemoveMDIntegrator):
+    pass
+class Run(simulate.SimulationOperation):
+    pass
+class RunUpTo(simulate.SimulationOperation):
+    pass
+class AddEnsembleAnalyzer(simulate.SimulationOperation):
+    pass
