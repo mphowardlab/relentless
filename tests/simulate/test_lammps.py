@@ -35,7 +35,7 @@ class test_LAMMPS(unittest.TestCase):
         #InitializeRandomly
         ens,pot = self.ens_pot()
         op = relentless.simulate.lammps.InitializeRandomly(neighbor_buffer=0.4, seed=1)
-        l = relentless.simulate.lammps.LAMMPS(operations=op)
+        l = relentless.simulate.lammps.LAMMPS(operations=op, quiet=False)
         sim = l.run(ensemble=ens, potentials=pot, directory=self.directory)
 
     def tearDown(self):

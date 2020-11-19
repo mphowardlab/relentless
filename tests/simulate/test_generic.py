@@ -40,12 +40,11 @@ class test_Generic(unittest.TestCase):
             sim.run(self.ensemble, self.potentials, self.directory)
 
         #Invalid operation (in valid backend)
-        #TODO change to LAMMPS BrownianIntegrator operation
         with self.assertRaises(TypeError):
             ops = [relentless.simulate.InitializeRandomly(neighbor_buffer=0.4),
-                   relentless.simulate.AddNPTIntegrator(dt=0.1,tau_T=0.5,tau_P=0.3)]
-            dilute = relentless.simulate.Dilute([ops])
-            dilute.run(self.ensemble, self.potentials, self.directory)
+                   relentless.simulate.AddBrownianIntegrator(dt=0.1,friction=0.5,seed=2)]
+            lammps = relentless.simulate.LAMMPS([ops])
+            lammps.run(self.ensemble, self.potentials, self.directory)
 
     def tearDown(self):
         self._tmp.cleanup()
