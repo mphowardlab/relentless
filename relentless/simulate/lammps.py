@@ -17,20 +17,23 @@ class LAMMPS(simulate.Simulation):
         if not _lammps_found:
             raise ImportError('LAMMPS not found.')
 
-        self._quiet = quiet
+        self.quiet = quiet
         super().__init__(operations,**options)
 
     def _new_instance(self, ensemble, potentials, directory):
         sim = super()._new_instance(ensemble,potentials,directory)
 
-        quiet_launch = None
-        if self._quiet:
+        if self.quiet:
             # create lammps instance with all output disabled
-            quiet_launch = ['-echo','none',
-                            '-log','none',
-                            '-screen','none',
-                            '-nocite']
-        sim.lammps = lammps.lammps(cmdargs=quiet_launch)
+            launch_args = ['-echo','none',
+                           '-log','none',
+                           '-screen','none',
+                           '-nocite']
+        else:
+            launch_args = ['-echo','screen',
+                           '-log', sim.directory.file('log.lammps'),
+                           '-nocite']
+        sim.lammps = lammps.lammps(cmdargs=launch_args)
 
         # lammps uses 1-indexed ints for types, so build mapping in both direction
         sim.type_map = {}
@@ -75,26 +78,57 @@ class Initialize(LAMMPSOperation):
         return np.array([lo[0],hi[0],lo[1],hi[1],lo[2],hi[2],xy,xz,yz])
 
     def attach_potentials(self, sim):
-        #tabulate, drop entries where r = 0
-        k = np.where(sim.potentials.pair.r==0)
-        r = np.delete(sim.potentials.pair.r,k)
+        # lammps requires r > 0
+        flags = sim.potentials.pair.r > 0
+        r = sim.potentials.pair.r[flags]
+        Nr = len(r)
+        if Nr == 1:
+            raise ValueError('LAMMPS requires at least two points in the tabulated potential.')
 
+        # check that all r are equally spaced
+        dr = r[1:]-r[:-1]
+        if not np.all(np.isclose(dr,dr[0])):
+            raise ValueError('LAMMPS requires equally spaced r in pair potentials.')
+
+        def pair_map(sim,pair):
+            # Map lammps type indexes as a pair, lowest type first
+            i,j = pair
+            id_i = sim.type_map[i]
+            id_j = sim.type_map[j]
+            if id_i > id_j:
+                id_i,id_j = id_j,id_i
+
+            return id_i,id_j
+
+        # write all potentials into a file
+        file_ = sim.directory.file('lammps_pair_table.dat')
+        with open(file_,'w') as fw:
+            fw.write('# LAMMPS tabulated pair potentials\n')
+            for i,j in sim.ensemble.pairs:
+                id_i,id_j = pair_map(sim,(i,j))
+                fw.write(('# pair ({i},{j})\n'
+                          '\n'
+                          'TABLE_{id_i}_{id_j}\n').format(i=i,
+                                                          j=j,
+                                                          id_i=id_i,
+                                                          id_j=id_j)
+                        )
+                fw.write('N {N} R {rmin} {rmax}\n\n'.format(N=Nr,
+                                                            rmin=r[0],
+                                                            rmax=r[-1]))
+
+                u = sim.potentials.pair.energy((i,j))[flags]
+                f = sim.potentials.pair.force((i,j))[flags]
+                for idx in range(Nr):
+                    fw.write('{idx} {r} {u} {f}\n'.format(idx=idx+1,r=r[idx],u=u[idx],f=f[idx]))
+
+        # process all lammps commands
         cmds = ['neighbor {skin} multi'.format(skin=self.neighbor_buffer)]
-        cmds += ['pair_style table linear {N}'.format(N=len(r))]
-
+        cmds += ['pair_style table linear {N}'.format(N=Nr)]
         for i,j in sim.ensemble.pairs:
-            #tabulate, drop entries where r = 0
-            u = np.delete(sim.potentials.pair.energy((i,j)),k)
-            f = np.delete(sim.potentials.pair.force((i,j)),k)
-
-            # write and read potential data
-            _file = sim.directory.file('pair.{i}.{j}.dat'.format(i=i,j=j))
-            cmds += ['pair_write {i} {j} {N} r {inner} {outer} pair.{i}.{j}.dat TABLE_{i}_{j}'.format(i=i,
-                                                                                                      j=j,
-                                                                                                      N=len(r),
-                                                                                                      inner=r[0],
-                                                                                                      outer=r[-1]),
-                    'pair_coeff {i} {j} pair.{i}.{j}.dat TABLE_{i}_{j}'.format(i=i,j=j)]
+            # get lammps type indexes, lowest type first
+            id_i,id_j = pair_map(sim,(i,j))
+            cmds += ['pair_coeff {id_i} {id_j} {filename} TABLE_{id_i}_{id_j}'.format(id_i=id_i,id_j=id_j,filename=file_)]
 
         return cmds
 
