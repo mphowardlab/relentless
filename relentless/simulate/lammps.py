@@ -45,17 +45,33 @@ class LAMMPS(simulate.Simulation):
         return sim
 
 class LAMMPSOperation(simulate.SimulationOperation):
+    fix_id = 1
+
     def __call__(self, sim):
         cmds = self.to_commands(sim)
         sim.lammps.commands_list(cmds)
+
+    @classmethod
+    def add_fix(cls):
+        LAMMPSOperation.fix_id += 1
+        return LAMMPSOperation.fix_id
 
     @abc.abstractmethod
     def to_commands(self, sim):
         pass
 
 class Initialize(LAMMPSOperation):
-    def __init__(self, neighbor_buffer):
+    def __init__(self, neighbor_buffer, units='lj', atom_style='atomic'):
         self.neighbor_buffer = neighbor_buffer
+        self.units = units
+        self.atom_style = atom_style
+
+    def to_commands(self, sim):
+        cmds = ['units {style}'.format(style=self.units),
+                'boundary p p p',
+                'atom_style {style}'.format(style=self.atom_style)]
+
+        return cmds
 
     def extract_box_params(self, sim):
         # cast simulation box in LAMMPS parameters
@@ -134,31 +150,23 @@ class Initialize(LAMMPSOperation):
 
 class InitializeFromFile(Initialize):
     def __init__(self, filename, neighbor_buffer, units='lj', atom_style='atomic'):
-        super().__init__(neighbor_buffer)
+        super().__init__(neighbor_buffer, units, atom_style)
         self.filename = filename
-        self.units = units
-        self.atom_style = atom_style
 
     def to_commands(self, sim):
-        cmds = ['units {style}'.format(style=self.units),
-                'boundary p p p',
-                'atom_style {style}'.format(style=self.atom_style),
-                'read_data {filename}'.format(filename=filename), #TODO: keyword args?
-                self.attach_potentials(sim)]
+        cmds = super().to_commands(sim)
+        cmds += ['read_data {filename}'.format(filename=self.filename)]
+        cmds += self.attach_potentials(sim)
 
         return cmds
 
 class InitializeRandomly(Initialize):
     def __init__(self, neighbor_buffer, seed, units='lj', atom_style='atomic'):
-        super().__init__(neighbor_buffer)
+        super().__init__(neighbor_buffer, units, atom_style)
         self.seed = seed
-        self.units = units
-        self.atom_style = atom_style
 
     def to_commands(self, sim):
-        cmds = ['units {style}'.format(style=self.units),
-                'boundary p p p',
-                'atom_style {style}'.format(style=self.atom_style)]
+        cmds = super().to_commands(sim)
 
         # make box from ensemble
         box = self.extract_box_params(sim)
@@ -181,110 +189,127 @@ class InitializeRandomly(Initialize):
 
         return cmds
 
-class MinimizeEnergy(simulate.SimulationOperation):
-    def __init__(self, energy_tolerance, force_tolerance, max_iterations):
+class MinimizeEnergy(LAMMPSOperation):
+    def __init__(self, energy_tolerance, force_tolerance, max_iterations, dt):
         self.energy_tolerance = energy_tolerance
         self.force_tolerance = force_tolerance
         self.max_iterations = max_iterations
 
-    def to_commands(self, sim): #TODO: min_style, min_modfy?
-        cmds += ['minimize {etol} {ftol} {maxiter}'.format(etol=self.energy_tolerance,
-                                                           ftol=self.force_tolerance,
-                                                           maxiter=self.max_iterations)]
+    def to_commands(self, sim):
+        cmds = ['minimize {etol} {ftol} {maxiter} {maxeval}'.format(etol=self.energy_tolerance,
+                                                                    ftol=self.force_tolerance,
+                                                                    maxiter=self.max_iterations,
+                                                                    maxeval=self.max_iterations)]
 
         return cmds
 
 # Brownian dynamics not supported by LAMMPS
 
-class AddLangevinIntegrator(simulate.SimulationOperation):
-    def __init__(self, idx, group_idx, t_start, t_stop, damp, seed): #TODO: condense keywords, reconcile with generic?
-        self.idx = idx
-        self.group_idx = group_idx
-        self.t_start = t_start
-        self.t_stop = t_stop
-        self.damp = damp
+class AddLangevinIntegrator(LAMMPSOperation):
+    def __init__(self, dt, friction, seed):
+        self.friction = friction
         self.seed = seed
 
+        self.lgv_idx = super().add_fix()
+        self.nve_idx = super().add_fix()
+
     def to_commands(self, sim):
-        cmds += ['fix {idx} {group_idx} langevin {t_start} {t_stop} {damp} {seed}'.format(idx=self.idx,
-                                                                                          group_idx=self.group_idx,
-                                                                                          t_start=self.t_start,
-                                                                                          t_stop=self.t_stop,
-                                                                                          damp=self.damp,
-                                                                                          seed=self.seed)]
+        cmds = ['fix {idx} {group_idx} langevin {t_start} {t_stop} {damp} {seed}'.format(idx=self.lgv_idx,
+                                                                                         group_idx='all',
+                                                                                         t_start=sim.ensemble.T,
+                                                                                         t_stop=sim.ensemble.T,
+                                                                                         damp=self.friction,
+                                                                                         seed=self.seed),
+                'fix {idx} {group_idx} nve'.format(idx=self.nve_idx,
+                                                   group_idx='all')]
 
         return cmds
 
-class RemoveLangevinIntegrator(simulate.SimulationOperation):
+class RemoveLangevinIntegrator(LAMMPSOperation):
     def __init__(self, add_op):
         if not isinstance(add_op, AddLangevinIntegrator):
             raise TypeError('Addition operation is not AddLangevinIntegrator.')
         self.add_op = add_op
 
     def to_commands(self, sim):
-        cmds += ['unfix {idx}'.format(idx=self.add_op.idx)]
+        cmds = ['unfix {idx}'.format(idx=self.add_op.lgv_idx),
+                'unfix {idx}'.format(idx=self.add_op.nve_idx)]
 
         return cmds
 
-class AddNPTIntegrator(simulate.SimulationOperation):
-    def __init__(self, idx, group_idx): #TODO: reconcile with generic
-        self.idx = idx
-        self.group_idx = group_idx
+class AddNPTIntegrator(LAMMPSOperation):
+    def __init__(self, dt, tau_T, tau_P):
+        self.tau_T = tau_T
+        self.tau_P = tau_P
+
+        self.idx = super().add_fix()
 
     def to_commands(self, sim):
-        cmds += ['fix {idx} {group_idx} npt'.format(idx=self.idx,group_idx=self.group_idx)]
+        cmds = ['fix {idx} {group_idx} npt temp {Tstart} {Tstop} {Tdamp} iso {Pstart} {Pstop} {Pdamp}'.format(idx=self.idx,
+                                                                                                              group_idx='all',
+                                                                                                              Tstart = sim.ensemble.T,
+                                                                                                              Tstop = sim.ensemble.T,
+                                                                                                              Tdamp = self.tau_T,
+                                                                                                              Pstart = sim.ensemble.P,
+                                                                                                              Pstop = sim.ensemble.P,
+                                                                                                              Pdamp = self.tau_P)]
 
         return cmds
 
-class RemoveNPTIntegrator(simulate.SimulationOperation):
+class RemoveNPTIntegrator(LAMMPSOperation):
     def __init__(self, add_op):
         if not isinstance(add_op, AddNPTIntegrator):
             raise TypeError('Addition operation is not AddNPTIntegrator.')
         self.add_op = add_op
 
     def to_commands(self, sim):
-        cmds += ['unfix {idx}'.format(idx=self.add_op.idx)]
+        cmds = ['unfix {idx}'.format(idx=self.add_op.idx)]
 
         return cmds
 
-class AddNVTIntegrator(simulate.SimulationOperation):
-    def __init__(self): #TODO: reconcile with generic
-        self.idx = idx
-        self.group_idx = group_idx
+class AddNVTIntegrator(LAMMPSOperation):
+    def __init__(self, dt, tau_T):
+        self.tau_T = tau_T
+
+        self.idx = super().add_fix()
 
     def to_commands(self, sim):
-        cmds += ['fix {idx} {group_idx} nvt'.format(idx=self.idx,group_idx=self.group_idx)]
+        cmds = ['fix {idx} {group_idx} nvt temp {Tstart} {Tstop} {Tdamp}'.format(idx=self.idx,
+                                                                                 group_idx='all',
+                                                                                 Tstart = sim.ensemble.T,
+                                                                                 Tstop = sim.ensemble.T,
+                                                                                 Tdamp = self.tau_T)]
 
         return cmds
 
-class RemoveNVTIntegrator(simulate.SimulationOperation):
+class RemoveNVTIntegrator(LAMMPSOperation):
     def __init__(self, add_op):
         if not isinstance(add_op, AddNVTIntegrator):
             raise TypeError('Addition operation is not AddNVTIntegrator.')
         self.add_op = add_op
 
     def to_commands(self, sim):
-        cmds += ['unfix {idx}'.format(idx=self.add_op.idx)]
+        cmds = ['unfix {idx}'.format(idx=self.add_op.idx)]
 
         return cmds
 
-class Run(simulate.SimulationOperation):
+class Run(LAMMPSOperation):
     def __init__(self, steps):
         self.steps = steps
 
     def to_commands(self, sim):
-        cmds += ['run {N}'.format(N=self.steps)]
+        cmds = ['run {N}'.format(N=self.steps)]
 
         return cmds
 
-class RunUpTo(simulate.SimulationOperation):
+class RunUpTo(LAMMPSOperation):
     def __init__(self, step):
         self.step = step
 
     def to_commands(self, sim):
-        cmds += ['run {N} upto'.format(N=self.step)]
+        cmds = ['run {N} upto'.format(N=self.step)]
 
         return cmds
 
-class AddEnsembleAnalyzer(simulate.SimulationOperation):
+class AddEnsembleAnalyzer(LAMMPSOperation):
     pass
