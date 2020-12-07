@@ -23,7 +23,7 @@ class test_Generic(unittest.TestCase):
 
     def test_basic(self):
         """Test valid and invalid operation calls."""
-        ops = [relentless.simulate.InitializeRandomly(neighbor_buffer=0.4),
+        ops = [relentless.simulate.InitializeRandomly(seed=2,neighbor_buffer=0.4),
                relentless.simulate.AddBrownianIntegrator(dt=0.1,friction=1,seed=1)]
 
         #Dilute
@@ -41,7 +41,7 @@ class test_Generic(unittest.TestCase):
 
         #Invalid operation (in valid backend)
         with self.assertRaises(TypeError):
-            ops = [relentless.simulate.InitializeRandomly(neighbor_buffer=0.4),
+            ops = [relentless.simulate.InitializeRandomly(seed=1,neighbor_buffer=0.4),
                    relentless.simulate.AddBrownianIntegrator(dt=0.1,friction=0.5,seed=2)]
             lammps = relentless.simulate.LAMMPS([ops])
             lammps.run(self.ensemble, self.potentials, self.directory)

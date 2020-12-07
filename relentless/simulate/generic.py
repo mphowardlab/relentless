@@ -91,16 +91,16 @@ class InitializeRandomly(GenericOperation):
 
     Parameters
     ----------
+    seed : int
+        The seed to randomly initialize the particle locations.
     neighbor_buffer : float
         Buffer width for neighbor list.
-    seed : int
-        The seed to randomly initialize the particle locations (defaults to `None`).
     options : kwargs
         Options for random initialization.
 
     """
-    def __init__(self, neighbor_buffer, seed=None, **options):
-        super().__init__(neighbor_buffer, seed, **options)
+    def __init__(self, seed, neighbor_buffer, **options):
+        super().__init__(seed, neighbor_buffer, **options)
 
 ## integrators
 class MinimizeEnergy(GenericOperation):
@@ -158,8 +158,8 @@ class AddLangevinIntegrator(GenericOperation):
     ----------
     dt : float
         Time step size for each simulation iteration
-    friction : float
-        Sets drag coefficient for each particle type.
+    friction : float or dict
+        Sets drag coefficient for each particle type (shared or per-type).
     seed : int
         Seed used to randomly generate a uniform force.
     options : kwargs

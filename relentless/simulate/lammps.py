@@ -17,8 +17,8 @@ class LAMMPS(simulate.Simulation):
         if not _lammps_found:
             raise ImportError('LAMMPS not found.')
 
-        self.quiet = quiet
         super().__init__(operations,**options)
+        self.quiet = quiet
 
     def _new_instance(self, ensemble, potentials, directory):
         sim = super()._new_instance(ensemble,potentials,directory)
@@ -53,8 +53,9 @@ class LAMMPSOperation(simulate.SimulationOperation):
 
     @classmethod
     def add_fix(cls):
-        LAMMPSOperation.fix_id += 1
-        return LAMMPSOperation.fix_id
+        idx = int(cls.fix_id)
+        cls.fix_id += 1
+        return idx
 
     @abc.abstractmethod
     def to_commands(self, sim):
@@ -74,6 +75,10 @@ class Initialize(LAMMPSOperation):
         return cmds
 
     def extract_box_params(self, sim):
+        for t in sim.ensemble.types:
+            if sim.ensemble.N[t] is None:
+                raise ValueError('Number of particles for type {} must be set.'.format(t))
+
         # cast simulation box in LAMMPS parameters
         V = sim.ensemble.V
         if V is None:
@@ -161,7 +166,7 @@ class InitializeFromFile(Initialize):
         return cmds
 
 class InitializeRandomly(Initialize):
-    def __init__(self, neighbor_buffer, seed, units='lj', atom_style='atomic'):
+    def __init__(self, seed, neighbor_buffer, units='lj', atom_style='atomic'):
         super().__init__(neighbor_buffer, units, atom_style)
         self.seed = seed
 
@@ -199,28 +204,65 @@ class MinimizeEnergy(LAMMPSOperation):
         cmds = ['minimize {etol} {ftol} {maxiter} {maxeval}'.format(etol=self.energy_tolerance,
                                                                     ftol=self.force_tolerance,
                                                                     maxiter=self.max_iterations,
-                                                                    maxeval=self.max_iterations)]
+                                                                    maxeval=100*self.max_iterations)]
 
         return cmds
-
-# Brownian dynamics not supported by LAMMPS
 
 class AddLangevinIntegrator(LAMMPSOperation):
     def __init__(self, dt, friction, seed):
         self.friction = friction
         self.seed = seed
 
-        self.lgv_idx = super().add_fix()
-        self.nve_idx = super().add_fix()
+        self._fix_langevin = self.add_fix()
+        self._fix_nve = self.add_fix()
 
     def to_commands(self, sim):
-        cmds = ['fix {idx} {group_idx} langevin {t_start} {t_stop} {damp} {seed}'.format(idx=self.lgv_idx,
-                                                                                         group_idx='all',
-                                                                                         t_start=sim.ensemble.T,
-                                                                                         t_stop=sim.ensemble.T,
-                                                                                         damp=self.friction,
-                                                                                         seed=self.seed),
-                'fix {idx} {group_idx} nve'.format(idx=self.nve_idx,
+        # obtain per-type mass
+        mass_per_type = {}
+
+        mass_ptr = sim.lammps.extract_atom('mass',2)
+        Ntypes = len(sim.ensemble.types)
+        mass = np.ctypeslib.as_array(mass_ptr,(Ntypes+1,))[1:]
+
+        types_ptr = sim.lammps.extract_atom('type',0)
+        Natoms = sum(sim.ensemble.N.todict().values())
+        types = np.unique(np.ctypeslib.as_array(types_ptr,(Natoms,)))
+        types = [str(t) for t in types]
+
+        for t,m in zip(types,mass):
+            mass_per_type[t] = m
+
+        # obtain per-type friction factor
+        if np.isscalar(self.friction):
+            friction_per_type = {}
+            for t in types:
+                friction_per_type[t] = self.friction
+        else:
+            if sorted(self.friction.keys()) != sorted(types):
+                return ValueError('The friction factor types must match the atom types.')
+            friction_per_type = self.friction
+
+        # compute per-type damping parameter
+        damp_per_type = {}
+        for t in friction_per_type:
+            damp_per_type[t] = mass_per_type[t]/friction_per_type[t]
+
+        damp_ref = list(damp_per_type.values())[0]
+        scale_str = ''
+        for t in damp_per_type:
+            if damp_per_type[t] == damp_ref:
+                continue
+            scale_str += (str(t) + ' ' + str(damp_per_type[t]/damp_ref) + ' ')
+        scale_str.rstrip()
+
+        cmds = ['fix {idx} {group_idx} langevin {t_start} {t_stop} {damp} {seed} scale {scaling}'.format(idx=self._fix_langevin,
+                                                                                                         group_idx='all',
+                                                                                                         t_start=sim.ensemble.T,
+                                                                                                         t_stop=sim.ensemble.T,
+                                                                                                         damp=damp_ref,
+                                                                                                         seed=self.seed,
+                                                                                                         scaling=scale_str),
+                'fix {idx} {group_idx} nve'.format(idx=self._fix_nve,
                                                    group_idx='all')]
 
         return cmds
@@ -232,8 +274,8 @@ class RemoveLangevinIntegrator(LAMMPSOperation):
         self.add_op = add_op
 
     def to_commands(self, sim):
-        cmds = ['unfix {idx}'.format(idx=self.add_op.lgv_idx),
-                'unfix {idx}'.format(idx=self.add_op.nve_idx)]
+        cmds = ['unfix {idx}'.format(idx=self.add_op._fix_langevin),
+                'unfix {idx}'.format(idx=self.add_op._fix_nve)]
 
         return cmds
 
@@ -242,10 +284,12 @@ class AddNPTIntegrator(LAMMPSOperation):
         self.tau_T = tau_T
         self.tau_P = tau_P
 
-        self.idx = super().add_fix()
+        self._fix = super().add_fix()
 
     def to_commands(self, sim):
-        cmds = ['fix {idx} {group_idx} npt temp {Tstart} {Tstop} {Tdamp} iso {Pstart} {Pstop} {Pdamp}'.format(idx=self.idx,
+        if not sim.ensemble.aka('NPT'):
+            raise ValueError('Simulation ensemble is not NPT.')
+        cmds = ['fix {idx} {group_idx} npt temp {Tstart} {Tstop} {Tdamp} iso {Pstart} {Pstop} {Pdamp}'.format(idx=self._fix,
                                                                                                               group_idx='all',
                                                                                                               Tstart = sim.ensemble.T,
                                                                                                               Tstop = sim.ensemble.T,
@@ -263,7 +307,7 @@ class RemoveNPTIntegrator(LAMMPSOperation):
         self.add_op = add_op
 
     def to_commands(self, sim):
-        cmds = ['unfix {idx}'.format(idx=self.add_op.idx)]
+        cmds = ['unfix {idx}'.format(idx=self.add_op._fix)]
 
         return cmds
 
@@ -271,10 +315,12 @@ class AddNVTIntegrator(LAMMPSOperation):
     def __init__(self, dt, tau_T):
         self.tau_T = tau_T
 
-        self.idx = super().add_fix()
+        self._fix = super().add_fix()
 
     def to_commands(self, sim):
-        cmds = ['fix {idx} {group_idx} nvt temp {Tstart} {Tstop} {Tdamp}'.format(idx=self.idx,
+        if not sim.ensemble.aka('NVT'):
+            raise ValueError('Simulation ensemble is not NVT.')
+        cmds = ['fix {idx} {group_idx} nvt temp {Tstart} {Tstop} {Tdamp}'.format(idx=self._fix,
                                                                                  group_idx='all',
                                                                                  Tstart = sim.ensemble.T,
                                                                                  Tstop = sim.ensemble.T,
@@ -289,7 +335,7 @@ class RemoveNVTIntegrator(LAMMPSOperation):
         self.add_op = add_op
 
     def to_commands(self, sim):
-        cmds = ['unfix {idx}'.format(idx=self.add_op.idx)]
+        cmds = ['unfix {idx}'.format(idx=self.add_op._fix)]
 
         return cmds
 

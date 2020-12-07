@@ -65,12 +65,15 @@ class test_LAMMPS(unittest.TestCase):
         op = relentless.simulate.lammps.InitializeFromFile(filename=file_, neighbor_buffer=0.4)
         l = relentless.simulate.lammps.LAMMPS(operations=op, quiet=False)
         sim = l.run(ensemble=ens, potentials=pot, directory=self.directory)
+        pl = lammps.PyLammps(ptr=sim.lammps)
+        self.assertIsNotNone(pl.system)
 
         #InitializeRandomly
-        ens,pot = self.ens_pot()
-        op = relentless.simulate.lammps.InitializeRandomly(neighbor_buffer=0.4, seed=1)
+        op = relentless.simulate.lammps.InitializeRandomly(seed=1, neighbor_buffer=0.4)
         l = relentless.simulate.lammps.LAMMPS(operations=op, quiet=False)
         sim = l.run(ensemble=ens, potentials=pot, directory=self.directory)
+        pl = lammps.PyLammps(ptr=sim.lammps)
+        self.assertIsNotNone(pl.system)
 
     def test_minimization(self):
         """Test running energy minimization simulation operation."""
@@ -78,7 +81,6 @@ class test_LAMMPS(unittest.TestCase):
         ens,pot = self.ens_pot()
         file_ = self.create_file()
         op = [relentless.simulate.lammps.InitializeFromFile(filename=file_, neighbor_buffer=0.4),
-              relentless.simulate.lammps.AddNVTIntegrator(dt=0.5,tau_T=1.0),
               relentless.simulate.lammps.MinimizeEnergy(energy_tolerance=1e-7,
                                                         force_tolerance=1e-7,
                                                         max_iterations=1000,
@@ -87,8 +89,10 @@ class test_LAMMPS(unittest.TestCase):
         l = relentless.simulate.lammps.LAMMPS(operations=op, quiet=False)
         sim = l.run(ensemble=ens, potentials=pot, directory=self.directory)
 
-    def test_integrators(self): #TODO: check if fixing/unfixing actually occurs
+    def test_integrators(self):
         """Test adding and removing integrator operations."""
+        default_fixes = [{'name':''}]
+
         file_ = self.create_file()
         init = relentless.simulate.lammps.InitializeFromFile(filename=file_, neighbor_buffer=0.4)
         l = relentless.simulate.lammps.LAMMPS(operations=init, quiet=False)
@@ -96,35 +100,57 @@ class test_LAMMPS(unittest.TestCase):
         #LangevinIntegrator
         ens,pot = self.ens_pot()
         lgv = relentless.simulate.lammps.AddLangevinIntegrator(dt=0.5,
-                                                               friction=1.0,
+                                                               friction=1.5,
                                                                seed=2)
         lgv_r = relentless.simulate.lammps.RemoveLangevinIntegrator(add_op=lgv)
         l.operations = [init, lgv]
         sim = l.run(ensemble=ens, potentials=pot, directory=self.directory)
+        pl = lammps.PyLammps(ptr=sim.lammps)
+        self.assertCountEqual(pl.fixes, default_fixes+[{'name':'1','style':'langevin','group':'all'},
+                                                       {'name':'2','style':'nve','group':'all'}])
         lgv_r(sim)
+        self.assertCountEqual(pl.fixes, default_fixes)
+
+        lgv = relentless.simulate.lammps.AddLangevinIntegrator(dt=0.5,
+                                                               friction={'1':2.0,'2':5.0},
+                                                               seed=2)
+        lgv_r = relentless.simulate.lammps.RemoveLangevinIntegrator(add_op=lgv)
+        l.operations = [init, lgv]
+        sim = l.run(ensemble=ens, potentials=pot, directory=self.directory)
+        pl = lammps.PyLammps(ptr=sim.lammps)
+        self.assertCountEqual(pl.fixes, default_fixes+[{'name':'3','style':'langevin','group':'all'},
+                                                       {'name':'4','style':'nve','group':'all'}])
+        lgv_r(sim)
+        self.assertCountEqual(pl.fixes, default_fixes)
 
         #NPTIntegrator
-        ens,pot = self.ens_pot()
+        ens_npt = relentless.Ensemble(T=100.0, P=5.5, N={'A':2,'B':3})
+        ens_npt.V = relentless.Cube(L=10.0)
         npt = relentless.simulate.lammps.AddNPTIntegrator(dt=0.5,
                                                           tau_T=1.0,
                                                           tau_P=1.5)
         npt_r = relentless.simulate.lammps.RemoveNPTIntegrator(add_op=npt)
         l.operations = [init, npt]
-        sim = l.run(ensemble=ens, potentials=pot, directory=self.directory)
+        sim = l.run(ensemble=ens_npt, potentials=pot, directory=self.directory)
+        pl = lammps.PyLammps(ptr=sim.lammps)
+        self.assertCountEqual(pl.fixes, default_fixes+[{'name':'1','style':'npt','group':'all'}])
         npt_r(sim)
+        self.assertCountEqual(pl.fixes, default_fixes)
 
         #NVTIntegrator
-        ens,pot = self.ens_pot()
         nvt = relentless.simulate.lammps.AddNVTIntegrator(dt=0.5,
                                                           tau_T=1.0)
         nvt_r = relentless.simulate.lammps.RemoveNVTIntegrator(add_op=nvt)
         l.operations = [init, nvt]
         sim = l.run(ensemble=ens, potentials=pot, directory=self.directory)
+        pl = lammps.PyLammps(ptr=sim.lammps)
+        self.assertCountEqual(pl.fixes, default_fixes+[{'name':'1','style':'nvt','group':'all'}])
         nvt_r(sim)
+        self.assertCountEqual(pl.fixes, default_fixes)
 
     def test_run(self):
         """Test run simulation operations."""
-        init = relentless.simulate.lammps.InitializeRandomly(neighbor_buffer=0.4, seed=1)
+        init = relentless.simulate.lammps.InitializeRandomly(seed=1, neighbor_buffer=0.4)
         l = relentless.simulate.lammps.LAMMPS(operations=init, quiet=False)
 
         #Run
@@ -134,7 +160,6 @@ class test_LAMMPS(unittest.TestCase):
         sim = l.run(ensemble=ens, potentials=pot, directory=self.directory)
 
         #RunUpTo
-        ens,pot = self.ens_pot()
         run = relentless.simulate.lammps.RunUpTo(step=999)
         l.operations = [init,run]
         sim = l.run(ensemble=ens, potentials=pot, directory=self.directory)
