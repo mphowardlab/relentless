@@ -16,6 +16,8 @@ class LAMMPS(simulate.Simulation):
     def __init__(self, operations, quiet=True, **options):
         if not _lammps_found:
             raise ImportError('LAMMPS not found.')
+        elif lammps.lammps().version() < 20201029:
+            raise ImportError('Only LAMMPS 29 Oct 2020 or newer is supported.')
 
         super().__init__(operations,**options)
         self.quiet = quiet
@@ -45,16 +47,16 @@ class LAMMPS(simulate.Simulation):
         return sim
 
 class LAMMPSOperation(simulate.SimulationOperation):
-    fix_id = 1
+    _fix_counter = 1
 
     def __call__(self, sim):
         cmds = self.to_commands(sim)
         sim.lammps.commands_list(cmds)
 
     @classmethod
-    def add_fix(cls):
-        idx = int(cls.fix_id)
-        cls.fix_id += 1
+    def new_fix_id(cls):
+        idx = int(cls._fix_counter)
+        cls._fix_counter += 1
         return idx
 
     @abc.abstractmethod
@@ -75,10 +77,6 @@ class Initialize(LAMMPSOperation):
         return cmds
 
     def extract_box_params(self, sim):
-        for t in sim.ensemble.types:
-            if sim.ensemble.N[t] is None:
-                raise ValueError('Number of particles for type {} must be set.'.format(t))
-
         # cast simulation box in LAMMPS parameters
         V = sim.ensemble.V
         if V is None:
@@ -183,6 +181,9 @@ class InitializeRandomly(Initialize):
 
         # use lammps random initialization routines
         for i in sim.ensemble.types:
+            if sim.ensemble.N[i] is None:
+                raise ValueError('Number of particles for type {} must be set.'.format(i))
+
             cmds += ['create_atoms {typeid} random {N} {seed} box'.format(typeid=sim.type_map[i],
                                                                           N=sim.ensemble.N[i],
                                                                           seed=self.seed+sim.type_map[i]-1)]
@@ -213,49 +214,34 @@ class AddLangevinIntegrator(LAMMPSOperation):
         self.friction = friction
         self.seed = seed
 
-        self._fix_langevin = self.add_fix()
-        self._fix_nve = self.add_fix()
+        self._fix_langevin = self.new_fix_id()
+        self._fix_nve = self.new_fix_id()
 
     def to_commands(self, sim):
         # obtain per-type mass
-        mass_per_type = {}
-
-        mass_ptr = sim.lammps.extract_atom('mass',2)
         Ntypes = len(sim.ensemble.types)
-        mass = np.ctypeslib.as_array(mass_ptr,(Ntypes+1,))[1:]
-
-        types_ptr = sim.lammps.extract_atom('type',0)
-        Natoms = sum(sim.ensemble.N.todict().values())
-        types = np.unique(np.ctypeslib.as_array(types_ptr,(Natoms,)))
-        types = [str(t) for t in types]
-
-        for t,m in zip(types,mass):
-            mass_per_type[t] = m
+        _mass = sim.lammps.numpy.extract_atom('mass')
+        if _mass is None or _mass.shape != (Ntypes+1,1):
+            raise ValueError('Per-type masses not set.')
+        mass = np.array([i[0] for i in _mass[1:]])
 
         # obtain per-type friction factor
-        if np.isscalar(self.friction):
-            friction_per_type = {}
-            for t in types:
-                friction_per_type[t] = self.friction
-        else:
-            if sorted(self.friction.keys()) != sorted(types):
-                return ValueError('The friction factor types must match the atom types.')
-            friction_per_type = self.friction
+        friction = np.zeros_like(mass)
+        for t in sim.ensemble.types:
+            try:
+                friction[sim.type_map[t]-1] = self.friction[t]
+            except TypeError:
+                friction[sim.type_map[t]-1] = self.friction
+            except KeyError:
+                return KeyError('The friction factor types must match the atom types.')
 
         # compute per-type damping parameter
-        damp_per_type = {}
-        for t in friction_per_type:
-            damp_per_type[t] = mass_per_type[t]/friction_per_type[t]
+        damp = np.divide(mass, friction, where=(friction>0))
+        damp_ref = damp[0]
+        scale = damp/damp_ref
+        scale_str = ' '.join(['scale {} {}'.format(i+1,s) for i,s in enumerate(scale[1:])])
 
-        damp_ref = list(damp_per_type.values())[0]
-        scale_str = ''
-        for t in damp_per_type:
-            if damp_per_type[t] == damp_ref:
-                continue
-            scale_str += (str(t) + ' ' + str(damp_per_type[t]/damp_ref) + ' ')
-        scale_str.rstrip()
-
-        cmds = ['fix {idx} {group_idx} langevin {t_start} {t_stop} {damp} {seed} scale {scaling}'.format(idx=self._fix_langevin,
+        cmds = ['fix {idx} {group_idx} langevin {t_start} {t_stop} {damp} {seed} {scaling}'.format(idx=self._fix_langevin,
                                                                                                          group_idx='all',
                                                                                                          t_start=sim.ensemble.T,
                                                                                                          t_stop=sim.ensemble.T,
@@ -284,7 +270,7 @@ class AddNPTIntegrator(LAMMPSOperation):
         self.tau_T = tau_T
         self.tau_P = tau_P
 
-        self._fix = super().add_fix()
+        self._fix = super().new_fix_id()
 
     def to_commands(self, sim):
         if not sim.ensemble.aka('NPT'):
@@ -315,7 +301,7 @@ class AddNVTIntegrator(LAMMPSOperation):
     def __init__(self, dt, tau_T):
         self.tau_T = tau_T
 
-        self._fix = super().add_fix()
+        self._fix = super().new_fix_id()
 
     def to_commands(self, sim):
         if not sim.ensemble.aka('NVT'):
