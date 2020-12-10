@@ -897,6 +897,7 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
         -------
         :py:class:`Ensemble`
             Ensemble with averaged thermodynamic properties and rdf.
+
         """
         ens = sim.ensemble.copy()
         ens.clear()

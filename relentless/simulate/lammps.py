@@ -750,6 +750,26 @@ class AddEnsembleAnalyzer(LAMMPSOperation):
         self.rdf_dr = rdf_dr
 
     def to_commands(self, sim):
+        """Calls the appropriate LAMMPS commands to run the simulation.
+
+        Parameters
+        ----------
+        sim : :py:class:`Simulation`
+            The simulation object.
+
+        Returns
+        -------
+        array_like
+            The LAMMPS commands for this operation.
+
+        Raises
+        ------
+        ValueError
+            If the simulation ensemble does not have constant N.
+        RuntimeError
+            If more than one LAMMPS :py:class:`AddEnsembleAnalyzer` is initialized.
+
+        """
         if not all([sim.ensemble.constant['N'][t] for t in sim.ensemble.types]):
             return ValueError('This analyzer requires constant N.')
 
@@ -787,8 +807,8 @@ class AddEnsembleAnalyzer(LAMMPSOperation):
                  ' v_ensemble_Lx v_ensemble_Ly v_ensemble_Lz'
                  ' v_ensemble_xy v_ensemble_xz v_ensemble_yz'
                  ' mode scalar ave running'
-                 ' file {file} overwrite format "%.16e"').format(every=self.check_thermo_every,
-                                                                 file=sim[self].thermo_file)
+                 ' file {filename} overwrite format "%.16e"').format(every=self.check_thermo_every,
+                                                                     filename=sim[self].thermo_file)
                 ]
 
         # pair distribution function
@@ -807,9 +827,9 @@ class AddEnsembleAnalyzer(LAMMPSOperation):
         cmds += ['compute ensemble_rdf all rdf {bins} {pairs}'.format(bins=sim[self].num_bins,pairs=' '.join(_pairs)),
                  ('fix ensemble_rdf_avg all ave/time {every} 1 {every}'
                   ' {computes} mode vector ave running off 1'
-                  ' file {file} overwrite format "%.16e"').format(every=self.check_rdf_every,
-                                                                  computes=' '.join(_computes),
-                                                                  file=sim[self].rdf_file)
+                  ' file {filename} overwrite format "%.16e"').format(every=self.check_rdf_every,
+                                                                      computes=' '.join(_computes),
+                                                                      filename=sim[self].rdf_file)
                 ]
 
         return cmds
@@ -826,6 +846,7 @@ class AddEnsembleAnalyzer(LAMMPSOperation):
         -------
         :py:class:`Ensemble`
             Ensemble with averaged thermodynamic properties and rdf.
+
         """
         ens = sim.ensemble.copy()
         ens.clear()

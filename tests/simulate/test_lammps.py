@@ -167,7 +167,8 @@ class test_LAMMPS(unittest.TestCase):
         l.operations = [init, nvt]
         sim = l.run(ensemble=ens, potentials=pot, directory=self.directory)
         pl = lammps.PyLammps(ptr=sim.lammps)
-        self.assertCountEqual(pl.fixes, default_fixes+[{'name':'1','style':'nvt','group':'all'}])
+        self.assertEqual(pl.fixes[1]['style'], 'nvt')
+        self.assertEqual(pl.fixes[1]['group'], 'all')
         nvt_r(sim)
         self.assertCountEqual(pl.fixes, default_fixes)
 
@@ -198,7 +199,7 @@ class test_LAMMPS(unittest.TestCase):
         nvt = relentless.simulate.lammps.AddNVTIntegrator(dt=0.1,
                                                           tau_T=1.0)
         op = [init,nvt,analyzer,run]
-        h = relentless.simulate.lammps.LAMMPS(operations=op,quiet=True)
+        h = relentless.simulate.lammps.LAMMPS(operations=op,quiet=False)
         sim = h.run(ensemble=ens, potentials=pot, directory=self.directory)
 
         #extract ensemble
