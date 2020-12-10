@@ -422,7 +422,7 @@ class AddLangevinIntegrator(LAMMPSOperation):
             friction factors are given).
 
         """
-        if not sim.ensemble.constant('V'):
+        if not sim.ensemble.constant['V']:
             raise ValueError('Simulation ensemble does not have constant V.')
 
         # obtain per-type mass (arrays 1-indexed using lammps convention)

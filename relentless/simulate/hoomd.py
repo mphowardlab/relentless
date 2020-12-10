@@ -197,11 +197,14 @@ class InitializeFromFile(Initialize):
         The file from which to read the system data.
     neighbor_buffer : float
         Buffer width.
+    options : kwargs
+        Options for file reading (as used in :py:func:`hoomd.init.read_gsd()`).
 
     """
-    def __init__(self, filename, neighbor_buffer):
+    def __init__(self, filename, neighbor_buffer, **options):
         super().__init__(neighbor_buffer)
         self.filename = os.path.realpath(filename)
+        self.options = options
 
     def __call__(self, sim):
         """Performs the from-file initialization operation.
