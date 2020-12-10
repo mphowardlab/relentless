@@ -28,9 +28,9 @@ class HOOMD(simulate.Simulation):
     Raises
     ------
     ImportError
-        If `hoomd` package is not found, or is not version 2.x.
+        If the `hoomd` package is not found, or is not version 2.x.
     ImportError
-        If `freud` package  is not found, or is not version 2.x.
+        If the `freud` package is not found, or is not version 2.x.
 
     """
     def __init__(self, operations, **options):
@@ -114,7 +114,7 @@ class Initialize(simulate.SimulationOperation):
         Parameters
         ----------
         sim : :py:class:`Simulation`
-            Simulation object.
+            The simulation object.
 
         Returns
         -------
@@ -156,7 +156,7 @@ class Initialize(simulate.SimulationOperation):
         Parameters
         ----------
         sim : :py:class:`Simulation`
-            Simulation object.
+            The simulation object.
 
         Raises
         ------
@@ -374,7 +374,7 @@ class AddMDIntegrator(simulate.SimulationOperation):
         Parameters
         ----------
         sim : :py:class:`Simulation`
-            Simulation object.
+            The simulation object.
 
         """
         # note that this assumes you can only have ONE integrator in the system
@@ -424,13 +424,13 @@ class AddBrownianIntegrator(AddMDIntegrator):
     Parameters
     ----------
     dt : float
-        Time step size for each simulation iteration
+        Time step size for each simulation iteration.
     friction : float
         Sets drag coefficient for each particle type.
     seed : int
         Seed used to randomly generate a uniform force.
     options : kwargs
-        Options used in :py:func:`hoomd.md.integrate.brownian()`
+        Options used in :py:func:`hoomd.md.integrate.brownian()`.
 
     """
     def __init__(self, dt, friction, seed, **options):
@@ -495,13 +495,13 @@ class AddLangevinIntegrator(AddMDIntegrator):
     Parameters
     ----------
     dt : float
-        Time step size for each simulation iteration
+        Time step size for each simulation iteration.
     friction : float or dict
-        Sets drag coefficient for each particle type (shared or per-type).
+        Drag coefficient for each particle type (shared or per-type).
     seed : int
         Seed used to randomly generate a uniform force.
     options : kwargs
-        Options used in :py:func:`hoomd.md.integrate.langevin()`
+        Options used in :py:func:`hoomd.md.integrate.langevin()`.
 
     """
     def __init__(self, dt, friction, seed, **options):
@@ -566,13 +566,13 @@ class AddNPTIntegrator(AddMDIntegrator):
     Parameters
     ----------
     dt : float
-        Time step size for each simulation iteration
+        Time step size for each simulation iteration.
     tau_T : float
         Coupling constant for the thermostat.
     tau_P : float
         Coupling constant for the barostat.
     options : kwargs
-        Options used in :py:func:`hoomd.md.integrate.npt()`
+        Options used in :py:func:`hoomd.md.integrate.npt()`.
 
     """
     def __init__(self, dt, tau_T, tau_P, **options):
@@ -638,11 +638,11 @@ class AddNVTIntegrator(AddMDIntegrator):
     Parameters
     ----------
     dt : float
-        Time step size for each simulation iteration
+        Time step size for each simulation iteration.
     tau_T : float
         Coupling constant for the thermostat.
     options : kwargs
-        Options used in :py:func:`hoomd.md.integrate.nvt()`
+        Options used in :py:func:`hoomd.md.integrate.nvt()`.
 
     """
     def __init__(self, dt, tau_T, **options):
