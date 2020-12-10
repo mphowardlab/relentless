@@ -29,6 +29,26 @@ class GenericOperation(simulate.SimulationOperation):
         self._backend = None
 
     def __call__(self, sim):
+        """Evaluates the generic simulation operation.
+
+        Parameters
+        ----------
+        sim : :py:class:`Simulation`
+            Simulation object.
+
+        Returns
+        -------
+        :py:obj:
+            The result of the generic simulation operation function.
+
+        Raises
+        ------
+        TypeError
+            If the specified simulation backend is not registered (using :py:func:`add_backend`).
+        TypeError
+            If the specified operation is not found in the simulation backend.
+
+        """
         if self._op is None or self._backend != sim.backend:
             backend = self.backends.get(sim.backend)
             if not backend:
