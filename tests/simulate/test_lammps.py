@@ -93,11 +93,11 @@ class test_LAMMPS(unittest.TestCase):
         """Test adding and removing integrator operations."""
         default_fixes = [{'name':''}]
 
-        file_ = self.create_file()
-        init = relentless.simulate.lammps.InitializeFromFile(filename=file_, neighbor_buffer=0.4)
+        init = relentless.simulate.lammps.InitializeRandomly(seed=1, neighbor_buffer=0.4)
         l = relentless.simulate.lammps.LAMMPS(operations=init, quiet=False)
 
         #LangevinIntegrator
+        #float friction
         ens,pot = self.ens_pot()
         lgv = relentless.simulate.lammps.AddLangevinIntegrator(dt=0.5,
                                                                friction=1.5,
@@ -111,6 +111,7 @@ class test_LAMMPS(unittest.TestCase):
         lgv_r(sim)
         self.assertCountEqual(pl.fixes, default_fixes)
 
+        #dictionary friction
         lgv = relentless.simulate.lammps.AddLangevinIntegrator(dt=0.5,
                                                                friction={'1':2.0,'2':5.0},
                                                                seed=2)
@@ -122,6 +123,28 @@ class test_LAMMPS(unittest.TestCase):
                                                        {'name':'4','style':'nve','group':'all'}])
         lgv_r(sim)
         self.assertCountEqual(pl.fixes, default_fixes)
+
+        #single-type friction
+        ens_1 = relentless.Ensemble(T=2.0, V=relentless.Cube(L=10.0), N={'1':2})
+        lgv = relentless.simulate.lammps.AddLangevinIntegrator(dt=0.5,
+                                                               friction={'1':3.0},
+                                                               seed=2)
+        lgv_r = relentless.simulate.lammps.RemoveLangevinIntegrator(add_op=lgv)
+        l.operations = [init, lgv]
+        sim = l.run(ensemble=ens_1, potentials=pot, directory=self.directory)
+        pl = lammps.PyLammps(ptr=sim.lammps)
+        self.assertCountEqual(pl.fixes, default_fixes+[{'name':'5','style':'langevin','group':'all'},
+                                                       {'name':'6','style':'nve','group':'all'}])
+        lgv_r(sim)
+        self.assertCountEqual(pl.fixes, default_fixes)
+
+        #invalid-type friction
+        lgv = relentless.simulate.lammps.AddLangevinIntegrator(dt=0.5,
+                                                               friction={'2':5.0,'3':2.0},
+                                                               seed=2)
+        l.operations = [init, lgv]
+        with self.assertRaises(KeyError):
+            sim = l.run(ensemble=ens, potentials=pot, directory=self.directory)
 
         #NPTIntegrator
         ens_npt = relentless.Ensemble(T=100.0, P=5.5, N={'A':2,'B':3})

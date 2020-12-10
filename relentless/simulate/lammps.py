@@ -16,8 +16,6 @@ class LAMMPS(simulate.Simulation):
     def __init__(self, operations, quiet=True, **options):
         if not _lammps_found:
             raise ImportError('LAMMPS not found.')
-        elif lammps.lammps().version() < 20201029:
-            raise ImportError('Only LAMMPS 29 Oct 2020 or newer is supported.')
 
         super().__init__(operations,**options)
         self.quiet = quiet
@@ -35,7 +33,10 @@ class LAMMPS(simulate.Simulation):
             launch_args = ['-echo','screen',
                            '-log', sim.directory.file('log.lammps'),
                            '-nocite']
+
         sim.lammps = lammps.lammps(cmdargs=launch_args)
+        if sim.lammps.version() < 20201029:
+            raise ImportError('Only LAMMPS 29 Oct 2020 or newer is supported.')
 
         # lammps uses 1-indexed ints for types, so build mapping in both direction
         sim.type_map = {}
@@ -218,28 +219,34 @@ class AddLangevinIntegrator(LAMMPSOperation):
         self._fix_nve = self.new_fix_id()
 
     def to_commands(self, sim):
-        # obtain per-type mass
+        # obtain per-type mass (arrays 1-indexed using lammps convention)
         Ntypes = len(sim.ensemble.types)
-        _mass = sim.lammps.numpy.extract_atom('mass')
-        if _mass is None or _mass.shape != (Ntypes+1,1):
+        mass = np.squeeze(sim.lammps.numpy.extract_atom('mass'))
+        if mass is None or mass.shape != (Ntypes+1,):
             raise ValueError('Per-type masses not set.')
-        mass = np.array([i[0] for i in _mass[1:]])
 
         # obtain per-type friction factor
         friction = np.zeros_like(mass)
         for t in sim.ensemble.types:
             try:
-                friction[sim.type_map[t]-1] = self.friction[t]
+                friction[sim.type_map[t]] = self.friction[t]
             except TypeError:
-                friction[sim.type_map[t]-1] = self.friction
+                friction[sim.type_map[t]] = self.friction
             except KeyError:
-                return KeyError('The friction factor types must match the atom types.')
+                print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+                print(sim.ensemble.types)
+                print(t)
+                print(self.friction)
+                raise KeyError('The friction factor for type {} is not set.'.format(t))
 
-        # compute per-type damping parameter
+        # compute per-type damping parameter and rescale if multiple types
         damp = np.divide(mass, friction, where=(friction>0))
-        damp_ref = damp[0]
-        scale = damp/damp_ref
-        scale_str = ' '.join(['scale {} {}'.format(i+1,s) for i,s in enumerate(scale[1:])])
+        damp_ref = damp[1]
+        if Ntypes>1:
+            scale = damp/damp_ref
+            scale_str = ' '.join(['scale {} {}'.format(i+1,s) for i,s in enumerate(scale[2:])])
+        else:
+            scale_str = ''
 
         cmds = ['fix {idx} {group_idx} langevin {t_start} {t_stop} {damp} {seed} {scaling}'.format(idx=self._fix_langevin,
                                                                                                          group_idx='all',
@@ -277,12 +284,12 @@ class AddNPTIntegrator(LAMMPSOperation):
             raise ValueError('Simulation ensemble is not NPT.')
         cmds = ['fix {idx} {group_idx} npt temp {Tstart} {Tstop} {Tdamp} iso {Pstart} {Pstop} {Pdamp}'.format(idx=self._fix,
                                                                                                               group_idx='all',
-                                                                                                              Tstart = sim.ensemble.T,
-                                                                                                              Tstop = sim.ensemble.T,
-                                                                                                              Tdamp = self.tau_T,
-                                                                                                              Pstart = sim.ensemble.P,
-                                                                                                              Pstop = sim.ensemble.P,
-                                                                                                              Pdamp = self.tau_P)]
+                                                                                                              Tstart=sim.ensemble.T,
+                                                                                                              Tstop=sim.ensemble.T,
+                                                                                                              Tdamp=self.tau_T,
+                                                                                                              Pstart=sim.ensemble.P,
+                                                                                                              Pstop=sim.ensemble.P,
+                                                                                                              Pdamp=self.tau_P)]
 
         return cmds
 
@@ -308,9 +315,9 @@ class AddNVTIntegrator(LAMMPSOperation):
             raise ValueError('Simulation ensemble is not NVT.')
         cmds = ['fix {idx} {group_idx} nvt temp {Tstart} {Tstop} {Tdamp}'.format(idx=self._fix,
                                                                                  group_idx='all',
-                                                                                 Tstart = sim.ensemble.T,
-                                                                                 Tstop = sim.ensemble.T,
-                                                                                 Tdamp = self.tau_T)]
+                                                                                 Tstart=sim.ensemble.T,
+                                                                                 Tstop=sim.ensemble.T,
+                                                                                 Tdamp=self.tau_T)]
 
         return cmds
 
