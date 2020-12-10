@@ -3,6 +3,7 @@ import os
 
 import numpy as np
 
+from relentless.core.ensemble import RDF
 from relentless.core.volume import TriclinicBox
 from . import simulate
 
@@ -729,3 +730,120 @@ class RunUpTo(LAMMPSOperation):
         cmds = ['run {N} upto'.format(N=self.step)]
 
         return cmds
+
+class AddEnsembleAnalyzer(LAMMPSOperation):
+    """Analyzes the simulation ensemble and rdf at specified timestep intervals.
+
+    Parameters
+    ----------
+    check_thermo_every : int
+        Interval of time steps at which to log thermodynamic properties of the simulation.
+    check_rdf_every : int
+        Interval of time steps at which to log the rdf of the simulation.
+    rdf_dr : float
+        The width (in units *r*) of a bin in the histogram of the rdf.
+
+    """
+    def __init__(self, check_thermo_every, check_rdf_every, rdf_dr):
+        self.check_thermo_every = check_thermo_every
+        self.check_rdf_every = check_rdf_every
+        self.rdf_dr = rdf_dr
+
+    def to_commands(self, sim):
+        if not all([sim.ensemble.constant['N'][t] for t in sim.ensemble.types]):
+            return ValueError('This analyzer requires constant N.')
+
+        # check that IDs reserved for analysis do not yet exist
+        reserved_ids = (('fix','thermo_avg'),
+                        ('compute','rdf'),
+                        ('fix','rdf_avg'),
+                        ('variable','T'),
+                        ('variable','P'),
+                        ('variable','Lx'),
+                        ('variable','Ly'),
+                        ('variable','Lz'),
+                        ('variable','xy'),
+                        ('variable','xz'),
+                        ('variable','yz'))
+        for category,name in reserved_ids:
+            if sim.lammps.has_id(category,'ensemble_'+name):
+                raise RuntimeError('Only one AddEnsembleAnalyzer operation can be used with LAMMPS.')
+
+        # thermodynamic properties
+        sim[self].thermo_file = sim.directory.file('lammps_thermo.dat')
+        cmds = ['thermo {every}'.format(every=self.check_thermo_every),
+                'thermo_style custom temp press lx ly lz xy xz yz',
+                'thermo_modify norm no flush no',
+                'variable ensemble_T equal temp',
+                'variable ensemble_P equal press',
+                'variable ensemble_Lx equal lx',
+                'variable ensemble_Ly equal ly',
+                'variable ensemble_Lz equal lz',
+                'variable ensemble_xy equal xy',
+                'variable ensemble_xz equal xz',
+                'variable ensemble_yz equal yz',
+                ('fix ensemble_thermo_avg all ave/time {every} 1 {every}'
+                 ' v_ensemble_T v_ensemble_P'
+                 ' v_ensemble_Lx v_ensemble_Ly v_ensemble_Lz'
+                 ' v_ensemble_xy v_ensemble_xz v_ensemble_yz'
+                 ' mode scalar ave running'
+                 ' file {file} overwrite format "%.16e"').format(every=self.check_thermo_every,
+                                                                 file=sim[self].thermo_file)
+                ]
+
+        # pair distribution function
+        rmax = sim.potentials.pair.r[-1]
+        sim[self].num_bins = np.round(rmax/self.rdf_dr).astype(int)
+        sim[self].rdf_file = sim.directory.file('lammps_rdf.dat')
+        sim[self].rdf_pairs = tuple(sim.ensemble.pairs)
+        # string format lammps arguments based on pairs
+        # _pairs is the list of all pairs by LAMMPS type id, in ensemble order
+        # _computes is the RDF values for each pair, with the r bin centers prepended
+        _pairs = []
+        _computes = ['c_ensemble_rdf[1]']
+        for idx,(i,j) in enumerate(sim[self].rdf_pairs):
+            _pairs.append('{} {}'.format(sim.type_map[i],sim.type_map[j]))
+            _computes.append('c_ensemble_rdf[{}]'.format(2*(idx+1)))
+        cmds += ['compute ensemble_rdf all rdf {bins} {pairs}'.format(bins=sim[self].num_bins,pairs=' '.join(_pairs)),
+                 ('fix ensemble_rdf_avg all ave/time {every} 1 {every}'
+                  ' {computes} mode vector ave running off 1'
+                  ' file {file} overwrite format "%.16e"').format(every=self.check_rdf_every,
+                                                                  computes=' '.join(_computes),
+                                                                  file=sim[self].rdf_file)
+                ]
+
+        return cmds
+
+    def extract_ensemble(self, sim):
+        """Creates an ensemble with the averaged thermodynamic properties and rdf.
+
+        Parameters
+        ----------
+        sim : :py:class:`Simulation`
+            The simulation object.
+
+        Returns
+        -------
+        :py:class:`Ensemble`
+            Ensemble with averaged thermodynamic properties and rdf.
+        """
+        ens = sim.ensemble.copy()
+        ens.clear()
+
+        # extract thermo properties
+        # we skip the first 2 rows, which are LAMMPS junk, and slice out the timestep from col. 0
+        thermo = np.loadtxt(sim[self].thermo_file,skiprows=2)[1:]
+        ens.T = thermo[0]
+        ens.P = thermo[1]
+        ens.V = TriclinicBox(Lx=thermo[2],Ly=thermo[3],Lz=thermo[4],
+                             xy=thermo[5],xz=thermo[6],yz=thermo[7],
+                             convention=TriclinicBox.Convention.LAMMPS)
+
+        # extract rdfs
+        # LAMMPS injects a column for the row index, so we start at column 1 for r
+        # we skip the first 4 rows, which are LAMMPS junk, and slice out the first column
+        rdf = np.loadtxt(sim[self].rdf_file,skiprows=4)[:,1:]
+        for i,pair in enumerate(sim[self].rdf_pairs):
+            ens.rdf[pair] = RDF(rdf[:,0],rdf[:,i+1])
+
+        return ens

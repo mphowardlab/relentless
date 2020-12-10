@@ -187,6 +187,31 @@ class test_LAMMPS(unittest.TestCase):
         l.operations = [init,run]
         sim = l.run(ensemble=ens, potentials=pot, directory=self.directory)
 
+    def test_analyzer(self):
+        """Test ensemble analyzer simulation operation."""
+        ens,pot = self.ens_pot()
+        init = relentless.simulate.lammps.InitializeRandomly(seed=1, neighbor_buffer=0.4)
+        analyzer = relentless.simulate.lammps.AddEnsembleAnalyzer(check_thermo_every=5,
+                                                                  check_rdf_every=5,
+                                                                  rdf_dr=1.0)
+        run = relentless.simulate.lammps.Run(steps=500)
+        nvt = relentless.simulate.lammps.AddNVTIntegrator(dt=0.1,
+                                                          tau_T=1.0)
+        op = [init,nvt,analyzer,run]
+        h = relentless.simulate.lammps.LAMMPS(operations=op,quiet=True)
+        sim = h.run(ensemble=ens, potentials=pot, directory=self.directory)
+
+        #extract ensemble
+        ens_ = analyzer.extract_ensemble(sim)
+        self.assertIsNotNone(ens_.T)
+        self.assertNotEqual(ens_.T, 0)
+        self.assertIsNotNone(ens_.P)
+        self.assertNotEqual(ens_.P, 0)
+        self.assertIsNotNone(ens_.V)
+        self.assertNotEqual(ens_.V.volume, 0)
+        for i,j in ens_.rdf:
+            self.assertEqual(ens_.rdf[i,j].table.shape, (len(pot.pair.r)-1,2))
+
     def tearDown(self):
         self._tmp.cleanup()
 
