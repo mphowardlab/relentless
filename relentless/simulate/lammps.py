@@ -16,9 +16,12 @@ except ImportError:
 class LAMMPS(simulate.Simulation):
     """:py:class:`Simulation` using LAMMPS framework.
 
+    LAMMPS must be built with its `Python interface <https://lammps.sandia.gov/doc/Python_head.html>`_
+    and must be version 29 Oct 2020 or newer.
+
     Raises
     ------
-        If the `lammps` package is not found, or is not version 29 Oct 2020 or newer.
+        If the `lammps` package is not found.
 
     """
     def __init__(self, operations, quiet=True, **options):
@@ -61,6 +64,10 @@ class LAMMPSOperation(simulate.SimulationOperation):
     def __call__(self, sim):
         """Evaluates the LAMMPS simulation operation.
 
+        Each deriving class of :py:class:`LAMMPSOperation` must implement a
+        :py:func:`to_commands()` method that returns a list or tuple of LAMMPS
+        commands that can be executed by :py:func:`lammps.commands_list()`.
+
         Parameters
         ----------
         sim : :py:class:`Simulation`
@@ -72,13 +79,36 @@ class LAMMPSOperation(simulate.SimulationOperation):
 
     @classmethod
     def new_fix_id(cls):
-        # sets fix_id for LAMMPS fixes
+        """Sets a unique new ID for a LAMMPS fix.
+
+        Returns
+        -------
+        int
+            The fix ID.
+
+        """
         idx = int(cls._fix_counter)
         cls._fix_counter += 1
         return idx
 
     @abc.abstractmethod
     def to_commands(self, sim):
+        """Calls the appropriate LAMMPS commands for the simulation operation.
+
+        All classes deriving from :py:class:`LAMMPSOperation` must implement
+        this method.
+
+        Parameters
+        ----------
+        sim : :py:class:`Simulation`
+            The simulation object.
+
+        Returns
+        -------
+        array_like
+            The LAMMPS commands for this operation.
+
+        """
         pass
 
 class Initialize(LAMMPSOperation):
@@ -100,19 +130,6 @@ class Initialize(LAMMPSOperation):
         self.atom_style = atom_style
 
     def to_commands(self, sim):
-        """Calls the appropriate LAMMPS commands for the initialization simulation operation.
-
-        Parameters
-        ----------
-        sim : :py:class:`Simulation`
-            The simulation object.
-
-        Returns
-        -------
-        array_like
-            The LAMMPS commands for this operation.
-
-        """
         cmds = ['units {style}'.format(style=self.units),
                 'boundary p p p',
                 'atom_style {style}'.format(style=self.atom_style)]
@@ -255,19 +272,6 @@ class InitializeFromFile(Initialize):
         self.filename = filename
 
     def to_commands(self, sim):
-        """Calls the appropriate LAMMPS commands for the from-file initialization operation.
-
-        Parameters
-        ----------
-        sim : :py:class:`Simulation`
-            The simulation object.
-
-        Returns
-        -------
-        array_like
-            The LAMMPS commands for this operation.
-
-        """
         cmds = super().to_commands(sim)
         cmds += ['read_data {filename}'.format(filename=self.filename)]
         cmds += self.attach_potentials(sim)
@@ -276,6 +280,8 @@ class InitializeFromFile(Initialize):
 
 class InitializeRandomly(Initialize):
     """Initializes a randomly generated simulation box and pair potentials.
+
+    The number of particles must be set for all types.
 
     Parameters
     ----------
@@ -294,24 +300,6 @@ class InitializeRandomly(Initialize):
         self.seed = seed
 
     def to_commands(self, sim):
-        """Calls the appropriate LAMMPS commands for the random initialization operation.
-
-        Parameters
-        ----------
-        sim : :py:class:`Simulation`
-            The simulation object.
-
-        Returns
-        -------
-        array_like
-            The LAMMPS commands for this operation.
-
-        Raises
-        ------
-        ValueError
-            If the number of particles for a type is not set.
-
-        """
         cmds = super().to_commands(sim)
 
         # make box from ensemble
@@ -359,19 +347,6 @@ class MinimizeEnergy(LAMMPSOperation):
         self.max_iterations = max_iterations
 
     def to_commands(self, sim):
-        """Calls the appropriate LAMMPS commands for the energy minimization operation.
-
-        Parameters
-        ----------
-        sim : :py:class:`Simulation`
-            The simulation object.
-
-        Returns
-        -------
-        array_like
-            The LAMMPS commands for this operation.
-
-        """
         cmds = ['minimize {etol} {ftol} {maxiter} {maxeval}'.format(etol=self.energy_tolerance,
                                                                     ftol=self.force_tolerance,
                                                                     maxiter=self.max_iterations,
@@ -381,6 +356,9 @@ class MinimizeEnergy(LAMMPSOperation):
 
 class AddLangevinIntegrator(LAMMPSOperation):
     """Langevin dynamics for a NVE ensemble.
+
+    The simulation ensemble must be NVT, with all per-type particle masses set.
+    The friction factor can be a single value or defined per-type for all types.
 
     Parameters
     ----------
@@ -400,37 +378,15 @@ class AddLangevinIntegrator(LAMMPSOperation):
         self._fix_nve = self.new_fix_id()
 
     def to_commands(self, sim):
-        """Calls the appropriate LAMMPS commands for the Langevin integrator operation.
-
-        Parameters
-        ----------
-        sim : :py:class:`Simulation`
-            The simulation object.
-
-        Returns
-        -------
-        array_like
-            The LAMMPS commands for this operation.
-
-        Raises
-        ------
-        ValueError
-            If the simulation ensemble does not have constant V.
-        ValueError
-            If the per-type particle masses are not set.
-        KeyError
-            If the friction factor for all types are not set (if per-type
-            friction factors are given).
-
-        """
-        if not sim.ensemble.constant['V']:
-            raise ValueError('Simulation ensemble does not have constant V.')
+        if not sim.ensemble.aka('NVT'):
+            raise ValueError('Simulation ensemble is not NVT.')
 
         # obtain per-type mass (arrays 1-indexed using lammps convention)
         Ntypes = len(sim.ensemble.types)
-        mass = np.squeeze(sim.lammps.numpy.extract_atom('mass'))
-        if mass is None or mass.shape != (Ntypes+1,):
+        mass = sim.lammps.numpy.extract_atom('mass')
+        if mass is None or mass.shape != (Ntypes+1,1):
             raise ValueError('Per-type masses not set.')
+        mass = np.squeeze(mass)
 
         # obtain per-type friction factor
         friction = np.zeros_like(mass)
@@ -451,15 +407,16 @@ class AddLangevinIntegrator(LAMMPSOperation):
         else:
             scale_str = ''
 
-        cmds = ['fix {idx} {group_idx} langevin {t_start} {t_stop} {damp} {seed} {scaling}'.format(idx=self._fix_langevin,
-                                                                                                         group_idx='all',
-                                                                                                         t_start=sim.ensemble.T,
-                                                                                                         t_stop=sim.ensemble.T,
-                                                                                                         damp=damp_ref,
-                                                                                                         seed=self.seed,
-                                                                                                         scaling=scale_str),
-                'fix {idx} {group_idx} nve'.format(idx=self._fix_nve,
-                                                   group_idx='all')]
+        cmds = ['fix {idx} {group_idx} nve'.format(idx=self._fix_nve,
+                                                   group_idx='all'),
+                'fix {idx} {group_idx} langevin {t_start} {t_stop} {damp} {seed} {scaling}'.format(idx=self._fix_langevin,
+                                                                                                  group_idx='all',
+                                                                                                  t_start=sim.ensemble.T,
+                                                                                                  t_stop=sim.ensemble.T,
+                                                                                                  damp=damp_ref,
+                                                                                                  seed=self.seed,
+                                                                                                  scaling=scale_str)
+               ]
 
         return cmds
 
@@ -483,19 +440,6 @@ class RemoveLangevinIntegrator(LAMMPSOperation):
         self.add_op = add_op
 
     def to_commands(self, sim):
-        """Calls the appropriate LAMMPS commands to remove the Langevin integrator operation.
-
-        Parameters
-        ----------
-        sim : :py:class:`Simulation`
-            The simulation object.
-
-        Returns
-        -------
-        array_like
-            The LAMMPS commands for this operation.
-
-        """
         cmds = ['unfix {idx}'.format(idx=self.add_op._fix_langevin),
                 'unfix {idx}'.format(idx=self.add_op._fix_nve)]
 
@@ -503,6 +447,8 @@ class RemoveLangevinIntegrator(LAMMPSOperation):
 
 class AddNPTIntegrator(LAMMPSOperation):
     r"""NPT integration via Nos\'e-Hoover thermostat/barostat.
+
+    The simulation ensemble must be NPT.
 
     Parameters
     ----------
@@ -521,24 +467,6 @@ class AddNPTIntegrator(LAMMPSOperation):
         self._fix = super().new_fix_id()
 
     def to_commands(self, sim):
-        """Calls the appropriate LAMMPS commands for the NPT integrator operation.
-
-        Parameters
-        ----------
-        sim : :py:class:`Simulation`
-            The simulation object.
-
-        Returns
-        -------
-        array_like
-            The LAMMPS commands for this operation.
-
-        Raises
-        ------
-        ValueError
-            If the simulation ensemble is not NPT.
-
-        """
         if not sim.ensemble.aka('NPT'):
             raise ValueError('Simulation ensemble is not NPT.')
         cmds = ['fix {idx} {group_idx} npt temp {Tstart} {Tstop} {Tdamp} iso {Pstart} {Pstop} {Pdamp}'.format(idx=self._fix,
@@ -572,25 +500,14 @@ class RemoveNPTIntegrator(LAMMPSOperation):
         self.add_op = add_op
 
     def to_commands(self, sim):
-        """Calls the appropriate LAMMPS commands to remove the NPT integrator operation.
-
-        Parameters
-        ----------
-        sim : :py:class:`Simulation`
-            The simulation object.
-
-        Returns
-        -------
-        array_like
-            The LAMMPS commands for this operation.
-
-        """
         cmds = ['unfix {idx}'.format(idx=self.add_op._fix)]
 
         return cmds
 
 class AddNVTIntegrator(LAMMPSOperation):
     r"""NVT integration via Nos\'e-Hoover thermostat.
+
+    The simulation ensemble must be NVT.
 
     Parameters
     ----------
@@ -606,24 +523,6 @@ class AddNVTIntegrator(LAMMPSOperation):
         self._fix = super().new_fix_id()
 
     def to_commands(self, sim):
-        """Calls the appropriate LAMMPS commands for the NVT integrator operation.
-
-        Parameters
-        ----------
-        sim : :py:class:`Simulation`
-            The simulation object.
-
-        Returns
-        -------
-        array_like
-            The LAMMPS commands for this operation.
-
-        Raises
-        ------
-        ValueError
-            If the simulation ensemble is not NVT.
-
-        """
         if not sim.ensemble.aka('NVT'):
             raise ValueError('Simulation ensemble is not NVT.')
         cmds = ['fix {idx} {group_idx} nvt temp {Tstart} {Tstop} {Tdamp}'.format(idx=self._fix,
@@ -654,19 +553,6 @@ class RemoveNVTIntegrator(LAMMPSOperation):
         self.add_op = add_op
 
     def to_commands(self, sim):
-        """Calls the appropriate LAMMPS commands to remove the NVT integrator operation.
-
-        Parameters
-        ----------
-        sim : :py:class:`Simulation`
-            The simulation object.
-
-        Returns
-        -------
-        array_like
-            The LAMMPS commands for this operation.
-
-        """
         cmds = ['unfix {idx}'.format(idx=self.add_op._fix)]
 
         return cmds
@@ -684,19 +570,6 @@ class Run(LAMMPSOperation):
         self.steps = steps
 
     def to_commands(self, sim):
-        """Calls the appropriate LAMMPS commands to run the simulation.
-
-        Parameters
-        ----------
-        sim : :py:class:`Simulation`
-            The simulation object.
-
-        Returns
-        -------
-        array_like
-            The LAMMPS commands for this operation.
-
-        """
         cmds = ['run {N}'.format(N=self.steps)]
 
         return cmds
@@ -714,25 +587,15 @@ class RunUpTo(LAMMPSOperation):
         self.step = step
 
     def to_commands(self, sim):
-        """Calls the appropriate LAMMPS commands to run the simulation.
-
-        Parameters
-        ----------
-        sim : :py:class:`Simulation`
-            The simulation object.
-
-        Returns
-        -------
-        array_like
-            The LAMMPS commands for this operation.
-
-        """
         cmds = ['run {N} upto'.format(N=self.step)]
 
         return cmds
 
 class AddEnsembleAnalyzer(LAMMPSOperation):
     """Analyzes the simulation ensemble and rdf at specified timestep intervals.
+
+    The simulation ensemble must have constant N, and only one LAMMPS
+    :py:class:AddEnsembleAnalyzer` can be initialized at a time.
 
     Parameters
     ----------
@@ -750,26 +613,6 @@ class AddEnsembleAnalyzer(LAMMPSOperation):
         self.rdf_dr = rdf_dr
 
     def to_commands(self, sim):
-        """Calls the appropriate LAMMPS commands to run the simulation.
-
-        Parameters
-        ----------
-        sim : :py:class:`Simulation`
-            The simulation object.
-
-        Returns
-        -------
-        array_like
-            The LAMMPS commands for this operation.
-
-        Raises
-        ------
-        ValueError
-            If the simulation ensemble does not have constant N.
-        RuntimeError
-            If more than one LAMMPS :py:class:`AddEnsembleAnalyzer` is initialized.
-
-        """
         if not all([sim.ensemble.constant['N'][t] for t in sim.ensemble.types]):
             return ValueError('This analyzer requires constant N.')
 
