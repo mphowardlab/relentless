@@ -28,9 +28,9 @@ class HOOMD(simulate.Simulation):
     Raises
     ------
     ImportError
-        If `hoomd` package is not found, or is not version 2.x.
+        If the `hoomd` package is not found, or is not version 2.x.
     ImportError
-        If `freud` package  is not found, or is not version 2.x.
+        If the `freud` package is not found, or is not version 2.x.
 
     """
     def __init__(self, operations, **options):
@@ -52,7 +52,7 @@ class HOOMD(simulate.Simulation):
             hoomd.util.quiet_status()
 
     def _new_instance(self, ensemble, potentials, directory):
-        sim = super()._new_instance(ensemble,potentials,directory,**self.options)
+        sim = super()._new_instance(ensemble,potentials,directory)
         sim.context = hoomd.context.SimulationContext()
         sim.system = None
         return sim
@@ -114,7 +114,7 @@ class Initialize(simulate.SimulationOperation):
         Parameters
         ----------
         sim : :py:class:`Simulation`
-            Simulation object.
+            The simulation object.
 
         Returns
         -------
@@ -156,7 +156,7 @@ class Initialize(simulate.SimulationOperation):
         Parameters
         ----------
         sim : :py:class:`Simulation`
-            Simulation object.
+            The simulation object.
 
         Raises
         ------
@@ -207,6 +207,20 @@ class InitializeFromFile(Initialize):
         self.options = options
 
     def __call__(self, sim):
+        """Performs the from-file initialization operation.
+
+        Parameters
+        ----------
+        sim : :py:class:`Simulation`
+            The simulation object.
+
+        Raises
+        ------
+        ValueError
+            If the simulation box dimensions specified by the file is inconsistent
+            with the ensemble volume (for a constant volume simulation).
+
+        """
         with sim.context:
             sim.system = hoomd.init.read_gsd(self.filename,**self.options)
 
@@ -230,19 +244,28 @@ class InitializeRandomly(Initialize):
 
     Parameters
     ----------
+    seed : int
+        The seed to randomly initialize the particle locations.
     neighbor_buffer : float
         Buffer width.
-    seed : int
-        The seed to randomly initialize the particle locations (defaults to `None`).
-    options : kwargs
-        Options for random initialization.
 
     """
-    def __init__(self, neighbor_buffer, seed=None, **options):
+    def __init__(self, seed, neighbor_buffer):
         super().__init__(neighbor_buffer)
         self.seed = seed
 
     def __call__(self, sim):
+        """Performs the random initialization operation.
+
+        Places particles in random coordinates, sets particle types, gives the
+        particles unit mass and thermalizes to the Maxwell-Boltzmann distribution.
+
+        Parameters
+        ----------
+        sim : :py:class:`Simulation`
+            The simulation object.
+
+        """
         # if setting seed, preserve the current RNG state
         if self.seed is not None:
             old_state = np.random.get_state()
@@ -300,6 +323,20 @@ class MinimizeEnergy(simulate.SimulationOperation):
         self.dt = dt
 
     def __call__(self, sim):
+        """Performs the energy minimization operation.
+
+        Parameters
+        ----------
+        sim : :py:class:`Simulation`
+            The simulation object.
+
+        Raises
+        ------
+        RuntimeError
+            If energy minimization has failed to converge within the maximum
+            number of iterations.
+
+        """
         with sim.context:
             # setup FIRE minimization
             fire = hoomd.md.integrate.mode_minimize_fire(dt=self.dt,
@@ -340,7 +377,7 @@ class AddMDIntegrator(simulate.SimulationOperation):
         Parameters
         ----------
         sim : :py:class:`Simulation`
-            Simulation object.
+            The simulation object.
 
         """
         # note that this assumes you can only have ONE integrator in the system
@@ -365,6 +402,19 @@ class RemoveMDIntegrator(simulate.SimulationOperation):
         self.add_op = add_op
 
     def __call__(self, sim):
+        """Removes the integrator from the simulation.
+
+        Parameters
+        ----------
+        sim : :py:class:`Simulation`
+            The simulation object.
+
+        Raises
+        ------
+        AttributeError
+            If the specified integrator has already been removed.
+
+        """
         if sim[self.add_op].integrator is not None:
             sim[self.add_op].integrator.disable()
             sim[self.add_op].integrator = None
@@ -377,13 +427,13 @@ class AddBrownianIntegrator(AddMDIntegrator):
     Parameters
     ----------
     dt : float
-        Time step size for each simulation iteration
+        Time step size for each simulation iteration.
     friction : float
         Sets drag coefficient for each particle type.
     seed : int
         Seed used to randomly generate a uniform force.
     options : kwargs
-        Options used in :py:func:`hoomd.md.integrate.brownian()`
+        Options used in :py:func:`hoomd.md.integrate.brownian()`.
 
     """
     def __init__(self, dt, friction, seed, **options):
@@ -393,6 +443,19 @@ class AddBrownianIntegrator(AddMDIntegrator):
         self.options = options
 
     def __call__(self, sim):
+        """Adds the Brownian integrator to the simulation.
+
+        Parameters
+        ----------
+        sim : :py:class:`Simulation`
+            The simulation object.
+
+        Raises
+        ------
+        ValueError
+            If the simulation ensemble is not NVT.
+
+        """
         if not sim.ensemble.aka('NVT'):
             raise ValueError('Simulation ensemble is not NVT.')
 
@@ -435,13 +498,13 @@ class AddLangevinIntegrator(AddMDIntegrator):
     Parameters
     ----------
     dt : float
-        Time step size for each simulation iteration
-    friction : float
-        Sets drag coefficient for each particle type.
+        Time step size for each simulation iteration.
+    friction : float or dict
+        Drag coefficient for each particle type (shared or per-type).
     seed : int
         Seed used to randomly generate a uniform force.
     options : kwargs
-        Options used in :py:func:`hoomd.md.integrate.langevin()`
+        Options used in :py:func:`hoomd.md.integrate.langevin()`.
 
     """
     def __init__(self, dt, friction, seed, **options):
@@ -451,6 +514,19 @@ class AddLangevinIntegrator(AddMDIntegrator):
         self.options = options
 
     def __call__(self, sim):
+        """Adds the Langevin integrator to the simulation.
+
+        Parameters
+        ----------
+        sim : :py:class:`Simulation`
+            The simulation object.
+
+        Raises
+        ------
+        ValueError
+            If the simulation ensemble is not NVT.
+
+        """
         if not sim.ensemble.aka('NVT'):
             raise ValueError('Simulation ensemble is not NVT.')
 
@@ -493,13 +569,13 @@ class AddNPTIntegrator(AddMDIntegrator):
     Parameters
     ----------
     dt : float
-        Time step size for each simulation iteration
+        Time step size for each simulation iteration.
     tau_T : float
         Coupling constant for the thermostat.
     tau_P : float
         Coupling constant for the barostat.
     options : kwargs
-        Options used in :py:func:`hoomd.md.integrate.npt()`
+        Options used in :py:func:`hoomd.md.integrate.npt()`.
 
     """
     def __init__(self, dt, tau_T, tau_P, **options):
@@ -509,6 +585,19 @@ class AddNPTIntegrator(AddMDIntegrator):
         self.options = options
 
     def __call__(self, sim):
+        """Adds the NPT integrator to the simulation.
+
+        Parameters
+        ----------
+        sim : :py:class:`Simulation`
+            The simulation object.
+
+        Raises
+        ------
+        ValueError
+            If the simulation ensemble is not NPT.
+
+        """
         if not sim.ensemble.aka('NPT'):
             raise ValueError('Simulation ensemble is not NPT.')
 
@@ -552,11 +641,11 @@ class AddNVTIntegrator(AddMDIntegrator):
     Parameters
     ----------
     dt : float
-        Time step size for each simulation iteration
+        Time step size for each simulation iteration.
     tau_T : float
         Coupling constant for the thermostat.
     options : kwargs
-        Options used in :py:func:`hoomd.md.integrate.nvt()`
+        Options used in :py:func:`hoomd.md.integrate.nvt()`.
 
     """
     def __init__(self, dt, tau_T, **options):
@@ -565,6 +654,19 @@ class AddNVTIntegrator(AddMDIntegrator):
         self.options = options
 
     def __call__(self, sim):
+        """Adds the NVT integrator to the simulation.
+
+        Parameters
+        ----------
+        sim : :py:class:`Simulation`
+            The simulation object.
+
+        Raises
+        ------
+        ValueError
+            If the simulation ensemble is not NVT.
+
+        """
         if not sim.ensemble.aka('NVT'):
             raise ValueError('Simulation ensemble is not NVT.')
 
@@ -642,6 +744,14 @@ class ThermodynamicsCallback:
         self.reset()
 
     def __call__(self, timestep):
+        """Evaluates the callback.
+
+        Parameters
+        ----------
+        timestep : int
+            The timestep at which to evaluate the callback.
+
+        """
         self.num_samples += 1
         self._T += self.logger.query('temperature')
         self._P += self.logger.query('pressure')
@@ -700,6 +810,14 @@ class RDFCallback:
                                               normalize=(i==j))
 
     def __call__(self, timestep):
+        """Evaluates the callback.
+
+        Parameters
+        ----------
+        timestep : int
+            The timestep at which to evaluate the callback.
+
+        """
         snap = self.system.take_snapshot()
 
         box = freud.box.Box.from_box(snap.box)
@@ -730,6 +848,19 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
         self.rdf_dr = rdf_dr
 
     def __call__(self, sim):
+        """Adds the ensemble analyzer to the simulation.
+
+        Parameters
+        ----------
+        sim : :py:class:`Simulation`
+            The simulation object.
+
+        Raises
+        ------
+        ValueError
+            If the simulation ensemble does not have constant N.
+
+        """
         if not all([sim.ensemble.constant['N'][t] for t in sim.ensemble.types]):
             return ValueError('This analyzer requires constant N.')
 
@@ -766,6 +897,7 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
         -------
         :py:class:`Ensemble`
             Ensemble with averaged thermodynamic properties and rdf.
+
         """
         ens = sim.ensemble.copy()
         ens.clear()

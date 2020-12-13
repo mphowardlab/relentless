@@ -1,5 +1,0 @@
-{% extends "lammps.in" %}
-
-{% block integrator %}
-fix nvt all nvt temp {{ ensemble.T }} {{ ensemble.T }} 0.1
-{% endblock %}

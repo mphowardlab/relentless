@@ -6,6 +6,9 @@ from .dilute import Dilute
 from . import hoomd
 from .hoomd import HOOMD
 
+from . import lammps
+from .lammps import LAMMPS
+
 # setup generic (adapter) objects
 from . import generic
 from .generic import (InitializeFromFile,
@@ -25,3 +28,4 @@ from .generic import (InitializeFromFile,
                       )
 generic.GenericOperation.add_backend(Dilute)
 generic.GenericOperation.add_backend(HOOMD)
+generic.GenericOperation.add_backend(LAMMPS)

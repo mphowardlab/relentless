@@ -1,3 +1,4 @@
 hoomd=2.9.3
 freud=2.2.0
 gsd=2.2.0
+lammps=2020.10.29
