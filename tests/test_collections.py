@@ -1,4 +1,4 @@
-"""Unit tests for core.collections module."""
+"""Unit tests for _collections module."""
 import unittest
 
 import numpy as np
@@ -6,7 +6,7 @@ import numpy as np
 import relentless
 
 class test_FixedKeyDict(unittest.TestCase):
-    """Unit tests for relentless.FixedKeyDict."""
+    """Unit tests for relentless._collections.FixedKeyDict."""
 
     def test_init(self):
         """Test construction with different list keys."""
@@ -14,37 +14,37 @@ class test_FixedKeyDict(unittest.TestCase):
         default = {'A':1.0, 'B':1.0}
 
         #test construction with tuple input
-        d = relentless.FixedKeyDict(keys=('A','B'))
+        d = relentless._collections.FixedKeyDict(keys=('A','B'))
         self.assertEqual(d.keys, keys)
         self.assertEqual([d[k] for k in d.keys], [None, None])
 
         #test construction with list input
-        d = relentless.FixedKeyDict(keys=['A','B'])
+        d = relentless._collections.FixedKeyDict(keys=['A','B'])
         self.assertEqual(d.keys, keys)
         self.assertEqual([d[k] for k in d.keys], [None, None])
 
         #test construction with defined default input
-        d = relentless.FixedKeyDict(keys=('A','B'), default=1.0)
+        d = relentless._collections.FixedKeyDict(keys=('A','B'), default=1.0)
         self.assertEqual(d.keys, keys)
         self.assertEqual([d[k] for k in d.keys], [1.0, 1.0])
 
         #test construction with single-key tuple input
         keys = ('A',)
-        d = relentless.FixedKeyDict(keys=('A',))
+        d = relentless._collections.FixedKeyDict(keys=('A',))
         self.assertEqual(d.keys, keys)
         self.assertEqual([d[k] for k in d.keys], [None])
 
         #test construction with int key input
         with self.assertRaises(TypeError):
-            d = relentless.FixedKeyDict(keys=(1,2))
+            d = relentless._collections.FixedKeyDict(keys=(1,2))
 
         #test construction with mixed key input
         with self.assertRaises(TypeError):
-            d = relentless.FixedKeyDict(keys=('1',2))
+            d = relentless._collections.FixedKeyDict(keys=('1',2))
 
     def test_accessors(self):
         """Test get and set methods on keys."""
-        d = relentless.FixedKeyDict(keys=('A','B'))
+        d = relentless._collections.FixedKeyDict(keys=('A','B'))
 
         #test setting and getting values
         d['A'] = 1.0
@@ -64,7 +64,7 @@ class test_FixedKeyDict(unittest.TestCase):
 
     def test_update(self):
         """Test update method to get and set keys."""
-        d = relentless.FixedKeyDict(keys=('A','B'))
+        d = relentless._collections.FixedKeyDict(keys=('A','B'))
 
         self.assertEqual([d[k] for k in d.keys], [None, None])
 
@@ -97,7 +97,7 @@ class test_FixedKeyDict(unittest.TestCase):
     def test_clear(self):
         """Test clear method to reset keys to default."""
         #test clear with no default set
-        d = relentless.FixedKeyDict(keys=('A','B'))
+        d = relentless._collections.FixedKeyDict(keys=('A','B'))
         self.assertEqual([d[k] for k in d.keys], [None, None])
         d.update(A=2, B=3)
         self.assertEqual([d[k] for k in d.keys], [2.0, 3.0])
@@ -105,7 +105,7 @@ class test_FixedKeyDict(unittest.TestCase):
         self.assertEqual([d[k] for k in d.keys], [None, None])
 
         #test clear with set default
-        d = relentless.FixedKeyDict(keys=('A','B'), default=1.0)
+        d = relentless._collections.FixedKeyDict(keys=('A','B'), default=1.0)
         self.assertEqual([d[k] for k in d.keys], [1.0, 1.0])
         d.update(A=2, B=3)
         self.assertEqual([d[k] for k in d.keys], [2.0, 3.0])
@@ -114,7 +114,7 @@ class test_FixedKeyDict(unittest.TestCase):
 
     def test_iteration(self):
         """Test iteration on the dictionary."""
-        d = relentless.FixedKeyDict(keys=('A','B'))
+        d = relentless._collections.FixedKeyDict(keys=('A','B'))
 
         #test iteration for setting values
         for k in d:
@@ -134,7 +134,7 @@ class test_FixedKeyDict(unittest.TestCase):
 
     def test_copy(self):
         """Test copying custom dict to standard dict."""
-        d = relentless.FixedKeyDict(keys=('A','B'))
+        d = relentless._collections.FixedKeyDict(keys=('A','B'))
 
         #test copying for empty dict
         dict_var = {'A':None, 'B':None}
@@ -151,7 +151,7 @@ class test_FixedKeyDict(unittest.TestCase):
         self.assertEqual(d.todict(), dict_var)
 
 class test_PairMatrix(unittest.TestCase):
-    """Unit tests for relentless.PairMatrix."""
+    """Unit tests for relentless._collections.PairMatrix."""
 
     def test_init(self):
         """Test construction with different list types."""
@@ -159,12 +159,12 @@ class test_PairMatrix(unittest.TestCase):
         pairs  = (('A','B'), ('B','B'), ('A','A'))
 
         #test construction with tuple input
-        m = relentless.PairMatrix(types=('A','B'))
+        m = relentless._collections.PairMatrix(types=('A','B'))
         self.assertEqual(m.types, types)
         self.assertCountEqual(m.pairs, pairs)
 
         #test construction with list input
-        m = relentless.PairMatrix(types=['A','B'])
+        m = relentless._collections.PairMatrix(types=['A','B'])
         self.assertEqual(m.types, types)
         self.assertCountEqual(m.pairs, pairs)
 
@@ -172,21 +172,21 @@ class test_PairMatrix(unittest.TestCase):
         pairs = (('A','A'),)
 
         #test construction with single type tuple
-        m = relentless.PairMatrix(types=('A',))
+        m = relentless._collections.PairMatrix(types=('A',))
         self.assertEqual(m.types, types)
         self.assertCountEqual(m.pairs, pairs)
 
         #test construction with int type input
         with self.assertRaises(TypeError):
-            m = relentless.PairMatrix(types=(1,2))
+            m = relentless._collections.PairMatrix(types=(1,2))
 
         #test construction with mixed type input
         with self.assertRaises(TypeError):
-            m = relentless.PairMatrix(types=('1',2))
+            m = relentless._collections.PairMatrix(types=('1',2))
 
     def test_accessors(self):
         """Test get and set methods on pairs."""
-        m = relentless.PairMatrix(types=('A','B'))
+        m = relentless._collections.PairMatrix(types=('A','B'))
 
         #test set and get for each pair type
         m['A','A']['energy'] = 1.0
@@ -247,7 +247,7 @@ class test_PairMatrix(unittest.TestCase):
 
     def test_iteration(self):
         """Test iteration on the matrix."""
-        m = relentless.PairMatrix(types=('A','B'))
+        m = relentless._collections.PairMatrix(types=('A','B'))
 
         #test iteration for initialization
         for pair in m:

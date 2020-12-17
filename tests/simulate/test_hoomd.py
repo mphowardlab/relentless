@@ -2,23 +2,35 @@
 import tempfile
 import unittest
 
-import gsd.hoomd
-import hoomd
+try:
+    import hoomd
+except ImportError:
+    pass
+try:
+    import gsd.hoomd
+    _found_gsd = True
+except ImportError:
+    _found_gsd = False
 import numpy as np
 
 import relentless
 from ..potential.test_pair import LinPot
 
+_has_modules = (relentless.simulate.hoomd._hoomd_found and
+                relentless.simulate.hoomd._freud_found and
+                _found_gsd)
+
+@unittest.skipIf(not _has_modules, "HOOMD, freud, and/or GSD not installed")
 class test_HOOMD(unittest.TestCase):
     """Unit tests for relentless.HOOMD"""
 
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
-        self.directory = relentless.Directory(self._tmp.name)
+        self.directory = relentless.data.Directory(self._tmp.name)
 
     #mock (NVT) ensemble and potential for testing
     def ens_pot(self):
-        ens = relentless.Ensemble(T=2.0, V=relentless.Cube(L=10.0), N={'A':2,'B':3})
+        ens = relentless.ensemble.Ensemble(T=2.0, V=relentless.volume.Cube(L=10.0), N={'A':2,'B':3})
 
         # setup potentials
         pot = LinPot(ens.types,params=('m',))
@@ -116,9 +128,9 @@ class test_HOOMD(unittest.TestCase):
         self.assertIsNone(sim[lgv].integrator)
 
         #NPTIntegrator
-        ens_npt = relentless.Ensemble(T=100.0, P=5.5, N={'A':2,'B':3})
+        ens_npt = relentless.ensemble.Ensemble(T=100.0, P=5.5, N={'A':2,'B':3})
         _,pot = self.ens_pot()
-        ens_npt.V = relentless.Cube(L=10.0)
+        ens_npt.V = relentless.volume.Cube(L=10.0)
         npt = relentless.simulate.hoomd.AddNPTIntegrator(dt=0.5,
                                                          tau_T=1.0,
                                                          tau_P=1.5)

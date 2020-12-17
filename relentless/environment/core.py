@@ -9,7 +9,7 @@ __all__ = ['Environment','Policy']
 
 import subprocess
 
-from relentless.core import Directory
+from relentless.data import Directory
 
 class Policy:
     """Execution policy.

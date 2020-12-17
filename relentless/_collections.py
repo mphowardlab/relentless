@@ -1,5 +1,3 @@
-__all__ = ['FixedKeyDict','PairMatrix']
-
 class FixedKeyDict:
     """Dictionary with fixed keys.
 

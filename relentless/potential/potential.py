@@ -3,7 +3,8 @@ import json
 
 import numpy as np
 
-from relentless import core
+from relentless import _collections
+from relentless import variable
 
 class Parameters:
     """Parameters for a set of types.
@@ -41,12 +42,12 @@ class Parameters:
         self.params = tuple(params)
 
         # shared params
-        self._shared = core.FixedKeyDict(keys=self.params)
+        self._shared = _collections.FixedKeyDict(keys=self.params)
 
         # per-type params
-        self._per_type = core.FixedKeyDict(keys=self.types)
+        self._per_type = _collections.FixedKeyDict(keys=self.types)
         for t in self.types:
-            self._per_type[t] = core.FixedKeyDict(keys=self.params)
+            self._per_type[t] = _collections.FixedKeyDict(keys=self.params)
 
     def evaluate(self, key):
         """Evaluate parameters.
@@ -82,7 +83,7 @@ class Parameters:
                 raise ValueError('Parameter {} is not set for {}.'.format(p,str(key)))
 
             # evaluate the variable
-            if isinstance(v, core.Variable):
+            if isinstance(v, variable.Variable):
                 params[p] = v.value
             elif np.isscalar(v):
                 params[p] = v
@@ -126,12 +127,12 @@ class Parameters:
         for k in self:
             for p in self.params:
                 var = self[k][p]
-                if isinstance(var, core.DesignVariable):
+                if isinstance(var, variable.DesignVariable):
                     d.add(var)
-                elif isinstance(var, core.DependentVariable):
+                elif isinstance(var, variable.DependentVariable):
                     g = var.dependency_graph()
                     for n in g.nodes:
-                        if isinstance(n, core.DesignVariable):
+                        if isinstance(n, variable.DesignVariable):
                             d.add(n)
         return tuple(d)
 

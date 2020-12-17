@@ -3,8 +3,8 @@ import os
 
 import numpy as np
 
-from relentless.core.ensemble import RDF
-from relentless.core.volume import TriclinicBox
+from relentless.ensemble import RDF
+from relentless.volume import TriclinicBox
 from . import simulate
 
 try:
@@ -24,7 +24,7 @@ class LAMMPS(simulate.Simulation):
         If the `lammps` package is not found.
 
     """
-    def __init__(self, operations, quiet=True, **options):
+    def __init__(self, operations=None, quiet=True, **options):
         if not _lammps_found:
             raise ImportError('LAMMPS not found.')
 

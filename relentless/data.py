@@ -5,8 +5,6 @@ Todo
 Improve this documentation for developers!
 
 """
-__all__ = ['Directory','Project']
-
 import os
 import shutil
 

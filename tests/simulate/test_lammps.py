@@ -2,22 +2,26 @@
 import tempfile
 import unittest
 
-import lammps
+try:
+    import lammps
+except ImportError:
+    pass
 import numpy as np
 
 import relentless
 from ..potential.test_pair import LinPot
 
+@unittest.skipIf(not relentless.simulate.lammps._lammps_found, "LAMMPS not installed")
 class test_LAMMPS(unittest.TestCase):
     """Unit tests for relentless.LAMMPS"""
 
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
-        self.directory = relentless.Directory(self._tmp.name)
+        self.directory = relentless.data.Directory(self._tmp.name)
 
     #mock (NVT) ensemble and potential for testing
     def ens_pot(self):
-        ens = relentless.Ensemble(T=2.0, V=relentless.Cube(L=10.0), N={'1':2,'2':3})
+        ens = relentless.ensemble.Ensemble(T=2.0, V=relentless.volume.Cube(L=10.0), N={'1':2,'2':3})
         ens.P = 2.5
 
         # setup potentials
@@ -125,7 +129,7 @@ class test_LAMMPS(unittest.TestCase):
         self.assertCountEqual(pl.fixes, default_fixes)
 
         #single-type friction
-        ens_1 = relentless.Ensemble(T=2.0, V=relentless.Cube(L=10.0), N={'1':2})
+        ens_1 = relentless.ensemble.Ensemble(T=2.0, V=relentless.volume.Cube(L=10.0), N={'1':2})
         lgv = relentless.simulate.lammps.AddLangevinIntegrator(dt=0.5,
                                                                friction={'1':3.0},
                                                                seed=2)
@@ -147,8 +151,8 @@ class test_LAMMPS(unittest.TestCase):
             sim = l.run(ensemble=ens, potentials=pot, directory=self.directory)
 
         #NPTIntegrator
-        ens_npt = relentless.Ensemble(T=100.0, P=5.5, N={'A':2,'B':3})
-        ens_npt.V = relentless.Cube(L=10.0)
+        ens_npt = relentless.ensemble.Ensemble(T=100.0, P=5.5, N={'A':2,'B':3})
+        ens_npt.V = relentless.volume.Cube(L=10.0)
         npt = relentless.simulate.lammps.AddNPTIntegrator(dt=0.5,
                                                           tau_T=1.0,
                                                           tau_P=1.5)

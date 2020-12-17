@@ -17,7 +17,7 @@ class test_Directory(unittest.TestCase):
         cwd = os.getcwd()
 
         #test creation with existing path
-        d = relentless.Directory(self.f.name)
+        d = relentless.data.Directory(self.f.name)
         self.assertEqual(d.path, self.real_f)
         self.assertEqual(d._start, [])
         #enter and exit
@@ -29,7 +29,7 @@ class test_Directory(unittest.TestCase):
         #test creation with non-existent path (absolute)
         foo = os.path.join(self.f.name,'foo')
         real_foo = os.path.realpath(foo)
-        d1 = relentless.Directory(foo)
+        d1 = relentless.data.Directory(foo)
         self.assertEqual(d1.path, real_foo)
         self.assertEqual(d1._start, [])
         #enter and exit
@@ -41,7 +41,7 @@ class test_Directory(unittest.TestCase):
         #test creation with non-existent path (recursive)
         foobar = os.path.join(self.f.name,'bar','foobar')
         real_foobar = os.path.realpath(foobar)
-        d2 = relentless.Directory(foobar)
+        d2 = relentless.data.Directory(foobar)
         self.assertEqual(d2.path, real_foobar)
         self.assertEqual(d2._start, [])
         #enter and exit
@@ -53,7 +53,7 @@ class test_Directory(unittest.TestCase):
         #test creation with invalid directory path
         x = tempfile.NamedTemporaryFile(dir=self.f.name)
         with self.assertRaises(OSError):
-            d3 = relentless.Directory(x.name)
+            d3 = relentless.data.Directory(x.name)
         x.close()
 
         #test unsuccessfully changing directories (by redundancy)
@@ -85,7 +85,7 @@ class test_Directory(unittest.TestCase):
     def test_context(self):
         """Test context methods for Directory."""
         #create nested directory structure
-        d = relentless.Directory(self.f.name)
+        d = relentless.data.Directory(self.f.name)
         d1 = d.directory('foo')
         d2 = d.directory('bar')
         d3 = d1.directory(os.path.join('bar','foobar'))
@@ -134,28 +134,28 @@ class test_Project(unittest.TestCase):
     """Unit tests for core.data.Project."""
     def test_init(self):
         """Test basic creation of Project."""
-        with relentless.Directory(self.f.name):
+        with relentless.data.Directory(self.f.name):
             #unspecified workspace and scratch
             p = relentless.data.Project()
-            self.assertIsInstance(p.workspace, relentless.Directory)
+            self.assertIsInstance(p.workspace, relentless.data.Directory)
             self.assertEqual(p.workspace.path, os.path.join(self.real_f,'workspace'))
             self.assertEqual(p.scratch.path, os.path.join(self.real_f,'workspace','scratch'))
 
             #specified workspace, unspecified scratch
-            p = relentless.Project(workspace=relentless.data.Directory(self.f.name))
-            self.assertIsInstance(p.workspace, relentless.Directory)
+            p = relentless.data.Project(workspace=relentless.data.Directory(self.f.name))
+            self.assertIsInstance(p.workspace, relentless.data.Directory)
             self.assertEqual(p.workspace.path, self.real_f)
             self.assertEqual(p.scratch.path, os.path.join(self.real_f,'scratch'))
 
             #unspecified workspace, specified scratch
-            p = relentless.Project(scratch=relentless.data.Directory(self.f.name))
-            self.assertIsInstance(p.workspace, relentless.Directory)
+            p = relentless.data.Project(scratch=relentless.data.Directory(self.f.name))
+            self.assertIsInstance(p.workspace, relentless.data.Directory)
             self.assertEqual(p.workspace.path, os.path.join(self.real_f,'workspace'))
             self.assertEqual(p.scratch.path, self.real_f)
 
             #specified workspace and scratch (as strings)
-            p = relentless.Project(workspace='wrksp',scratch='scr')
-            self.assertIsInstance(p.workspace, relentless.Directory)
+            p = relentless.data.Project(workspace='wrksp',scratch='scr')
+            self.assertIsInstance(p.workspace, relentless.data.Directory)
             self.assertEqual(p.workspace.path, os.path.join(self.real_f,'wrksp'))
             self.assertEqual(p.scratch.path, os.path.join(self.real_f,'scr'))
 

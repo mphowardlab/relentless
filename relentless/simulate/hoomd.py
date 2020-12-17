@@ -3,10 +3,10 @@ from packaging import version
 
 import numpy as np
 
-from relentless.core.collections import PairMatrix
-from relentless.core.ensemble import RDF
-from relentless.core.math import Interpolator
-from relentless.core.volume import TriclinicBox
+from relentless._collections import PairMatrix
+from relentless.ensemble import RDF
+from relentless._math import Interpolator
+from relentless.volume import TriclinicBox
 from . import simulate
 
 try:
@@ -33,7 +33,7 @@ class HOOMD(simulate.Simulation):
         If the `freud` package is not found, or is not version 2.x.
 
     """
-    def __init__(self, operations, **options):
+    def __init__(self, operations=None, **options):
         if not _hoomd_found:
             raise ImportError('HOOMD not found.')
         elif version.parse(hoomd.__version__).major != 2:
