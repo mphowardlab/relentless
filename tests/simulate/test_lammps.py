@@ -4,15 +4,14 @@ import unittest
 
 try:
     import lammps
-    _found_lammps = True
 except ImportError:
-    _found_lammps = False
+    pass
 import numpy as np
 
 import relentless
 from ..potential.test_pair import LinPot
 
-@unittest.skipIf(not _found_lammps, "LAMMPS not installed")
+@unittest.skipIf(not relentless.simulate.lammps._lammps_found, "LAMMPS not installed")
 class test_LAMMPS(unittest.TestCase):
     """Unit tests for relentless.LAMMPS"""
 
@@ -22,7 +21,7 @@ class test_LAMMPS(unittest.TestCase):
 
     #mock (NVT) ensemble and potential for testing
     def ens_pot(self):
-        ens = relentless.ensemble.Ensemble(T=2.0, V=relentless.Cube(L=10.0), N={'1':2,'2':3})
+        ens = relentless.ensemble.Ensemble(T=2.0, V=relentless.volume.Cube(L=10.0), N={'1':2,'2':3})
         ens.P = 2.5
 
         # setup potentials
@@ -130,7 +129,7 @@ class test_LAMMPS(unittest.TestCase):
         self.assertCountEqual(pl.fixes, default_fixes)
 
         #single-type friction
-        ens_1 = relentless.ensemble.Ensemble(T=2.0, V=relentless.Cube(L=10.0), N={'1':2})
+        ens_1 = relentless.ensemble.Ensemble(T=2.0, V=relentless.volume.Cube(L=10.0), N={'1':2})
         lgv = relentless.simulate.lammps.AddLangevinIntegrator(dt=0.5,
                                                                friction={'1':3.0},
                                                                seed=2)

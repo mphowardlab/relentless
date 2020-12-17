@@ -24,40 +24,40 @@ class test_Generic(unittest.TestCase):
     def test_basic(self):
         """Test valid and invalid operation calls."""
         ops = [relentless.simulate.InitializeRandomly(seed=2,neighbor_buffer=0.4),
-               relentless.simulate.AddBrownianIntegrator(dt=0.1,friction=1,seed=1)]
+               relentless.simulate.AddNVEIntegrator(dt=0.1)]
 
         #Dilute
         dilute = relentless.simulate.dilute.Dilute(ops)
         dilute.run(self.ensemble, self.potentials, self.directory)
 
-        #HOOMD
+        # HOOMD
         try:
             hoomd = relentless.simulate.hoomd.HOOMD(ops)
             hoomd.run(self.ensemble, self.potentials, self.directory)
         except ImportError:
             pass
 
-        #LAMMPS
+        # LAMMPS
         try:
             lammps = relentless.simulate.lammps.LAMMPS(ops)
             lammps.run(self.ensemble, self.potentials, self.directory)
         except ImportError:
             pass
 
+    def test_invalid_backend(self):
         #Invalid backend
         with self.assertRaises(TypeError):
             sim = relentless.simulate.Simulation(ops)
             sim.run(self.ensemble, self.potentials, self.directory)
 
-        #Invalid operation (in valid backend)
-        try:
-            ops = [relentless.simulate.InitializeRandomly(seed=1,neighbor_buffer=0.4),
-                   relentless.simulate.AddBrownianIntegrator(dt=0.1,friction=0.5,seed=2)]
-            lammps = relentless.simulate.lammps.LAMMPS([ops])
-            with self.assertRaises(TypeError):
-                lammps.run(self.ensemble, self.potentials, self.directory)
-        except ImportError:
-            pass
+    @unittest.skipIf(not relentless.simulate.lammps._lammps_found,
+                     "LAMMPS not installed")
+    def test_notimplemented(self):
+        ops = [relentless.simulate.InitializeRandomly(seed=1,neighbor_buffer=0.4),
+               relentless.simulate.AddBrownianIntegrator(dt=0.1,friction=0.5,seed=2)]
+        lammps = relentless.simulate.lammps.LAMMPS(ops)
+        with self.assertRaises(TypeError):
+            lammps.run(self.ensemble, self.potentials, self.directory)
 
     def tearDown(self):
         self._tmp.cleanup()

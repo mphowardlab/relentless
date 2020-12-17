@@ -4,20 +4,16 @@ import unittest
 
 try:
     import hoomd
-    _hoomd_found = True
+    import gsd
 except ImportError:
-    _hoomd_found = False
-try:
-    import gsd.hoomd
-    _gsd_found = True
-except ImportError:
-    _gsd_found = False
+    pass
 import numpy as np
 
 import relentless
 from ..potential.test_pair import LinPot
 
-@unittest.skipIf(not (_hoomd_found and _gsd_found),
+@unittest.skipIf(not (relentless.simulate.hoomd._hoomd_found and
+                      relentless.simulate.hoomd._gsd_found),
                  "HOOMD and/or GSD not installed")
 class test_HOOMD(unittest.TestCase):
     """Unit tests for relentless.HOOMD"""
@@ -28,7 +24,7 @@ class test_HOOMD(unittest.TestCase):
 
     #mock (NVT) ensemble and potential for testing
     def ens_pot(self):
-        ens = relentless.ensemble.Ensemble(T=2.0, V=relentless.Cube(L=10.0), N={'A':2,'B':3})
+        ens = relentless.ensemble.Ensemble(T=2.0, V=relentless.volume.Cube(L=10.0), N={'A':2,'B':3})
 
         # setup potentials
         pot = LinPot(ens.types,params=('m',))
