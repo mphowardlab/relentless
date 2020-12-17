@@ -4,17 +4,23 @@ import unittest
 
 try:
     import hoomd
-    import gsd
 except ImportError:
     pass
+try:
+    import gsd
+    _found_gsd = True
+except ImportError:
+    _found_gsd = False
 import numpy as np
 
 import relentless
 from ..potential.test_pair import LinPot
 
-@unittest.skipIf(not (relentless.simulate.hoomd._hoomd_found and
-                      relentless.simulate.hoomd._gsd_found),
-                 "HOOMD and/or GSD not installed")
+_has_modules = (relentless.simulate.hoomd._hoomd_found and
+                relentless.simulate.hoomd._freud_found and
+                _found_gsd)
+
+@unittest.skipIf(not _has_modules, "HOOMD, freud, and/or GSD not installed")
 class test_HOOMD(unittest.TestCase):
     """Unit tests for relentless.HOOMD"""
 
