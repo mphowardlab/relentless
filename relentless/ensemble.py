@@ -1,12 +1,10 @@
-__all__ = ['Ensemble','RDF']
-
 import copy
 import json
 
 import numpy as np
 
-from .collections import FixedKeyDict,PairMatrix
-from .math import Interpolator
+from ._collections import FixedKeyDict,PairMatrix
+from ._math import Interpolator
 from .volume import *
 
 class RDF(Interpolator):

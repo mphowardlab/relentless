@@ -1,5 +1,3 @@
-__all__ =  ['Volume','Cube','Cuboid','Parallelepiped','TriclinicBox']
-
 import abc
 from enum import Enum
 

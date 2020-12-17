@@ -13,12 +13,12 @@ class test_Dilute(unittest.TestCase):
 
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
-        self.directory = relentless.Directory(self._tmp.name)
+        self.directory = relentless.data.Directory(self._tmp.name)
 
     def test_run(self):
         """Test run method."""
         analyzer = relentless.simulate.dilute.AddEnsembleAnalyzer()
-        ens = relentless.Ensemble(T=1.0, V=relentless.Cube(L=2.0), N={'A':2,'B':3})
+        ens = relentless.ensemble.Ensemble(T=1.0, V=relentless.volume.Cube(L=2.0), N={'A':2,'B':3})
 
         #set up potentials
         pot = LinPot(ens.types,params=('m',))
@@ -29,14 +29,14 @@ class test_Dilute(unittest.TestCase):
         pots.pair.rmax = 3.0
         pots.pair.num = 4
 
-        d = relentless.simulate.Dilute(operations=analyzer)
+        d = relentless.simulate.dilute.Dilute(operations=analyzer)
         sim = d.run(ensemble=ens, potentials=pots, directory=self.directory)
         ens_ = analyzer.extract_ensemble(sim)
         self.assertAlmostEqual(ens_.P, -207.5228556)
 
         #invalid ensemble (non-NVT)
-        ens_ = relentless.Ensemble(T=1, V=relentless.Cube(1), N={'A':2}, mu={'B':0.2})
-        d = relentless.simulate.Dilute(analyzer)
+        ens_ = relentless.ensemble.Ensemble(T=1, V=relentless.volume.Cube(1), N={'A':2}, mu={'B':0.2})
+        d = relentless.simulate.dilute.Dilute(analyzer)
         with self.assertRaises(ValueError):
             d.run(ensemble=ens_, potentials=pots, directory=self.directory)
 

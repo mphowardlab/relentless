@@ -10,8 +10,8 @@ from ..potential.test_pair import LinPot
 class test_Generic(unittest.TestCase):
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
-        self.directory = relentless.Directory(self._tmp.name)
-        self.ensemble = relentless.Ensemble(T=1.0, V=relentless.Cube(L=2.0), N={'A':2,'B':3})
+        self.directory = relentless.data.Directory(self._tmp.name)
+        self.ensemble = relentless.ensemble.Ensemble(T=1.0, V=relentless.volume.Cube(L=2.0), N={'A':2,'B':3})
 
         self.potentials = relentless.simulate.Potentials()
         pot = LinPot(self.ensemble.types,params=('m',))
@@ -27,12 +27,22 @@ class test_Generic(unittest.TestCase):
                relentless.simulate.AddBrownianIntegrator(dt=0.1,friction=1,seed=1)]
 
         #Dilute
-        dilute = relentless.simulate.Dilute(ops)
+        dilute = relentless.simulate.dilute.Dilute(ops)
         dilute.run(self.ensemble, self.potentials, self.directory)
 
         #HOOMD
-        hoomd = relentless.simulate.HOOMD(ops)
-        hoomd.run(self.ensemble, self.potentials, self.directory)
+        try:
+            hoomd = relentless.simulate.hoomd.HOOMD(ops)
+            hoomd.run(self.ensemble, self.potentials, self.directory)
+        except ImportError:
+            pass
+
+        #LAMMPS
+        try:
+            lammps = relentless.simulate.lammps.LAMMPS(ops)
+            lammps.run(self.ensemble, self.potentials, self.directory)
+        except ImportError:
+            pass
 
         #Invalid backend
         with self.assertRaises(TypeError):
@@ -40,11 +50,14 @@ class test_Generic(unittest.TestCase):
             sim.run(self.ensemble, self.potentials, self.directory)
 
         #Invalid operation (in valid backend)
-        with self.assertRaises(TypeError):
+        try:
             ops = [relentless.simulate.InitializeRandomly(seed=1,neighbor_buffer=0.4),
                    relentless.simulate.AddBrownianIntegrator(dt=0.1,friction=0.5,seed=2)]
-            lammps = relentless.simulate.LAMMPS([ops])
-            lammps.run(self.ensemble, self.potentials, self.directory)
+            lammps = relentless.simulate.lammps.LAMMPS([ops])
+            with self.assertRaises(TypeError):
+                lammps.run(self.ensemble, self.potentials, self.directory)
+        except ImportError:
+            pass
 
     def tearDown(self):
         self._tmp.cleanup()

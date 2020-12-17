@@ -196,14 +196,14 @@ class test_Parameters(unittest.TestCase):
 
         #test evaluation with initialized parameter values as DesignVariable types
         m = relentless.potential.Parameters(types=('A',), params=('energy','mass'))
-        m['A']['energy'] = relentless.DesignVariable(value=-1.0,low=0.1)
-        m['A']['mass'] = relentless.DesignVariable(value=1.0,high=0.3)
+        m['A']['energy'] = relentless.variable.DesignVariable(value=-1.0,low=0.1)
+        m['A']['mass'] = relentless.variable.DesignVariable(value=1.0,high=0.3)
         self.assertEqual(m.evaluate('A'), {'energy':0.1, 'mass':0.3})
 
         #test evaluation with initialized parameter values as unrecognized types
         m = relentless.potential.Parameters(types=('A','B'), params=('energy','mass'))
-        m.shared['energy'] = relentless.Interpolator(x=(-1,0,1), y=(-2,0,2))
-        m.shared['mass'] = relentless.Interpolator(x=(-1,0,1), y=(-2,0,2))
+        m.shared['energy'] = relentless._math.Interpolator(x=(-1,0,1), y=(-2,0,2))
+        m.shared['mass'] = relentless._math.Interpolator(x=(-1,0,1), y=(-2,0,2))
         with self.assertRaises(TypeError):
             x = m.evaluate('A')
 
@@ -223,8 +223,8 @@ class test_Parameters(unittest.TestCase):
 
         #test dumping/re-loading data with DesignVariable parameter values
         m = relentless.potential.Parameters(types=('A',), params=('energy','mass'))
-        m['A']['energy'] = relentless.DesignVariable(value=0.5)
-        m['A']['mass'] = relentless.DesignVariable(value=2.0)
+        m['A']['energy'] = relentless.variable.DesignVariable(value=0.5)
+        m['A']['mass'] = relentless.variable.DesignVariable(value=2.0)
         m.save(temp.name)
         with open(temp.name, 'r') as f:
             x = json.load(f)
@@ -238,10 +238,10 @@ class test_Parameters(unittest.TestCase):
         m = relentless.potential.Parameters(types=('A',), params=('energy','mass','charge'))
 
         #test complex dependent variables as parameters
-        a = relentless.DesignVariable(value=1.0)
-        b = relentless.DesignVariable(value=2.0)
-        c = relentless.SameAs(a=b)
-        d = relentless.ArithmeticMean(a=b, b=c)
+        a = relentless.variable.DesignVariable(value=1.0)
+        b = relentless.variable.DesignVariable(value=2.0)
+        c = relentless.variable.SameAs(a=b)
+        d = relentless.variable.ArithmeticMean(a=b, b=c)
 
         m['A']['energy'] = 1.5
         m['A']['mass'] = a

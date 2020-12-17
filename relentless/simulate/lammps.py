@@ -3,8 +3,8 @@ import os
 
 import numpy as np
 
-from relentless.core.ensemble import RDF
-from relentless.core.volume import TriclinicBox
+from relentless.ensemble import RDF
+from relentless.volume import TriclinicBox
 from . import simulate
 
 try:

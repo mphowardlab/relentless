@@ -51,8 +51,8 @@ class test_Simulation(unittest.TestCase):
 
     def test_run(self):
         """Test run method."""
-        ens = relentless.Ensemble(T=1.0, P=4.0, N={'A':2})
-        pot = relentless.PairMatrix(types=ens.types)
+        ens = relentless.ensemble.Ensemble(T=1.0, P=4.0, N={'A':2})
+        pot = relentless._collections.PairMatrix(types=ens.types)
         for pair in pot:
             pot[pair]['r'] = np.array([1.,2.,3.])
             pot[pair]['u'] = np.array([2.,3.,4.])
@@ -91,12 +91,12 @@ class test_SimulationInstance(unittest.TestCase):
 
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
-        self.directory = relentless.Directory(self._tmp.name)
+        self.directory = relentless.data.Directory(self._tmp.name)
 
     def test_init(self):
         """Test creation from data."""
         options = {'constant_ens':True, 'constant_pot':False}
-        ens = relentless.Ensemble(T=1.0, V=relentless.Cube(L=2.0), N={'A':2,'B':3})
+        ens = relentless.ensemble.Ensemble(T=1.0, V=relentless.volume.Cube(L=2.0), N={'A':2,'B':3})
         pots = relentless.simulate.Potentials()
 
         #no options
@@ -125,7 +125,7 @@ class QuadPot(relentless.potential.Potential):
     def energy(self, key, x):
         x,u,s = self._zeros(x)
         m = self.coeff[key]['m']
-        if isinstance(m, relentless.DesignVariable):
+        if isinstance(m, relentless.variable.DesignVariable):
             m = m.value
         u = m*(3-x)**2
         if s:
@@ -135,7 +135,7 @@ class QuadPot(relentless.potential.Potential):
     def force(self, key, x):
         x,f,s = self._zeros(x)
         m = self.coeff[key]['m']
-        if isinstance(m, relentless.DesignVariable):
+        if isinstance(m, relentless.variable.DesignVariable):
             m = m.value
         f = 2*m*(3-x)
         if s:
@@ -144,7 +144,7 @@ class QuadPot(relentless.potential.Potential):
 
     def derivative(self, key, var, x):
         x,d,s = self._zeros(x)
-        if isinstance(var, relentless.DesignVariable):
+        if isinstance(var, relentless.variable.DesignVariable):
             if self.coeff[key]['m'] is var:
                 d = (3-x)**2
         if s:
@@ -178,7 +178,7 @@ class test_PotentialTabulator(unittest.TestCase):
     def test_potential(self):
         """Test energy, force, and derivative methods"""
         p1 = QuadPot(types=('1',), params=('m',))
-        p1.coeff['1']['m'] = relentless.DesignVariable(2.0)
+        p1.coeff['1']['m'] = relentless.variable.DesignVariable(2.0)
         p2 = QuadPot(types=('1','2'), params=('m',))
         for key in p2.coeff.types:
             p2.coeff[key]['m'] = 1.0
@@ -258,7 +258,7 @@ class test_PairPotentialTabulator(unittest.TestCase):
     def test_potential(self):
         """Test energy, force, and derivative methods"""
         p1 = QuadPairPot(types=('1',), params=('m',))
-        p1.coeff['1','1']['m'] = relentless.DesignVariable(2.0)
+        p1.coeff['1','1']['m'] = relentless.variable.DesignVariable(2.0)
         p2 = QuadPairPot(types=('1','2'), params=('m',))
         for pair in p2.coeff.pairs:
             p2.coeff[pair]['m'] = 1.0

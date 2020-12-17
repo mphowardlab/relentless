@@ -328,7 +328,7 @@ class test_PairPotential(unittest.TestCase):
     def test_derivative_values(self):
         """Test derivative method with different param values"""
         p = LinPot(types=('1',), params=('m',))
-        x = relentless.DesignVariable(value=2.0)
+        x = relentless.variable.DesignVariable(value=2.0)
         p.coeff['1','1']['m'] = x
 
         #test with no cutoffs
@@ -338,7 +338,7 @@ class test_PairPotential(unittest.TestCase):
         np.testing.assert_allclose(d, [0.25,0.75])
 
         #test with rmin set
-        rmin = relentless.DesignVariable(value=0.5)
+        rmin = relentless.variable.DesignVariable(value=0.5)
         p.coeff['1','1']['rmin'] = rmin
         d = p.derivative(pair=('1','1'), var=x, r=0.6)
         self.assertAlmostEqual(d, 0.6)
@@ -346,7 +346,7 @@ class test_PairPotential(unittest.TestCase):
         np.testing.assert_allclose(d, [0.5,0.75])
 
         #test with rmax set
-        rmax = relentless.DesignVariable(value=1.5)
+        rmax = relentless.variable.DesignVariable(value=1.5)
         p.coeff['1','1'].update(rmin=False, rmax=rmax)
         d = p.derivative(pair=('1','1'), var=x, r=1.0)
         self.assertAlmostEqual(d, 1.0)
@@ -382,9 +382,9 @@ class test_PairPotential(unittest.TestCase):
     def test_derivative_types(self):
         """Test derivative method with different param types."""
         q = LinPot(types=('1',), params=('m',))
-        x = relentless.DesignVariable(value=4.0)
-        y = relentless.DesignVariable(value=64.0)
-        z = relentless.GeometricMean(x, y)
+        x = relentless.variable.DesignVariable(value=4.0)
+        y = relentless.variable.DesignVariable(value=64.0)
+        z = relentless.variable.GeometricMean(x, y)
         q.coeff['1','1']['m'] = z
 
         #test with respect to dependent variable parameter
@@ -407,12 +407,12 @@ class test_PairPotential(unittest.TestCase):
         r = TwoVarPot(types=('1',), params=('x','y'))
 
         r.coeff['1','1']['x'] = x
-        r.coeff['1','1']['y'] = relentless.SameAs(x)
+        r.coeff['1','1']['y'] = relentless.variable.SameAs(x)
         d = r.derivative(pair=('1','1'), var=x, r=4.0)
         self.assertAlmostEqual(d, 20.0)
 
         r.coeff['1','1']['y'] = x
-        r.coeff['1','1']['x'] = relentless.SameAs(x)
+        r.coeff['1','1']['x'] = relentless.variable.SameAs(x)
         d = r.derivative(pair=('1','1'), var=x, r=4.0)
         self.assertAlmostEqual(d, 20.0)
 
@@ -805,9 +805,9 @@ class test_Depletion(unittest.TestCase):
                              {'sigma_i':1.0, 'sigma_j':4.0, 'sigma_d':0.25})
 
         #create object dependent on variables
-        a = relentless.DesignVariable(value=1.0)
-        b = relentless.DesignVariable(value=2.0)
-        c = relentless.DesignVariable(value=0.25)
+        a = relentless.variable.DesignVariable(value=1.0)
+        b = relentless.variable.DesignVariable(value=2.0)
+        c = relentless.variable.DesignVariable(value=0.25)
         w = relentless.potential.Depletion.Cutoff(sigma_i=a, sigma_j=b, sigma_d=c)
         self.assertAlmostEqual(w.value, 1.75)
         self.assertCountEqual(w.params, ('sigma_i','sigma_j','sigma_d'))
@@ -974,7 +974,7 @@ class test_Depletion(unittest.TestCase):
             d = dp._derivative(param='sigmaj', r=r_input, P=1, sigma_i=1, sigma_j=1, sigma_d=1)
 
         #test derivative outside of low/high bounds
-        P_var = relentless.DesignVariable(value=1.0)
+        P_var = relentless.variable.DesignVariable(value=1.0)
         dp.coeff['1','1'].update(P=P_var, sigma_i=1.5, sigma_j=2, sigma_d=2.5)
         r_input = np.array([1,5])
         d_actual = np.array([-25.7514468,0])

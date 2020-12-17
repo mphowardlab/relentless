@@ -3,10 +3,10 @@ from packaging import version
 
 import numpy as np
 
-from relentless.core.collections import PairMatrix
-from relentless.core.ensemble import RDF
-from relentless.core.math import Interpolator
-from relentless.core.volume import TriclinicBox
+from relentless._collections import PairMatrix
+from relentless.ensemble import RDF
+from relentless._math import Interpolator
+from relentless.volume import TriclinicBox
 from . import simulate
 
 try:

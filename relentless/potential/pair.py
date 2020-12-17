@@ -1,11 +1,10 @@
-__all__ = ['PairParameters','PairPotential',
-           'Depletion','LennardJones','Spline','Yukawa']
-
 import abc
 
 import numpy as np
 
-from relentless import core
+from relentless import _collections
+from relentless import _math
+from relentless import variable
 from . import potential
 
 class PairParameters(potential.Parameters):
@@ -74,7 +73,7 @@ class PairParameters(potential.Parameters):
         >>> print(m.evaluate(('A','B')))
         {'energy':2.0, 'mass':0.5}
         >>> print(m['A','B'])
-        {'energy':<relentless.core.DesignVariable object at 0x561124456>, 'mass':0.5}
+        {'energy':<relentless.variable.DesignVariable object at 0x561124456>, 'mass':0.5}
 
     Assigning to a type sets the specified per-type parameters::
 
@@ -104,9 +103,9 @@ class PairParameters(potential.Parameters):
         super().__init__(types, params)
 
         # per-pair params
-        self._per_pair = core.PairMatrix(types)
+        self._per_pair = _collections.PairMatrix(types)
         for pair in self:
-            self._per_pair[pair] = core.FixedKeyDict(keys=self.params)
+            self._per_pair[pair] = _collections.FixedKeyDict(keys=self.params)
 
     def __getitem__(self, pair):
         """Get parameters for the (i,j) pair."""
@@ -304,7 +303,7 @@ class PairPotential(potential.Potential):
         r,deriv,scalar_r = self._zeros(r)
         if any(r < 0):
             raise ValueError('r cannot be negative')
-        if not isinstance(var, core.Variable):
+        if not isinstance(var, variable.Variable):
             raise TypeError('Parameter with respect to which to take the derivative must be a Variable.')
 
         flags = np.ones(r.shape[0], dtype=bool)
@@ -316,9 +315,9 @@ class PairPotential(potential.Potential):
 
             # try to take chain rule w.r.t. variable first
             p_obj = self.coeff[pair][p]
-            if isinstance(p_obj, core.DependentVariable):
+            if isinstance(p_obj, variable.DependentVariable):
                 dp_dvar = p_obj.derivative(var)
-            elif isinstance(p_obj, core.IndependentVariable) and var is p_obj:
+            elif isinstance(p_obj, variable.IndependentVariable) and var is p_obj:
                 dp_dvar = 1.0
             else:
                 dp_dvar = 0.0
@@ -604,11 +603,11 @@ class Spline(PairPotential):
         for i in range(self.num_knots):
             ri,ki = self._knot_params(i)
             if self.coeff[pair][ri] is None:
-                self.coeff[pair][ri] = core.DesignVariable(rs[i],const=True)
+                self.coeff[pair][ri] = variable.DesignVariable(rs[i],const=True)
             else:
                 self.coeff[pair][ri].value = rs[i]
             if self.coeff[pair][ki] is None:
-                self.coeff[pair][ki] = core.DesignVariable(ks[i],const=(i==self.num_knots-1))
+                self.coeff[pair][ki] = variable.DesignVariable(ks[i],const=(i==self.num_knots-1))
             else:
                 self.coeff[pair][ki].value = ks[i]
 
@@ -684,9 +683,9 @@ class Spline(PairPotential):
     def derivative(self, pair, var, r):
         #Extending PairPotential method to check if r and knot values are DesignVariables.
         for ri,ki in self.knots(pair):
-            if not isinstance(ri, core.DesignVariable):
+            if not isinstance(ri, variable.DesignVariable):
                 raise TypeError('All r values must be DesignVariables')
-            if not isinstance(ki, core.DesignVariable):
+            if not isinstance(ki, variable.DesignVariable):
                 raise TypeError('All knot values must be DesignVariables')
         return super().derivative(pair, var, r)
 
@@ -755,7 +754,7 @@ class Spline(PairPotential):
         # reconstruct the energies from differences, starting from the end of the potential
         if self.mode == 'diff':
             u = np.flip(np.cumsum(np.flip(u)))
-        return core.Interpolator(x=r, y=u)
+        return _math.Interpolator(x=r, y=u)
 
     @property
     def num_knots(self):
@@ -960,7 +959,7 @@ class Depletion(PairPotential):
 
     """
 
-    class Cutoff(core.DependentVariable):
+    class Cutoff(variable.DependentVariable):
         r"""Dependent variable for the "high bound" or cutoff of the depletion pair potential.
 
         .. math::

@@ -1,6 +1,7 @@
 import numpy as np
 
-from relentless.core import Interpolator,RDF
+from relentless.ensemble import RDF
+from relentless._math import Interpolator
 from . import simulate
 
 class Dilute(simulate.Simulation):
