@@ -1,2 +1,8 @@
-from .potential import *
-from .pair import *
+from .potential import (Parameters,
+                        Potential)
+from .pair import (PairParameters,
+                   PairPotential,
+                   Depletion,
+                   LennardJones,
+                   Spline,
+                   Yukawa)

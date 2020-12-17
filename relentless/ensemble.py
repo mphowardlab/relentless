@@ -5,7 +5,7 @@ import numpy as np
 
 from ._collections import FixedKeyDict,PairMatrix
 from ._math import Interpolator
-from .volume import *
+from . import volume
 
 class RDF(Interpolator):
     r"""Radial distribution function.
@@ -146,7 +146,7 @@ class Ensemble(object):
 
     @V.setter
     def V(self, value):
-        if value is not None and not isinstance(value, Volume):
+        if value is not None and not isinstance(value, volume.Volume):
             raise TypeError('V can only be set as a Volume object or as None.')
         self._V = value
 
@@ -319,9 +319,10 @@ class Ensemble(object):
             data = json.load(f)
 
         # retrieve thermodynamic parameters
+        VolumeType = getattr(volume,data['V']['__name__'])
         thermo = {'T': data['T'],
                   'P': data['P'],
-                  'V': globals()[data['V']['__name__']].from_json(data['V']['data']),
+                  'V': VolumeType.from_json(data['V']['data']),
                   'mu': data['mu'],
                   'N': data['N']
                  }
