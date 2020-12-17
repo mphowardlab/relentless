@@ -7,7 +7,7 @@ try:
 except ImportError:
     pass
 try:
-    import gsd
+    import gsd.hoomd
     _found_gsd = True
 except ImportError:
     _found_gsd = False

@@ -24,7 +24,7 @@ class LAMMPS(simulate.Simulation):
         If the `lammps` package is not found.
 
     """
-    def __init__(self, operations, quiet=True, **options):
+    def __init__(self, operations=None, quiet=True, **options):
         if not _lammps_found:
             raise ImportError('LAMMPS not found.')
 

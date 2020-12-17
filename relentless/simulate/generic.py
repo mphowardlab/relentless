@@ -58,7 +58,7 @@ class GenericOperation(simulate.SimulationOperation):
             try:
                 BackendOp = getattr(backend,op_name)
             except AttributeError:
-                raise TypeError('{}.{}.{} operation not found.'.format(backend.__module__,backend.__name__,op_name))
+                raise TypeError('{}.{}.{} operation not found.'.format(backend.__name__,sim.backend.__name__,op_name))
 
             self._op = BackendOp(*self.args,**self.kwargs)
             self._backend = sim.backend

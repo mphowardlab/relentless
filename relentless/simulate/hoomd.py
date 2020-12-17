@@ -33,7 +33,7 @@ class HOOMD(simulate.Simulation):
         If the `freud` package is not found, or is not version 2.x.
 
     """
-    def __init__(self, operations, **options):
+    def __init__(self, operations=None, **options):
         if not _hoomd_found:
             raise ImportError('HOOMD not found.')
         elif version.parse(hoomd.__version__).major != 2:
