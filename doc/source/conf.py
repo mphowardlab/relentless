@@ -39,15 +39,20 @@ exclude_patterns = []
 # -- Options for HTML output -------------------------------------------------
 
 html_theme = 'sphinx_rtd_theme'
-html_static_path = []
+html_static_path = ['_static']
+html_context = {
+    'css_files': [
+        '_static/theme_overrides.css',
+        ],
+    }
 
 # -- Options for autodoc & autosummary ---------------------------------------
 
 autodoc_default_options = {
-    'inherited-members': True
+    'inherited-members': False
 }
 
-autosummary_generate = True
+autosummary_generate = False
 
 # -- Options for intersphinx -------------------------------------------------
 

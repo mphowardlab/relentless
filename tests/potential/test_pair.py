@@ -541,13 +541,13 @@ class test_LennardJones(unittest.TestCase):
         with self.assertRaises(ValueError):
             u = lj._derivative(param='simga', r=r_input, epsilon=1.0, sigma=1.0)
 
-class test_Spline(unittest.TestCase):
-    """Unit tests for relentless.potential.Spline"""
+class test_PairSpline(unittest.TestCase):
+    """Unit tests for relentless.potential.PairSpline"""
 
     def test_init(self):
         """Test creation from data"""
         #test diff mode
-        s = relentless.potential.Spline(types=('1',), num_knots=3)
+        s = relentless.potential.PairSpline(types=('1',), num_knots=3)
         self.assertEqual(s.num_knots, 3)
         self.assertEqual(s.mode, 'diff')
         coeff = relentless.potential.PairParameters(types=('1',),
@@ -556,7 +556,7 @@ class test_Spline(unittest.TestCase):
         self.assertCountEqual(s.coeff.params, coeff.params)
 
         #test value mode
-        s = relentless.potential.Spline(types=('1',), num_knots=3, mode='value')
+        s = relentless.potential.PairSpline(types=('1',), num_knots=3, mode='value')
         self.assertEqual(s.num_knots, 3)
         self.assertEqual(s.mode, 'value')
         coeff = relentless.potential.PairParameters(types=('1',),
@@ -566,11 +566,11 @@ class test_Spline(unittest.TestCase):
 
         #test invalid number of knots
         with self.assertRaises(ValueError):
-            s = relentless.potential.Spline(types=('1',), num_knots=1)
+            s = relentless.potential.PairSpline(types=('1',), num_knots=1)
 
         #test invalid mode
         with self.assertRaises(ValueError):
-            s = relentless.potential.Spline(types=('1',), num_knots=3, mode='val')
+            s = relentless.potential.PairSpline(types=('1',), num_knots=3, mode='val')
 
     def test_from_array(self):
         """Test from_array method and knots generator"""
@@ -579,7 +579,7 @@ class test_Spline(unittest.TestCase):
         u_arr_diff = [5,3,1]
 
         #test diff mode
-        s = relentless.potential.Spline(types=('1',), num_knots=3)
+        s = relentless.potential.PairSpline(types=('1',), num_knots=3)
         s.from_array(pair=('1','1'), r=r_arr, u=u_arr)
 
         for i,(r,k) in enumerate(s.knots(pair=('1','1'))):
@@ -592,7 +592,7 @@ class test_Spline(unittest.TestCase):
                 self.assertEqual(k.const, False)
 
         #test value mode
-        s = relentless.potential.Spline(types=('1',), num_knots=3, mode='value')
+        s = relentless.potential.PairSpline(types=('1',), num_knots=3, mode='value')
         s.from_array(pair=('1','1'), r=r_arr, u=u_arr)
 
         for i,(r,k) in enumerate(s.knots(pair=('1','1'))):
@@ -620,21 +620,21 @@ class test_Spline(unittest.TestCase):
         u_arr = [9,4,1]
 
         #test diff mode
-        s = relentless.potential.Spline(types=('1',), num_knots=3)
+        s = relentless.potential.PairSpline(types=('1',), num_knots=3)
         s.from_array(pair=('1','1'), r=r_arr, u=u_arr)
         u_actual = np.array([6.25,2.25,1])
         u = s.energy(pair=('1','1'), r=[1.5,2.5,3.5])
         np.testing.assert_allclose(u, u_actual)
 
         #test value mode
-        s = relentless.potential.Spline(types=('1',), num_knots=3, mode='value')
+        s = relentless.potential.PairSpline(types=('1',), num_knots=3, mode='value')
         s.from_array(pair=('1','1'), r=r_arr, u=u_arr)
         u_actual = np.array([6.25,2.25,1])
         u = s.energy(pair=('1','1'), r=[1.5,2.5,3.5])
         np.testing.assert_allclose(u, u_actual)
 
-        #test Spline with 2 knots
-        s = relentless.potential.Spline(types=('1',), num_knots=2, mode='value')
+        #test PairSpline with 2 knots
+        s = relentless.potential.PairSpline(types=('1',), num_knots=2, mode='value')
         s.from_array(pair=('1','1'), r=[1,2], u=[4,2])
         u = s.energy(pair=('1','1'), r=1.5)
         self.assertAlmostEqual(u, 3)
@@ -645,21 +645,21 @@ class test_Spline(unittest.TestCase):
         u_arr = [9,4,1]
 
         #test diff mode
-        s = relentless.potential.Spline(types=('1',), num_knots=3)
+        s = relentless.potential.PairSpline(types=('1',), num_knots=3)
         s.from_array(pair=('1','1'), r=r_arr, u=u_arr)
         f_actual = np.array([5,3,0])
         f = s.force(pair=('1','1'), r=[1.5,2.5,3.5])
         np.testing.assert_allclose(f, f_actual)
 
         #test value mode
-        s = relentless.potential.Spline(types=('1',), num_knots=3, mode='value')
+        s = relentless.potential.PairSpline(types=('1',), num_knots=3, mode='value')
         s.from_array(pair=('1','1'), r=r_arr, u=u_arr)
         f_actual = np.array([5,3,0])
         f = s.force(pair=('1','1'), r=[1.5,2.5,3.5])
         np.testing.assert_allclose(f, f_actual)
 
-        #test Spline with 2 knots
-        s = relentless.potential.Spline(types=('1',), num_knots=2, mode='value')
+        #test PairSpline with 2 knots
+        s = relentless.potential.PairSpline(types=('1',), num_knots=2, mode='value')
         s.from_array(pair=('1','1'), r=[1,2], u=[4,2])
         f = s.force(pair=('1','1'), r=1.5)
         self.assertAlmostEqual(f, 2)
@@ -670,7 +670,7 @@ class test_Spline(unittest.TestCase):
         u_arr = [9,4,1]
 
         #test diff mode
-        s = relentless.potential.Spline(types=('1',), num_knots=3)
+        s = relentless.potential.PairSpline(types=('1',), num_knots=3)
         s.from_array(pair=('1','1'), r=r_arr, u=u_arr)
         d_actual = np.array([1.125,0.625,0])
         param = list(s.knots(('1','1')))[1][1]
@@ -678,7 +678,7 @@ class test_Spline(unittest.TestCase):
         np.testing.assert_allclose(d, d_actual)
 
         #test value mode
-        s = relentless.potential.Spline(types=('1',), num_knots=3, mode='value')
+        s = relentless.potential.PairSpline(types=('1',), num_knots=3, mode='value')
         s.from_array(pair=('1','1'), r=r_arr, u=u_arr)
         d_actual = np.array([0.75,0.75,0])
         param = list(s.knots(('1','1')))[1][1]

@@ -15,7 +15,7 @@ relentless
     :caption: API
 
     api/index
-    api/potential
+    api/potential/index
 
 .. toctree::
     :maxdepth: 1
