@@ -3,5 +3,4 @@ build
 *.pyc
 __pycache__
 doc/build
-doc/source/api/_api
 examples/*/workspace
