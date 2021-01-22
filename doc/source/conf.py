@@ -14,7 +14,7 @@ sys.path.insert(0, os.path.abspath('../..'))
 # -- Project information -----------------------------------------------------
 
 project = 'relentless'
-copyright = '2020, Michael P. Howard'
+copyright = '2021, Michael P. Howard'
 author = 'Michael P. Howard'
 version = '0.1.0'
 release = '0.1.0'
