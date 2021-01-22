@@ -16,6 +16,7 @@ relentless
 
     api/index
     api/potential/index
+    api/variable
 
 .. toctree::
     :maxdepth: 1
