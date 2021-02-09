@@ -1,3 +1,64 @@
+"""
+Variables
+=========
+
+A :class:`Variable` represents a single scalar quantity of interest. We can
+distinguish between two types of variables: an :class:`IndependentVariable`, which
+does not depend on other variables, and a :class:`DependentVariable`, which does.
+Typically, the :class:`IndependentVariable` is a quantity that will be held
+constant or adjusted, while a :class:`DependentVariable` is a function of other
+these values.
+
+The :class:`DesignVariable` is a very useful :class:`IndependentVariable` for
+doing design (optimization), as it allows you to specify a value, its bounds,
+and whether it is adjustable. Other classes within :mod:`relentless` that
+accept variables as values will often automatically detect the adjustable
+:class:`DesignVariable` values for use in design problems, ignoring the other
+variables as adjustable.
+
+The following independent and dependent variables have been implemented:
+
+.. autosummary::
+    :nosignatures:
+
+    DesignVariable
+    SameAs
+    ArithmeticMean
+    GeometricMean
+
+.. rubric:: Developer notes
+
+To implement your own variables, create a class that derives from one of the
+following classes (typically :class:`DependentVariable`, :class:`UnaryOperator`,
+or :class:`BinaryOperator`) and define the required properties and methods.
+
+.. autosummary::
+    :nosignatures:
+
+    Variable
+    IndependentVariable
+    DependentVariable
+    UnaryOperator
+    BinaryOperator
+
+.. autoclass:: DesignVariable
+    :members:
+.. autoclass:: SameAs
+.. autoclass:: ArithmeticMean
+.. autoclass:: GeometricMean
+
+.. autoclass:: Variable
+    :members: value
+.. autoclass:: IndependentVariable
+    :members:
+.. autoclass:: DependentVariable
+    :members:
+.. autoclass:: UnaryOperator
+    :members:
+.. autoclass:: BinaryOperator
+    :members:
+
+"""
 import abc
 from enum import Enum
 
@@ -5,23 +66,41 @@ import networkx as nx
 import numpy as np
 
 class Variable(abc.ABC):
-    """Abstract base class for any variable.
+    """Abstract base class for a variable.
 
-    At minimum, a variable must provide the interface to get its value as a property.
+    A variable represents a single scalar quantity. The :attr:`value` of the
+    variable is an abstract property that must be implemented. Most users should
+    not inherit from this variable directly but should make use of the more
+    flexible :class:`IndependentVariable` or :class:`DependentVariable` types.
 
     """
     @property
     @abc.abstractmethod
     def value(self):
+        """float: Value of the variable."""
         pass
 
 class IndependentVariable(Variable):
-    """Variable representing one independent quantity.
+    """Independent quantity.
 
     Parameters
     ----------
-    value : scalar or array
-        Value of the variable.
+    value : float
+        Initial value.
+
+    Examples
+    --------
+    Create an independent variable::
+
+        >>> x = relentless.variable.IndependentVariable(3.0)
+        >>> print(x.value)
+        3.0
+
+    The value of an independent variable can be changed::
+
+        >>> x.value = -1.0
+        >>> print(x.value)
+        -1.0
 
     """
     def __init__(self, value):
@@ -36,10 +115,11 @@ class IndependentVariable(Variable):
         self._value = value
 
 class DesignVariable(IndependentVariable):
-    """Designable variable.
+    """Constrained independent variable.
 
-    Represents a quantity that optionally takes lower and upper bounds.
-    When the value of the quantity is set, these bounds will be respected and
+    A design variable is a quantity that is meant to be adjusted, e.g., by
+    optimization. Optional box constraints (lower and upper bounds) can be
+    specified for the variable. When set, these bounds will be respected and
     an internal state will track whether the requested quantity was within or
     outside these bounds. This is useful for performing constrained
     optimization and for ensuring physical quantities have meaningful values
@@ -50,18 +130,18 @@ class DesignVariable(IndependentVariable):
     value : float or int
         Value of the variable.
     const : bool
-        If `False`, the variable can be optimized; otherwise, it is treated as
-        a constant in the optimization (defaults to `False`).
+        If ``False``, the variable can be optimized; otherwise, it should be
+        treated as a constant (defaults to ``False``).
     low : float or None
-        Lower bound for the variable (`None` means no lower bound).
+        Lower bound for the variable (``None`` means no lower bound).
     high : float or None
-        Upper bound for the variable (`None` means no upper bound).
+        Upper bound for the variable (``None`` means no upper bound).
 
     Examples
     --------
     A variable with a lower bound::
 
-        >>> v = DesignVariable(value=1.0, low=0.0)
+        >>> v = relentless.variable.DesignVariable(value=1.0, low=0.0)
         >>> v.value
         1.0
         >>> v.isfree()
@@ -69,7 +149,7 @@ class DesignVariable(IndependentVariable):
         >>> v.atlow()
         False
 
-    Bounds are respected and noted::
+    Bounds are respected and noted when setting values::
 
         >>> v.value = -1.0
         >>> v.value
@@ -82,16 +162,16 @@ class DesignVariable(IndependentVariable):
     """
 
     class State(Enum):
-        """State of the DesignVariable.
+        """Constrained state of the variable.
 
         Attributes
-         ----------
+        ----------
         FREE : int
-            Value if the variable is unconstrained or within the defined bounds.
+            Variable is not constrained or within bounds.
         LOW : int
-            Value if the variable is clamped to the lower bound.
+            Variable is constrained to lower bound.
         HIGH : int
-            Value if the variable is clamped to the upper bound.
+            Variable is constrained to upper bound.
 
         """
         FREE = 0
@@ -105,19 +185,19 @@ class DesignVariable(IndependentVariable):
         self.high = high
 
     def clamp(self, value):
-        """Clamps a value within the bounds.
+        """Clamp value within the bounds of the variable.
 
         Parameters
         ----------
         value : float
-            Value to clamp within bounds.
+            Value to clamp.
 
         Returns
         -------
         v : float
-            The clamped value.
-        b : :py:class:`DesignVariable.State`
-            The state of the variable.
+            Constrained value.
+        b : :class:`State`
+            Constrained state of the value.
 
         """
         if self.low is not None and value <= self.low:
@@ -140,7 +220,7 @@ class DesignVariable(IndependentVariable):
 
     @property
     def low(self):
-        """float: The low bound of the variable"""
+        """float: Lower bound on value."""
         return self._low
 
     @low.setter
@@ -164,7 +244,7 @@ class DesignVariable(IndependentVariable):
 
     @property
     def high(self):
-        """float: The high bound of the variable"""
+        """float: Upper bound on value."""
         return self._high
 
     @high.setter
@@ -188,61 +268,71 @@ class DesignVariable(IndependentVariable):
 
     @property
     def state(self):
-        """:py:class:`DesignVariable.State`: The state of the variable"""
+        """:class:`State`: Constraint state of the variable."""
         return self._state
 
     def isfree(self):
-        """Confirms if the variable is unconstrained or within the bounds.
+        """Check if variable is not constrained by bounds.
 
         Returns
         -------
         bool
-            True if the variable is unconstrained or within the bounds, False otherwise.
+            True if the variable is not constrained.
 
         """
-        return self.state is DesignVariable.State.FREE
+        return self.state is self.State.FREE
 
     def atlow(self):
-        """Confirms if the variable is at the lower bound.
+        """Check if variable is constrained at the lower bound.
 
         Returns
         -------
         bool
-            True if the variable is at the lower bound, False otherwise.
+            True if the variable is constrained at the lower bound.
 
         """
-        return self.state is DesignVariable.State.LOW
+        return self.state is self.State.LOW
 
     def athigh(self):
-        """Confirms if the variable is at the upper bound.
+        """Check if variable is constrained at the upper bound.
 
         Returns
         -------
         bool
-            True if the variable is at the upper bound, False otherwise.
+            True if the variable is constrained at the lower bound.
 
         """
-        return self.state is DesignVariable.State.HIGH
+        return self.state is self.State.HIGH
 
 class DependentVariable(Variable):
-    """Abstract base class for a variable that depends on other variables.
+    """Abstract base class for a variable that depends on other values.
 
-    A dependent variable is composed from other variables. In addition to the
-    value property, it must also supply a derivative method with respect to
-    any of its dependent variables.
+    A dependent variable is composed from other variables. This is an abstract
+    base class for any such variable. In addition to the value property of the
+    :class:`Variable`, a :class:`DependentVariable` must also define a
+    :meth:`_derivative` method that defines its partial derivative with respect
+    to its dependencies.
 
-    The dependent variable attribute can also be set as a scalar value, but during
-    construction the value is casted to a :py:class:`IndepedentVariable`.
+    The names of the dependencies of the variable are automatically deduced
+    by the base constructor using dictionary keys and keyword arguments and
+    assigned as attributes of the object. For example::
 
-    The number of dependencies of the variable are locked at construction, but
-    their values can be modified.
+        class NewVariable(relentless.variable.DependentVariable):
+            def __init__(self, a, b):
+                super().__init__({'a': a}, b=b)
+
+    will create a ``NewVariable`` with two dependent attributes ``a`` and ``b``.
+
+    Dependencies are typically other :class:`Variable` objects, but they can also
+    be set to scalar values. In these case, the scalar is converted to an
+    :class:`IndepedentVariable` first.
 
     Parameters
     ----------
     vardicts : dict
-        Attributes for the variable on which the DependentVariable depends (positional argument).
+        Dependencies as entries in an arbitrary number of dictionaries.
     kwvars : kwargs
-        Attributes for the variable on which the DependentVariable depends (keyword arguments).
+        Dependencies as an arbitrary number of keyword arguments.
 
     """
     def __init__(self, *vardicts, **kwvars):
@@ -266,13 +356,16 @@ class DependentVariable(Variable):
 
     @property
     def depends(self):
-        """Generates all the variables and the parameter names on which the specified DependentVariable depends.
+        """Dependency generator.
+
+        Generator expression for all the dependent attributes and variables for
+        this object.
 
         Yields
         ------
         str
-            The parameter variable name.
-        :py:class:`DependentVariable`
+            The name of the attribute.
+        :class:`Variable`
             The parameter variable object.
 
         """
@@ -281,25 +374,29 @@ class DependentVariable(Variable):
 
     @property
     def params(self):
-        """tuple: Parameter names for all dependencies of the specified DependentVariable."""
+        """tuple[str]: Names of all dependencies."""
         return self._params
 
     def dependency_graph(self):
-        """Constructs a networkx graph of all variable objects on which the specified DependentVariable depends.
+        """Construct a directed graph of dependencies.
 
-        The graph nodes are all variable objects which DependentVariable are dependent on.
-        The directed graph edges represent dependencies as connections between variables.
-        The graph can also take into account the dependencies of a DependentVariable which has
-        multiple parameters as the same object.
+        The graph nodes are all the :class:`Variable` objects on which this
+        :class:`DependentVariable` is dependent, and the graph edges represent
+        dependencies as connections between variables and carry the name of the
+        parameter as a "weight". The edge weight is a list of named parameters,
+        so an object can depend on the same :class:`Variable` multiple times;
+        these multiple dependencies are represented as one edge with multiple
+        parameters listed.
+
+        The graph is constructed using a quasi depth-first search. In order to
+        perform certain calculations, the directed graph should be acyclic.
 
         Returns
         -------
-        :py:class:`networkx.DiGraph`
-            The graph of all dependencies for this DependentVariable.
+        :class:`networkx.DiGraph`
+            Directed dependency graph.
 
         """
-        # construct graph of variables
-
         # discover all variables (nodes) by quasi-depth first search
         g = nx.DiGraph()
         stack = [self]
@@ -321,23 +418,24 @@ class DependentVariable(Variable):
         return g
 
     def derivative(self, var):
-        """Calculates the derivative of a DependentVariable object
-        with respect to another Variable object.
+        """Calculate derivative with respect to a :class:`Variable`.
+
+        The derivative is evaluated using the standard chain rule.
 
         Parameters
         ----------
-        var : :py:class:`Variable`
-            The variable with respect to which to take the derivative.
+        var : :class:`Variable`
+            Variable with respect to which to take the derivative.
 
         Returns
         -------
         float
-            The calculated derivative value.
+            The calculated derivative.
 
         Raises
         ------
         RuntimeError
-            If the specified DependentVariable object has any circular dependencies.
+            If this :class:`DependentVariable` has any circular dependencies.
 
         """
         # if var is this variable, the derivative is trivially 1.0
@@ -364,11 +462,23 @@ class DependentVariable(Variable):
 
     @abc.abstractmethod
     def _derivative(self, param):
+        """Implementation of the derivative.
+
+        This method should implement the partial derivative with respect
+        to the named dependency ``param`` given the current value of this
+        variable.
+
+        Parameters
+        ----------
+        param : str
+            Name of the dependency.
+
+        """
         pass
 
     @classmethod
     def _make_variable(cls, v):
-        #Casts a scalar into an independent variable.
+        # cast a scalar into an independent variable
         if np.isscalar(v):
             v = IndependentVariable(value=v)
         if not isinstance(v, Variable):
@@ -383,26 +493,40 @@ class DependentVariable(Variable):
         return g
 
 class UnaryOperator(DependentVariable):
-    """Abstract base class for a value that depends on one :py:class:`Variable`.
+    """Abstract base class for a value that depends on one variable.
+
+    Deriving classes still need to implement the :attr:`value` and
+    :meth:`_derivative` methods. :class:`UnaryOperator` is a convenience
+    class implementing the constructor of a function that depends on one value,
+    :math:`f(a)`.
 
     Parameters
     ----------
-    a : :py:class:`Variable`
-        The variable object on which the UnaryOperator depends.
+    a : :class:`Variable`
+        The :class:`Variable` this value depends on.
 
     """
     def __init__(self, a):
         super().__init__(a=a)
 
 class SameAs(UnaryOperator):
-    """Unary operator for copying a :py:class:`Variable`.
+    """Copy a value.
 
-    The SameAs object has the same value as the object it depends on.
+    The value of this variable will mirror the value of ``a``. It is equivalent
+    to using ``a`` directly::
+
+        >>> a = relentless.variable.IndependentVariable(2.0)
+        >>> b = relentless.variable.SameAs(a)
+        >>> print(b.value)
+        2.0
+        >>> a.value = 3.0
+        >>> print(b.value)
+        3.0
 
     Parameters
     ----------
-    a : :py:class:`Variable`
-        The variable object on which the UnaryOperator depends.
+    a : :class:`Variable`
+        Variable to copy.
 
     """
     @property
@@ -410,62 +534,47 @@ class SameAs(UnaryOperator):
         return self.a.value
 
     def _derivative(self, param):
-        """Calculates the derivative of the specified SameAs object with respect to its parameter.
-
-        Parameters
-        ----------
-        param : str
-            The parameter with respect to which to take the derivative.
-            (Can only be 'a').
-
-        Returns
-        -------
-        float
-            The calculated derivative value.
-
-        Raises
-        ------
-        ValueError
-            If the parameter argument is not 'a'.
-
-        """
         if param == 'a':
             return 1.0
         else:
             raise ValueError('Unknown parameter')
 
 class BinaryOperator(DependentVariable):
-    """Abstract base class for a value that depends on two :py:class:`Variable`s.
+    """Abstract base class for a value that depends on two variables.
+
+    Deriving classes still need to implement the :attr:`value` and
+    :meth:`_derivative` methods. :class:`BinaryOperator` is a convenience
+    class implementing the constructor of a function that depends on two values,
+    :math:`f(a,b)`.
 
     Parameters
     ----------
-    a : :py:class:`Variable`
-        The first variable object on which the BinaryOperator depends.
-    b : :py:class:`Variable`
-        The second variable object on which the BinaryOperator depends.
+    a : :class:`Variable`
+        The first :class:`Variable` this value depends on.
+    b : :class:`Variable`
+        The second :class:`Variable` this value depends on.
 
     """
     def __init__(self, a, b):
         super().__init__(a=a, b=b)
 
 class ArithmeticMean(BinaryOperator):
-    r"""Binary operator based on arithmetic mean.
+    r"""Arithmetic mean of two values.
 
-    The ArithmeticMean object akes the arithmetic mean of two :py:class:`Variable`s
-    as shown below:
+    The arithmetic mean *v* of two values *a* and *b* is:
 
     .. math::
 
-        v = \frac{1}{2}(a+b)
+        v = \frac{a+b}{2}
 
-    This class can also be used to implement mixing rules.
+    This variable may be useful for implementing mixing rules.
 
     Parameters
     ----------
-    a : :py:class:`Variable`
-        The first parameter of the ArithmeticMean.
-    b : :py:class:`Variable`
-        The second parameter of the ArithmeticMean.
+    a : :class:`Variable`
+        First value.
+    b : :class:`Variable`
+        Second value.
 
     """
     @property
@@ -473,25 +582,6 @@ class ArithmeticMean(BinaryOperator):
         return 0.5*(self.a.value+self.b.value)
 
     def _derivative(self, param):
-        """Calculates the derivative of the specified ArithmeticMean object with respect to its parameters.
-
-        Parameters
-        ----------
-        param : str
-            The parameter with respect to which to take the derivative.
-            (Can only be 'a' or 'b').
-
-        Returns
-        -------
-        float
-            The calculated derivative value.
-
-        Raises
-        ------
-        ValueError
-            If the parameter argument is not 'a' or 'b'.
-
-        """
         if param == 'a':
             return 0.5
         elif param == 'b':
@@ -500,23 +590,22 @@ class ArithmeticMean(BinaryOperator):
             raise ValueError('Unknown parameter')
 
 class GeometricMean(BinaryOperator):
-    r"""Binary operator based on geometric mean.
+    r"""Geometric mean of two values.
 
-    The GeometricMean object akes the geometric mean of two :py:class:`Variable`s
-    as shown below:
+    The geometric mean *v* of two values *a* and *b* is:
 
     .. math::
 
-        v = \sqrt{ab}
+        v = \sqrt{a b}
 
-    This class can also be used to implement mixing rules.
+    This variable may be useful for implementing mixing rules.
 
     Parameters
     ----------
-    a : :py:class:`Variable`
-        The first parameter of the GeometricMean.
-    b : :py:class:`Variable`
-        The second parameter of the GeometricMean.
+    a : :class:`Variable`
+        First value.
+    b : :class:`Variable`
+        Second value.
 
     """
     @property
@@ -524,25 +613,6 @@ class GeometricMean(BinaryOperator):
         return np.sqrt(self.a.value*self.b.value)
 
     def _derivative(self, param):
-        """Calculates the derivative of the specified GeometricMean object with respect to its parameters.
-
-        Parameters
-        ----------
-        param : str
-            The parameter with respect to which to take the derivative.
-            (Can only be 'a' or 'b').
-
-        Returns
-        -------
-        float
-            The calculated derivative value.
-
-        Raises
-        ------
-        ValueError
-            If the parameter argument is not 'a' or 'b'.
-
-        """
         if param == 'a':
             try:
                 return 0.5*np.sqrt(self.b.value/self.a.value)
