@@ -9,10 +9,10 @@ class QuadraticObjective(relentless.optimize.ObjectiveFunction):
     def __init__(self, x):
         self.x = x
 
-    def run(self):
-        val = self.x.value**2
-        grad = {self.x:2*self.x.value}
-        return relentless.optimize.Result(val, grad)
+    def compute(self):
+        val = (self.x.value-1)**2
+        grad = {self.x:2*(self.x.value-1)}
+        return self.Result(val, grad)
 
     def design_variables(self):
         return (self.x,)
@@ -20,11 +20,24 @@ class QuadraticObjective(relentless.optimize.ObjectiveFunction):
 class test_ObjectiveFunction(unittest.TestCase):
     """Unit tests for relentless.optimize.ObjectiveFunction"""
 
-    def test_run(self):
-        """Test run method"""
-        x = relentless.variable.DesignVariable(value=3.0)
+    def test_compute(self):
+        """Test compute method"""
+        x = relentless.variable.DesignVariable(value=4.0)
         q = QuadraticObjective(x=x)
 
-        res = q.run()
+        res = q.compute()
         self.assertAlmostEqual(res.value, 9.0)
-        self.assertAlmostEqual(res.gradient[x], 6.0)
+        self.assertAlmostEqual(res.gradient(x), 6.0)
+        self.assertEqual(res.gradient('x'), 0.0)
+
+    def test_design_variables(self):
+        """Test design_variables method"""
+        x = relentless.variable.DesignVariable(value=1.0)
+        q = QuadraticObjective(x=x)
+
+        self.assertEqual(q.x.value, 1.0)
+        self.assertCountEqual((x,), q.design_variables())
+
+        x.value = 3.0
+        self.assertEqual(q.x.value, 3.0)
+        self.assertCountEqual((x,), q.design_variables())
