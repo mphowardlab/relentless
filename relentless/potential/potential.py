@@ -1,3 +1,27 @@
+"""
+.. rubric:: Developer notes
+
+To implement a new type of potential, create a class that derives from
+:class:`Potential` and implement the required functions. You may also need
+to implement a new parameter storage container that derives from :class:`Parameters`
+if a suitable one does not already exist.
+
+.. autosummary::
+    :nosignatures:
+
+    Potential
+    Parameters
+
+.. autoclass:: Potential
+    :member-order: bysource
+    :members: energy,
+        force,
+        derivative
+
+.. autoclass:: Parameters
+    :members:
+
+"""
 import abc
 import json
 
@@ -7,25 +31,25 @@ from relentless import _collections
 from relentless import variable
 
 class Parameters:
-    """Parameters for a set of types.
+    """Parameters for types.
 
-    Defines one or more parameters for a set of types. The parameters can be set
-    per-type, or shared between all parameters. The per-type parameters take precedence
-    over the shared parameters.
+    Each type is a :class:`str`. A named list of parameters can be set for type.
+    An optional shared value can be set for any of the parameters,
+    and this value will be used if the per-type value is not set.
 
     Parameters
     ----------
-    types : array_like
-        List of types (A type must be a `str`).
-    params : array_like
-        List of parameters (A parameter must be a `str`).
+    types : tuple[str]
+        Types.
+    params : tuple[str]
+        Required parameters.
 
     Raises
     ------
     ValueError
-        If no types or no parameters are specified.
+        If ``params`` is empty.
     TypeError
-        If all types and all parameters are not strings.
+        If ``params`` is not only strings.
 
     """
     def __init__(self, types, params):
@@ -52,12 +76,10 @@ class Parameters:
     def evaluate(self, key):
         """Evaluate parameters.
 
-        Returns a dictionary of the parameters and values for a specified key.
-
         Parameters
         ----------
-        key : `str`
-            Key for which the parameters are called.
+        key : str
+            Key for which the parameters are evaluated.
 
         Returns
         -------
@@ -67,7 +89,7 @@ class Parameters:
         Raises
         ------
         TypeError
-            If a parameter is of an unrecognizable type.
+            If a parameter has a type that can't be evaluated.
         ValueError
             If a parameter is not set for the specified key.
 
@@ -97,12 +119,12 @@ class Parameters:
         return params
 
     def save(self, filename):
-        """Saves the parameter data to a file.
+        """Save the parameter to a JSON file.
 
         Parameters
         ----------
-        filename : `str`
-            The name of the file to save data in.
+        filename : str
+            The name of the file to save.
 
         """
         data = {}
@@ -113,14 +135,16 @@ class Parameters:
             json.dump(data, f, sort_keys=True, indent=4)
 
     def design_variables(self):
-        """Get all unique DesignVariables that are the parameters of the coefficient matrix
-           or dependendencies of those parameters.
+        """Get all unique design variables.
+
+        The unique :class:`DesignVariable` variables are determined from the
+        parameters of the coefficient matrix and their dependendencies.
 
         Returns
         -------
-        tuple
-            The unique DesignVariables on which the specified PairParameters
-            object is dependent.
+        tuple[:class:`DesignVariable`]
+            The unique :class:`DesignVariable` variables on which the
+            parameters depend.
 
         """
         d = set()
@@ -154,39 +178,97 @@ class Parameters:
 
     @property
     def shared(self):
-        """:py:class:`FixedKeyDict`: The shared parameters."""
+        """:class:`FixedKeyDict`: The shared parameters."""
         return self._shared
 
 class Potential(abc.ABC):
     """Abstract base class for interaction potential.
 
-    To implement this class, concrete `energy`, `force`, `derivative` methods must be defined.
+    A :class:`Potential` defines the potential energy abstractly, which can
+    be parameterized on a ``key`` (like a type) and that is a function of an
+    arbitrary scalar coordinate ``x``. Concrete :meth:`energy`, :meth:`force`,
+    :meth:`derivative` methods must be implemented to define the potential
+    energy (and its derivatives).
 
     Parameters
     ----------
-    types : array_like
-        List of types (A type must be a `str`).
-    params : array_like
-        List of parameters (A parameter must be a `str`).
-    container : `callable` class storing types and parameters
-        Coefficient matrix class (defaults to `None`, and the container used is :py:class:`Parameters`).
+    keys : list
+        Keys for parameterizing the potential.
+    params : list
+        Parameters of the potential.
+    container : object
+        Container for storing coefficients. By default, :class:`Parameters` is used.
+        The constructor of the ``container`` must accept two arguments: ``keys``
+        and ``params``.
 
     """
-    def __init__(self, types, params, container=None):
+    def __init__(self, keys, params, container=None):
         if container is None:
             container = Parameters
-        self.coeff = container(types=types, params=params)
+        self.coeff = container(keys,params)
 
     @abc.abstractmethod
     def energy(self, key, x):
+        """Evaluate potential energy.
+
+        Parameters
+        ----------
+        key
+            Key parameterizing the potential in :attr:`coeff`.
+        x : float or list
+            Potential coordinate.
+
+        Returns
+        -------
+        float or numpy.ndarray
+            The pair energy evaluated at ``x``. The return type is consistent
+            with ``x``.
+
+        """
         pass
 
     @abc.abstractmethod
     def force(self, key, x):
+        """Evaluate force magnitude.
+
+        The force is the (negative) magnitude of the ``x`` gradient.
+
+        Parameters
+        ----------
+        key
+            Key parameterizing the potential in :attr:`coeff`.
+        x : float or list
+            Potential coordinate.
+
+        Returns
+        -------
+        float or numpy.ndarray
+            The force evaluated at ``x``. The return type is consistent
+            with ``x``.
+
+        """
         pass
 
     @abc.abstractmethod
     def derivative(self, key, var, x):
+        """Evaluate potential parameter derivative.
+
+        Parameters
+        ----------
+        key
+            Key parameterizing the potential in :attr:`coeff`.
+        var : :class:`Variable`
+            The variable with respect to which the derivative is calculated.
+        x : float or list
+            Potential energy coordinate.
+
+        Returns
+        -------
+        float or numpy.ndarray
+            The potential parameter derivative evaluated at ``x``. The return
+            type is consistent with ``x``.
+
+        """
         pass
 
     @classmethod
@@ -195,17 +277,17 @@ class Potential(abc.ABC):
 
         Parameters
         ----------
-        x : array_like
-            The location(s) provided as input.
+        x : float or list
+            One-dimensional array of coordinates.
 
         Returns
         -------
-        array_like
-            The x parameter
-        array_like
-            An array of 0 with the same shape as x
+        numpy.ndarray
+            ``x`` coerced into a NumPy array.
+        numpy.ndarray
+            Array of zeros the same shape as ``x``.
         bool
-            Value indicating if x is scalar
+            ``True`` if ``x`` was originally a scalar.
 
         Raises
         ------
@@ -216,11 +298,11 @@ class Potential(abc.ABC):
         s = np.isscalar(x)
         x = np.array(x, dtype=np.float64, ndmin=1)
         if len(x.shape) != 1:
-            raise TypeError('Expecting 1D array.')
+            raise TypeError('Potential coordinate must be 1D array.')
         return x,np.zeros_like(x),s
 
     def save(self, filename):
-        """Saves the coefficient matrix to file as JSON data.
+        """Save the coefficient matrix to file as JSON data.
 
         Parameters
         ----------

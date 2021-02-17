@@ -1,3 +1,55 @@
+"""
+Pair potentials
+===============
+
+A :class:`PairPotential` is a two-particle interaction typically computed
+between nonbonded particles to represent physics like dispersion forces.
+Here, the :class:`PairPotential` will be restricted to short-ranged interactions
+that can be safely truncated at some sufficiently large distance. Each
+:class:`PairPotential` is parameterized by a set of coefficients stored
+in :class:`PairParameters`. Once a pair has been parameterized, the
+:meth:`~PairPotential.energy`, :meth:`~PairPotential.force`, and parameter
+:meth:`~PairPotential.derivative` can be computed as a function of distance
+between the particles.
+
+The following pair potentials have been implemented:
+
+.. autosummary::
+    :nosignatures:
+
+    Depletion
+    LennardJones
+    PairSpline
+    Yukawa
+
+.. rubric:: Developer notes
+
+To implement your own pair potential, create a class that derives from
+:class:`PairPotential` and implement the required functions.
+
+.. autosummary::
+    :nosignatures:
+
+    PairPotential
+    PairParameters
+
+.. autoclass:: PairPotential
+    :member-order: bysource
+    :members: energy,
+        force,
+        derivative,
+        _energy,
+        _force,
+        _derivative
+.. autoclass:: PairParameters
+    :members: evaluate, shared, pairs
+.. autoclass:: Depletion
+.. autoclass:: LennardJones
+.. autoclass:: PairSpline
+    :members: from_array, knots, num_knots
+.. autoclass:: Yukawa
+
+"""
 import abc
 
 import numpy as np
@@ -10,93 +62,86 @@ from . import potential
 class PairParameters(potential.Parameters):
     """Parameters for pairs of types.
 
-    Defines one or more parameters for a set of types. The parameters can be set
-    per-pair, per-type, or shared between all pairs. The per-pair parameters take
-    precedence over the shared parameters. The per-type parameters are not included in
-    the evaluation of pair parameters, but can be used to set per-pair or shared parameters.
+    A pair is a tuple of two types, and each type is a :class:`str`. A named
+    list of parameters can be set for each pair of types. The parameters for a
+    pair are assumed to be symmetric, so the pair *(i,j)* is the same as the
+    pair *(j,i)*. An optional shared value can be set for any of the parameters,
+    and this value will be used if the per-pair value is not set.
+
+    The same parameters can also be set for each type. These values are not
+    used directly in evaluating the per-pair coefficients, but they can be used
+    in a :class:`DependentVariable` set for each pair, e.g., as part of a
+    mixing rule.
 
     Parameters
     ----------
-    types : array_like
-        List of types (A type must be a `str`).
-    params : array_like
-        List of parameters (A parameter must be a `str`).
+    types : tuple[str]
+        Types.
+    params : tuple[str]
+        Required parameters.
 
     Raises
     ------
     ValueError
-        If params is initialized as empty
+        If ``params`` is empty.
     TypeError
-        If params does not consist of only strings
+        If ``params`` is not only strings.
 
     Examples
     --------
-    Create a coefficient matrix with defined types and params::
+    Create a pair parameters for types ``A`` and ``B`` with parameters
+    ``epsilon`` and ``sigma``::
 
-        m = PairParameters(types=('A','B'), params=('energy','mass'))
+        coeff = PairParameters(types=('A','B'), params=('epsilon','sigma'))
 
-    Set coefficient matrix values by accessing parameter directly::
+    The parameters can be accessed or iterated using :attr:`params`::
 
-        m['A','A']['energy'] = 2.0
+        >>> print(coeff.params)
+        ('epsilon','sigma')
 
-    Assigning to a pair using `update()` overwrites the specified per-pair parameters::
+    Set a parameter for a pair by accessing it directly::
 
-        m['A','A'].update({'mass':2.5})  #does not reset 'energy' value to `None`
-        m['A','A'].update(mass=2.5)      #equivalent statement
-        >>> print(m['A','A'])
-        {'energy':2.0, 'mass':2.5}
+        coeff['A','A']['epsilon'] = 2.0
 
-    Assigning to a pair using `=` operator overwrites the specified per-pair parameters
-    and resets the other parameters::
+    Parameters can also be assigned using ``update``, which works the same
+    as :meth:`dict.update`::
 
-        m['A','A'] = {'mass':2.5}  #does reset 'energy' value to `None`
-        >>> print(m['A','A'])
-        {'energy': None, 'mass':2.5}
+        coeff['A','A'].update(sigma=2.5)
+        >>> print(coeff['A','A'])
+        {'epsilon':2.0, 'sigma':2.5}
 
-    Set coefficient matrix values by setting parameters in full::
+    Assigning a :class:`dict` to a pair using the ``=`` operator resets any
+    parameters that are not specified::
 
-        m['A','B'] = {'energy':DesignVariable(value=2.0,high=1.5), 'mass':0.5}
+        coeff['A','A'] = {'sigma': 2.5}
+        >>> print(coeff['A','A'])
+        {'epsilon':None, 'sigma':2.5}
 
-    Set coefficient matrix values by iteratively accessing parameters::
+    Parameters can also be assigned to the shared list::
 
-        for p in m.params:
-            m['B','B'][p] = 0.1
+        coeff.shared['epsilon'] = 0.5
+        >>> print(coeff.shared)
+        {'epsilon':0.5, 'sigma':None}
 
-    Evaluate (retrieve) pair parameters::
+    Parameters can be a mix of constants and :class:`Variable` objects. To get
+    the *value* of all parameters, use :meth:`evaluate`::
 
-        >>> print(m.evaluate(('B','B')))
-        {'energy':0.1, 'mass':0.1}
+        >>> coeff['A','A']['epsilon'] = relentless.variable.DesignVariable(1.0)
+        >>> print(coeff['A','A'])
+        {'epsilon':<relentless.variable.DesignVariable object at 0x561124456>, 'sigma':2.5}
+        >>> print(coeff.evaluate(('A','A')))
+        {'epsilon':1.0, 'sigma':2.5}
 
-    Utilizing `evaluate()` computes the defined values of all objects,
-    while directly accessing values returns the objects themselves::
+    Shared parameters will be used in :meth:`evaluate` if the per-pair parameter
+    is not set::
 
-        >>> print(m.evaluate(('A','B')))
-        {'energy':2.0, 'mass':0.5}
-        >>> print(m['A','B'])
-        {'energy':<relentless.variable.DesignVariable object at 0x561124456>, 'mass':0.5}
-
-    Assigning to a type sets the specified per-type parameters::
-
-        m['A'].update(energy=1.0, mass=2.0)
-        >>> print(m['A'])
-        {'energy':1.0, 'mass':2.0}
-
-    Assigning to shared sets the specified shared parameters::
-
-        m.shared['energy'] = 0.5
-        >>> print(m.shared)
-        {'energy':0.5, 'mass':None}
-
-    Shared parameters will be used in `evaluate()` if the per-pair parameter is not set::
-
-        >>> m['B','B'] = {'mass': 0.1}
-        >>> m.shared = {'energy': 0.5}
-        >>> print(m['B','B'])
-        {'energy': None, 'mass': 0.1}
-        >>> print(m.shared)
-        {'energy': 0.5, 'mass': None}
-        >>> print(m.evaluate(('B','B'))
-        {'energy':0.5, 'mass':0.1}
+        >>> coeff['B','B'] = {'sigma': 0.1}
+        >>> print(coeff['B','B'])
+        {'epsilon': None, 'sigma': 0.1}
+        >>> print(coeff.shared)
+        {'epsilon': 0.5, 'sigma': None}
+        >>> print(coeff.evaluate(('B','B'))
+        {'epsilon':0.5, 'sigma':0.1}
 
     """
     def __init__(self, types, params):
@@ -122,25 +167,95 @@ class PairParameters(potential.Parameters):
 
     @property
     def pairs(self):
+        """tuple[tuple[str]]: Pairs in matrix."""
         return self._per_pair.pairs
 
 class PairPotential(potential.Potential):
-    """Generic pair potential evaluator.
+    r"""Abstract base class for a pair potential.
 
-    A PairPotential object is created with coefficients as a PairParameters object.
-    This abstract base class can be extended in order to evaluate custom force,
-    energy, and derivative/gradient functions.
+    This class can be extended to evaluate the energy, force, and parameter
+    derivatives of a pair potential with a given functional form.
+    :meth:`_energy` specifies the potential energy :math:`u_0(r)`, :meth:`_force`
+    specifies the force :math:`f_0(r) = -\partial u_0/\partial r`, and
+    :meth:`_derivative` specifies the derivative
+    :math:`u_{0,\lambda} = \partial u_0/\partial \lambda` with respect to
+    parameter :math:`\lambda`.
+
+    .. rubric:: Truncation and shifting
+
+    The underlying pair potential can be truncated at a minimum distance
+    :math:`r_{\rm min}` and maximum distance :math:`r_{\rm max}`. The truncation
+    scheme is based on that used in molecular dynamics simulations, where the
+    force is discontinuous and the pair potential is continuous.
+
+    This makes the effective pair potential
+
+    .. math::
+
+        u(r) = \begin{cases}
+            u_0(r_{\rm min}),& r < r_{\rm min} \\
+            u_0(r),& r_{\rm min} \le r \le r_{\rm max} \\
+            u_0(r_{\rm max}),& r > r_{\rm max}
+            \end{cases},
+
+    the effective pair force
+
+    .. math::
+
+        f(r) = \begin{cases}
+            0,& r < r_{\rm min} \\
+            f_0(r),& r_{\rm min} \le r \le r_{\rm max} \\
+            0,& r > r_{\rm max}
+            \end{cases},
+
+    and the effective pair derivative
+
+    .. math::
+
+        u_\lambda(r) = \begin{cases}
+            u_{0,\lambda}(r_{\rm min}),& r < r_{\rm min} \\
+            u_{0,\lambda}(r),& r_{\rm min} \le r \le r_{\rm max} \\
+            u_{0,\lambda}(r_{\rm max}),& r > r_{\rm max}
+            \end{cases}.
+
+    Two special cases are the derivative with respect to :math:`r_{\rm min}`
+
+    .. math::
+
+            u_{r_{\rm min}}(r) = \begin{cases}
+            -f_0(r_{\rm min}),& r < r_{\rm min} \\
+            0,& \textrm{otherwise}
+            \end{cases}
+
+    and with respect to :math:`r_{\rm max}`:
+
+    .. math::
+
+            u_{r_{\rm max}}(r) = \begin{cases}
+            -f_0(r_{\rm max}),& r > r_{\rm max} \\
+            0,& \textrm{otherwise}
+            \end{cases}.
+
+    The pair potential can also be shifted to zero at :math:`r_{\rm max}`.
+    Shifting subtracts :math:`u_0(r_{\rm max})` from all pieces of u(r) and
+    :math:`-f_0(r_{\rm max})` from all parameter derivatives. The force is
+    unaffected by shifting the pair potential.
+
+    The parameters ``rmin``, ``rmax``, and ``shift`` will automatically be
+    included in :attr:`coeff` with initial values of ``False``, which indicate
+    that the potential should not be truncated or shifted.
 
     Parameters
     ----------
-    types : array_like
-        List of types (A type must be a `str`).
-    params : array_like
-        List of parameters (A parameter must be a `str`).
+    types : tuple[str]
+        Types.
+    params : tuple[str]
+        Required parameters.
 
-    Todo
-    ----
-    1. Inspect _energy() call signature for parameters.
+    Attributes
+    ----------
+    coeff : :class:`PairParameters`
+        Parameters of the potential for each pair.
 
     """
     def __init__(self, types, params):
@@ -161,35 +276,30 @@ class PairPotential(potential.Potential):
             self.coeff[p]['shift'] = False
 
     def energy(self, pair, r):
-        """Evaluate energy for a (i,j) pair.
+        """Evaluate pair energy.
 
-        If an `rmin` or `rmax` value is set, then any energy evaluated at an `r`
-        value greater than `rmax` or less than `rmin` is set to the value of energy
-        evaluated or `rmax` or `rmin`, respectively.
-
-        Additionally, if the `shift` parameter is set to be `True`, all energy values
-        are shifted so that the energy is `rmax` is 0.
+        The energy is evaluated using the :meth:`_energy` function for
+        :math:`u_0(r)`. The truncation and shifting scheme is applied.
 
         Parameters
         ----------
-        pair : array_like
+        pair : tuple[str]
             The pair for which to calculate the energy.
-        r : array_like
-            The location(s) at which to evaluate the energy.
+        r : float or list
+            The pair distance(s) at which to evaluate the energy.
 
         Returns
         -------
-        scalar or array_like
-            The energy at the specified location(s).
-            The returned quantity will be a scalar if `r` is scalar
-            or a numpy array if `r` is array_like.
+        float or numpy.ndarray
+            The pair energy evaluated at ``r``. The return type is consistent
+            with ``r``.
 
         Raises
         ------
         ValueError
-            If any value in `r` is negative.
+            If any value in ``r`` is negative.
         ValueError
-            If the potential is shifted without setting `rmax`.
+            If the potential is shifted without setting ``rmax``.
 
         """
         params = self.coeff.evaluate(pair)
@@ -224,28 +334,28 @@ class PairPotential(potential.Potential):
         return u
 
     def force(self, pair, r):
-        """Evaluate force for a (i,j) pair.
+        """Evaluate pair force.
 
-        The force is only evaluated for `r` values between `rmin` and `rmax`, if set.
+        The force is evaluated using the :meth:`_force` function for
+        :math:`f_0(r)`. The truncation and shifting scheme is applied.
 
         Parameters
         ----------
-        pair : array_like
+        pair : tuple[str]
             The pair for which to calculate the force.
-        r : array_like
-            The location(s) at which to evaluate the force.
+        r : float or list
+            The pair distance(s) at which to evaluate the force.
 
         Returns
         -------
-        scalar or array_like
-            The force at the specified location(s).
-            The returned quantity will be a scalar if `r` is scalar
-            or a numpy array if `r` is array_like.
+        float or numpy.ndarray
+            The pair force evaluated at ``r``. The return type is consistent
+            with ``r``.
 
         Raises
         ------
         ValueError
-            If any value in `r` is negative.
+            If any value in ``r`` is negative.
 
         """
         params = self.coeff.evaluate(pair)
@@ -267,36 +377,40 @@ class PairPotential(potential.Potential):
         return f
 
     def derivative(self, pair, var, r):
-        """Evaluate derivative for a (i,j) pair with respect to a variable.
+        r"""Evaluate pair derivative with respect to a variable.
 
-        The derivative is only evaluated for `r` values between `rmin` and `rmax`, if set.
-        The derivative can only be evaluted with respect to a :py:class:`Variable`.
+        The derivative is evaluated using the :meth:`_derivative` function for all
+        :math:`u_{0,\lambda}(r)`. The truncation and shifting scheme is applied.
+
+        The derivative will be carried out with respect to ``var`` for all
+        :class:`Variable` parameters. The appropriate chain rules are handled
+        automatically. If the potential does not depend on ``var``, the derivative
+        will be zero by definition.
 
         Parameters
         ----------
-        pair : array_like
+        pair : tuple[str]
             The pair for which to calculate the derivative.
-        var : :py:class:`Variable`
-            The variable with respect to which the derivative is to be calculated.
-        r : array_like
-            The location(s) at which to calculate the derivative.
+        var : :class:`Variable`
+            The variable with respect to which the derivative is calculated.
+        r : float or list
+            The pair distance(s) at which to evaluate the derivative.
 
         Returns
         -------
-        scalar or array_like
-            The derivative at the specified location(s).
-            The returned quantity will be a scalar if `r` is scalar
-            or a numpy array if `r` is array_like.
+        float or numpy.ndarray
+            The pair derivative evaluated at ``r``. The return type is consistent
+            with ``r``.
 
         Raises
         ------
         ValueError
-            If any value in `r` is negative.
+            If any value in ``r`` is negative.
         TypeError
             If the parameter with respect to which to take the derivative
             is not a :py:class:`Variable`.
         ValueError
-            If the potential is shifted without setting `rmax`.
+            If the potential is shifted without setting ``rmax``.
 
         """
         params = self.coeff.evaluate(pair)
@@ -363,69 +477,327 @@ class PairPotential(potential.Potential):
 
     @abc.abstractmethod
     def _energy(self, r, **params):
+        """Implementation of the energy function.
+
+        This abstract method defines the interface for computing the energy of
+        a pair interaction. ``**params`` will include all the parameters from
+        :class:`PairParameters`.
+
+        Parameters
+        ----------
+        r : float or list
+            The pair distance(s) at which to evaluate the energy.
+        **params
+            Named parameters of the potential.
+
+        Returns
+        -------
+        float or numpy.ndarray
+            The pair energy evaluated at ``r``. The return type is consistent
+            with ``r``.
+
+        """
         pass
 
     @abc.abstractmethod
     def _force(self, r, **params):
+        """Implementation of the force function.
+
+        This abstract method defines the interface for computing the force of
+        a pair interaction. ``**params`` will include all the parameters from
+        :class:`PairParameters`. The force should be consistent with the gradient
+        of the :meth:`_energy`.
+
+        Parameters
+        ----------
+        r : float or list
+            The pair distance(s) at which to evaluate the force.
+        **params
+            Named parameters of the potential.
+
+        Returns
+        -------
+        float or numpy.ndarray
+            The pair force evaluated at ``r``. The return type is consistent
+            with ``r``.
+
+        """
         pass
 
     @abc.abstractmethod
     def _derivative(self, param, r, **params):
+        """Implementation of the parameter derivative function.
+
+        This abstract method defines the interface for computing the parameter
+        derivative of a pair interaction. ``**params`` will include all the
+        parameters from :class:`PairParameters`. The derivative should be
+        consistent with :meth:`_energy`.
+
+        Parameters
+        ----------
+        param : str
+            Name of the parameter.
+        r : float or list
+            The pair distance(s) at which to evaluate the derivative.
+        **params
+            Named parameters of the potential.
+
+        Returns
+        -------
+        float or numpy.ndarray
+            The pair derivative evaluated at ``r``. The return type is consistent
+            with ``r``.
+
+        """
         pass
 
-class LennardJones(PairPotential):
-    """Lennard-Jones 12-6 pair potential.
+class Depletion(PairPotential):
+    r"""Depletion pair potential.
+
+    The Asakura--Oosawa pairwise attraction between spherical particles due to
+    implicit depletion from an idealized polymer solution:
 
     .. math::
 
-        u(r) = 4 \varepsilon\left[\left(\frac{\sigma}{r}\right)^12 - \left(\frac{\sigma}{r}\right)^12 \right]
+        u(r) = -\frac{\pi P}{12 r} \left[\frac{1}{2}(\sigma_i+\sigma_j)+\sigma_d-r\right]^2
+            \left[r^2+r(\sigma_i+\sigma_j+2\sigma_d)-\frac{3}{4}(\sigma_i-\sigma_j)^2\right]
 
-    The required coefficients per pair are:
+    where *r* is the distance between two particles. The parameters for
+    each *(i,j)* pair are:
 
-    - :math:`\varepsilon`: interaction energy
-    - :math:`\sigma`: interaction length scale (e.g., particle diameter)
+    +-------------+--------------------------------------------------+-----------+
+    | Parameter   | Description                                      | Initial   |
+    +=============+==================================================+===========+
+    | ``P``       | Osmotic pressure *P* of depletant.               |           |
+    +-------------+--------------------------------------------------+-----------+
+    | ``sigma_i`` | Diameter :math:`\sigma_i` of type *i*.           |           |
+    +-------------+--------------------------------------------------+-----------+
+    | ``sigma_j`` | Diameter :math:`\sigma_j` of type *j*.           |           |
+    +-------------+--------------------------------------------------+-----------+
+    | ``sigma_d`` | Diameter :math:`\sigma_d` of depletant.          |           |
+    +-------------+--------------------------------------------------+-----------+
+    | ``rmin``    | Minimum distance cutoff :math:`r_{\rm min}`.     | ``False`` |
+    |             | Force is zero and energy is constant for         |           |
+    |             | :math:`r < r_{\rm min}`. Ignored if ``False``.   |           |
+    +-------------+--------------------------------------------------+-----------+
+    | ``rmax``    | Maximum distance cutoff :math:`r_{\rm max}`.     | ``False`` |
+    |             | Force is zero and energy is constant for         |           |
+    |             | :math:`r > r_{\rm max}`. If ``False``, the       |           |
+    |             | cutoff is automatically set to                   |           |
+    |             | :math:`(\sigma_i+\sigma_j)/2+\sigma_d`.          |           |
+    +-------------+--------------------------------------------------+-----------+
+    | ``shift``   | If ``True``, shift potential to zero at ``rmax``.| ``False`` |
+    +-------------+--------------------------------------------------+-----------+
 
-    The optional coefficients per pair are:
-
-    - ``rmin``: minimum radius, energy and force are 0 for ``r < rmin``. Ignored if ``False`` (default).
-    - ``rmax``: maximum radius, energy and force are 0 for ``r > rmax`` Ignored if ``False`` (default).
-    - ``shift``: If ``True``, shift potential to zero at ``rmax`` (default is ``False``).
-
-    Setting ``rmax = sigma*2**(1./6.)`` and ``shift = True`` will give the purely repulsive
-    Weeks-Chandler-Anderson potential, which can model nearly hard spheres.
+    For most physical systems, it is advisable to set ``P`` and ``sigma_d`` as
+    shared coefficients that are the same for all pairs. It is also recommended
+    to leave ``rmax=False`` so that the potential is cutoff at the distance set
+    by the diameters in the model.
 
     Parameters
     ----------
-    types : array_like
-        List of types (A type must be a `str`).
+    types : tuple[str]
+        Types.
+
+    Attributes
+    ----------
+    coeff : :class:`PairParameters`
+        Parameters of the potential for each pair.
+
+    Examples
+    --------
+    Depletion attraction with shared depletion parameters::
+
+        >>> u = relentless.potential.pair.Depletion(('A','B'))
+        >>> u.coeff.shared = {'P': 2.0, 'sigma_d': 0.1}
+        >>> u.coeff['A','A'].update({'sigma_i': 1.0, 'sigma_j': 1.0})
+        >>> u.coeff['B','B'].update({'sigma_i': 2.0, 'sigma_j': 2.0})
+        >>> u.coeff['A','B'].update({'sigma_i': 1.0, 'sigma_j': 2.0})
+
+    """
+    def __init__(self, types):
+        super().__init__(types=types, params=('P','sigma_i','sigma_j','sigma_d'))
+
+    class Cutoff(variable.DependentVariable):
+        r"""Physical cutoff for depletion potential.
+
+        The depletion potential is usually cutoff based on the diameters of the
+        particles and depletant:
+
+        .. math::
+
+            r_{\rm max} = \frac{1}{2}(\sigma_i+\sigma_j)+\sigma_d
+
+        Parameters
+        ----------
+        sigma_i : int, float, or :class:`Variable`
+            Diameter :math:`\sigma_i` of particle of type *i*.
+        sigma_j : int/float or :class:`Variable`
+            Diameter :math:`\sigma_j` of particle of type *j*.
+        sigma_d : int/float or :class:`Variable`
+            Diameter :math:`\sigma_d` of depletant.
+
+        """
+        def __init__(self, sigma_i, sigma_j, sigma_d):
+            super().__init__(sigma_i=sigma_i, sigma_j=sigma_j, sigma_d=sigma_d)
+
+        @property
+        def value(self):
+            return 0.5*(self.sigma_i.value + self.sigma_j.value) + self.sigma_d.value
+
+        def _derivative(self, param):
+            if param == 'sigma_i':
+                return 0.5
+            elif param == 'sigma_j':
+                return 0.5
+            elif param == 'sigma_d':
+                return 1.0
+            else:
+                raise ValueError('Unknown parameter')
+
+    def energy(self, pair, r):
+        # Override parent method to set rmax as cutoff
+        if self.coeff[pair]['rmax'] is False:
+            self.coeff[pair]['rmax'] = self.Cutoff(self.coeff[pair]['sigma_i'],
+                                                   self.coeff[pair]['sigma_j'],
+                                                   self.coeff[pair]['sigma_d'])
+        return super().energy(pair, r)
+
+    def _energy(self, r, P, sigma_i, sigma_j, sigma_d, **params):
+        if sigma_i<=0 or sigma_j<=0 or sigma_d<=0:
+            raise ValueError('sigma_i, sigma_j, and sigma_d must all be positive')
+        r,u,s = self._zeros(r)
+
+        p1 = (0.5*(sigma_i + sigma_j) + sigma_d - r)**2
+        p2 = r**2 + r*(sigma_i + sigma_j + 2.*sigma_d) - 0.75*(sigma_i - sigma_j)**2
+        u = -(np.pi*P*p1*p2)/(12.*r)
+
+        if s:
+            u = u.item()
+        return u
+
+    def force(self, pair, r):
+        # Override parent method to set rmax as cutoff
+        if self.coeff[pair]['rmax'] is False:
+            self.coeff[pair]['rmax'] = self.Cutoff(self.coeff[pair]['sigma_i'],
+                                                   self.coeff[pair]['sigma_j'],
+                                                   self.coeff[pair]['sigma_d'])
+        return super().force(pair, r)
+
+    def _force(self, r, P, sigma_i, sigma_j, sigma_d, **params):
+        if sigma_i<=0 or sigma_j<=0 or sigma_d<=0:
+            raise ValueError('sigma_i, sigma_j, and sigma_d must all be positive')
+        r,f,s = self._zeros(r)
+
+        p1 = r**2 - 0.25*(sigma_i - sigma_j)**2
+        p2 = (0.5*(sigma_i + sigma_j) + sigma_d)**2 - r**2
+        f = -(np.pi*P*p1*p2)/(4.*r**2)
+
+        if s:
+            f = f.item()
+        return f
+
+    def derivative(self, pair, var, r):
+        # Override parent method to set rmax as cutoff
+        if self.coeff[pair]['rmax'] is False:
+            self.coeff[pair]['rmax'] = self.Cutoff(self.coeff[pair]['sigma_i'],
+                                                   self.coeff[pair]['sigma_j'],
+                                                   self.coeff[pair]['sigma_d'])
+        return super().derivative(pair, var, r)
+
+    def _derivative(self, param, r, P, sigma_i, sigma_j, sigma_d, **params):
+        if sigma_i<=0 or sigma_j<=0 or sigma_d<=0:
+            raise ValueError('sigma_i, sigma_j, and sigma_d must all be positive')
+        r,d,s = self._zeros(r)
+
+        if param == 'P':
+            p1 = (0.5*(sigma_i + sigma_j) + sigma_d - r)**2
+            p2 = r**2 + r*(sigma_i + sigma_j + 2.*sigma_d) - 0.75*(sigma_i - sigma_j)**2
+            d = -(np.pi*p1*p2)/(12.*r)
+        elif param == 'sigma_i':
+            p1 = ((0.5*(sigma_i + sigma_j) + sigma_d - r)
+                 *(r**2 + r*(sigma_i + sigma_j + 2.*sigma_d) - 0.75*(sigma_i - sigma_j)**2))
+            p2 = (r + 1.5*(sigma_j - sigma_i))*(0.5*(sigma_i + sigma_j) + sigma_d - r)**2
+            d = -(np.pi*P*(p1 + p2))/(12.*r)
+        elif param == 'sigma_j':
+            p1 = ((0.5*(sigma_i + sigma_j) + sigma_d - r)
+                 *(r**2 + r*(sigma_i + sigma_j + 2.*sigma_d) - 0.75*(sigma_i - sigma_j)**2))
+            p2 = (r + 1.5*(sigma_i - sigma_j))*(0.5*(sigma_i + sigma_j) + sigma_d - r)**2
+            d = -(np.pi*P*(p1 + p2))/(12.*r)
+        elif param == 'sigma_d':
+            p1 = ((sigma_i + sigma_j + 2.*sigma_d - 2.*r)
+                 *(r**2 + r*(sigma_i + sigma_j + 2.*sigma_d) - 0.75*(sigma_i - sigma_j)**2))
+            p2 = 2.*r*(0.5*(sigma_i + sigma_j) + sigma_d - r)**2
+            d = -(np.pi*P*(p1 + p2))/(12.*r)
+        else:
+            raise ValueError('The depletion parameters are P, sigma_i, sigma_j, and sigma_d.')
+
+        if s:
+            d = d.item()
+        return d
+
+class LennardJones(PairPotential):
+    r"""Lennard-Jones 12-6 pair potential.
+
+    The classic molecular simulation potential:
+
+    .. math::
+
+        u(r) = 4 \varepsilon\left[\left(\frac{\sigma}{r}\right)^{12}
+                - \left(\frac{\sigma}{r}\right)^6 \right]
+
+    where *r* is the distance between two particles. The parameters for
+    each *(i,j)* pair are:
+
+    +-------------+-----------------------------------------------+-----------+
+    | Parameter   | Description                                   | Initial   |
+    +=============+===============================================+===========+
+    | ``epsilon`` | Interaction energy :math:`\varepsilon`.       |           |
+    +-------------+-----------------------------------------------+-----------+
+    | ``sigma``   | Interaction length :math:`\sigma`.            |           |
+    +-------------+-----------------------------------------------+-----------+
+    | ``rmin``    | Minimum distance cutoff :math:`r_{\rm min}`.  | ``False`` |
+    |             | Force is zero and energy is constant for      |           |
+    |             | :math:`r < r_{\rm min}`. Ignored if ``False``.|           |
+    +-------------+-----------------------------------------------+-----------+
+    | ``rmax``    | Maximum distance cutoff :math:`r_{\rm max}`.  | ``False`` |
+    |             | Force is zero and energy is constant for      |           |
+    |             | :math:`r > r_{\rm max}`. Ignored if ``False``.|           |
+    +-------------+-----------------------------------------------+-----------+
+    | ``shift``   | If ``True``, shift potential to zero          | ``False`` |
+    |             | at ``rmax``.                                  |           |
+    +-------------+-----------------------------------------------+-----------+
+
+    For example, setting :math:`r_{\rm max} = 2^{1/6}\sigma` and ``shift=True``
+    will give the purely repulsive Weeks--Chandler--Anderson potential that is
+    often used to model nearly hard spheres.
+
+    Parameters
+    ----------
+    types : tuple[str]
+        Types.
+
+    Attributes
+    ----------
+    coeff : :class:`PairParameters`
+        Parameters of the potential for each pair.
+
+    Examples
+    --------
+    Standard Lennard-Jones parameters::
+
+        >>> u = relentless.potential.pair.LennardJones(('A',))
+        >>> u.coeff['A','A'].update({'epsilon': 1.0, 'sigma': 1.0, 'rmax': 3.0})
+        >>> u.energy(('A','A'), 1.0)
+        0.0
+        >>> u.force(('A','A'), 2.**(1./6.))
+        0.0
 
     """
     def __init__(self, types):
         super().__init__(types=types, params=('epsilon','sigma'))
 
     def _energy(self, r, epsilon, sigma, **params):
-        """Evaluates the Lennard-Jones potential energy.
-
-        Parameters
-        ----------
-        r : array_like
-            The value or values of r at which to evaluate the energy.
-        epsilon : float or int
-            The epsilon parameter for the potential function.
-        sigma : float or int
-            The sigma parameter for the potential function.
-
-        Returns
-        -------
-        array_like
-            Returns the value or values of the energy evaluated at r.
-
-        Raises
-        ------
-        ValueError
-            If sigma is not a positive number.
-
-        """
         if sigma < 0:
             raise ValueError('sigma must be positive')
         r,u,s = self._zeros(r)
@@ -441,28 +813,6 @@ class LennardJones(PairPotential):
         return u
 
     def _force(self, r, epsilon, sigma, **params):
-        """Evaluates the Lennard-Jones force.
-
-        Parameters
-        ----------
-        r : array_like
-            The value or values of r at which to evaluate the force.
-        epsilon : float or int
-            The epsilon parameter for the potential function.
-        sigma : float or int
-            The sigma parameter for the potential function.
-
-        Returns
-        -------
-        array_like
-            Returns the value or values of the force evaluated at r.
-
-        Raises
-        ------
-        ValueError
-            If sigma is not a positive number.
-
-        """
         if sigma < 0:
             raise ValueError('sigma must be positive')
         r,f,s = self._zeros(r)
@@ -479,32 +829,6 @@ class LennardJones(PairPotential):
         return f
 
     def _derivative(self, param, r, epsilon, sigma, **params):
-        """Evaluates the Lennard-Jones parameter derivative.
-
-        Parameters
-        ----------
-        param : `str`
-            The parameter with respect to which to take the derivative.
-        r : array_like
-            The value or values of r at which to evaluate the derivative.
-        epsilon : float or int
-            The epsilon parameter for the potential function.
-        sigma : float or int
-            The sigma parameter for the potential function.
-
-        Returns
-        -------
-        array_like
-            Returns the value or values of the derivative evaluated at r.
-
-        Raises
-        ------
-        ValueError
-            If sigma is not a positive number.
-        ValueError
-            If the parameter with respect to which to take the derivative is not 'sigma' or 'epsilon'.
-
-        """
         if sigma < 0:
             raise ValueError('sigma must be positive')
         r,d,s = self._zeros(r)
@@ -524,26 +848,44 @@ class LennardJones(PairPotential):
             d = d.item()
         return d
 
-class Spline(PairPotential):
-    """Spline potential using Akima interpolation.
+class PairSpline(PairPotential):
+    """Spline pair potential.
+
+    The pair potential is defined by interpolation through a set of knot points.
+    The interpolation scheme uses Akima splines.
 
     Parameters
     ----------
-    types : array_like
-        List of types (A type must be a str).
+    types : tuple[str]
+        Types.
     num_knots : int
-        The number of knots with which to interpolate.
+        Number of knots.
     mode : str
-        Describes the type of design parameter used in the optimization.
-        Setting the mode to 'value' uses the knot amplitudes, while 'diff' uses
-        the differences between neighboring knot amplitudes. (Defaults to 'diff').
+        Mode for storing the values of the knots in :class:`DesignVariable` that
+        can be optimized. If ``mode`` is 'value', the knot amplitudes are stored
+        directly. If ``mode`` is 'diff', the amplitude of the *last* knot is stored
+        directly, and differences between neighboring knots are stored for all
+        other knots. Defaults to 'diff'.
 
     Raises
     ------
     ValueError
-        If the number of knots is not an integer >= 2.
+        If there are not at least two knots.
     ValueError
-        If the mode is not set to either 'value' or 'diff'.
+        If the mode is not 'value' or 'diff'.
+
+    Examples
+    --------
+    The spline potential is setup from a tabulated potential instead of
+    specifying knot parameters directly::
+
+        spline = relentless.potential.pair.Spline(types=('A',), num_knots=3)
+        spline.from_array(('A','A'),[0,1,2],[4,2,0])
+
+    However, the knot variables can be iterated over and manipulated directly::
+
+        for r,k in spline.knots(('A','A')):
+            k.const = True
 
     """
     valid_modes = ('value','diff')
@@ -557,7 +899,7 @@ class Spline(PairPotential):
         if mode in self.valid_modes:
             self._mode = mode
         else:
-            raise ValueError('Invalid parameter mode, choose from: ' + ','.join(self.valid_modes))
+            raise ValueError('Invalid mode, choose from: ' + ','.join(self.valid_modes))
 
         params = []
         for i in range(self.num_knots):
@@ -567,23 +909,26 @@ class Spline(PairPotential):
         super().__init__(types=types,params=params)
 
     def from_array(self, pair, r, u):
-        """Sets up the potential from arrays of knot positions and energies.
+        """Setup the potential from knot points.
+
+        Each knot will be converted into two :class:`DesignVariable` objects
+        consistent with the storage ``mode``.
 
         Parameters
         ----------
-        pair : tuple
-            The type pair (i,j) for which to set up the potential.
-        r : array_like
-            The array of knot positions.
-        u : array_like
-            The array of energies at each knot position.
+        pair : tuple[str]
+            The type pair *(i,j)* for which to set up the potential.
+        r : list
+            Position of each knot.
+        u : list
+            Potential energy of each knot.
 
         Raises
         ------
         ValueError
-            If the array of r values does not have the same length as the number of knots.
+            If the number of r values is not the same as the number of knots.
         ValueError
-            If the array of u values does not have the same length as the number of knots.
+            If the number of u values is not the same as the number of knots.
 
         """
         # check that r and u have the right shape
@@ -622,9 +967,9 @@ class Spline(PairPotential):
         Returns
         -------
         str
-            The keyed r value.
+            The parameter name of the r value.
         str
-            The keyed knot value.
+            The parameter name of the knot value.
 
         Raises
         ------
@@ -637,21 +982,6 @@ class Spline(PairPotential):
         return 'r-{}'.format(i), 'knot-{}'.format(i)
 
     def _energy(self, r, **params):
-        """Evaluates the spline potential energy.
-
-        Parameters
-        ----------
-        r : array_like
-            The value or values of r at which to evaluate the energy.
-        params : dict
-            The parameters (r and knot values) for the potential function.
-
-        Returns
-        -------
-        array_like
-            Returns the value or values of the energy evaluated at r.
-
-        """
         r,u,s = self._zeros(r)
         u = self._interpolate(params)(r)
         if s:
@@ -659,21 +989,6 @@ class Spline(PairPotential):
         return u
 
     def _force(self, r, **params):
-        """Evaluates the spline force.
-
-        Parameters
-        ----------
-        r : array_like
-            The value or values of r at which to evaluate the energy.
-        params : dict
-            The parameters (r and knot values) for the potential function.
-
-        Returns
-        -------
-        array_like
-            Returns the value or values of the force evaluated at r.
-
-        """
         r,f,s = self._zeros(r)
         f = -self._interpolate(params).derivative(r, 1)
         if s:
@@ -681,7 +996,7 @@ class Spline(PairPotential):
         return f
 
     def derivative(self, pair, var, r):
-        #Extending PairPotential method to check if r and knot values are DesignVariables.
+        # Extending PairPotential method to check if r and knot values are DesignVariables.
         for ri,ki in self.knots(pair):
             if not isinstance(ri, variable.DesignVariable):
                 raise TypeError('All r values must be DesignVariables')
@@ -690,28 +1005,6 @@ class Spline(PairPotential):
         return super().derivative(pair, var, r)
 
     def _derivative(self, param, r, **params):
-        """Evaluates the spline parameter derivative using finite differencing.
-
-        Parameters
-        ----------
-        param : str
-            The name of the knot with respect to which to calculate the derivative.
-        r : array_like
-            The value or values of r at which to evaluate the energy.
-        params : dict
-            The parameters (r and knot values) for the potential function.
-
-        Returns
-        -------
-        array_like
-            Returns the value or values of the derivative evaluated at r.
-
-        Raises
-        ------
-        ValueError
-            If the parameter with respect to which to take the derivative is not a knot value.
-
-        """
         if 'knot' not in param:
             raise ValueError('Parameter derivative can only be taken for knot values')
 
@@ -732,16 +1025,16 @@ class Spline(PairPotential):
         return d
 
     def _interpolate(self, params):
-        """Interpolates the knot points into a continuous spline potential.
+        """Interpolate the knot points into a spline potential.
 
         Parameters
         ----------
-        params : array_like
-            The array of knot values.
+        params : dict
+            The knot parameters
 
         Returns
         -------
-        :py:class:`Interpolator`
+        :class:`Interpolator`
             The interpolated spline potential.
 
         """
@@ -771,15 +1064,15 @@ class Spline(PairPotential):
 
         Parameters
         ----------
-        pair : tuple
-            The type pair (i,j) for which to retrieve the knot points.
+        pair : tuple[str]
+            The type pair *(i,j)* for which to retrieve the knot points.
 
         Yields
         ------
-        :py:class:`DesignVariable`
-            The next r key in the coefficient array of r values.
-        :py:class:`DesignVariable`
-            The next knot key in the coefficient array of k values.
+        :class:`DesignVariable`
+            The next *r* variable in the parameters.
+        :class:`DesignVariable`
+            The next knot variable in the parameters.
 
         """
         for i in range(self.num_knots):
@@ -789,55 +1082,61 @@ class Spline(PairPotential):
             yield r,k
 
 class Yukawa(PairPotential):
-    """Yukawa pair potential.
+    r"""Yukawa pair potential.
+
+    The classic pair potential for screened electrostatics:
 
     .. math::
 
-        u(r) = \varepsilon\frac{e^{-\kappa r}}{r}
+        u(r) = \varepsilon \frac{e^{-\kappa r}}{r}
 
-    The required coefficients per pair are:
+    where *r* is the distance between two particles. The parameters for
+    each *(i,j)* pair are:
 
-    - :math:`\varepsilon`: prefactor (dimensions: energy x length)
-    - :math:`\kappa`: inverse screening length
-
-    The optional coefficients per pair are:
-
-    - ``rmin``: minimum radius, energy and force are 0 for ``r < rmin``. Ignored if ``False`` (default).
-    - ``rmax``: maximum radius, energy and force are 0 for ``r > rmax`` Ignored if ``False`` (default).
-    - ``shift``: If ``True``, shift potential to zero at ``rmax`` (default is ``False``).
+    +-------------+-----------------------------------------------+-----------+
+    | Parameter   | Description                                   | Initial   |
+    +=============+===============================================+===========+
+    | ``epsilon`` | Prefactor :math:`\varepsilon` (dimensions:    |           |
+    |             | energy x length).                             |           |
+    +-------------+-----------------------------------------------+-----------+
+    | ``kappa``   | Inverse screening length :math:`\kappa`.      |           |
+    +-------------+-----------------------------------------------+-----------+
+    | ``rmin``    | Minimum distance cutoff :math:`r_{\rm min}`.  | ``False`` |
+    |             | Force is zero and energy is constant for      |           |
+    |             | :math:`r < r_{\rm min}`. Ignored if ``False``.|           |
+    +-------------+-----------------------------------------------+-----------+
+    | ``rmax``    | Maximum distance cutoff :math:`r_{\rm max}`.  | ``False`` |
+    |             | Force is zero and energy is constant for      |           |
+    |             | :math:`r > r_{\rm max}`. Ignored if ``False``.|           |
+    +-------------+-----------------------------------------------+-----------+
+    | ``shift``   | If ``True``, shift potential to zero          | ``False`` |
+    |             | at ``rmax``.                                  |           |
+    +-------------+-----------------------------------------------+-----------+
 
     Parameters
     ----------
-    types : array_like
-        List of types (A type must be a `str`).
+    types : tuple[str]
+        Types.
+
+    Attributes
+    ----------
+    coeff : :class:`PairParameters`
+        Parameters of the potential for each pair.
+
+    Examples
+    --------
+    Nominal Yukawa parameters::
+
+        >>> u = relentless.potential.pair.Yukawa(('A',))
+        >>> u.coeff['A','A'].update({'epsilon': 100.0, 'kappa': 2.5})
+        >>> u.energy(('A','A'), 2.0)
+        0.33689734995427334
 
     """
-    def __init__(self, types, shift=False):
+    def __init__(self, types):
         super().__init__(types=types, params=('epsilon','kappa'))
 
     def _energy(self, r, epsilon, kappa, **params):
-        """Evaluates the Yukawa potential energy.
-
-        Parameters
-        ----------
-        r : array_like
-            The value or values of r at which to evaluate the energy.
-        epsilon : float or int
-            The epsilon parameter for the potential function.
-        kappa : float or int
-            The kappa parameter for the potential function.
-
-        Returns
-        -------
-        array_like
-            Returns the value or values of the energy evaluated at r.
-
-        Raises
-        ------
-        ValueError
-            If kappa is not a positive number.
-
-        """
         if kappa < 0:
             raise ValueError('kappa must be positive')
         r,u,s = self._zeros(r)
@@ -852,28 +1151,6 @@ class Yukawa(PairPotential):
         return u
 
     def _force(self, r, epsilon, kappa, **params):
-        """Evaluates the Yukawa force.
-
-        Parameters
-        ----------
-        r : array_like
-            The value or values of r at which to evaluate the force.
-        epsilon : float or int
-            The epsilon parameter for the potential function.
-        kappa : float or int
-            The kappa parameter for the potential function.
-
-        Returns
-        -------
-        array_like
-            Returns the value or values of the force evaluated at r.
-
-        Raises
-        ------
-        ValueError
-            If kappa is not a positive number.
-
-        """
         if kappa < 0:
             raise ValueError('kappa must be positive')
         r,f,s = self._zeros(r)
@@ -888,32 +1165,6 @@ class Yukawa(PairPotential):
         return f
 
     def _derivative(self, param, r, epsilon, kappa, **params):
-        """Evaluates the Yukawa parameter derivative.
-
-        Parameters
-        ----------
-        param : `str`
-            The parameter with respect to which to take the derivative.
-        r : array_like
-            The value or values of r at which to evaluate the derivative.
-        epsilon : float or int
-            The epsilon parameter for the potential function.
-        kappa : float or int
-            The kappa parameter for the potential function.
-
-        Returns
-        -------
-        array_like
-            Returns the value or values of the derivative evaluated at r.
-
-        Raises
-        ------
-        ValueError
-            If kappa is not a positive number.
-        ValueError
-            If the parameter with respect to which to take the derivative is not 'kappa' or 'epsilon'.
-
-        """
         if kappa < 0:
             raise ValueError('kappa must be positive')
         r,d,s = self._zeros(r)
@@ -927,253 +1178,6 @@ class Yukawa(PairPotential):
             d = -epsilon*np.exp(-kappa*r)
         else:
             raise ValueError('The Yukawa parameters are kappa and epsilon.')
-
-        if s:
-            d = d.item()
-        return d
-
-class Depletion(PairPotential):
-    r"""Depletion pair potential.
-
-    .. math::
-
-        u(r) = -\frac{\pi P(\frac{1}{2}(\sigma_i+\sigma_j)+\sigma_d-r)^2(r^2+r(\sigma_i+\sigma_j+2\sigma_d)-\frac{3}{4}(\sigma_i-\sigma_j)^2}{12r}
-
-    The required coefficients per pair are:
-
-    - :math:`P`: depletant osmotic pressure
-    - :math:`\sigma_i`: particle type `i` diameter
-    - :math:`\sigma_j`: particle type `j` diameter
-    - :math:`\sigma_d`: depletant diameter
-
-    The optional coefficients per pair are:
-
-    - ``rmin``: minimum radius, energy and force are 0 for ``r < rmin``. Ignored if ``False`` (default).
-    - ``rmax``: maximum radius, energy and force are 0 for ``r > rmax`` Ignored if ``False`` (default).
-    - ``shift``: If ``True``, shift potential to zero at ``rmax`` (default is ``False``).
-
-    Parameters
-    ----------
-    types : array_like
-        List of types (A type must be a str).
-
-    """
-
-    class Cutoff(variable.DependentVariable):
-        r"""Dependent variable for the "high bound" or cutoff of the depletion pair potential.
-
-        .. math::
-
-            cutoff = \frac{1}{2}(\sigma_i+\sigma_j)+\sigma_d
-
-        Parameters
-        ----------
-        sigma_i : int/float or :py:class:`Variable`
-            The `sigma_i` parameter of the cutoff.
-        sigma_j : int/float or :py:class:`Variable`
-            The `sigma_j` parameter of the cutoff.
-        sigma_d : int/float or :py:class:`Variable`
-            The `sigma_d` parameter of the cutoff.
-
-        """
-        def __init__(self, sigma_i, sigma_j, sigma_d):
-            super().__init__(sigma_i=sigma_i, sigma_j=sigma_j, sigma_d=sigma_d)
-
-        @property
-        def value(self):
-            return 0.5*(self.sigma_i.value + self.sigma_j.value) + self.sigma_d.value
-
-        def _derivative(self, param):
-            """Calculates the derivative of the Cutoff object with respect to its parameters.
-
-            Parameters
-            ----------
-            param : str
-                The parameter with respect to which to take the derivative.
-                (Can only be 'sigma_i', 'sigma_j', or 'sigma_d').
-
-            Returns
-            -------
-            float
-                The calculated derivative value.
-
-            Raises
-            ------
-            ValueError
-                If the parameter argument is not 'sigma_i', 'sigma_j', or 'sigma_d'.
-
-            """
-            if param == 'sigma_i':
-                return 0.5
-            elif param == 'sigma_j':
-                return 0.5
-            elif param == 'sigma_d':
-                return 1.0
-            else:
-                raise ValueError('Unknown parameter')
-
-    def __init__(self, types, shift=False):
-        super().__init__(types=types, params=('P','sigma_i','sigma_j','sigma_d'))
-
-    def energy(self, pair, r):
-        # Override parent method to set rmax as cutoff
-        if self.coeff[pair]['rmax'] is False:
-            self.coeff[pair]['rmax'] = self.Cutoff(self.coeff[pair]['sigma_i'],
-                                                   self.coeff[pair]['sigma_j'],
-                                                   self.coeff[pair]['sigma_d'])
-        return super().energy(pair, r)
-
-    def _energy(self, r, P, sigma_i, sigma_j, sigma_d, **params):
-        """Evaluates the depletion potential energy.
-
-        Parameters
-        ----------
-        r : array_like
-            The value or values of r at which to evaluate the energy.
-        P : float or int
-            The P parameter for the potential function.
-        sigma_i : float or int
-            The sigma_i parameter for the potential function.
-        sigma_j : float or int
-            The sigma_j parameter for the potential function.
-        sigma_d : float or int
-            The sigma_d parameter for the potential function.
-
-        Returns
-        -------
-        array_like
-            Returns the value or values of the energy evaluated at r.
-
-        Raises
-        ------
-        ValueError
-            If sigma_i, sigma_j, and sigma_d are not all positive.
-
-        """
-        if sigma_i<=0 or sigma_j<=0 or sigma_d<=0:
-            raise ValueError('sigma_i, sigma_j, and sigma_d must all be positive')
-        r,u,s = self._zeros(r)
-
-        p1 = (0.5*(sigma_i + sigma_j) + sigma_d - r)**2
-        p2 = r**2 + r*(sigma_i + sigma_j + 2.*sigma_d) - 0.75*(sigma_i - sigma_j)**2
-        u = -(np.pi*P*p1*p2)/(12.*r)
-
-        if s:
-            u = u.item()
-        return u
-
-    def force(self, pair, r):
-        # Override parent method to set rmax as cutoff
-        if self.coeff[pair]['rmax'] is False:
-            self.coeff[pair]['rmax'] = self.Cutoff(self.coeff[pair]['sigma_i'],
-                                                   self.coeff[pair]['sigma_j'],
-                                                   self.coeff[pair]['sigma_d'])
-        return super().force(pair, r)
-
-    def _force(self, r, P, sigma_i, sigma_j, sigma_d, **params):
-        """Evaluates the depletion force.
-
-        Parameters
-        ----------
-        r : array_like
-            The value or values of r at which to evaluate the force.
-        P : float or int
-            The P parameter for the potential function.
-        sigma_i : float or int
-            The sigma_i parameter for the potential function.
-        sigma_j : float or int
-            The sigma_j parameter for the potential function.
-        sigma_d : float or int
-            The sigma_d parameter for the potential function.
-
-        Returns
-        -------
-        array_like
-            Returns the value or values of the force evaluated at r.
-
-        Raises
-        ------
-        ValueError
-            If sigma_i, sigma_j, and sigma_d are not all positive.
-
-        """
-        if sigma_i<=0 or sigma_j<=0 or sigma_d<=0:
-            raise ValueError('sigma_i, sigma_j, and sigma_d must all be positive')
-        r,f,s = self._zeros(r)
-
-        p1 = r**2 - 0.25*(sigma_i - sigma_j)**2
-        p2 = (0.5*(sigma_i + sigma_j) + sigma_d)**2 - r**2
-        f = -(np.pi*P*p1*p2)/(4.*r**2)
-
-        if s:
-            f = f.item()
-        return f
-
-    def derivative(self, pair, var, r):
-        # Override parent method to set rmax as cutoff
-        if self.coeff[pair]['rmax'] is False:
-            self.coeff[pair]['rmax'] = self.Cutoff(self.coeff[pair]['sigma_i'],
-                                                   self.coeff[pair]['sigma_j'],
-                                                   self.coeff[pair]['sigma_d'])
-        return super().derivative(pair, var, r)
-
-    def _derivative(self, param, r, P, sigma_i, sigma_j, sigma_d, **params):
-        """Evaluates the depletion parameter derivative.
-
-        Parameters
-        ----------
-        param : `str`
-            The parameter with respect to which to take the derivative.
-        r : array_like
-            The value or values of r at which to evaluate the derivative.
-        P : float or int
-            The P parameter for the potential function.
-        sigma_i : float or int
-            The sigma_i parameter for the potential function.
-        sigma_j : float or int
-            The sigma_j parameter for the potential function.
-        sigma_d : float or int
-            The sigma_d parameter for the potential function.
-
-        Returns
-        -------
-        array_like
-            Returns the value or values of the derivative evaluated at r.
-
-        Raises
-        ------
-        ValueError
-            If sigma_i, sigma_j, and sigma_d are not all positive.
-        ValueError
-            If the parameter with respect to which to take the derivative
-            is not P, sigma_i, sigma_j, or sigma_d.
-
-        """
-        if sigma_i<=0 or sigma_j<=0 or sigma_d<=0:
-            raise ValueError('sigma_i, sigma_j, and sigma_d must all be positive')
-        r,d,s = self._zeros(r)
-
-        if param == 'P':
-            p1 = (0.5*(sigma_i + sigma_j) + sigma_d - r)**2
-            p2 = r**2 + r*(sigma_i + sigma_j + 2.*sigma_d) - 0.75*(sigma_i - sigma_j)**2
-            d = -(np.pi*p1*p2)/(12.*r)
-        elif param == 'sigma_i':
-            p1 = ((0.5*(sigma_i + sigma_j) + sigma_d - r)
-                 *(r**2 + r*(sigma_i + sigma_j + 2.*sigma_d) - 0.75*(sigma_i - sigma_j)**2))
-            p2 = (r + 1.5*(sigma_j - sigma_i))*(0.5*(sigma_i + sigma_j) + sigma_d - r)**2
-            d = -(np.pi*P*(p1 + p2))/(12.*r)
-        elif param == 'sigma_j':
-            p1 = ((0.5*(sigma_i + sigma_j) + sigma_d - r)
-                 *(r**2 + r*(sigma_i + sigma_j + 2.*sigma_d) - 0.75*(sigma_i - sigma_j)**2))
-            p2 = (r + 1.5*(sigma_i - sigma_j))*(0.5*(sigma_i + sigma_j) + sigma_d - r)**2
-            d = -(np.pi*P*(p1 + p2))/(12.*r)
-        elif param == 'sigma_d':
-            p1 = ((sigma_i + sigma_j + 2.*sigma_d - 2.*r)
-                 *(r**2 + r*(sigma_i + sigma_j + 2.*sigma_d) - 0.75*(sigma_i - sigma_j)**2))
-            p2 = 2.*r*(0.5*(sigma_i + sigma_j) + sigma_d - r)**2
-            d = -(np.pi*P*(p1 + p2))/(12.*r)
-        else:
-            raise ValueError('The depletion parameters are P, sigma_i, sigma_j, and sigma_d.')
 
         if s:
             d = d.item()
