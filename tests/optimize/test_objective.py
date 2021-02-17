@@ -28,7 +28,10 @@ class test_ObjectiveFunction(unittest.TestCase):
         res = q.compute()
         self.assertAlmostEqual(res.value, 9.0)
         self.assertAlmostEqual(res.gradient(x), 6.0)
-        self.assertEqual(res.gradient('x'), 0.0)
+
+        #test "invalid" variable
+        p = relentless.variable.SameAs(x)
+        self.assertEqual(res.gradient(p), 0.0)
 
     def test_design_variables(self):
         """Test design_variables method"""
