@@ -12,7 +12,7 @@ class QuadraticObjective(relentless.optimize.ObjectiveFunction):
     def compute(self):
         val = (self.x.value-1)**2
         grad = {self.x:2*(self.x.value-1)}
-        return self.Result(val, grad)
+        return self.Result(val, grad, self)
 
     def design_variables(self):
         return (self.x,)
