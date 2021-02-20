@@ -9,20 +9,9 @@ class ObjectiveFunction(abc.ABC):
             self.value = value
 
             # gradient must be keyed only on objective design variables
-            str_gradient = {}
-            lookup = {}
-            for k in gradient:
-                str_k = str(k)
-                str_gradient[str_k] = gradient[k]
-                lookup[str_k] = k
-
-            str_dvars = [str(j) for j in objective.design_variables()]
-            fk_gradient = _collections.FixedKeyDict(keys=str_dvars)
-            fk_gradient.update(str_gradient)
-
-            self._gradient = {}
-            for k in fk_gradient:
-                self._gradient[lookup[k]] = fk_gradient[k]
+            self.__gradient = _collections.FixedKeyDict(keys=objective.design_variables())
+            self.__gradient.update(gradient)
+            self._gradient = self.__gradient.todict()
 
         def gradient(self, var):
             try:

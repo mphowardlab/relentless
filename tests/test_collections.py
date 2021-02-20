@@ -34,14 +34,6 @@ class test_FixedKeyDict(unittest.TestCase):
         self.assertEqual(d.keys, keys)
         self.assertEqual([d[k] for k in d.keys], [None])
 
-        #test construction with int key input
-        with self.assertRaises(TypeError):
-            d = relentless._collections.FixedKeyDict(keys=(1,2))
-
-        #test construction with mixed key input
-        with self.assertRaises(TypeError):
-            d = relentless._collections.FixedKeyDict(keys=('1',2))
-
     def test_accessors(self):
         """Test get and set methods on keys."""
         d = relentless._collections.FixedKeyDict(keys=('A','B'))

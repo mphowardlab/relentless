@@ -4,14 +4,9 @@ class FixedKeyDict:
     Parameters
     ----------
     keys : array_like
-        List of keys to be fixed (a key must be a `str`).
+        List of keys to be fixed.
     default
         Initial values to fill in the dictionary, defaults to `None`.
-
-    Raises
-    ------
-    TypeError
-        If keys does not consist only of strings
 
     Examples
     --------
@@ -55,8 +50,6 @@ class FixedKeyDict:
 
     """
     def __init__(self, keys, default=None):
-        if not all(isinstance(k, str) for k in keys):
-            raise TypeError('All keys must be strings')
         self._keys = tuple(keys)
         self._data = {}
         self._default = default
