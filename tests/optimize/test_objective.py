@@ -12,7 +12,9 @@ class QuadraticObjective(relentless.optimize.ObjectiveFunction):
     def compute(self):
         val = (self.x.value-1)**2
         grad = {self.x:2*(self.x.value-1)}
-        return self.Result(val, grad, self)
+
+        res = self.make_result(val, grad)
+        return res
 
     def design_variables(self):
         return (self.x,)
@@ -28,6 +30,7 @@ class test_ObjectiveFunction(unittest.TestCase):
         res = q.compute()
         self.assertAlmostEqual(res.value, 9.0)
         self.assertAlmostEqual(res.gradient(x), 6.0)
+        self.assertCountEqual(res.design_variables(), q.design_variables())
 
         #test "invalid" variable
         p = relentless.variable.SameAs(x)

@@ -11,7 +11,7 @@ class Optimizer(abc.ABC):
         pass
 
     def has_converged(self, result):
-        for x in result.variables:
+        for x in result.design_variables():
             grad = result.gradient(x)
             try:
                 tol = self.abs_tol[x]
@@ -31,16 +31,18 @@ class Optimizer(abc.ABC):
     @abs_tol.setter
     def abs_tol(self, value):
         try:
-            self._abs_tol = dict(value)
-            err = any([tol < 0 for tol in self._abs_tol.values()])
+            abs_tol = dict(value)
+            err = any([tol < 0 for tol in value.values()])
         except TypeError:
-            self._abs_tol = value
-            err = self._abs_tol < 0
+            abs_tol = value
+            err = value < 0
         if err:
             raise ValueError('Absolute tolerances must be non-negative.')
+        else:
+            self._abs_tol = abs_tol
 
 class SteepestDescent(Optimizer):
-    def __init__(self, step_size, max_iter, abs_tol):
+    def __init__(self, abs_tol, step_size, max_iter):
         super().__init__(abs_tol)
         self.step_size = step_size
         self.max_iter = max_iter
