@@ -1,8 +1,8 @@
 """
-Methods
-=======
+Algorithms
+==========
 
-A :class:`Optimizer` defines an optimization algorithm that can be applied to
+An :class:`Optimizer` defines an optimization algorithm that can be applied to
 a defined :class:`ObjectiveFunction`.
 
 The following algorithms have been implemented:
@@ -25,8 +25,8 @@ To implement your own optimization algorithm, create a class that derives from
 
 .. autoclass:: Optimizer
     :member-order: bysource
-    :members: optimize
-        has_converged
+    :members: optimize,
+        has_converged,
         abs_tol
 
 .. autoclass:: SteepestDescent
@@ -48,8 +48,8 @@ class Optimizer(abc.ABC):
     Parameters
     ----------
     abs_tol : float or dict
-        The absolute tolerance (as a float) or tolerances (as a dict keyed on the
-        :py:class:`ObjectiveFunction`'s design variables).
+        The absolute tolerance or tolerances (keyed on the :py:class:`ObjectiveFunction`
+        design variables).
 
     """
     def __init__(self, abs_tol):
@@ -126,8 +126,8 @@ class SteepestDescent(Optimizer):
     Parameters
     ----------
     abs_tol : float or dict
-        The absolute tolerance (as a float) or tolerances (as a dict keyed on the
-        :py:class:`ObjectiveFunction`'s design variables).
+        The absolute tolerance or tolerances (keyed on the :py:class:`ObjectiveFunction`
+        design variables).
     step_size : float
         The step size hyperparameter for the optimization.
     max_iter : int
@@ -149,10 +149,9 @@ class SteepestDescent(Optimizer):
 
         Returns
         -------
-        None
-            If no design variables are specified for the objective function.
-        bool
-            ``True`` if converged, ``False`` otherwise.
+        bool or None
+            ``True`` if converged, ``False`` if not converged, ``None`` if no
+            design variables are specified for the objective function.
         """
         dvars = objective.design_variables()
         if len(dvars) == 0:

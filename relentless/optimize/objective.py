@@ -2,10 +2,10 @@
 Objective Functions
 ===================
 
-A :class:`ObjectiveFunction` defines an objective function to be optimized.
+An :class:`ObjectiveFunction` defines an objective function to be optimized.
 An objective function is a scalar value that is defined as a function of the
-problem :class:`DesignVariable`s, and has a specified gradient with respect
-to each of the :class:`DesignVariable`s as well.
+problem :class:`DesignVariables<DesignVariable>`, and has a specified gradient
+with respect to each of the :class:`DesignVariables<DesignVariable>` as well.
 
 .. rubric:: Developer notes
 
@@ -38,8 +38,8 @@ class ObjectiveFunction(abc.ABC):
     """Abstract base class for the optimization objective function.
 
     An :py:class:`ObjectiveFunction` defines the objective function parametrized on
-    one or more adjustable :py:class:`DesignVariable`s. The function must also have
-    a defined value and gradient for all values of its parameters.
+    one or more adjustable :py:class:`DesignVariables<DesignVariable>`. The function
+    must also have a defined value and gradient for all values of its parameters.
 
     """
     @abc.abstractmethod
@@ -58,8 +58,8 @@ class ObjectiveFunction(abc.ABC):
 
     @abc.abstractmethod
     def design_variables(self):
-        """Returns all :py:class:`DesignVariable`s parametrized by the objective
-        function.
+        """Returns all :py:class:`DesignVariables<DesignVariable>` parametrized
+        by the objective function.
 
         Returns
         -------
@@ -99,7 +99,7 @@ class ObjectiveFunctionResult:
     gradient : dict
         The gradient of the objective function. Each partial derivative is
         keyed on the :py:class:`DesignVariable` with respect to which it is taken.
-    objective : py:class:`ObjectiveFunction`
+    objective : :class:`ObjectiveFunction`
        The objective function for which this result is constructed.
 
     """
@@ -121,7 +121,7 @@ class ObjectiveFunctionResult:
         -------
         float
             The value of the gradient if it is defined for the specified variable,
-            or 0.0 if it is not.
+            or ``0.0`` if it is not.
 
         """
         try:
@@ -130,8 +130,8 @@ class ObjectiveFunctionResult:
             return 0.0
 
     def design_variables(self):
-        """Returns all :py:class:`DesignVariable`s parametrized by the objective
-        function.
+        """Returns all :py:class:`DesignVariables<DesignVariable>` parametrized
+        by the objective function used to construct the result.
 
         Returns
         -------
