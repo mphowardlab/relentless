@@ -44,7 +44,7 @@ class GenericOperation(simulate.SimulationOperation):
         Raises
         ------
         TypeError
-            If the specified simulation backend is not registered (using :py:func:`add_backend`).
+            If the specified simulation backend is not registered (using :py:meth:`add_backend`).
         TypeError
             If the specified operation is not found in the simulation backend.
 

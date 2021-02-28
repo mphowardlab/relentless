@@ -21,6 +21,7 @@ class LAMMPS(simulate.Simulation):
 
     Raises
     ------
+    ImportError
         If the `lammps` package is not found.
 
     """
@@ -65,8 +66,8 @@ class LAMMPSOperation(simulate.SimulationOperation):
         """Evaluates the LAMMPS simulation operation.
 
         Each deriving class of :py:class:`LAMMPSOperation` must implement a
-        :py:func:`to_commands()` method that returns a list or tuple of LAMMPS
-        commands that can be executed by :py:func:`lammps.commands_list()`.
+        :py:meth:`to_commands()` method that returns a list or tuple of LAMMPS
+        commands that can be executed by :py:meth:`lammps.commands_list()`.
 
         Parameters
         ----------

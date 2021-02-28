@@ -6,7 +6,7 @@ Contributors
 
 **Michael P. Howard**
 
-**Adithya Sreenivasan**
+**Adithya N Sreenivasan**
 
 **Zachary M. Sherman**
 

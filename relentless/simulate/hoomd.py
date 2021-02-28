@@ -198,7 +198,7 @@ class InitializeFromFile(Initialize):
     neighbor_buffer : float
         Buffer width.
     options : kwargs
-        Options for file reading (as used in :py:func:`hoomd.init.read_gsd()`).
+        Options for file reading (as used in :py:meth:`hoomd.init.read_gsd()`).
 
     """
     def __init__(self, filename, neighbor_buffer, **options):
@@ -433,7 +433,7 @@ class AddBrownianIntegrator(AddMDIntegrator):
     seed : int
         Seed used to randomly generate a uniform force.
     options : kwargs
-        Options used in :py:func:`hoomd.md.integrate.brownian()`.
+        Options used in :py:meth:`hoomd.md.integrate.brownian()`.
 
     """
     def __init__(self, dt, friction, seed, **options):
@@ -504,7 +504,7 @@ class AddLangevinIntegrator(AddMDIntegrator):
     seed : int
         Seed used to randomly generate a uniform force.
     options : kwargs
-        Options used in :py:func:`hoomd.md.integrate.langevin()`.
+        Options used in :py:meth:`hoomd.md.integrate.langevin()`.
 
     """
     def __init__(self, dt, friction, seed, **options):
@@ -575,7 +575,7 @@ class AddNPTIntegrator(AddMDIntegrator):
     tau_P : float
         Coupling constant for the barostat.
     options : kwargs
-        Options used in :py:func:`hoomd.md.integrate.npt()`.
+        Options used in :py:meth:`hoomd.md.integrate.npt()`.
 
     """
     def __init__(self, dt, tau_T, tau_P, **options):
@@ -645,7 +645,7 @@ class AddNVTIntegrator(AddMDIntegrator):
     tau_T : float
         Coupling constant for the thermostat.
     options : kwargs
-        Options used in :py:func:`hoomd.md.integrate.nvt()`.
+        Options used in :py:meth:`hoomd.md.integrate.nvt()`.
 
     """
     def __init__(self, dt, tau_T, **options):
