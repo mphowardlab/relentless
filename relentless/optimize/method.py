@@ -89,7 +89,7 @@ class Optimizer(abc.ABC):
         KeyError
             If the absolute tolerance value is not set for all design variables.
         """
-        for x in result.design_variables():
+        for x in result.design_variables:
             grad = result.gradient(x)
             try:
                 tol = self.abs_tol[x]

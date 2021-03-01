@@ -26,8 +26,7 @@ To implement your own objective function, create a class that derives from
 
 .. autoclass:: ObjectiveFunctionResult
     :member-order: bysource
-    :members: gradient,
-        design_variables
+    :members: gradient
 
 """
 import abc
@@ -105,8 +104,12 @@ class ObjectiveFunctionResult:
     """
     def __init__(self, value, gradient, objective):
         self.value = value
-        self._gradient = _collections.FixedKeyDict(keys=objective.design_variables())
+
+        self.design_variables = objective.design_variables()
+        self._gradient = _collections.FixedKeyDict(keys=self.design_variables)
         self._gradient.update(gradient)
+
+        self.variable_values = {x : x.value for x in self.design_variables}
 
     def gradient(self, var):
         """The value of the gradient for a particular :py:class:`DesignVariable`
@@ -128,15 +131,3 @@ class ObjectiveFunctionResult:
             return self._gradient[var]
         except KeyError:
             return 0.0
-
-    def design_variables(self):
-        """Returns all :py:class:`DesignVariables<DesignVariable>` parametrized
-        by the objective function used to construct the result.
-
-        Returns
-        -------
-        list
-            The :py:class:`DesignVariable` parameters.
-
-        """
-        return self._gradient.todict().keys()

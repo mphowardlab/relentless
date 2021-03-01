@@ -30,7 +30,8 @@ class test_ObjectiveFunction(unittest.TestCase):
         res = q.compute()
         self.assertAlmostEqual(res.value, 9.0)
         self.assertAlmostEqual(res.gradient(x), 6.0)
-        self.assertCountEqual(res.design_variables(), q.design_variables())
+        self.assertCountEqual(res.design_variables, q.design_variables())
+        self.assertDictEqual(res.variable_values, {x : 4.0})
 
         #test "invalid" variable
         p = relentless.variable.SameAs(x)
