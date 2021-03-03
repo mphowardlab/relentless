@@ -53,6 +53,7 @@ or :class:`BinaryOperator`) and define the required properties and methods.
     :members:
 .. autoclass:: DependentVariable
     :members:
+    :private-members: _derivative
 .. autoclass:: UnaryOperator
     :members:
 .. autoclass:: BinaryOperator
@@ -308,8 +309,8 @@ class DependentVariable(Variable):
     """Abstract base class for a variable that depends on other values.
 
     A dependent variable is composed from other variables. This is an abstract
-    base class for any such variable. In addition to the value property of the
-    :class:`Variable`, a :class:`DependentVariable` must also define a
+    base class for any such variable. In addition to the :attr:`~relentless.variable.Variable.value`
+    property of the :class:`Variable`, a :class:`DependentVariable` must also define a
     :meth:`_derivative` method that defines its partial derivative with respect
     to its dependencies.
 
@@ -495,10 +496,10 @@ class DependentVariable(Variable):
 class UnaryOperator(DependentVariable):
     """Abstract base class for a value that depends on one variable.
 
-    Deriving classes still need to implement the :attr:`value` and
-    :meth:`_derivative` methods. :class:`UnaryOperator` is a convenience
-    class implementing the constructor of a function that depends on one value,
-    :math:`f(a)`.
+    Deriving classes still need to implement the :attr:`~relentless.variable.Variable.value`
+    and :meth:`~relentless.variable.DependentVariable._derivative` methods.
+    :class:`UnaryOperator` is a convenience class implementing the constructor
+    of a function that depends on one value, :math:`f(a)`.
 
     Parameters
     ----------
@@ -542,10 +543,10 @@ class SameAs(UnaryOperator):
 class BinaryOperator(DependentVariable):
     """Abstract base class for a value that depends on two variables.
 
-    Deriving classes still need to implement the :attr:`value` and
-    :meth:`_derivative` methods. :class:`BinaryOperator` is a convenience
-    class implementing the constructor of a function that depends on two values,
-    :math:`f(a,b)`.
+    Deriving classes still need to implement the :attr:`~relentless.variable.Variable.value`
+    and :meth:`~relentless.variable.DependentVariable._derivative` methods.
+    :class:`BinaryOperator` is a convenience class implementing the constructor of
+    a function that depends on two values, :math:`f(a,b)`.
 
     Parameters
     ----------

@@ -137,13 +137,13 @@ class Parameters:
     def design_variables(self):
         """Get all unique design variables.
 
-        The unique :class:`DesignVariable` variables are determined from the
-        parameters of the coefficient matrix and their dependendencies.
+        The unique :class:`~relentless.variable.DesignVariable` variables are
+        determined from the parameters of the coefficient matrix and their dependencies.
 
         Returns
         -------
-        tuple[:class:`DesignVariable`]
-            The unique :class:`DesignVariable` variables on which the
+        tuple[:class:`~relentless.variable.DesignVariable`]
+            The unique :class:`~relentless.variable.DesignVariable` variables on which the
             parameters depend.
 
         """
@@ -178,7 +178,7 @@ class Parameters:
 
     @property
     def shared(self):
-        """:class:`FixedKeyDict`: The shared parameters."""
+        """:class:`~relentless.FixedKeyDict`: The shared parameters."""
         return self._shared
 
 class Potential(abc.ABC):
@@ -214,7 +214,7 @@ class Potential(abc.ABC):
         Parameters
         ----------
         key
-            Key parameterizing the potential in :attr:`coeff`.
+            Key parameterizing the potential in :attr:`coeff<container>`.
         x : float or list
             Potential coordinate.
 
@@ -236,7 +236,7 @@ class Potential(abc.ABC):
         Parameters
         ----------
         key
-            Key parameterizing the potential in :attr:`coeff`.
+            Key parameterizing the potential in :attr:`coeff<container>`.
         x : float or list
             Potential coordinate.
 
@@ -256,8 +256,8 @@ class Potential(abc.ABC):
         Parameters
         ----------
         key
-            Key parameterizing the potential in :attr:`coeff`.
-        var : :class:`Variable`
+            Key parameterizing the potential in :attr:`coeff<container>`.
+        var : :class:`~relentless.variable.Variable`
             The variable with respect to which the derivative is calculated.
         x : float or list
             Potential energy coordinate.

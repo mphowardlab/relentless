@@ -70,8 +70,8 @@ class PairParameters(potential.Parameters):
 
     The same parameters can also be set for each type. These values are not
     used directly in evaluating the per-pair coefficients, but they can be used
-    in a :class:`DependentVariable` set for each pair, e.g., as part of a
-    mixing rule.
+    in a :class:`~relentless.variable.DependentVariable` set for each pair, e.g.,
+    as part of a mixing rule.
 
     Parameters
     ----------
@@ -123,8 +123,8 @@ class PairParameters(potential.Parameters):
         >>> print(coeff.shared)
         {'epsilon':0.5, 'sigma':None}
 
-    Parameters can be a mix of constants and :class:`Variable` objects. To get
-    the *value* of all parameters, use :meth:`evaluate`::
+    Parameters can be a mix of constants and :class:`~relentless.variable.Variable`
+    objects. To get the *value* of all parameters, use :meth:`evaluate`::
 
         >>> coeff['A','A']['epsilon'] = relentless.variable.DesignVariable(1.0)
         >>> print(coeff['A','A'])
@@ -383,15 +383,15 @@ class PairPotential(potential.Potential):
         :math:`u_{0,\lambda}(r)`. The truncation and shifting scheme is applied.
 
         The derivative will be carried out with respect to ``var`` for all
-        :class:`Variable` parameters. The appropriate chain rules are handled
-        automatically. If the potential does not depend on ``var``, the derivative
-        will be zero by definition.
+        :class:`~relentless.variable.Variable` parameters. The appropriate chain
+        rules are handled automatically. If the potential does not depend on
+        ``var``, the derivative will be zero by definition.
 
         Parameters
         ----------
         pair : tuple[str]
             The pair for which to calculate the derivative.
-        var : :class:`Variable`
+        var : :class:`~relentless.variable.Variable`
             The variable with respect to which the derivative is calculated.
         r : float or list
             The pair distance(s) at which to evaluate the derivative.
@@ -408,7 +408,7 @@ class PairPotential(potential.Potential):
             If any value in ``r`` is negative.
         TypeError
             If the parameter with respect to which to take the derivative
-            is not a :class:`Variable`.
+            is not a :class:`~relentless.variable.Variable`.
         ValueError
             If the potential is shifted without setting ``rmax``.
 
@@ -861,8 +861,8 @@ class PairSpline(PairPotential):
     num_knots : int
         Number of knots.
     mode : str
-        Mode for storing the values of the knots in :class:`DesignVariable` that
-        can be optimized. If ``mode`` is 'value', the knot amplitudes are stored
+        Mode for storing the values of the knots in :class:`~relentless.variable.DesignVariable`
+        that can be optimized. If ``mode`` is 'value', the knot amplitudes are stored
         directly. If ``mode`` is 'diff', the amplitude of the *last* knot is stored
         directly, and differences between neighboring knots are stored for all
         other knots. Defaults to 'diff'.
@@ -911,8 +911,8 @@ class PairSpline(PairPotential):
     def from_array(self, pair, r, u):
         """Setup the potential from knot points.
 
-        Each knot will be converted into two :class:`DesignVariable` objects
-        consistent with the storage ``mode``.
+        Each knot will be converted into two :class:`~relentless.variable.DesignVariable`
+        objects consistent with the storage ``mode``.
 
         Parameters
         ----------

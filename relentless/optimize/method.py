@@ -2,8 +2,8 @@
 Algorithms
 ==========
 
-An :class:`Optimizer` defines an optimization algorithm that can be applied to
-a defined :class:`ObjectiveFunction`.
+An optimization algorithm seeks to determine the minima of a defined objective
+function, subject to design constraints.
 
 The following algorithms have been implemented:
 
@@ -21,7 +21,6 @@ To implement your own optimization algorithm, create a class that derives from
     :nosignatures:
 
     Optimizer
-    SteepestDescent
 
 .. autoclass:: Optimizer
     :member-order: bysource
@@ -48,7 +47,7 @@ class Optimizer(abc.ABC):
     Parameters
     ----------
     abs_tol : float or dict
-        The absolute tolerance or tolerances (keyed on the :class:`ObjectiveFunction`
+        The absolute tolerance or tolerances (keyed on the :class:`~relentless.optimize.ObjectiveFunction`
         design variables).
 
     """
@@ -57,32 +56,34 @@ class Optimizer(abc.ABC):
 
     @abc.abstractmethod
     def optimize(self, objective):
-        """Adjusts the given objective function until the convergence criteria
-        (defined by :meth:`has_converged()`) is satisfied.
+        """Minimize an objective function.
+
+        The design variables of the objective function are adjusted until convergence
+        (see :meth:`has_converged()`).
 
         Parameters
         ----------
-        objective : :class:`ObjectiveFunction`
+        objective : :class:`~relentless.optimize.ObjectiveFunction`
             The objective function to be optimized.
 
         """
         pass
 
     def has_converged(self, result):
-        """Checks if the convergence criteria is satisfied.
+        """Check if the convergence criteria is satisfied.
 
-        Checks if the absolute value of the gradient for each design variable of the
-        objective function is less than the absolute tolerance for that variable.
+        The absolute value of the gradient for each design variable of the objective
+        function must be less than the absolute tolerance for that variable.
 
         Parameters
         ----------
-        result : :class:`ObjectiveFunctionResult`
+        result : :class:`~relentless.optimize.ObjectiveFunctionResult`
             The computed value of the objective function.
 
         Returns
         -------
         bool
-            ``True`` if the criteria is satisfied, ``False`` otherwise.
+            ``True`` if the criteria is satisfied.
 
         Raises
         ------
@@ -123,13 +124,25 @@ class Optimizer(abc.ABC):
 class SteepestDescent(Optimizer):
     r"""Steepest descent algorithm.
 
+    For an :class:`~relentless.optimize.ObjectiveFunction` :math:`f\left(\mathbf{x}\right)`,
+    the steepest descent seeks to approach a minimum of the function.
+
+    With an initial numerical guess for all the design variables :math:`\mathbf{x}`,
+    the following iterative calculation is performed:
+
+    .. math::
+
+        \mathbf{x}_{n+1} = \mathbf{x}_{n}-\alpha\nabla f\left(\mathbf{x}\right)
+
+    where :math:`\alpha` is defined as the step size hyperparameter.
+
     Parameters
     ----------
     abs_tol : float or dict
-        The absolute tolerance or tolerances (keyed on the :class:`ObjectiveFunction`
+        The absolute tolerance or tolerances (keyed on the :class:`~relentless.optimize.ObjectiveFunction`
         design variables).
     step_size : float
-        The step size hyperparameter for the optimization.
+        The step size hyperparameter (:math:`\alpha`).
     max_iter : int
         The maximum number of optimization iterations allowed.
 
@@ -140,11 +153,11 @@ class SteepestDescent(Optimizer):
         self.max_iter = max_iter
 
     def optimize(self, objective):
-        """Performs the steepest descent optimization for the given objective function.
+        """Perform the steepest descent optimization for the given objective function.
 
         Parameters
         ----------
-        objective : :class:`ObjectiveFunction`
+        objective : :class:`~relentless.optimize.ObjectiveFunction`
             The objective function to be optimized.
 
         Returns
@@ -170,7 +183,7 @@ class SteepestDescent(Optimizer):
 
     @property
     def step_size(self):
-        """float: The step size hyperparameter for the optimization."""
+        """float: The step size hyperparameter (:math:`\alpha`)."""
         return self._step_size
 
     @step_size.setter

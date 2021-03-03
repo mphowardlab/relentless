@@ -1,11 +1,20 @@
-"""
+r"""
 Objective Functions
 ===================
 
-An :class:`ObjectiveFunction` defines an objective function to be optimized.
-An objective function is a scalar value that is defined as a function of the
-problem :class:`DesignVariables<DesignVariable>`, and has a specified gradient
-with respect to each of the :class:`DesignVariables<DesignVariable>` as well.
+An objective function is the quantity to be minimized in an optimization problem,
+by adjusting the variables on which the function depends.
+
+This function, :math:`f`, is a scalar value that is defined as a function of :math:`n`
+problem :class:`DesignVariables<~relentless.variable.DesignVariable>`
+:math:`\mathbf{x}=\left[x_1,\ldots,x_n\right]`.
+
+The value of the function, :math:`f\left(\mathbf{x}\right)` is specified.
+The gradient is also specified for all of the design variables:
+
+    .. math::
+
+        \nabla f = \left[\frac{\partial f}{\partial x_1},\ldots,\frac{\partial f}{\partial x_n}\right]
 
 .. rubric:: Developer notes
 
@@ -37,13 +46,13 @@ class ObjectiveFunction(abc.ABC):
     """Abstract base class for the optimization objective function.
 
     An :class:`ObjectiveFunction` defines the objective function parametrized on
-    one or more adjustable :class:`DesignVariables<DesignVariable>`. The function
-    must also have a defined value and gradient for all values of its parameters.
+    one or more adjustable :class:`DesignVariables<~relentless.variable.DesignVariable>`.
+    The function must also have a defined value and gradient for all values of its parameters.
 
     """
     @abc.abstractmethod
     def compute(self):
-        """Evaluates the value and gradient of the objective function.
+        """Evaluate the value and gradient of the objective function.
 
         This method must call :meth:`make_result()` and return its result.
 
@@ -57,8 +66,8 @@ class ObjectiveFunction(abc.ABC):
 
     @abc.abstractmethod
     def design_variables(self):
-        """Returns all :class:`DesignVariables<DesignVariable>` parametrized
-        by the objective function.
+        """Return all :class:`DesignVariables<~relentless.variable.DesignVariable>`
+        parametrized by the objective function.
 
         Returns
         -------
@@ -69,7 +78,7 @@ class ObjectiveFunction(abc.ABC):
         pass
 
     def make_result(self, value, gradient):
-        """Constructs a :class:`ObjectiveFunctionResult` to store the result
+        """Construct a :class:`ObjectiveFunctionResult` to store the result
         of :meth:`compute()`.
 
         Parameters
@@ -78,7 +87,8 @@ class ObjectiveFunction(abc.ABC):
             The value of the objective function.
         gradient : dict
             The gradient of the objective function. Each partial derivative is
-            keyed on the :class:`DesignVariable` with respect to which it is taken.
+            keyed on the :class:`~relentless.variable.DesignVariable`
+            with respect to which it is taken.
 
         Returns
         -------
@@ -97,7 +107,8 @@ class ObjectiveFunctionResult:
         The value of the objective function.
     gradient : dict
         The gradient of the objective function. Each partial derivative is
-        keyed on the :class:`DesignVariable` with respect to which it is taken.
+        keyed on the :class:`~relentless.variable.DesignVariable`
+        with respect to which it is taken.
     objective : :class:`ObjectiveFunction`
        The objective function for which this result is constructed.
 
@@ -106,18 +117,18 @@ class ObjectiveFunctionResult:
         self.value = value
 
         self.design_variables = objective.design_variables()
-        self._gradient = _collections.FixedKeyDict(keys=self.design_variables)
+        self._gradient = _collections.FixedKeyDict(keys=self.design_variables.keys())
         self._gradient.update(gradient)
 
         self.variable_values = {x : x.value for x in self.design_variables}
 
     def gradient(self, var):
-        """The value of the gradient for a particular :class:`DesignVariable`
+        """The value of the gradient for a particular :class:`~relentless.variable.DesignVariable`
         parameter of the objective function.
 
         Parameters
         ----------
-        var : :class:`DesignVariable`
+        var : :class:`~relentless.variable.DesignVariable`
             A parameter of the objective function.
 
         Returns
