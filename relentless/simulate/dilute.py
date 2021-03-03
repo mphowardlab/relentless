@@ -71,7 +71,7 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
 
         Parameters
         ----------
-        sim : :py:class:`SimulationInstance`
+        sim : :class:`SimulationInstance`
             Instance to analyze.
 
         Raises

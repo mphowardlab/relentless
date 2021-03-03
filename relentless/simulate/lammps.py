@@ -14,13 +14,14 @@ except ImportError:
     _lammps_found = False
 
 class LAMMPS(simulate.Simulation):
-    """:py:class:`Simulation` using LAMMPS framework.
+    """:class:`Simulation` using LAMMPS framework.
 
     LAMMPS must be built with its `Python interface <https://lammps.sandia.gov/doc/Python_head.html>`_
     and must be version 29 Oct 2020 or newer.
 
     Raises
     ------
+    ImportError
         If the `lammps` package is not found.
 
     """
@@ -64,13 +65,13 @@ class LAMMPSOperation(simulate.SimulationOperation):
     def __call__(self, sim):
         """Evaluates the LAMMPS simulation operation.
 
-        Each deriving class of :py:class:`LAMMPSOperation` must implement a
-        :py:func:`to_commands()` method that returns a list or tuple of LAMMPS
-        commands that can be executed by :py:func:`lammps.commands_list()`.
+        Each deriving class of :class:`LAMMPSOperation` must implement a
+        :meth:`to_commands()` method that returns a list or tuple of LAMMPS
+        commands that can be executed by :meth:`lammps.commands_list()`.
 
         Parameters
         ----------
-        sim : :py:class:`Simulation`
+        sim : :class:`Simulation`
             The simulation object.
 
         """
@@ -95,12 +96,12 @@ class LAMMPSOperation(simulate.SimulationOperation):
     def to_commands(self, sim):
         """Calls the appropriate LAMMPS commands for the simulation operation.
 
-        All classes deriving from :py:class:`LAMMPSOperation` must implement
+        All classes deriving from :class:`LAMMPSOperation` must implement
         this method.
 
         Parameters
         ----------
-        sim : :py:class:`Simulation`
+        sim : :class:`Simulation`
             The simulation object.
 
         Returns
@@ -142,7 +143,7 @@ class Initialize(LAMMPSOperation):
 
         Parameters
         ----------
-        sim: :py:class:`Simulation`
+        sim: :class:`Simulation`
             The simulation object.
 
         Returns
@@ -155,7 +156,7 @@ class Initialize(LAMMPSOperation):
         ValueError
             If the volume is not set.
         TypeError
-            If the volume does not derive from :py:class:`TriclinicBox`.
+            If the volume does not derive from :class:`TriclinicBox`.
 
         """
         # cast simulation box in LAMMPS parameters
@@ -182,7 +183,7 @@ class Initialize(LAMMPSOperation):
 
         Parameters
         ----------
-        sim: :py:class:`Simulation`
+        sim: :class:`Simulation`
             The simulation object.
 
         Returns
@@ -425,7 +426,7 @@ class RemoveLangevinIntegrator(LAMMPSOperation):
 
     Parameters
     ----------
-    add_op : :py:class:`AddLangevinIntegrator`
+    add_op : :class:`AddLangevinIntegrator`
         The integrator addition operation to be removed.
 
     Raises
@@ -485,7 +486,7 @@ class RemoveNPTIntegrator(LAMMPSOperation):
 
     Parameters
     ----------
-    add_op : :py:class:`AddNPTIntegrator`
+    add_op : :class:`AddNPTIntegrator`
         The integrator addition operation to be removed.
 
     Raises
@@ -538,7 +539,7 @@ class RemoveNVTIntegrator(LAMMPSOperation):
 
     Parameters
     ----------
-    add_op : :py:class:`AddNVTIntegrator`
+    add_op : :class:`AddNVTIntegrator`
         The integrator addition operation to be removed.
 
     Raises
@@ -595,7 +596,7 @@ class AddEnsembleAnalyzer(LAMMPSOperation):
     """Analyzes the simulation ensemble and rdf at specified timestep intervals.
 
     The simulation ensemble must have constant N, and only one LAMMPS
-    :py:class:AddEnsembleAnalyzer` can be initialized at a time.
+    :class:AddEnsembleAnalyzer` can be initialized at a time.
 
     Parameters
     ----------
@@ -682,12 +683,12 @@ class AddEnsembleAnalyzer(LAMMPSOperation):
 
         Parameters
         ----------
-        sim : :py:class:`Simulation`
+        sim : :class:`Simulation`
             The simulation object.
 
         Returns
         -------
-        :py:class:`Ensemble`
+        :class:`Ensemble`
             Ensemble with averaged thermodynamic properties and rdf.
 
         """

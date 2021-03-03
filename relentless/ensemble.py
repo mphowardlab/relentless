@@ -47,7 +47,7 @@ class Ensemble(object):
         Temperature of the system.
     P : float
         Pressure of the system (defaults to None).
-    V : :py:class:`Volume`
+    V : :class:`Volume`
         Volume of the system (defaults to None).
     mu : dict
         The chemical potential for each specified type (defaults to None).
@@ -141,7 +141,7 @@ class Ensemble(object):
 
     @property
     def V(self):
-        r""":py:class:`Volume`: The volume of the system."""
+        r""":class:`Volume`: The volume of the system."""
         return self._V
 
     @V.setter
@@ -161,12 +161,12 @@ class Ensemble(object):
 
     @property
     def N(self):
-        r""":py:class:`FixedKeyDict`: Number of particles of each type."""
+        r""":class:`FixedKeyDict`: Number of particles of each type."""
         return self._N
 
     @property
     def mu(self):
-        r""":py:class:`FixedKeyDict`: Chemical potential of each type."""
+        r""":class:`FixedKeyDict`: Chemical potential of each type."""
         return self._mu
 
     @property
@@ -228,7 +228,7 @@ class Ensemble(object):
 
     @property
     def rdf(self):
-        r""":py:class:`PairMatrix`: Radial distribution function per pair."""
+        r""":class:`PairMatrix`: Radial distribution function per pair."""
         return self._rdf
 
     def clear(self):
@@ -239,7 +239,7 @@ class Ensemble(object):
 
         Returns
         -------
-        :py:class:`Ensemble`
+        :class:`Ensemble`
             This Ensemble with cleared parameters.
 
         """
@@ -262,7 +262,7 @@ class Ensemble(object):
 
         Returns
         -------
-        :py:class:`Ensemble`
+        :class:`Ensemble`
             A new Ensemble object having the same state.
 
         """
@@ -311,7 +311,7 @@ class Ensemble(object):
 
         Returns
         -------
-        :py:class:`Ensemble`
+        :class:`Ensemble`
             An new Ensemble object.
 
         """

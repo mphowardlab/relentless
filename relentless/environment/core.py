@@ -49,12 +49,12 @@ class Policy:
 
     See also
     --------
-    :py:class:`Environment`
+    :class:`Environment`
 
     Notes
     -----
     Specified parameters must have integer values of at least 1. Unspecified
-    parameters default to a choice by the :py:class:`Environment`, which will
+    parameters default to a choice by the :class:`Environment`, which will
     usually be determined by environment variables or the system configuration.
     It is better to be explicit!
 
@@ -142,7 +142,7 @@ class Environment:
     def call(self, cmd, policy):
         """Execute a command through the shell.
 
-        The environment interprets a :py:class:`Policy` to create and execute a
+        The environment interprets a :class:`Policy` to create and execute a
         command through the shell. Currently, this involves wrapping `cmd` with
         environment-specific MPI and OpenMP commands and flags set by `policy`.
 
@@ -150,7 +150,7 @@ class Environment:
         ----------
         cmd : str or list or tuple
             Command to execute in the shell.
-        policy : :py:class:`Policy`
+        policy : :class:`Policy`
             Execution policy for the command.
 
         Returns
@@ -233,7 +233,7 @@ class Environment:
 
     @property
     def project(self):
-        """:py:class:`Directory` The base directory for the project."""
+        """:class:`Directory` The base directory for the project."""
         return self._project
 
     def data(self, step):
@@ -246,7 +246,7 @@ class Environment:
 
         Returns
         -------
-        :py:class:`Directory`
+        :class:`Directory`
             The data directory associated with a `step`.
 
         """

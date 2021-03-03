@@ -6,12 +6,12 @@ class Simulation:
     """Ensemble simulation container.
 
     Base class that initializes and runs a simulation described by a set of
-    :py:class:`SimulationOperation`s.
+    :class:`SimulationOperation`s.
 
     Parameters
     ----------
     operations : array_like
-        Array of :py:class:`SimulationOperation` to call.
+        Array of :class:`SimulationOperation` to call.
     options : kwargs
         Optional arguments to attach to each instance of a simulation.
 
@@ -31,23 +31,23 @@ class Simulation:
 
         Parameters
         ----------
-        ensemble : :py:class:`Ensemble`
+        ensemble : :class:`Ensemble`
             Simulation ensemble. Must include values for *N* and *V* even if
             these variables fluctuate.
-        potentials : :py:class:`Potentials`
+        potentials : :class:`Potentials`
             The interaction potentials.
-        directory : :py:class:`Directory`
+        directory : :class:`Directory`
             Directory to use for writing data.
 
         Returns
         -------
-        :py:class:`Simulation`
+        :class:`Simulation`
             The simulation instance after the operations are performed.
 
         Raises
         ------
         TypeError
-            If all operations are not :py:class:`SimulationOperation`s.
+            If all operations are not :class:`SimulationOperation`s.
 
         """
         if not all([isinstance(op,SimulationOperation) for op in self.operations]):
@@ -84,12 +84,12 @@ class SimulationInstance:
     ----------
     backend : type
         Type of the simulation class.
-    ensemble : :py:class:`Ensemble`
+    ensemble : :class:`Ensemble`
         Simulation ensemble. Must include values for *N* and *V* even if
         these variables fluctuate.
-    potentials : :py:class:`Potentials`
+    potentials : :class:`Potentials`
         The interaction potentials.
-    directory : :py:class:`Directory`
+    directory : :class:`Directory`
         Directory for output.
     options : kwargs
         Optional arguments for the initialize, analyze, and defined "operations" functions.
@@ -120,15 +120,15 @@ class SimulationOperation(abc.ABC):
 class Potentials:
     """Combination of multiple potentials.
 
-    Iniitializes a :py:class:`PairPotentialTabulator` object that can store multiple potentials.
-    Before the :py:class:`Potentials` object can be used, the ``rmax`` and ``num``
+    Iniitializes a :class:`PairPotentialTabulator` object that can store multiple potentials.
+    Before the :class:`Potentials` object can be used, the ``rmax`` and ``num``
     attributes of all ``pair``s (that are not `None`) must be set.
 
     Parameters
     ----------
     pair_potentials : array_like
         The pair potentials to be combined and tabulated. (Defaults to `None`,
-        resulting in an empty :py:class:`PairPotentialTabulator` object).
+        resulting in an empty :class:`PairPotentialTabulator` object).
 
     """
     def __init__(self, pair_potentials=None):
@@ -136,7 +136,7 @@ class Potentials:
 
     @property
     def pair(self):
-        """:py:class:`PairPotentialTabulator`: The combined potentials."""
+        """:class:`PairPotentialTabulator`: The combined potentials."""
         return self._pair
 
 class PotentialTabulator:
@@ -153,9 +153,9 @@ class PotentialTabulator:
         The positional value of *x* at which to end tabulation.
     num : int
         The number of points (value of *x*) at which to tabulate and evaluate the potential.
-    potentials : :py:class:`Potential` or array_like
+    potentials : :class:`Potential` or array_like
         The potential(s) to be tabulated. If array_like, all elements must
-        be :py:class:`Potential`s. (Defaults to `None`).
+        be :class:`Potential`s. (Defaults to `None`).
 
     """
     def __init__(self, start, stop, num, potentials=None):
@@ -304,9 +304,9 @@ class PairPotentialTabulator(PotentialTabulator):
         The maximum value of *r* at which to tabulate.
     num : int
         The number of points (value of *r) at which to tabulate and evaluate the potential.
-    potentials : :py:class:`PairPotential` or array_like
+    potentials : :class:`PairPotential` or array_like
         The pair potential(s) to be tabulated. If array_like, all elements must
-        be :py:class:`PairPotential`s. (Defaults to `None`).
+        be :class:`PairPotential`s. (Defaults to `None`).
     fmax : float
         The maximum value of force at which to allow evaluation.
 

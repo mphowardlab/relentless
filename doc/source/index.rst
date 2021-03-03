@@ -16,6 +16,7 @@ relentless
 
     api/index
     api/potential/index
+    api/optimize/index
     api/variable
 
 .. toctree::

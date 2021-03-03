@@ -2,8 +2,8 @@
 
 The following systems are currently supported:
 
-* :py:class:`Lonestar5` (`ls5.tacc.utexas.edu`)
-* :py:class:`Stampede2` (`stampede2.tacc.utexas.edu`)
+* :class:`Lonestar5` (`ls5.tacc.utexas.edu`)
+* :class:`Stampede2` (`stampede2.tacc.utexas.edu`)
 
 """
 from . import core
@@ -15,7 +15,7 @@ class Lonestar5(core.Environment):
     is a hybrid compute cluster having both 16-core CPU nodes and NVIDIA K20 GPU
     nodes. It is recommended to define policies having no more than 16 **total**
     compute threads per node. GPUs are currently not officially supported by
-    :py:class:`~.core.Policy`, but may be experimentally used in certain
+    :class:`~.core.Policy`, but may be experimentally used in certain
     configurations.
 
     """

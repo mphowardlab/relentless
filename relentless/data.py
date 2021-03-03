@@ -16,7 +16,7 @@ class Directory:
     `path` may include multiple directories that do not yet exist. This object
     represents the final directory in `path`.
 
-    A :py:class:`Directory` is a context that can be used to manage the current
+    A :class:`Directory` is a context that can be used to manage the current
     working directory. Entering the context changes the current working
     directory to *path*, and exiting restores the working directory before the
     context was entered.
@@ -59,7 +59,7 @@ class Directory:
 
         Returns
         -------
-        :py:class:`Directory`
+        :class:`Directory`
             This directory.
 
         """
@@ -120,7 +120,7 @@ class Directory:
 
         Returns
         -------
-        :py:class:`Directory`
+        :class:`Directory`
             A new directory relative to this one.
 
         Examples
@@ -165,17 +165,17 @@ class Project:
     pseudo-``scratch`` directory will be created in the ``workspace``, but it
     will not be any more performant than the ``workspace``.
 
-    The :py:class:`Project` does not specify a data schema. The schema must
-    be created by consumers of the :py:class:`Project`. A :py:class:`Project`
+    The :class:`Project` does not specify a data schema. The schema must
+    be created by consumers of the :class:`Project`. A :class:`Project`
     also does not guarantee that the ``scratch`` space will actually be
     cleared. It is up to the user (or the system) to remove this data.
 
     Parameters
     ----------
-    workspace : str or :py:class:`Directory`
+    workspace : str or :class:`Directory`
         Directory for persistent project data.
         Defaults to ``./workspace`` (using UNIX filesystem notation).
-    scratch : str or :py:class:`Directory`
+    scratch : str or :class:`Directory`
         Directory for temporary (scratch) project data.
         Defaults to ``./workspace/scratch`` (using UNIX filesystem notation).
 
@@ -201,10 +201,10 @@ class Project:
 
     @property
     def workspace(self):
-        r""":py:class:`Directory` Work space."""
+        r""":class:`Directory` Work space."""
         return self._work
 
     @property
     def scratch(self):
-        r""":py:class:`Directory` Scratch space."""
+        r""":class:`Directory` Scratch space."""
         return self._scratch

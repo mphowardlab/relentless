@@ -9,8 +9,8 @@ class GenericOperation(simulate.SimulationOperation):
     """Generic simulation operation adapter.
 
     Translates a ``generic`` simulation operation into an implemented operation
-    for a valid :py:class:`Simulation` backend. The backend must be an attribute
-    of the :py:class:`GenericOperation`.
+    for a valid :class:`Simulation` backend. The backend must be an attribute
+    of the :class:`GenericOperation`.
 
     Parameters
     ----------
@@ -33,18 +33,18 @@ class GenericOperation(simulate.SimulationOperation):
 
         Parameters
         ----------
-        sim : :py:class:`Simulation`
+        sim : :class:`Simulation`
             Simulation object.
 
         Returns
         -------
-        :py:obj:
+        :obj:
             The result of the generic simulation operation function.
 
         Raises
         ------
         TypeError
-            If the specified simulation backend is not registered (using :py:func:`add_backend`).
+            If the specified simulation backend is not registered (using :meth:`add_backend`).
         TypeError
             If the specified operation is not found in the simulation backend.
 
@@ -67,11 +67,11 @@ class GenericOperation(simulate.SimulationOperation):
 
     @classmethod
     def add_backend(cls, backend, module=None):
-        """Adds backend attribute to :py:class:`GenericOperation`.
+        """Adds backend attribute to :class:`GenericOperation`.
 
         Parameters
         ----------
-        backend : :py:class:`Simulation`
+        backend : :class:`Simulation`
             Class to add as a backend.
         module : module or str or `None`
             Module in which the backend is defined. If `None` (default), try to
@@ -164,7 +164,7 @@ class RemoveBrownianIntegrator(GenericOperation):
 
     Parameters
     ----------
-    add_op : :py:class:`AddBrownianIntegrator`
+    add_op : :class:`AddBrownianIntegrator`
         The integrator addition operation to be removed.
 
     """
@@ -194,7 +194,7 @@ class RemoveLangevinIntegrator(GenericOperation):
 
     Parameters
     ----------
-    add_op : :py:class:`AddLangevinIntegrator`
+    add_op : :class:`AddLangevinIntegrator`
         The integrator addition operation to be removed.
 
     """
@@ -224,7 +224,7 @@ class RemoveNPTIntegrator(GenericOperation):
 
     Parameters
     ----------
-    add_op : :py:class:`AddNPTIntegrator`
+    add_op : :class:`AddNPTIntegrator`
         The integrator addition operation to be removed.
 
     """
@@ -236,7 +236,7 @@ class AddNVTIntegrator(GenericOperation):
 
     Parameters
     ----------
-    add_op : :py:class:`AddNVTIntegrator`
+    add_op : :class:`AddNVTIntegrator`
         The integrator addition operation to be removed.
 
     Parameters
@@ -257,7 +257,7 @@ class RemoveNVTIntegrator(GenericOperation):
 
     Parameters
     ----------
-    add_op : :py:class:`AddNVTIntegrator`
+    add_op : :class:`AddNVTIntegrator`
         The integrator addition operation to be removed.
 
     """
@@ -310,12 +310,12 @@ class AddEnsembleAnalyzer(GenericOperation):
 
         Parameters
         ----------
-        sim : :py:class:`Simulation`
+        sim : :class:`Simulation`
             The simulation object.
 
         Returns
         -------
-        :py:class:`Ensemble`
+        :class:`Ensemble`
             Ensemble with averaged thermodynamic properties and rdf.
         """
         return self._op.extract_ensemble(sim)
