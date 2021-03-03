@@ -408,7 +408,7 @@ class PairPotential(potential.Potential):
             If any value in ``r`` is negative.
         TypeError
             If the parameter with respect to which to take the derivative
-            is not a :py:class:`Variable`.
+            is not a :class:`Variable`.
         ValueError
             If the potential is shifted without setting ``rmax``.
 

@@ -27,7 +27,7 @@ class Volume(abc.ABC):
         Returns
         -------
         dict
-            The serialized :py:class:`Volume` data.
+            The serialized :class:`Volume` data.
 
         """
         pass
@@ -115,7 +115,7 @@ class Parallelepiped(Volume):
 
         Returns
         -------
-        :py:class:`Parallelepiped`
+        :class:`Parallelepiped`
             A new Parallelepiped object constructed from the data.
 
         """
@@ -124,14 +124,14 @@ class Parallelepiped(Volume):
 class TriclinicBox(Parallelepiped):
     r"""Triclinic box.
 
-    A TriclinicBox is a special type of :py:class:`Parallelepiped`. The box is
+    A TriclinicBox is a special type of :class:`Parallelepiped`. The box is
     defined by an orthorhombic box oriented along the Cartesian axes and having
     three vectors of length ``Lx``, ``Ly``, and ``Lz``, respectively. The box is
     then tilted by factors ``xy``, ``xy``, and ``xz``, which are upper off-diagonal
     elements of the matrix of box vectors. As a result, the **a** vector is
     always aligned along the *x*-axis, while the other two vectors may be tilted.
 
-    The tilt factors can be defined using one of two :py:class:`TriclinicBox.Convention`.
+    The tilt factors can be defined using one of two :class:`TriclinicBox.Convention`.
     In the `LAMMPS <https://lammps.sandia.gov/doc/Howto_triclinic.html>`_
     simulation convention, specified using ``TriclinicBox.Convention.LAMMPS``,
 
@@ -223,7 +223,7 @@ class TriclinicBox(Parallelepiped):
 
     @property
     def convention(self):
-        r""":py:class:`TriclinicBox.Convention`: Convention for tilt factors."""
+        r""":class:`TriclinicBox.Convention`: Convention for tilt factors."""
         return self._convention
 
     def to_json(self):
@@ -270,7 +270,7 @@ class TriclinicBox(Parallelepiped):
 
         Returns
         -------
-        :py:class:`TriclinicBox`
+        :class:`TriclinicBox`
             A new TriclinicBox object constructed from the data.
 
         Raises
@@ -291,7 +291,7 @@ class TriclinicBox(Parallelepiped):
 class Cuboid(TriclinicBox):
     r"""Orthorhombic box.
 
-    A Cuboid is a special type of :py:class:`TriclinicBox`. The three box vectors
+    A Cuboid is a special type of :class:`TriclinicBox`. The three box vectors
     point along the *x*, *y*, and *z* axes, so they are all orthogonal (i.e. the
     tilt factors ``xy``, ``xz``, and ``yz`` are all 0). Each vector can have a
     different length, *Lx*, *Ly*, and *Lz*.
@@ -338,7 +338,7 @@ class Cuboid(TriclinicBox):
 
         Returns
         -------
-        :py:class:`Cuboid`
+        :class:`Cuboid`
             A new Cuboid object constructed from the data.
 
         """
@@ -347,7 +347,7 @@ class Cuboid(TriclinicBox):
 class Cube(Cuboid):
     r"""Cubic box.
 
-    A Cube is a special type of :py:class:`Cuboid` where all vectors have the
+    A Cube is a special type of :class:`Cuboid` where all vectors have the
     same length *L*.
 
     Parameters
@@ -384,7 +384,7 @@ class Cube(Cuboid):
 
         Returns
         -------
-        :py:class:`Cube`
+        :class:`Cube`
             A new Cube object constructed from the data.
 
         """

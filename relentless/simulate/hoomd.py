@@ -23,7 +23,7 @@ except ImportError:
     _freud_found = False
 
 class HOOMD(simulate.Simulation):
-    """:py:class:`Simulation` using HOOMD framework.
+    """:class:`Simulation` using HOOMD framework.
 
     Raises
     ------
@@ -76,7 +76,7 @@ class Initialize(simulate.SimulationOperation):
 
         Parameters
         ----------
-        sim : :py:class:`Simulation`
+        sim : :class:`Simulation`
             Simulation object.
 
         Returns
@@ -89,7 +89,7 @@ class Initialize(simulate.SimulationOperation):
         ValueError
             If the volume is not set.
         TypeError
-            If the volume does not derive from :py:class:`TriclinicBox`.
+            If the volume does not derive from :class:`TriclinicBox`.
 
         """
         # cast simulation box in HOOMD parameters
@@ -113,14 +113,14 @@ class Initialize(simulate.SimulationOperation):
 
         Parameters
         ----------
-        sim : :py:class:`Simulation`
+        sim : :class:`Simulation`
             The simulation object.
 
         Returns
         -------
         `hoomd.data` snapshot
             Particle simulation snapshot.
-        :py:class:`freud.Box`
+        :class:`freud.Box`
             Particle simulation box.
 
         Raises
@@ -155,7 +155,7 @@ class Initialize(simulate.SimulationOperation):
 
         Parameters
         ----------
-        sim : :py:class:`Simulation`
+        sim : :class:`Simulation`
             The simulation object.
 
         Raises
@@ -198,7 +198,7 @@ class InitializeFromFile(Initialize):
     neighbor_buffer : float
         Buffer width.
     options : kwargs
-        Options for file reading (as used in :py:meth:`hoomd.init.read_gsd()`).
+        Options for file reading (as used in :meth:`hoomd.init.read_gsd()`).
 
     """
     def __init__(self, filename, neighbor_buffer, **options):
@@ -211,7 +211,7 @@ class InitializeFromFile(Initialize):
 
         Parameters
         ----------
-        sim : :py:class:`Simulation`
+        sim : :class:`Simulation`
             The simulation object.
 
         Raises
@@ -262,7 +262,7 @@ class InitializeRandomly(Initialize):
 
         Parameters
         ----------
-        sim : :py:class:`Simulation`
+        sim : :class:`Simulation`
             The simulation object.
 
         """
@@ -327,7 +327,7 @@ class MinimizeEnergy(simulate.SimulationOperation):
 
         Parameters
         ----------
-        sim : :py:class:`Simulation`
+        sim : :class:`Simulation`
             The simulation object.
 
         Raises
@@ -376,7 +376,7 @@ class AddMDIntegrator(simulate.SimulationOperation):
 
         Parameters
         ----------
-        sim : :py:class:`Simulation`
+        sim : :class:`Simulation`
             The simulation object.
 
         """
@@ -394,7 +394,7 @@ class RemoveMDIntegrator(simulate.SimulationOperation):
 
     Parameters
     ----------
-    add_op : :py:class:`SimulationOperation`
+    add_op : :class:`SimulationOperation`
         The addition/integration operation to be removed.
 
     """
@@ -406,7 +406,7 @@ class RemoveMDIntegrator(simulate.SimulationOperation):
 
         Parameters
         ----------
-        sim : :py:class:`Simulation`
+        sim : :class:`Simulation`
             The simulation object.
 
         Raises
@@ -433,7 +433,7 @@ class AddBrownianIntegrator(AddMDIntegrator):
     seed : int
         Seed used to randomly generate a uniform force.
     options : kwargs
-        Options used in :py:meth:`hoomd.md.integrate.brownian()`.
+        Options used in :meth:`hoomd.md.integrate.brownian()`.
 
     """
     def __init__(self, dt, friction, seed, **options):
@@ -447,7 +447,7 @@ class AddBrownianIntegrator(AddMDIntegrator):
 
         Parameters
         ----------
-        sim : :py:class:`Simulation`
+        sim : :class:`Simulation`
             The simulation object.
 
         Raises
@@ -478,7 +478,7 @@ class RemoveBrownianIntegrator(RemoveMDIntegrator):
 
     Parameters
     ----------
-    add_op : :py:class:`AddBrownianIntegrator`
+    add_op : :class:`AddBrownianIntegrator`
         The integrator addition operation to be removed.
 
     Raises
@@ -504,7 +504,7 @@ class AddLangevinIntegrator(AddMDIntegrator):
     seed : int
         Seed used to randomly generate a uniform force.
     options : kwargs
-        Options used in :py:meth:`hoomd.md.integrate.langevin()`.
+        Options used in :meth:`hoomd.md.integrate.langevin()`.
 
     """
     def __init__(self, dt, friction, seed, **options):
@@ -518,7 +518,7 @@ class AddLangevinIntegrator(AddMDIntegrator):
 
         Parameters
         ----------
-        sim : :py:class:`Simulation`
+        sim : :class:`Simulation`
             The simulation object.
 
         Raises
@@ -549,7 +549,7 @@ class RemoveLangevinIntegrator(RemoveMDIntegrator):
 
     Parameters
     ----------
-    add_op : :py:class:`AddLangevinIntegrator`
+    add_op : :class:`AddLangevinIntegrator`
         The integrator addition operation to be removed.
 
     Raises
@@ -575,7 +575,7 @@ class AddNPTIntegrator(AddMDIntegrator):
     tau_P : float
         Coupling constant for the barostat.
     options : kwargs
-        Options used in :py:meth:`hoomd.md.integrate.npt()`.
+        Options used in :meth:`hoomd.md.integrate.npt()`.
 
     """
     def __init__(self, dt, tau_T, tau_P, **options):
@@ -589,7 +589,7 @@ class AddNPTIntegrator(AddMDIntegrator):
 
         Parameters
         ----------
-        sim : :py:class:`Simulation`
+        sim : :class:`Simulation`
             The simulation object.
 
         Raises
@@ -616,7 +616,7 @@ class RemoveNPTIntegrator(RemoveMDIntegrator):
 
     Parameters
     ----------
-    add_op : :py:class:`AddNPTIntegrator`
+    add_op : :class:`AddNPTIntegrator`
         The integrator addition operation to be removed.
 
     Raises
@@ -635,7 +635,7 @@ class AddNVTIntegrator(AddMDIntegrator):
 
     Parameters
     ----------
-    add_op : :py:class:`AddNVTIntegrator`
+    add_op : :class:`AddNVTIntegrator`
         The integrator addition operation to be removed.
 
     Parameters
@@ -645,7 +645,7 @@ class AddNVTIntegrator(AddMDIntegrator):
     tau_T : float
         Coupling constant for the thermostat.
     options : kwargs
-        Options used in :py:meth:`hoomd.md.integrate.nvt()`.
+        Options used in :meth:`hoomd.md.integrate.nvt()`.
 
     """
     def __init__(self, dt, tau_T, **options):
@@ -658,7 +658,7 @@ class AddNVTIntegrator(AddMDIntegrator):
 
         Parameters
         ----------
-        sim : :py:class:`Simulation`
+        sim : :class:`Simulation`
             The simulation object.
 
         Raises
@@ -683,7 +683,7 @@ class RemoveNVTIntegrator(RemoveMDIntegrator):
 
     Parameters
     ----------
-    add_op : :py:class:`AddNVTIntegrator`
+    add_op : :class:`AddNVTIntegrator`
         The integrator addition operation to be removed.
 
     Raises
@@ -797,8 +797,8 @@ class RDFCallback:
     ----------
     system : `hoomd.data` system
         Simulation system object.
-    params : :py:class:`PairMatrix`
-        Parameters to be used to initialize an instance of :py:class:`freud.density.RDF`.
+    params : :class:`PairMatrix`
+        Parameters to be used to initialize an instance of :class:`freud.density.RDF`.
 
     """
     def __init__(self, system, params):
@@ -852,7 +852,7 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
 
         Parameters
         ----------
-        sim : :py:class:`Simulation`
+        sim : :class:`Simulation`
             The simulation object.
 
         Raises
@@ -890,12 +890,12 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
 
         Parameters
         ----------
-        sim : :py:class:`Simulation`
+        sim : :class:`Simulation`
             The simulation object.
 
         Returns
         -------
-        :py:class:`Ensemble`
+        :class:`Ensemble`
             Ensemble with averaged thermodynamic properties and rdf.
 
         """

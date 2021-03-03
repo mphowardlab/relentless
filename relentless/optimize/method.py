@@ -43,12 +43,12 @@ from .objective import ObjectiveFunction
 class Optimizer(abc.ABC):
     """Abstract base class for optimization algorithm.
 
-    A :py:class:`Optimizer` defines the optimization algorithm with specified parameters.
+    A :class:`Optimizer` defines the optimization algorithm with specified parameters.
 
     Parameters
     ----------
     abs_tol : float or dict
-        The absolute tolerance or tolerances (keyed on the :py:class:`ObjectiveFunction`
+        The absolute tolerance or tolerances (keyed on the :class:`ObjectiveFunction`
         design variables).
 
     """
@@ -58,11 +58,11 @@ class Optimizer(abc.ABC):
     @abc.abstractmethod
     def optimize(self, objective):
         """Adjusts the given objective function until the convergence criteria
-        (defined by :py:meth:`has_converged()`) is satisfied.
+        (defined by :meth:`has_converged()`) is satisfied.
 
         Parameters
         ----------
-        objective : :py:class:`ObjectiveFunction`
+        objective : :class:`ObjectiveFunction`
             The objective function to be optimized.
 
         """
@@ -76,7 +76,7 @@ class Optimizer(abc.ABC):
 
         Parameters
         ----------
-        result : :py:class:`ObjectiveFunctionResult`
+        result : :class:`ObjectiveFunctionResult`
             The computed value of the objective function.
 
         Returns
@@ -126,7 +126,7 @@ class SteepestDescent(Optimizer):
     Parameters
     ----------
     abs_tol : float or dict
-        The absolute tolerance or tolerances (keyed on the :py:class:`ObjectiveFunction`
+        The absolute tolerance or tolerances (keyed on the :class:`ObjectiveFunction`
         design variables).
     step_size : float
         The step size hyperparameter for the optimization.
@@ -144,7 +144,7 @@ class SteepestDescent(Optimizer):
 
         Parameters
         ----------
-        objective : :py:class:`ObjectiveFunction`
+        objective : :class:`ObjectiveFunction`
             The objective function to be optimized.
 
         Returns

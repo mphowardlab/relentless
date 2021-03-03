@@ -2,8 +2,8 @@
 
 The following systems are currently supported:
 
-* :py:class:`OpenMPI`
-* :py:class:`SLURM`
+* :class:`OpenMPI`
+* :class:`SLURM`
 
 """
 from . import core
