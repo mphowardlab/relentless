@@ -116,11 +116,13 @@ class ObjectiveFunctionResult:
     def __init__(self, value, gradient, objective):
         self.value = value
 
-        self.design_variables = objective.design_variables()
-        self._gradient = _collections.FixedKeyDict(keys=self.design_variables.keys())
+        dvars = objective.design_variables()
+        self._gradient = _collections.FixedKeyDict(keys=dvars)
         self._gradient.update(gradient)
 
-        self.variable_values = {x : x.value for x in self.design_variables}
+        self._design_variables = _collections.FixedKeyDict(keys=dvars)
+        variable_values = {x: x.value for x in dvars}
+        self._design_variables.update(variable_values)
 
     def gradient(self, var):
         """The value of the gradient for a particular :class:`~relentless.variable.DesignVariable`
@@ -142,3 +144,10 @@ class ObjectiveFunctionResult:
             return self._gradient[var]
         except KeyError:
             return 0.0
+
+    @property
+    def design_variables(self):
+        """:class:`~relentless.FixedKeyDict`: The design variables of the
+        :class:`ObjectiveFunction` for which the result was constructed, mapped
+        to the value of the variables at the time the result was constructed."""
+        return self._design_variables
