@@ -204,3 +204,56 @@ class SteepestDescent(Optimizer):
         if value < 1:
             raise ValueError('The maximum number of iterations must be positive.')
         self._max_iter = value
+
+class SteepestDescent_LS(SteepestDescent):
+    def __init__(self, abs_tol, max_step_size, max_iter):
+        super().__init__(abs_tol, max_step_size, max_iter)
+
+    def optimize(self, objective):
+        sd = super(abs_tol=self.abs_tol, step_size=self.max_step_size, max_iter=1)
+
+        iter_num = 0
+        converged = False
+        while not converged and iter_num < self.max_iter:
+            converged = sd.optimize(objective)
+            sd.step_size = self._update_step(objective)
+
+        return converged
+
+    def _update_step(self, objective):
+        res = objective.compute()
+        grad = res._gradient.todict().values()
+
+        d = -gradient/np.linalg.norm(gradient)
+        step_size = np.dot(d, -gradient)
+
+        if step_size > self.max_step_size:
+            step_size = self.max_step_size
+
+        return step_size
+
+        '''
+        iter_num = 0
+        step_size = self.max_step_size
+        step_interval = np.array([0, self.max_step_size])
+        target_interval = np.array([target, target])
+        while np.abs(target) > self.ls_tol and iter_num < self.ls_max_iter:
+            step_size = ((step_interval[0]*target_interval[1] - step_interval[1]*target_interval[0])
+                        /(target_interval[1] - target_interval[0]))
+
+            if step_size < step_interval[0] or step_size > step_interval[1]:
+                step_size = 0.5*(step_interval[0] + step_interval[1])
+
+            target = #compute gradient?
+
+            if target > 0:
+                step_interval[0] = step_size
+                target_interval[0] = target
+            else:
+                step_interval[1] = step_size
+                target_interval[1] = target
+
+            iter_num += 1
+
+        return step_size
+        '''
