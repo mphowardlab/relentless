@@ -25,6 +25,13 @@ class test_SteepestDescent(unittest.TestCase):
         self.assertAlmostEqual(o.step_size, 0.25)
         self.assertEqual(o.max_iter, 1000)
 
+        #test using line search for step size
+        l = relentless.optimize.LineSearch(abs_tol=1e-8, max_step_size=0.25, max_iter=100)
+        o.step_size = l
+        self.assertDictEqual(o.abs_tol, {x:1e-9})
+        self.assertEqual(o.step_size, l)
+        self.assertEqual(o.max_iter, 1000)
+
         #test invalid parameters
         with self.assertRaises(ValueError):
             o.step_size = -0.25
@@ -54,8 +61,16 @@ class test_SteepestDescent(unittest.TestCase):
 
         #test insufficient maximum iterations
         x.value = 1.5
-        o = relentless.optimize.SteepestDescent(abs_tol=1e-8, step_size=0.25, max_iter=1)
+        o.max_iter = 1
         self.assertFalse(o.optimize(objective=q))
+
+        #test using line search for step size
+        x.value = 0.0
+        o.max_iter = 1000
+        l = relentless.optimize.LineSearch(abs_tol=1e-8, max_step_size=25, max_iter=99)
+        o.step_size = l
+        #self.assertTrue(o.optimize(objective=q))
+        self.assertAlmostEqual(x.value, 1.0)
 
 class test_LineSearch(unittest.TestCase):
     """Unit tests for relentless.optimize.LineSearch"""
@@ -101,7 +116,7 @@ class test_LineSearch(unittest.TestCase):
         self.assertGreater(step, 0)
         self.assertLess(step, 100)
 
-        #max step size acceptable
+        #max step size can be acceptable
         x.value = -1.0
         l = relentless.optimize.LineSearch(abs_tol=1e-8, max_step_size=0.01, max_iter=1000)
         step = l.find(objective=q)

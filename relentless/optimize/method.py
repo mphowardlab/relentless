@@ -143,8 +143,10 @@ class SteepestDescent(Optimizer):
     abs_tol : float or dict
         The absolute tolerance or tolerances (keyed on the :class:`~relentless.optimize.ObjectiveFunction`
         design variables).
-    step_size : float
-        The step size hyperparameter (:math:`\alpha`).
+    step_size : float or :class:`LineSearch`
+        The step size hyperparameter (:math:`\alpha`). The parameter is either
+        defined numerically or is the :class:`LineSearch` object to be used
+        to find the optimal step size.
     max_iter : int
         The maximum number of optimization iterations allowed.
 
@@ -172,26 +174,36 @@ class SteepestDescent(Optimizer):
         if len(dvars) == 0:
             return None
 
+        res = objective.compute()
+        try:
+            step = self.step_size.find(objective=objective, result_0=res)
+        except AttributeError:
+            step = self.step_size
+
         iter_num = 0
         converged = False
         while not converged and iter_num < self.max_iter:
-            res = objective.compute()
             for x in dvars:
-                x.value -= self.step_size*res.gradient(x)
+                x.value -= step*res.gradient(x)
             converged = self.has_converged(res)
+            res = objective.compute()
             iter_num += 1
 
         return converged
 
     @property
     def step_size(self):
-        r"""float: The step size hyperparameter (:math:`\alpha`)."""
+        r"""float or :class:`LineSearch`: The step size hyperparameter (:math:`\alpha`)."""
         return self._step_size
 
     @step_size.setter
     def step_size(self, value):
-        if value <= 0:
-            raise ValueError('The step size must be positive.')
+        try:
+            if value <= 0:
+                raise ValueError('The step size must be positive if defined as a float.')
+        except TypeError:
+            if not isinstance(value, LineSearch):
+                raise ValueError('The step size must be a float or an instance of LineSearch.')
         self._step_size = value
 
     @property
@@ -267,6 +279,8 @@ class LineSearch:
 
                 iter_num += 1
 
+            for x in dvars:
+                x.value = dvars_0[x]
             return step_size
 
     @property
