@@ -174,22 +174,18 @@ class SteepestDescent(Optimizer):
         if len(dvars) == 0:
             return None
 
-        res = objective.compute()
-        try:
-            step = self.step_size.find(objective=objective, result_0=res)
-        except AttributeError:
-            step = self.step_size
-
         iter_num = 0
         converged = False
-        while iter_num < self.max_iter:
-            if iter_num > 0:
-                res = objective.compute()
+        while not converged and iter_num < self.max_iter:
+            res = objective.compute()
             converged = self.has_converged(res)
-            if converged:
-                break
-            for x in dvars:
-                x.value -= step*res.gradient(x)
+            if not converged:
+                if isinstance(self.step_size, LineSearch):
+                    step = self.step_size.find(objective=objective, result_0=res)
+                else:
+                    step = self.step_size
+                for x in dvars:
+                    x.value = res.design_variables[x] - step*res.gradient(x)
             iter_num += 1
 
         return converged
