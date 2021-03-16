@@ -10,6 +10,7 @@ Optimization
 
 """
 from .method import (Optimizer,
-                     SteepestDescent)
+                     SteepestDescent,
+                     LineSearch)
 
 from .objective import (ObjectiveFunction)

@@ -37,6 +37,8 @@ To implement your own optimization algorithm, create a class that derives from
 """
 import abc
 
+import numpy as np
+
 from .objective import ObjectiveFunction
 
 class Optimizer(abc.ABC):
@@ -183,7 +185,7 @@ class SteepestDescent(Optimizer):
 
     @property
     def step_size(self):
-        """float: The step size hyperparameter (:math:`\alpha`)."""
+        r"""float: The step size hyperparameter (:math:`\alpha`)."""
         return self._step_size
 
     @step_size.setter
@@ -205,55 +207,103 @@ class SteepestDescent(Optimizer):
             raise ValueError('The maximum number of iterations must be positive.')
         self._max_iter = value
 
-class SteepestDescent_LS(SteepestDescent):
+class LineSearch:
     def __init__(self, abs_tol, max_step_size, max_iter):
-        super().__init__(abs_tol, max_step_size, max_iter)
+        self.abs_tol = abs_tol
+        self.max_step_size = max_step_size
+        self.max_iter = max_iter
 
-    def optimize(self, objective):
-        sd = super(abs_tol=self.abs_tol, step_size=self.max_step_size, max_iter=1)
+    def find(self, objective, result_0=None):
+        dvars = objective.design_variables()
+        if result_0 is None:
+            result_0 = objective.compute()
+        dvars_0 = result_0.design_variables
 
-        iter_num = 0
-        converged = False
-        while not converged and iter_num < self.max_iter:
-            converged = sd.optimize(objective)
-            sd.step_size = self._update_step(objective)
+        # compute normalized search direction, adjust variables based on max step size
+        d = {}
+        d_norm = np.linalg.norm(np.asarray(list(result_0._gradient.todict().values())))
+        for x in dvars:
+            d[x] = (-result_0.gradient(x))/d_norm
+            x.value += self.max_step_size*d[x]
+        result = objective.compute()
 
-        return converged
+        # compute initial and post-adjustment target values
+        target_0 = 0
+        target = 0
+        for x in dvars:
+            target_0 += (d[x]*-result_0.gradient(x))
+            target += (d[x]*-result.gradient(x))
 
-    def _update_step(self, objective):
-        res = objective.compute()
-        grad = res._gradient.todict().values()
+        # check if max step size is acceptable
+        if target > 0 or np.abs(target) < self.abs_tol: #combine conditions as (target > -self.abs_tol) ?
+            return self.max_step_size
 
-        d = -gradient/np.linalg.norm(gradient)
-        step_size = np.dot(d, -gradient)
+        # iterate to minimize target
+        else:
+            rstep = np.array([0, self.max_step_size])
+            rtarget = np.array([target_0, target])
+            iter_num = 0
+            while np.abs(target) > self.abs_tol and iter_num < self.max_iter:
+                # linear interpolation for step size
+                step_size = ((rstep[0]*rtarget[1] - rstep[1]*rtarget[0])
+                            /(rtarget[1] - rtarget[0]))
 
-        if step_size > self.max_step_size:
-            step_size = self.max_step_size
+                # adjust variables based on new step size, compute target
+                for x in dvars:
+                    x.value = dvars_0[x]
+                    x.value += step_size*d[x]
+                result = objective.compute()
+                target = 0
+                for x in dvars:
+                    target += (d[x]*-result.gradient(x))
 
-        return step_size
+                # update search intervals
+                if target > 0:
+                    rstep[0] = step_size
+                    rtarget[0] = target
+                else:
+                    rstep[1] = step_size
+                    rtarget[1] = target
 
-        '''
-        iter_num = 0
-        step_size = self.max_step_size
-        step_interval = np.array([0, self.max_step_size])
-        target_interval = np.array([target, target])
-        while np.abs(target) > self.ls_tol and iter_num < self.ls_max_iter:
-            step_size = ((step_interval[0]*target_interval[1] - step_interval[1]*target_interval[0])
-                        /(target_interval[1] - target_interval[0]))
+                iter_num += 1
 
-            if step_size < step_interval[0] or step_size > step_interval[1]:
-                step_size = 0.5*(step_interval[0] + step_interval[1])
+            return step_size
 
-            target = #compute gradient?
+    @property
+    def abs_tol(self):
+        """float: The absolute tolerance for the target. Must be non-negative."""
+        return self._abs_tol
 
-            if target > 0:
-                step_interval[0] = step_size
-                target_interval[0] = target
+    @abs_tol.setter
+    def abs_tol(self, value):
+        try:
+            if value < 0:
+                raise ValueError('The absolute tolerance must be non-negative.')
             else:
-                step_interval[1] = step_size
-                target_interval[1] = target
+                self._abs_tol = value
+        except TypeError:
+            raise TypeError('The absolute tolerance must be a scalar float.')
 
-            iter_num += 1
+    @property
+    def max_step_size(self):
+        r"""float: The maximum acceptable step size hyperparameter (:math:`\alpha`)."""
+        return self._max_step_size
 
-        return step_size
-        '''
+    @max_step_size.setter
+    def max_step_size(self, value):
+        if value <= 0:
+            raise ValueError('The maximum step size must be positive.')
+        self._max_step_size = value
+
+    @property
+    def max_iter(self):
+        """int: The maximum number of line search iterations allowed."""
+        return self._max_iter
+
+    @max_iter.setter
+    def max_iter(self, value):
+        if not isinstance(value, int):
+            raise TypeError('The maximum number of iterations must be an integer.')
+        if value < 1:
+            raise ValueError('The maximum number of iterations must be positive.')
+        self._max_iter = value
