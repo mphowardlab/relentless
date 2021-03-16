@@ -182,11 +182,14 @@ class SteepestDescent(Optimizer):
 
         iter_num = 0
         converged = False
-        while not converged and iter_num < self.max_iter:
+        while iter_num < self.max_iter:
+            if iter_num > 0:
+                res = objective.compute()
+            converged = self.has_converged(res)
+            if converged:
+                break
             for x in dvars:
                 x.value -= step*res.gradient(x)
-            converged = self.has_converged(res)
-            res = objective.compute()
             iter_num += 1
 
         return converged
