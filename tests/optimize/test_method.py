@@ -14,35 +14,40 @@ class test_SteepestDescent(unittest.TestCase):
         q = QuadraticObjective(x=x)
 
         #test scalar tolerance
-        o = relentless.optimize.SteepestDescent(abs_tol=1e-8, step_size=0.25, max_iter=1000)
+        o = relentless.optimize.SteepestDescent(abs_tol=1e-8, max_iter=1000, step_size=0.25)
         self.assertAlmostEqual(o.abs_tol, 1e-8)
-        self.assertAlmostEqual(o.step_size, 0.25)
         self.assertEqual(o.max_iter, 1000)
+        self.assertAlmostEqual(o.step_size, 0.25)
+        self.assertIsNone(o.line_search)
 
         #test dictionary of tolerances
         o.abs_tol = {x:1e-9}
         self.assertDictEqual(o.abs_tol, {x:1e-9})
-        self.assertAlmostEqual(o.step_size, 0.25)
         self.assertEqual(o.max_iter, 1000)
+        self.assertAlmostEqual(o.step_size, 0.25)
+        self.assertIsNone(o.line_search)
 
         #test using line search for step size
-        l = relentless.optimize.LineSearch(abs_tol=1e-8, max_step_size=0.25, max_iter=100)
-        o.step_size = l
+        l = relentless.optimize.LineSearch(abs_tol=1e-8, max_iter=100)
+        o.line_search = l
         self.assertDictEqual(o.abs_tol, {x:1e-9})
-        self.assertEqual(o.step_size, l)
         self.assertEqual(o.max_iter, 1000)
+        self.assertEqual(o.step_size, 0.25)
+        self.assertEqual(o.line_search, l)
 
         #test invalid parameters
         with self.assertRaises(ValueError):
-            o.step_size = -0.25
+            o.abs_tol = -1e-9
+        with self.assertRaises(ValueError):
+            o.abs_tol = {x:-1e-10}
         with self.assertRaises(ValueError):
             o.max_iter = 0
         with self.assertRaises(TypeError):
             o.max_iter = 100.0
         with self.assertRaises(ValueError):
-            o.abs_tol = -1e-9
-        with self.assertRaises(ValueError):
-            o.abs_tol = {x:-1e-10}
+            o.step_size = -0.25
+        with self.assertRaises(TypeError):
+            o.line_search = q
 
     def test_run(self):
         """Test run method."""
@@ -64,12 +69,12 @@ class test_SteepestDescent(unittest.TestCase):
         o.max_iter = 1
         self.assertFalse(o.optimize(objective=q))
 
-        #test using line search for step size
-        x.value = 0.0
+        #test using line search option
+        x.value = 3
         o.max_iter = 1000
-        l = relentless.optimize.LineSearch(abs_tol=1e-8, max_step_size=25, max_iter=99)
-        o.step_size = l
-        #self.assertTrue(o.optimize(objective=q))
+        l = relentless.optimize.LineSearch(abs_tol=1e-8, max_iter=100)
+        o.line_search = l
+        self.assertTrue(o.optimize(objective=q))
         self.assertAlmostEqual(x.value, 1.0)
 
 class test_LineSearch(unittest.TestCase):
@@ -80,14 +85,11 @@ class test_LineSearch(unittest.TestCase):
         x = relentless.variable.DesignVariable(value=3.0)
         q = QuadraticObjective(x=x)
 
-        l = relentless.optimize.LineSearch(abs_tol=1e-8, max_step_size=1, max_iter=1000)
+        l = relentless.optimize.LineSearch(abs_tol=1e-8, max_iter=1000)
         self.assertAlmostEqual(l.abs_tol, 1e-8)
-        self.assertAlmostEqual(l.max_step_size, 1)
         self.assertEqual(l.max_iter, 1000)
 
         #test invalid parameters
-        with self.assertRaises(ValueError):
-            l.max_step_size = -0.25
         with self.assertRaises(ValueError):
             l.max_iter = 0
         with self.assertRaises(TypeError):
@@ -99,25 +101,31 @@ class test_LineSearch(unittest.TestCase):
 
     def test_find(self):
         """Test find method."""
-        x = relentless.variable.DesignVariable(value=3.0)
+        l = relentless.optimize.LineSearch(abs_tol=1e-8, max_iter=1000)
+        x = relentless.variable.DesignVariable(value=-3.0)
         q = QuadraticObjective(x=x)
+        res_1 = q.compute()
 
-        #without passing in initial result
-        l = relentless.optimize.LineSearch(abs_tol=1e-8, max_step_size=25, max_iter=1000)
-        step = l.find(objective=q)
-        self.assertGreater(step, 0)
-        self.assertLess(step, 25)
+        #bracketing the minimum (find step size that takes function to minimum)
+        x.value = 3.0
+        res_2 = q.compute()
+        x.value = -3.0
+        res_new = l.find(objective=q, res_start=res_1, res_end=res_2)
+        self.assertAlmostEqual(res_new.design_variables[x], 1.0)
+        self.assertAlmostEqual(res_new.gradient(x), 0.0)
+        self.assertEqual(q.x.value, -3.0)
 
-        #with passing in initial result
-        x.value = 99.9
-        res = q.compute()
-        l = relentless.optimize.LineSearch(abs_tol=1e-8, max_step_size=100, max_iter=1000)
-        step = l.find(objective=q, result_0=res)
-        self.assertGreater(step, 0)
-        self.assertLess(step, 100)
-
-        #max step size can be acceptable
+        #not bracketing the minimum (accept "maximum" step size)
         x.value = -1.0
-        l = relentless.optimize.LineSearch(abs_tol=1e-8, max_step_size=0.01, max_iter=1000)
-        step = l.find(objective=q)
-        self.assertEqual(step, 0.01)
+        res_3 = q.compute()
+        x.value = -3.0
+        res_new = l.find(objective=q, res_start=res_1, res_end=res_3)
+        self.assertAlmostEqual(res_new.design_variables[x], -1.0)
+        self.assertAlmostEqual(res_new.gradient(x), -4.0)
+        self.assertEqual(q.x.value, -3.0)
+
+        #bound does not include current objective value
+        res_new = l.find(objective=q, res_start=res_3, res_end=res_2)
+        self.assertAlmostEqual(res_new.design_variables[x], 1.0)
+        self.assertAlmostEqual(res_new.gradient(x), 0.0)
+        self.assertEqual(q.x.value, -3.0)

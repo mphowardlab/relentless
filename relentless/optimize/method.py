@@ -136,28 +136,36 @@ class SteepestDescent(Optimizer):
 
         \mathbf{x}_{n+1} = \mathbf{x}_{n}-\alpha\nabla f\left(\mathbf{x}\right)
 
-    where :math:`\alpha` is defined as the step size hyperparameter.
+    where :math:`\alpha` is defined as the step size hyperparameter. The step size
+    must be specified numerically, and a line search can be performed to find
+    an optimal step size value if desired.
 
     Parameters
     ----------
     abs_tol : float or dict
         The absolute tolerance or tolerances (keyed on the :class:`~relentless.optimize.ObjectiveFunction`
         design variables).
-    step_size : float or :class:`LineSearch`
-        The step size hyperparameter (:math:`\alpha`). The parameter is either
-        defined numerically or is the :class:`LineSearch` object to be used
-        to find the optimal step size.
+    step_size : float
+        The step size hyperparameter (:math:`\alpha`).
     max_iter : int
         The maximum number of optimization iterations allowed.
+    line_search : :class:`LineSearch`
+        The line search object used to find the optimal step size, using the
+        specified step size value as the "maximum" step size (defaults to None).
 
     """
-    def __init__(self, abs_tol, step_size, max_iter):
+    def __init__(self, abs_tol, max_iter, step_size, line_search=None):
         super().__init__(abs_tol)
-        self.step_size = step_size
         self.max_iter = max_iter
+        self.step_size = step_size
+        self.line_search = line_search
 
     def optimize(self, objective):
         """Perform the steepest descent optimization for the given objective function.
+
+        If specified, the line search is used as described in :class:`LineSearch`
+        to place the objective function at a location such that the specified
+        step size will reach a minimum.
 
         Parameters
         ----------
@@ -179,16 +187,35 @@ class SteepestDescent(Optimizer):
         while not converged and iter_num < self.max_iter:
             res = objective.compute()
             converged = self.has_converged(res)
+
             if not converged:
-                if isinstance(self.step_size, LineSearch):
-                    step = self.step_size.find(objective=objective, result_0=res)
-                else:
-                    step = self.step_size
+                if self.line_search is not None:
+                    for x in dvars:
+                        x.value = res.design_variables[x] - self.step_size*res.gradient(x)
+                    res_0 = objective.compute()
+                    res_opt = self.line_search.find(objective=objective, res_start=res_0, res_end=res)
+                    for x in dvars:
+                        x.value = res_opt.design_variables[x]
+
                 for x in dvars:
-                    x.value = res.design_variables[x] - step*res.gradient(x)
+                    x.value = res.design_variables[x] - self.step_size*res.gradient(x)
+
             iter_num += 1
 
         return converged
+
+    @property
+    def max_iter(self):
+        """int: The maximum number of optimization iterations allowed."""
+        return self._max_iter
+
+    @max_iter.setter
+    def max_iter(self, value):
+        if not isinstance(value, int):
+            raise TypeError('The maximum number of iterations must be an integer.')
+        if value < 1:
+            raise ValueError('The maximum number of iterations must be positive.')
+        self._max_iter = value
 
     @property
     def step_size(self):
@@ -206,81 +233,81 @@ class SteepestDescent(Optimizer):
         self._step_size = value
 
     @property
-    def max_iter(self):
-        """int: The maximum number of optimization iterations allowed."""
-        return self._max_iter
+    def line_search(self):
+        """:class:`LineSearch`: The line search object used to optimize the step size."""
+        return self._line_search
 
-    @max_iter.setter
-    def max_iter(self, value):
-        if not isinstance(value, int):
-            raise TypeError('The maximum number of iterations must be an integer.')
-        if value < 1:
-            raise ValueError('The maximum number of iterations must be positive.')
-        self._max_iter = value
+    @line_search.setter
+    def line_search(self, value):
+        if value is not None and not isinstance(value, LineSearch):
+            raise TypeError('If defined, the line search parameter must be a LineSearch object.')
+        self._line_search = value
 
+#TODO: document
 class LineSearch:
-    def __init__(self, abs_tol, max_step_size, max_iter):
+    """
+    """
+    def __init__(self, abs_tol, max_iter):
         self.abs_tol = abs_tol
-        self.max_step_size = max_step_size
         self.max_iter = max_iter
 
-    def find(self, objective, result_0=None):
-        dvars = objective.design_variables()
-        if result_0 is None:
-            result_0 = objective.compute()
-        dvars_0 = result_0.design_variables
+    def find(self, objective, res_start, res_end):
+        """
+        """
+        res_0 = objective.compute()
+        ovars = res_0.design_variables
 
         # compute normalized search direction, adjust variables based on max step size
-        d = {}
-        d_norm = np.linalg.norm(np.asarray(list(result_0._gradient.todict().values())))
-        for x in dvars:
-            d[x] = (-result_0.gradient(x))/d_norm
-            x.value += self.max_step_size*d[x]
-        result = objective.compute()
+        d = {x: res_end.design_variables[x]-res_start.design_variables[x] for x in ovars}
+        max_step = np.linalg.norm(np.asarray(list(d.values())))
+        for x in ovars:
+            d[x] /= max_step
+            x.value += max_step*d[x]
+        res = objective.compute()
 
         # compute initial and post-adjustment target values
         target_0 = 0
         target = 0
-        for x in dvars:
-            target_0 += (d[x]*-result_0.gradient(x))
-            target += (d[x]*-result.gradient(x))
+        for x in ovars:
+            target_0 += (d[x]*-res_0.gradient(x))
+            target += (d[x]*-res.gradient(x))
 
         # check if max step size is acceptable
         if target > 0 or np.abs(target) < self.abs_tol: #combine conditions as (target > -self.abs_tol) ?
-            return self.max_step_size
+            for x in ovars:
+                x.value = ovars[x]
+            return res
 
         # iterate to minimize target
         else:
-            rstep = np.array([0, self.max_step_size])
+            rstep = np.array([0, max_step])
             rtarget = np.array([target_0, target])
             iter_num = 0
             while np.abs(target) > self.abs_tol and iter_num < self.max_iter:
                 # linear interpolation for step size
-                step_size = ((rstep[0]*rtarget[1] - rstep[1]*rtarget[0])
-                            /(rtarget[1] - rtarget[0]))
+                step = (rstep[0]*rtarget[1] - rstep[1]*rtarget[0])/(rtarget[1] - rtarget[0])
 
                 # adjust variables based on new step size, compute target
-                for x in dvars:
-                    x.value = dvars_0[x]
-                    x.value += step_size*d[x]
-                result = objective.compute()
+                for x in ovars:
+                    x.value = ovars[x] + step*d[x]
+                res = objective.compute()
                 target = 0
-                for x in dvars:
-                    target += (d[x]*-result.gradient(x))
+                for x in ovars:
+                    target += (d[x]*-res.gradient(x))
 
                 # update search intervals
                 if target > 0:
-                    rstep[0] = step_size
+                    rstep[0] = step
                     rtarget[0] = target
                 else:
-                    rstep[1] = step_size
+                    rstep[1] = step
                     rtarget[1] = target
 
                 iter_num += 1
 
-            for x in dvars:
-                x.value = dvars_0[x]
-            return step_size
+            for x in ovars:
+                x.value = ovars[x]
+            return res
 
     @property
     def abs_tol(self):
@@ -296,17 +323,6 @@ class LineSearch:
                 self._abs_tol = value
         except TypeError:
             raise TypeError('The absolute tolerance must be a scalar float.')
-
-    @property
-    def max_step_size(self):
-        r"""float: The maximum acceptable step size hyperparameter (:math:`\alpha`)."""
-        return self._max_step_size
-
-    @max_step_size.setter
-    def max_step_size(self, value):
-        if value <= 0:
-            raise ValueError('The maximum step size must be positive.')
-        self._max_step_size = value
 
     @property
     def max_iter(self):
