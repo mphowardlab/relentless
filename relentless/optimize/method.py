@@ -193,9 +193,7 @@ class SteepestDescent(Optimizer):
                     for x in dvars:
                         x.value = res.design_variables[x] - self.step_size*res.gradient(x)
                     res_0 = objective.compute()
-                    res_opt = self.line_search.find(objective=objective, res_start=res_0, res_end=res)
-                    for x in dvars:
-                        x.value = res_opt.design_variables[x]
+                    res = self.line_search.find(objective=objective, res_start=res_0, res_end=res)
 
                 for x in dvars:
                     x.value = res.design_variables[x] - self.step_size*res.gradient(x)
