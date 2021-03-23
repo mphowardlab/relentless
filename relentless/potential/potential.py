@@ -185,7 +185,7 @@ class Potential(abc.ABC):
     """Abstract base class for interaction potential.
 
     A :class:`Potential` defines the potential energy abstractly, which can
-    be parameterized on a ``key`` (like a type) and that is a function of an
+    be parametrized on a ``key`` (like a type) and that is a function of an
     arbitrary scalar coordinate ``x``. Concrete :meth:`energy`, :meth:`force`,
     :meth:`derivative` methods must be implemented to define the potential
     energy (and its derivatives).
@@ -193,7 +193,7 @@ class Potential(abc.ABC):
     Parameters
     ----------
     keys : list
-        Keys for parameterizing the potential.
+        Keys for parametrizing the potential.
     params : list
         Parameters of the potential.
     container : object
@@ -214,7 +214,7 @@ class Potential(abc.ABC):
         Parameters
         ----------
         key
-            Key parameterizing the potential in :attr:`coeff<container>`.
+            Key parametrizing the potential in :attr:`coeff<container>`.
         x : float or list
             Potential coordinate.
 
@@ -236,7 +236,7 @@ class Potential(abc.ABC):
         Parameters
         ----------
         key
-            Key parameterizing the potential in :attr:`coeff<container>`.
+            Key parametrizing the potential in :attr:`coeff<container>`.
         x : float or list
             Potential coordinate.
 
@@ -256,7 +256,7 @@ class Potential(abc.ABC):
         Parameters
         ----------
         key
-            Key parameterizing the potential in :attr:`coeff<container>`.
+            Key parametrizing the potential in :attr:`coeff<container>`.
         var : :class:`~relentless.variable.Variable`
             The variable with respect to which the derivative is calculated.
         x : float or list
