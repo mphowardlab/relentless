@@ -270,15 +270,13 @@ class LineSearch:
             steps = np.array([0, max_step])
             iter_num = 0
             new_target = self.abs_tol
-            print(steps)
-            print(targets)
             while np.abs(new_target) >= self.abs_tol and iter_num < self.max_iter:
                 # linear interpolation for step size
                 new_step = (steps[0]*targets[1] - steps[1]*targets[0])/(targets[1] - targets[0])
 
                 # adjust variables based on new step size, compute target
                 for x in ovars:
-                    x.value = ovars[x] + new_step*d[x]
+                    x.value = start.design_variables[x] + new_step*d[x]
                 new_res = objective.compute()
                 new_target = d.dot(-new_res.gradient)
 

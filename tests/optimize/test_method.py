@@ -110,19 +110,19 @@ class test_LineSearch(unittest.TestCase):
         x.value = 3.0
         res_2 = q.compute()
         x.value = -3.0
-#        res_new = l.find(objective=q, start=res_1, end=res_2)
-#        self.assertAlmostEqual(res_new.design_variables[x], 1.0)
-#        self.assertAlmostEqual(res_new.gradient[x], 0.0)
-#        self.assertEqual(q.x.value, -3.0)
+        res_new = l.find(objective=q, start=res_1, end=res_2)
+        self.assertAlmostEqual(res_new.design_variables[x], 1.0)
+        self.assertAlmostEqual(res_new.gradient[x], 0.0)
+        self.assertEqual(q.x.value, -3.0)
 
         #not bracketing the minimum (accept "maximum" step size)
         x.value = -1.0
         res_3 = q.compute()
         x.value = -3.0
-#        res_new = l.find(objective=q, start=res_1, end=res_3)
-#        self.assertAlmostEqual(res_new.design_variables[x], -1.0)
-#        self.assertAlmostEqual(res_new.gradient[x], -4.0)
-#        self.assertEqual(q.x.value, -3.0)
+        res_new = l.find(objective=q, start=res_1, end=res_3)
+        self.assertAlmostEqual(res_new.design_variables[x], -1.0)
+        self.assertAlmostEqual(res_new.gradient[x], -4.0)
+        self.assertEqual(q.x.value, -3.0)
 
         #bound does not include current objective value
         res_new = l.find(objective=q, start=res_3, end=res_2)
