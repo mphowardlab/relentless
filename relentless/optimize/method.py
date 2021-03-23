@@ -5,7 +5,7 @@ Algorithms
 An optimization algorithm seeks to determine the minima of a defined objective
 function, subject to design constraints.
 
-The following algorithms have been implemented:
+The following optimization algorithms have been implemented:
 
 .. autosummary::
     :nosignatures:
@@ -21,6 +21,7 @@ To implement your own optimization algorithm, create a class that derives from
     :nosignatures:
 
     Optimizer
+    LineSearch
 
 .. autoclass:: Optimizer
     :member-order: bysource
@@ -28,11 +29,18 @@ To implement your own optimization algorithm, create a class that derives from
         has_converged,
         abs_tol
 
+.. autoclass:: LineSearch
+    :member-order: bysource
+    :members: find,
+        abs_tol,
+        max_iter
+
 .. autoclass:: SteepestDescent
     :member-order: bysource
     :members: optimize,
+        max_iter,
         step_size,
-        max_iter
+        line_search
 
 """
 import abc
@@ -123,11 +131,144 @@ class Optimizer(abc.ABC):
         else:
             self._abs_tol = abs_tol
 
+class LineSearch:
+    r"""Line search algorithm.
+
+    For an :class:`~relentless.optimize.ObjectiveFunction` :math:`f\left(\mathbf{x}\right)`,
+    the line search algorithm seeks to take a single, optimally-sized step towards
+    the minimum of the function. (Does not necessarily converge to minimum.)
+
+    A search interval :math:`\mathbf{d}` is specified, and normalized to :math:`\hat{\mathbf{d}}`:
+
+    .. math::
+
+        \mathbf{d} = \mathbf{x}_{end} - \mathbf{x}_{start}
+
+        \hat{\mathbf{d}} = \frac{\mathbf{d}}{\lVert\mathbf{d}\rVert}
+
+    Then, a 'target' value :math:`t` is defined as:
+
+    .. math::
+
+        t = -\hat{\mathbf{d}} \cdot \nabla{f\left(\mathbf{x}\right)}
+
+    The target at the start of the search interval is always negative. If the
+    target is negative (or within the tolerance) at the end of the search
+    interval, then the maximum step size is acceptable and the algorithm steps
+    to the end of the search interval. If the target is positive (outside of the
+    tolerance) at the end of the search interval, then the algorithm iteratively
+    computes a new step size by linear interpolation within the search interval
+    until the target at the new location is minimized to within the tolerance.
+
+    Parameters
+    ----------
+    abs_tol : float
+        The absolute tolerance for the target.
+    max_iter : int
+        The maximum number of line search iterations allowed.
+
+    """
+    def __init__(self, abs_tol, max_iter):
+        self.abs_tol = abs_tol
+        self.max_iter = max_iter
+
+    def find(self, objective, start, end):
+        """Apply the line search algorithm to take the optimal step.
+
+        Note that the objective function is kept at its initial state, and the
+        function evaluted after taking the optimal step is returned separately.
+
+        Parameters
+        ----------
+        objective : :class:`~relentless.optimize.ObjectiveFunction`
+            The objective function for which the line search is applied.
+        start : :class:`~relentless.optimize.ObjectiveFunctionResult`
+            The objective function evaluated at the start of the search interval.
+        end : :class:`~relentless.optimize.ObjectiveFunctionResult`
+            The objective function evaluated at the end of the search interval.
+
+        Returns
+        -------
+        :class:`~relentless.optimize.ObjectiveFunctionResult`
+            The objective function evaluated at the new, 'optimal' location.
+
+        """
+        ovars = {x: x.value for x in objective.design_variables()}
+
+        # compute normalized search direction
+        d = end.design_variables - start.design_variables
+        max_step = d.norm()
+        d /= max_step
+
+        # compute start and end target values
+        targets = np.array([-d.dot(start.gradient), -d.dot(end.gradient)])
+
+        # check if max step size acceptable, else iterate to minimize target
+        if targets[1] > 0 or np.abs(targets[1]) < self.abs_tol:
+            result = end
+        else:
+            steps = np.array([0, max_step])
+            iter_num = 0
+            new_target = self.abs_tol
+            while np.abs(new_target) >= self.abs_tol and iter_num < self.max_iter:
+                # linear interpolation for step size
+                new_step = (steps[0]*targets[1] - steps[1]*targets[0])/(targets[1] - targets[0])
+
+                # adjust variables based on new step size, compute target
+                for x in ovars:
+                    x.value = start.design_variables[x] + new_step*d[x]
+                new_res = objective.compute()
+                new_target = -d.dot(new_res.gradient)
+
+                # update search intervals
+                if new_target > 0:
+                    steps[0] = new_step
+                    targets[0] = new_target
+                else:
+                    steps[1] = new_step
+                    targets[1] = new_target
+
+                iter_num += 1
+
+            result = new_res
+
+        for x in ovars:
+            x.value = ovars[x]
+        return result
+
+    @property
+    def abs_tol(self):
+        """float: The absolute tolerance for the target. Must be non-negative."""
+        return self._abs_tol
+
+    @abs_tol.setter
+    def abs_tol(self, value):
+        try:
+            if value < 0:
+                raise ValueError('The absolute tolerance must be non-negative.')
+            else:
+                self._abs_tol = value
+        except TypeError:
+            raise TypeError('The absolute tolerance must be a scalar float.')
+
+    @property
+    def max_iter(self):
+        """int: The maximum number of line search iterations allowed."""
+        return self._max_iter
+
+    @max_iter.setter
+    def max_iter(self, value):
+        if not isinstance(value, int):
+            raise TypeError('The maximum number of iterations must be an integer.')
+        if value < 1:
+            raise ValueError('The maximum number of iterations must be positive.')
+        self._max_iter = value
+
 class SteepestDescent(Optimizer):
     r"""Steepest descent algorithm.
 
     For an :class:`~relentless.optimize.ObjectiveFunction` :math:`f\left(\mathbf{x}\right)`,
-    the steepest descent seeks to approach a minimum of the function.
+    the steepest descent algorithm seeks to approach a minimum of the function.
 
     With an initial numerical guess for all the design variables :math:`\mathbf{x}`,
     the following iterative calculation is performed:
@@ -137,7 +278,7 @@ class SteepestDescent(Optimizer):
         \mathbf{x}_{n+1} = \mathbf{x}_{n}-\alpha\nabla f\left(\mathbf{x}\right)
 
     where :math:`\alpha` is defined as the step size hyperparameter. The step size
-    must be specified numerically, and a line search can be performed to find
+    must be specified numerically, and a :class:`LineSearch` can be performed to find
     an optimal step size value if desired.
 
     Parameters
@@ -185,9 +326,8 @@ class SteepestDescent(Optimizer):
         iter_num = 0
         cur_res = objective.compute()
         while not self.has_converged(cur_res) and iter_num < self.max_iter:
-
             #steepest descent update
-            for x in dvars: #is there any way to make this into a single line?
+            for x in dvars:
                 x.value = cur_res.design_variables[x] - self.step_size*cur_res.gradient[x]
             next_res = objective.compute()
 
@@ -200,7 +340,6 @@ class SteepestDescent(Optimizer):
 
             #recycle next result
             cur_res = next_res
-
             iter_num += 1
 
         return self.has_converged(cur_res)
@@ -239,87 +378,3 @@ class SteepestDescent(Optimizer):
         if value is not None and not isinstance(value, LineSearch):
             raise TypeError('If defined, the line search parameter must be a LineSearch object.')
         self._line_search = value
-
-#TODO: document
-class LineSearch:
-    """
-    """
-    def __init__(self, abs_tol, max_iter):
-        self.abs_tol = abs_tol
-        self.max_iter = max_iter
-
-    def find(self, objective, start, end):
-        """
-        """
-        ovars = {x: x.value for x in objective.design_variables()}
-
-        # compute normalized search direction
-        d = end.design_variables - start.design_variables
-        max_step = d.norm()
-        d /= max_step
-
-        # compute start and end target values
-        targets = np.array([d.dot(-start.gradient), d.dot(-end.gradient)])
-
-        # check if max step size acceptable
-        if targets[1] > 0 or np.abs(targets[1]) < self.abs_tol:
-            result = end
-
-        # iterate to minimize target
-        else:
-            steps = np.array([0, max_step])
-            iter_num = 0
-            new_target = self.abs_tol
-            while np.abs(new_target) >= self.abs_tol and iter_num < self.max_iter:
-                # linear interpolation for step size
-                new_step = (steps[0]*targets[1] - steps[1]*targets[0])/(targets[1] - targets[0])
-
-                # adjust variables based on new step size, compute target
-                for x in ovars:
-                    x.value = start.design_variables[x] + new_step*d[x]
-                new_res = objective.compute()
-                new_target = d.dot(-new_res.gradient)
-
-                # update search intervals
-                if new_target > 0:
-                    steps[0] = new_step
-                    targets[0] = new_target
-                else:
-                    steps[1] = new_step
-                    targets[1] = new_target
-
-                iter_num += 1
-
-            result = new_res
-
-        for x in ovars:
-            x.value = ovars[x]
-        return result
-
-    @property
-    def abs_tol(self):
-        """float: The absolute tolerance for the target. Must be non-negative."""
-        return self._abs_tol
-
-    @abs_tol.setter
-    def abs_tol(self, value):
-        try:
-            if value < 0:
-                raise ValueError('The absolute tolerance must be non-negative.')
-            else:
-                self._abs_tol = value
-        except TypeError:
-            raise TypeError('The absolute tolerance must be a scalar float.')
-
-    @property
-    def max_iter(self):
-        """int: The maximum number of line search iterations allowed."""
-        return self._max_iter
-
-    @max_iter.setter
-    def max_iter(self, value):
-        if not isinstance(value, int):
-            raise TypeError('The maximum number of iterations must be an integer.')
-        if value < 1:
-            raise ValueError('The maximum number of iterations must be positive.')
-        self._max_iter = value

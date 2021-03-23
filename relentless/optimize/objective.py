@@ -14,7 +14,9 @@ The gradient is also specified for all of the design variables:
 
     .. math::
 
-        \nabla f = \left[\frac{\partial f}{\partial x_1},\ldots,\frac{\partial f}{\partial x_n}\right]
+        \nabla f\left(\mathbf{x}\right) = \left[\frac{\partial f}{\partial x_1},
+                                                \ldots,
+                                                \frac{\partial f}{\partial x_n}\right]
 
 .. rubric:: Developer notes
 
@@ -35,6 +37,9 @@ To implement your own objective function, create a class that derives from
 
 .. autoclass:: ObjectiveFunctionResult
     :member-order: bysource
+    :members: value,
+        gradient,
+        design_variables
 
 """
 import abc

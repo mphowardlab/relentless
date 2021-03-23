@@ -272,8 +272,9 @@ class PairMatrix:
 class KeyedArray(FixedKeyDict):
     """Numerical array with fixed keys.
 
-    Can be used to perform arithmetic operations element-wise (per key) and
-    vector algebraic operations (norm, dot product).
+    Can be used to perform arithmetic operations between two arrays (element-wise)
+    or between an array and a scalar, as well as vector algebraic operations
+    (norm, dot product).
 
     Parameters
     ----------
@@ -294,12 +295,23 @@ class KeyedArray(FixedKeyDict):
         k1.update({'A':2.0, 'B':3.0})
         k2.update({'A':3.0, 'B':4.0})
 
-    Perform vector arithmetic operations::
+    Perform array-array arithmetic operations::
 
         >>> print(k1 + k2)
         {'A':5.0, 'B':7.0}
         >>> print(k1 - k2)
         {'A':-1.0, 'B':-1.0}
+        >>> print(k1*k2)
+        {'A':6.0, 'B':12.0}
+        >>> print(k1/k2)
+        {'A':0.6666666666666666, 'B':0.75}
+
+    Perform array-scalar arithmetic operations::
+
+        >>> print(k1 + 3)
+        {'A':5.0, 'B':6.0}
+        >>> print(3 - k1)
+        {'A':1.0, 'B':0.0}
         >>> print(3*k1)
         {'A':6.0, 'B':9.0}
         >>> print(k1/10)
@@ -321,71 +333,142 @@ class KeyedArray(FixedKeyDict):
 
     def _assert_same_keys(self, val):
         if (self.keys != val.keys):
-            raise KeyError('''Both KeyedArrays must have identical keys
-                              to perform mathematical operations.''')
-
-    def _assert_scalar(self, val):
-        if not np.isscalar(val):
-            raise TypeError('''A scalar is required for multiplication or
-                               division with a KeyedArray.''')
+            raise KeyError('Both KeyedArrays must have identical keys to perform mathematical operations.')
 
     def __add__(self, val):
-        """Element-wise addition of two arrays."""
-        self._assert_same_keys(val)
+        """Element-wise addition of two arrays, or of an array and a scalar."""
         k = KeyedArray(keys=self.keys)
-        k.update({x: self[x] + val[x] for x in self})
+        if isinstance(val, KeyedArray):
+            self._assert_same_keys(val)
+            k.update({x: self[x] + val[x] for x in self})
+        elif np.isscalar(val):
+            k.update({x: self[x] + val for x in self})
+        else:
+            raise TypeError('A KeyedArray can only add a scalar or a KeyedArray.')
+        return k
+
+    def __radd__(self, val):
+        """Element-wise addition of a scalar and an array."""
+        k = KeyedArray(keys=self.keys)
+        if np.isscalar(val):
+            k.update({x: val + self[x] for x in self})
+        else:
+            raise TypeError('A KeyedArray can only add a scalar or a KeyedArray.')
         return k
 
     def __iadd__(self, val):
-        """Iterative element-wise addition of two arrays."""
-        self._assert_same_keys(val)
-        self.update({x: self[x] + val[x] for x in self})
+        """In-place element-wise addition of two arrays, or of an array or scalar."""
+        if isinstance(val, KeyedArray):
+            self._assert_same_keys(val)
+            for x in self:
+                self[x] += val[x]
+        elif np.isscalar(val):
+            for x in self:
+                self[x] += val
+        else:
+            raise TypeError('A KeyedArray can only add a scalar or a KeyedArray.')
         return self
 
     def __sub__(self, val):
-        """Element-wise subtraction of two arrays."""
-        self._assert_same_keys(val)
+        """Element-wise subtraction of two arrays, or of an array and a scalar."""
         k = KeyedArray(keys=self.keys)
-        k.update({x: self[x] - val[x] for x in self})
+        if isinstance(val, KeyedArray):
+            self._assert_same_keys(val)
+            k.update({x: self[x] - val[x] for x in self})
+        elif np.isscalar(val):
+            k.update({x: self[x] - val for x in self})
+        else:
+            raise TypeError('A KeyedArray can only subtract a scalar or a KeyedArray.')
+        return k
+
+    def __rsub__(self, val):
+        """Element-wise subtraction of a scalar and an array."""
+        k = KeyedArray(keys=self.keys)
+        if np.isscalar(val):
+            k.update({x: val - self[x] for x in self})
+        else:
+            raise TypeError('A KeyedArray can only subtract a scalar or a KeyedArray.')
         return k
 
     def __isub__(self, val):
-        """Iterative element-wise subtraction of two arrays."""
-        self._assert_same_keys(val)
-        self.update({x: self[x] - val[x] for x in self})
+        """In-place element-wise subtraction of two arrays."""
+        if isinstance(val, KeyedArray):
+            self._assert_same_keys(val)
+            for x in self:
+                self[x] -= val[x]
+        elif np.isscalar(val):
+            for x in self:
+                self[x] -= val
+        else:
+            raise TypeError('A KeyedArray can only subtract a scalar or a KeyedArray.')
         return self
 
     def __mul__(self, val):
-        """Element-wise multiplication of an array by a scalar."""
-        self._assert_scalar(val)
+        """Element-wise multiplication of two arrays, or of an array and a scalar."""
         k = KeyedArray(keys=self.keys)
-        k.update({x: self[x]*val for x in self})
+        if isinstance(val, KeyedArray):
+            self._assert_same_keys(val)
+            k.update({x: self[x]*val[x] for x in self})
+        elif np.isscalar(val):
+            k.update({x: self[x]*val for x in self})
+        else:
+            raise TypeError('A KeyedArray can only multiply a scalar or a KeyedArray.')
         return k
 
     def __rmul__(self, val):
         """Element-wise multiplication of a scalar by an array."""
-        self._assert_scalar(val)
         k = KeyedArray(keys=self.keys)
-        k.update({x: val*self[x] for x in self})
+        if np.isscalar(val):
+            k.update({x: val*self[x] for x in self})
+        else:
+            raise TypeError('A KeyedArray can only multiply a scalar or a KeyedArray.')
         return k
 
     def __imul__(self, val):
-        """Iterative element-wise multiplication of an array by a scalar."""
-        self._assert_scalar(val)
-        self.update({x: self[x]*val for x in self})
+        """In-place element-wise multiplication of two arrays, or of an array by a scalar."""
+        if isinstance(val, KeyedArray):
+            self._assert_same_keys(val)
+            for x in self:
+                self[x] *= val[x]
+        elif np.isscalar(val):
+            for x in self:
+                self[x] *= val
+        else:
+            raise TypeError('A KeyedArray can only multiply a scalar or a KeyedArray.')
         return self
 
     def __truediv__(self, val):
-        """Element-wise division of an array by a scalar."""
-        self._assert_scalar(val)
+        """Element-wise division of two arrays, or of an array by a scalar."""
         k = KeyedArray(keys=self.keys)
-        k.update({x: self[x]/val for x in self})
+        if isinstance(val, KeyedArray):
+            self._assert_same_keys(val)
+            k.update({x: self[x]/val[x] for x in self})
+        elif np.isscalar(val):
+            k.update({x: self[x]/val for x in self})
+        else:
+            raise TypeError('A KeyedArray can only divide a scalar or a KeyedArray.')
+        return k
+
+    def __rtruediv__(self, val):
+        """Element-wise division of a scalar by an array."""
+        k = KeyedArray(keys=self.keys)
+        if np.isscalar(val):
+            k.update({x: val/self[x] for x in self})
+        else:
+            raise TypeError('A KeyedArray can only divide a scalar or a KeyedArray.')
         return k
 
     def __itruediv__(self, val):
-        """Iterative element-wise division of an array by a scalar."""
-        self._assert_scalar(val)
-        self.update({x: self[x]/val for x in self})
+        """In-place element-wise division of two arrays, or of an array by a scalar."""
+        if isinstance(val, KeyedArray):
+            self._assert_same_keys(val)
+            for x in self:
+                self[x] /= val[x]
+        elif np.isscalar(val):
+            for x in self:
+                self[x] /= val
+        else:
+            raise TypeError('A KeyedArray can only divide a scalar or a KeyedArray.')
         return self
 
     def __neg__(self):

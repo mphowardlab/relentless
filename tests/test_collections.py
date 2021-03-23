@@ -292,6 +292,12 @@ class test_KeyedArray(unittest.TestCase):
         self.assertDictEqual(k4.todict(), {'A':3.0, 'B':5.0})
         k4 += k2
         self.assertDictEqual(k4.todict(), {'A':5.0, 'B':8.0})
+        k4 = k1 + 1
+        self.assertDictEqual(k4.todict(), {'A':2.0, 'B':3.0})
+        k4 = 2 + k1
+        self.assertDictEqual(k4.todict(), {'A':3.0, 'B':4.0})
+        k4 += 1
+        self.assertDictEqual(k4.todict(), {'A':4.0, 'B':5.0})
         with self.assertRaises(KeyError):
             k4 = k1 + k3
         with self.assertRaises(KeyError):
@@ -302,34 +308,44 @@ class test_KeyedArray(unittest.TestCase):
         self.assertDictEqual(k4.todict(), {'A':-1.0, 'B':-1.0})
         k4 -= k2
         self.assertDictEqual(k4.todict(), {'A':-3.0, 'B':-4.0})
+        k4 = k1 - 1
+        self.assertDictEqual(k4.todict(), {'A':0.0, 'B':1.0})
+        k4 = 2 - k1
+        self.assertDictEqual(k4.todict(), {'A':1.0, 'B':0.0})
+        k4 -= 1
+        self.assertDictEqual(k4.todict(), {'A':0.0, 'B':-1.0})
         with self.assertRaises(KeyError):
             k4 = k1 - k3
         with self.assertRaises(KeyError):
             k3 -= k2
 
         #multiplication
+        k4 = k1*k2
+        self.assertDictEqual(k4.todict(), {'A':2.0, 'B':6.0})
+        k4 *= k2
+        self.assertDictEqual(k4.todict(), {'A':4.0, 'B':18.0})
         k4 = 3*k1
         self.assertDictEqual(k4.todict(), {'A':3.0, 'B':6.0})
         k4 = k2*3
         self.assertDictEqual(k4.todict(), {'A':6.0, 'B':9.0})
         k4 *= 3
         self.assertDictEqual(k4.todict(), {'A':18.0, 'B':27.0})
-        with self.assertRaises(TypeError):
-            k4 = k1*k2
-        with self.assertRaises(TypeError):
-            k1 *= k2
+        with self.assertRaises(KeyError):
+            k4 = k1*k3
 
         #division
+        k4 = k1/k2
+        self.assertDictEqual(k4.todict(), {'A':0.5, 'B':0.6666666666666666})
+        k4 /= k2
+        self.assertDictEqual(k4.todict(), {'A':0.25, 'B':0.2222222222222222})
+        k4 = 2/k2
+        self.assertDictEqual(k4.todict(), {'A':1.0, 'B':0.6666666666666666})
         k4 = k2/2
         self.assertDictEqual(k4.todict(), {'A':1.0, 'B':1.5})
         k4 /= 2
         self.assertDictEqual(k4.todict(), {'A':0.5, 'B':0.75})
-        with self.assertRaises(TypeError):
-            k4 = k1/k2
-        with self.assertRaises(TypeError):
-            k1 /= k2
-        with self.assertRaises(TypeError):
-            k4 = 2/k2
+        with self.assertRaises(KeyError):
+            k4 = k1/k3
 
         #negation
         k4 = -k1
