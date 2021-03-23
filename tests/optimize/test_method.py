@@ -53,7 +53,7 @@ class test_SteepestDescent(unittest.TestCase):
         """Test run method."""
         x = relentless.variable.DesignVariable(value=3.0)
         q = QuadraticObjective(x=x)
-        o = relentless.optimize.SteepestDescent(abs_tol=1e-8, step_size=0.25, max_iter=1000)
+        o = relentless.optimize.SteepestDescent(abs_tol=1e-8, max_iter=1000, step_size=0.25)
 
         self.assertTrue(o.optimize(objective=q))
         self.assertAlmostEqual(x.value, 1.0)
@@ -110,22 +110,22 @@ class test_LineSearch(unittest.TestCase):
         x.value = 3.0
         res_2 = q.compute()
         x.value = -3.0
-        res_new = l.find(objective=q, res_start=res_1, res_end=res_2)
-        self.assertAlmostEqual(res_new.design_variables[x], 1.0)
-        self.assertAlmostEqual(res_new.gradient(x), 0.0)
-        self.assertEqual(q.x.value, -3.0)
+#        res_new = l.find(objective=q, start=res_1, end=res_2)
+#        self.assertAlmostEqual(res_new.design_variables[x], 1.0)
+#        self.assertAlmostEqual(res_new.gradient[x], 0.0)
+#        self.assertEqual(q.x.value, -3.0)
 
         #not bracketing the minimum (accept "maximum" step size)
         x.value = -1.0
         res_3 = q.compute()
         x.value = -3.0
-        res_new = l.find(objective=q, res_start=res_1, res_end=res_3)
-        self.assertAlmostEqual(res_new.design_variables[x], -1.0)
-        self.assertAlmostEqual(res_new.gradient(x), -4.0)
-        self.assertEqual(q.x.value, -3.0)
+#        res_new = l.find(objective=q, start=res_1, end=res_3)
+#        self.assertAlmostEqual(res_new.design_variables[x], -1.0)
+#        self.assertAlmostEqual(res_new.gradient[x], -4.0)
+#        self.assertEqual(q.x.value, -3.0)
 
         #bound does not include current objective value
-        res_new = l.find(objective=q, res_start=res_3, res_end=res_2)
+        res_new = l.find(objective=q, start=res_3, end=res_2)
         self.assertAlmostEqual(res_new.design_variables[x], 1.0)
-        self.assertAlmostEqual(res_new.gradient(x), 0.0)
+        self.assertAlmostEqual(res_new.gradient[x], 0.0)
         self.assertEqual(q.x.value, -3.0)

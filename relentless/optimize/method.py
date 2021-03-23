@@ -93,7 +93,7 @@ class Optimizer(abc.ABC):
             If the absolute tolerance value is not set for all design variables.
         """
         for x in result.design_variables:
-            grad = result.gradient(x)
+            grad = result.gradient[x]
             try:
                 tol = self.abs_tol[x]
             except TypeError:
@@ -183,24 +183,27 @@ class SteepestDescent(Optimizer):
             return None
 
         iter_num = 0
-        converged = False
-        while not converged and iter_num < self.max_iter:
-            res = objective.compute()
-            converged = self.has_converged(res)
+        cur_res = objective.compute()
+        while not self.has_converged(cur_res) and iter_num < self.max_iter:
 
-            if not converged:
-                if self.line_search is not None:
-                    for x in dvars:
-                        x.value = res.design_variables[x] - self.step_size*res.gradient(x)
-                    res_0 = objective.compute()
-                    res = self.line_search.find(objective=objective, res_start=res_0, res_end=res)
+            #steepest descent update
+            for x in dvars: #is there any way to make this into a single line?
+                x.value = cur_res.design_variables[x] - self.step_size*cur_res.gradient[x]
+            next_res = objective.compute()
 
+            #if line search, attempt backtracking in interval
+            if self.line_search is not None:
+                line_res = self.line_search.find(objective=objective, start=cur_res, end=next_res)
                 for x in dvars:
-                    x.value = res.design_variables[x] - self.step_size*res.gradient(x)
+                    x.value = line_res.design_variables[x]
+                next_res = line_res
+
+            #recycle next result
+            cur_res = next_res
 
             iter_num += 1
 
-        return converged
+        return self.has_converged(cur_res)
 
     @property
     def max_iter(self):
@@ -217,17 +220,13 @@ class SteepestDescent(Optimizer):
 
     @property
     def step_size(self):
-        r"""float or :class:`LineSearch`: The step size hyperparameter (:math:`\alpha`)."""
+        r"""float: The step size hyperparameter (:math:`\alpha`)."""
         return self._step_size
 
     @step_size.setter
     def step_size(self, value):
-        try:
-            if value <= 0:
-                raise ValueError('The step size must be positive if defined as a float.')
-        except TypeError:
-            if not isinstance(value, LineSearch):
-                raise ValueError('The step size must be a float or an instance of LineSearch.')
+        if value <= 0:
+            raise ValueError('The specified step size must be positive.')
         self._step_size = value
 
     @property
@@ -249,63 +248,55 @@ class LineSearch:
         self.abs_tol = abs_tol
         self.max_iter = max_iter
 
-    def find(self, objective, res_start, res_end):
+    def find(self, objective, start, end):
         """
         """
-        res_0 = objective.compute()
-        ovars = res_0.design_variables
+        ovars = {x: x.value for x in objective.design_variables()}
 
-        # compute normalized search direction, adjust variables based on max step size
-        d = {x: res_end.design_variables[x]-res_start.design_variables[x] for x in ovars}
-        max_step = np.linalg.norm(np.asarray(list(d.values())))
-        for x in ovars:
-            d[x] /= max_step
-            x.value += max_step*d[x]
-        res = objective.compute()
+        # compute normalized search direction
+        d = end.design_variables - start.design_variables
+        max_step = d.norm()
+        d /= max_step
 
-        # compute initial and post-adjustment target values
-        target_0 = 0
-        target = 0
-        for x in ovars:
-            target_0 += (d[x]*-res_0.gradient(x))
-            target += (d[x]*-res.gradient(x))
+        # compute start and end target values
+        targets = np.array([d.dot(-start.gradient), d.dot(-end.gradient)])
 
-        # check if max step size is acceptable
-        if target > 0 or np.abs(target) < self.abs_tol: #combine conditions as (target > -self.abs_tol) ?
-            for x in ovars:
-                x.value = ovars[x]
-            return res
+        # check if max step size acceptable
+        if targets[1] > 0 or np.abs(targets[1]) < self.abs_tol:
+            result = end
 
         # iterate to minimize target
         else:
-            rstep = np.array([0, max_step])
-            rtarget = np.array([target_0, target])
+            steps = np.array([0, max_step])
             iter_num = 0
-            while np.abs(target) > self.abs_tol and iter_num < self.max_iter:
+            new_target = self.abs_tol
+            print(steps)
+            print(targets)
+            while np.abs(new_target) >= self.abs_tol and iter_num < self.max_iter:
                 # linear interpolation for step size
-                step = (rstep[0]*rtarget[1] - rstep[1]*rtarget[0])/(rtarget[1] - rtarget[0])
+                new_step = (steps[0]*targets[1] - steps[1]*targets[0])/(targets[1] - targets[0])
 
                 # adjust variables based on new step size, compute target
                 for x in ovars:
-                    x.value = ovars[x] + step*d[x]
-                res = objective.compute()
-                target = 0
-                for x in ovars:
-                    target += (d[x]*-res.gradient(x))
+                    x.value = ovars[x] + new_step*d[x]
+                new_res = objective.compute()
+                new_target = d.dot(-new_res.gradient)
 
                 # update search intervals
-                if target > 0:
-                    rstep[0] = step
-                    rtarget[0] = target
+                if new_target > 0:
+                    steps[0] = new_step
+                    targets[0] = new_target
                 else:
-                    rstep[1] = step
-                    rtarget[1] = target
+                    steps[1] = new_step
+                    targets[1] = new_target
 
                 iter_num += 1
 
-            for x in ovars:
-                x.value = ovars[x]
-            return res
+            result = new_res
+
+        for x in ovars:
+            x.value = ovars[x]
+        return result
 
     @property
     def abs_tol(self):

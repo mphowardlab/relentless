@@ -35,7 +35,6 @@ To implement your own objective function, create a class that derives from
 
 .. autoclass:: ObjectiveFunctionResult
     :member-order: bysource
-    :members: gradient
 
 """
 import abc
@@ -114,40 +113,30 @@ class ObjectiveFunctionResult:
 
     """
     def __init__(self, value, gradient, objective):
-        self.value = value
+        self._value = value
 
         dvars = objective.design_variables()
-        self._gradient = _collections.FixedKeyDict(keys=dvars)
+        self._gradient = _collections.KeyedArray(keys=dvars)
         self._gradient.update(gradient)
 
-        self._design_variables = _collections.FixedKeyDict(keys=dvars)
+        self._design_variables = _collections.KeyedArray(keys=dvars)
         variable_values = {x: x.value for x in dvars}
         self._design_variables.update(variable_values)
 
-    def gradient(self, var):
-        """The value of the gradient for a particular :class:`~relentless.variable.DesignVariable`
-        parameter of the objective function.
+    @property
+    def value(self):
+        """float: The value of the evaluated objective function."""
+        return self._value
 
-        Parameters
-        ----------
-        var : :class:`~relentless.variable.DesignVariable`
-            A parameter of the objective function.
-
-        Returns
-        -------
-        float
-            The value of the gradient if it is defined for the specified variable,
-            or ``0.0`` if it is not.
-
-        """
-        try:
-            return self._gradient[var]
-        except KeyError:
-            return 0.0
+    @property
+    def gradient(self):
+        """:class:`~relentless.KeyedArray`: The gradient of the objective function,
+        keyed on its design variables."""
+        return self._gradient
 
     @property
     def design_variables(self):
-        """:class:`~relentless.FixedKeyDict`: The design variables of the
+        """:class:`~relentless.KeyedArray`: The design variables of the
         :class:`ObjectiveFunction` for which the result was constructed, mapped
         to the value of the variables at the time the result was constructed."""
         return self._design_variables
