@@ -129,3 +129,7 @@ class test_LineSearch(unittest.TestCase):
         self.assertAlmostEqual(res_new.design_variables[x], 1.0)
         self.assertAlmostEqual(res_new.gradient[x], 0.0)
         self.assertEqual(q.x.value, -3.0)
+
+        #invalid search interval (not descent direction)
+        with self.assertRaises(ValueError):
+            res_new = l.find(objective=q, start=res_3, end=res_1)

@@ -135,8 +135,9 @@ class LineSearch:
     r"""Line search algorithm.
 
     For an :class:`~relentless.optimize.ObjectiveFunction` :math:`f\left(\mathbf{x}\right)`,
-    the line search algorithm seeks to take a single, optimally-sized step towards
-    the minimum of the function. (Does not necessarily converge to minimum.)
+    the line search algorithm seeks to take a single, optimally-sized step along
+    a search interval, which must be a descent direction (a vector which points
+    towards or crosses a local minimum of the objective function).
 
     A search interval :math:`\mathbf{d}` is specified, and normalized to :math:`\hat{\mathbf{d}}`:
 
@@ -146,19 +147,23 @@ class LineSearch:
 
         \hat{\mathbf{d}} = \frac{\mathbf{d}}{\lVert\mathbf{d}\rVert}
 
-    Then, a 'target' value :math:`t` is defined as:
+    Then, a "target" value :math:`t` is defined as:
 
     .. math::
 
         t = -\hat{\mathbf{d}} \cdot \nabla{f\left(\mathbf{x}\right)}
 
-    The target at the start of the search interval is always negative. If the
-    target is negative (or within the tolerance) at the end of the search
-    interval, then the maximum step size is acceptable and the algorithm steps
-    to the end of the search interval. If the target is positive (outside of the
-    tolerance) at the end of the search interval, then the algorithm iteratively
-    computes a new step size by linear interpolation within the search interval
-    until the target at the new location is minimized to within the tolerance.
+    Because :math:`\hat{\mathbf{d}}` is a descent direction, the target at the
+    start of the search interval is always positive. If the target is positive
+    (or within the tolerance) at the end of the search interval, then the maximum
+    step size is acceptable and the algorithm steps to the end of the search
+    interval. If the target is negative (outside of the tolerance) at the end of
+    the search interval, then the algorithm iteratively computes a new step size
+    by linear interpolation within the search interval until the target at the
+    new location is minimized to within the tolerance.
+
+    Note: This algorithm applies the
+    `strong Wolfe condition on curvature <https://wikipedia.org/wiki/Wolfe_conditions#Strong_Wolfe_condition_on_curvature>`_.
 
     Parameters
     ----------
@@ -187,6 +192,11 @@ class LineSearch:
         end : :class:`~relentless.optimize.ObjectiveFunctionResult`
             The objective function evaluated at the end of the search interval.
 
+        Raises
+        ------
+        ValueError
+            If the defined search interval is not a descent direction.
+
         Returns
         -------
         :class:`~relentless.optimize.ObjectiveFunctionResult`
@@ -202,6 +212,8 @@ class LineSearch:
 
         # compute start and end target values
         targets = np.array([-d.dot(start.gradient), -d.dot(end.gradient)])
+        if targets[0] < 0:
+            raise ValueError('The defined search interval must be a descent direction.')
 
         # check if max step size acceptable, else iterate to minimize target
         if targets[1] > 0 or np.abs(targets[1]) < self.abs_tol:
@@ -209,7 +221,8 @@ class LineSearch:
         else:
             steps = np.array([0, max_step])
             iter_num = 0
-            new_target = self.abs_tol
+            new_target = np.inf
+            new_res = targets[1]
             while np.abs(new_target) >= self.abs_tol and iter_num < self.max_iter:
                 # linear interpolation for step size
                 new_step = (steps[0]*targets[1] - steps[1]*targets[0])/(targets[1] - targets[0])

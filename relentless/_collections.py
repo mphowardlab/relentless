@@ -391,7 +391,7 @@ class KeyedArray(FixedKeyDict):
         return k
 
     def __isub__(self, val):
-        """In-place element-wise subtraction of two arrays."""
+        """In-place element-wise subtraction of two arrays, or of an array and a scalar."""
         if isinstance(val, KeyedArray):
             self._assert_same_keys(val)
             for x in self:
@@ -478,14 +478,14 @@ class KeyedArray(FixedKeyDict):
         return k
 
     def norm(self):
-        r"""Vector norm.
+        r"""Vector :math:`ell^2`-norm.
 
         For a vector :math:`\mathbf{x}=\left[x_1,\ldots,x_n\right]`, the
         Euclidean 2-norm :math:`\lVert\mathbf{x}\rVert` is computed as:
 
-            .. math::
+        .. math::
 
-                \lVert\mathbf{x}\rVert = \sqrt{\sum_{k=1}^{n} {x_k}^2}
+            \lVert\mathbf{x}\rVert = \sqrt{\sum_{k=1}^{n} {x_k}^2}
 
         Returns
         -------
@@ -502,9 +502,9 @@ class KeyedArray(FixedKeyDict):
         :math:`\mathbf{y}=\left[y_1,\ldots,y_n\right]`, the vector dot product
         :math:`\mathbf{x}\cdot\mathbf{y}` is computed as:
 
-            .. math::
+        .. math::
 
-                \mathbf{x}\cdot\mathbf{y} = \sum_{k=1}^{n} {x_k y_k}
+            \mathbf{x}\cdot\mathbf{y} = \sum_{k=1}^{n} {x_k y_k}
 
         Parameters
         ----------
