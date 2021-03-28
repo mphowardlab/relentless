@@ -11,6 +11,7 @@ The following optimization algorithms have been implemented:
     :nosignatures:
 
     SteepestDescent
+    FixedStepDescent
 
 .. rubric:: Developer notes
 
@@ -37,16 +38,22 @@ To implement your own optimization algorithm, create a class that derives from
 
 .. autoclass:: SteepestDescent
     :member-order: bysource
-    :members: optimize,
+    :members: descent_amount,
+        optimize,
         max_iter,
         step_size,
         line_search
+
+.. autoclass:: FixedStepDescent
+    :member-order: bysource
+    :members: descent_amount
 
 """
 import abc
 
 import numpy as np
 
+from relentless import _collections
 from .objective import ObjectiveFunction
 
 class Optimizer(abc.ABC):
@@ -57,7 +64,7 @@ class Optimizer(abc.ABC):
     Parameters
     ----------
     abs_tol : float or dict
-        The absolute tolerance or tolerances (keyed on the :class:`~relentless.optimize.ObjectiveFunction`
+        The absolute tolerance or tolerances (keyed on the :class:`~relentless.optimize.objective.ObjectiveFunction`
         design variables).
 
     """
@@ -73,7 +80,7 @@ class Optimizer(abc.ABC):
 
         Parameters
         ----------
-        objective : :class:`~relentless.optimize.ObjectiveFunction`
+        objective : :class:`~relentless.optimize.objective.ObjectiveFunction`
             The objective function to be optimized.
 
         """
@@ -87,7 +94,7 @@ class Optimizer(abc.ABC):
 
         Parameters
         ----------
-        result : :class:`~relentless.optimize.ObjectiveFunctionResult`
+        result : :class:`~relentless.optimize.objective.ObjectiveFunctionResult`
             The computed value of the objective function.
 
         Returns
@@ -134,7 +141,7 @@ class Optimizer(abc.ABC):
 class LineSearch:
     r"""Line search algorithm.
 
-    For an :class:`~relentless.optimize.ObjectiveFunction` :math:`f\left(\mathbf{x}\right)`,
+    For an :class:`~relentless.optimize.objective.ObjectiveFunction` :math:`f\left(\mathbf{x}\right)`,
     the line search algorithm seeks to take a single, optimally-sized step along
     a search interval, which must be a descent direction (a vector which points
     towards or crosses a local minimum of the objective function).
@@ -185,11 +192,11 @@ class LineSearch:
 
         Parameters
         ----------
-        objective : :class:`~relentless.optimize.ObjectiveFunction`
+        objective : :class:`~relentless.optimize.objective.ObjectiveFunction`
             The objective function for which the line search is applied.
-        start : :class:`~relentless.optimize.ObjectiveFunctionResult`
+        start : :class:`~relentless.optimize.objective.ObjectiveFunctionResult`
             The objective function evaluated at the start of the search interval.
-        end : :class:`~relentless.optimize.ObjectiveFunctionResult`
+        end : :class:`~relentless.optimize.objective.ObjectiveFunctionResult`
             The objective function evaluated at the end of the search interval.
 
         Raises
@@ -199,8 +206,8 @@ class LineSearch:
 
         Returns
         -------
-        :class:`~relentless.optimize.ObjectiveFunctionResult`
-            The objective function evaluated at the new, 'optimal' location.
+        :class:`~relentless.optimize.objective.ObjectiveFunctionResult`
+            The objective function evaluated at the new, "optimal" location.
 
         """
         ovars = {x: x.value for x in objective.design_variables()}
@@ -280,7 +287,7 @@ class LineSearch:
 class SteepestDescent(Optimizer):
     r"""Steepest descent algorithm.
 
-    For an :class:`~relentless.optimize.ObjectiveFunction` :math:`f\left(\mathbf{x}\right)`,
+    For an :class:`~relentless.optimize.objective.ObjectiveFunction` :math:`f\left(\mathbf{x}\right)`,
     the steepest descent algorithm seeks to approach a minimum of the function.
 
     With an initial numerical guess for all the design variables :math:`\mathbf{x}`,
@@ -297,15 +304,17 @@ class SteepestDescent(Optimizer):
     Parameters
     ----------
     abs_tol : float or dict
-        The absolute tolerance or tolerances (keyed on the :class:`~relentless.optimize.ObjectiveFunction`
+        The absolute tolerance or tolerances (keyed on the :class:`~relentless.optimize.objective.ObjectiveFunction`
         design variables).
-    step_size : float
-        The step size hyperparameter (:math:`\alpha`).
+    step_size : dict or float
+        The step size hyperparameter (:math:`\alpha`), as either a single value
+        or keyed on the :class:`~relentless.optimize.objective.ObjectiveFunction`
+        design variables).
     max_iter : int
         The maximum number of optimization iterations allowed.
     line_search : :class:`LineSearch`
         The line search object used to find the optimal step size, using the
-        specified step size value as the "maximum" step size (defaults to None).
+        specified step size value as the "maximum" step size (defaults to ``None``).
 
     """
     def __init__(self, abs_tol, max_iter, step_size, line_search=None):
@@ -314,8 +323,45 @@ class SteepestDescent(Optimizer):
         self.step_size = step_size
         self.line_search = line_search
 
+    def descent_amount(self, gradient):
+        r"""Calculate the descent amount for the optimization.
+
+        The descent amount is:
+
+        .. math::
+
+            d = \alpha\lVert\nabla f\left(\mathbf{x}\right)\rVert
+
+        Parameters
+        ----------
+        gradient : :class:`~relentless._collections.KeyedArray`
+            The gradient of the objective function.
+
+        Returns
+        -------
+        :class:`~relentless._collections.KeyedArray`
+            The descent amount, keyed on the objective function design variables.
+
+        """
+        k = _collections.KeyedArray(keys=gradient.keys)
+        try:
+            k.update(self.step_size)
+        except TypeError:
+            for i in k:
+                k[i] = self.step_size
+        return k*gradient.norm()
+
     def optimize(self, objective):
-        """Perform the steepest descent optimization for the given objective function.
+        r"""Perform the steepest descent optimization for the given objective function.
+
+        A single steepest descent update is performed as:
+
+        .. math::
+
+            \mathbf{x}_{n+1} = \mathbf{x}_{n}-d\frac{\nabla f\left(\mathbf{x}\right)}
+                                                    {\lVert\nabla f\left(\mathbf{x}\right)\rVert}
+
+        :math:`d` is the descent amount returned by :meth:`descent_amount()`.
 
         If specified, the line search is used as described in :class:`LineSearch`
         to place the objective function at a location such that the specified
@@ -323,7 +369,7 @@ class SteepestDescent(Optimizer):
 
         Parameters
         ----------
-        objective : :class:`~relentless.optimize.ObjectiveFunction`
+        objective : :class:`~relentless.optimize.objective.ObjectiveFunction`
             The objective function to be optimized.
 
         Returns
@@ -331,6 +377,7 @@ class SteepestDescent(Optimizer):
         bool or None
             ``True`` if converged, ``False`` if not converged, ``None`` if no
             design variables are specified for the objective function.
+
         """
         dvars = objective.design_variables()
         if len(dvars) == 0:
@@ -338,11 +385,15 @@ class SteepestDescent(Optimizer):
 
         iter_num = 0
         cur_res = objective.compute()
+        alpha = self.descent_amount(cur_res.gradient)
+        update = alpha*cur_res.gradient/cur_res.gradient.norm()
         while not self.has_converged(cur_res) and iter_num < self.max_iter:
             #steepest descent update
             for x in dvars:
-                x.value = cur_res.design_variables[x] - self.step_size*cur_res.gradient[x]
+                x.value = cur_res.design_variables[x] - update[x]
             next_res = objective.compute()
+            alpha = self.descent_amount(cur_res.gradient)
+            update = alpha*cur_res.gradient/cur_res.gradient.norm()
 
             #if line search, attempt backtracking in interval
             if self.line_search is not None:
@@ -372,13 +423,20 @@ class SteepestDescent(Optimizer):
 
     @property
     def step_size(self):
-        r"""float: The step size hyperparameter (:math:`\alpha`)."""
+        r"""dict or float: The step size hyperparameter(s) (:math:`\alpha`).
+        Must be positive."""
         return self._step_size
 
     @step_size.setter
     def step_size(self, value):
-        if value <= 0:
-            raise ValueError('The specified step size must be positive.')
+        try:
+            step_size = dict(value)
+            err = any([step <= 0  for step in value.values()])
+        except TypeError:
+            step_size = value
+            err = value <= 0
+        if err:
+            raise ValueError('The step sizes must be positive.')
         self._step_size = value
 
     @property
@@ -391,3 +449,69 @@ class SteepestDescent(Optimizer):
         if value is not None and not isinstance(value, LineSearch):
             raise TypeError('If defined, the line search parameter must be a LineSearch object.')
         self._line_search = value
+
+class FixedStepDescent(SteepestDescent):
+    r"""Fixed-step steepest descent algorithm.
+
+    For an :class:`~relentless.optimize.objective.ObjectiveFunction` :math:`f\left(\mathbf{x}\right)`,
+    the fixed-step steepest descent algorithm seeks to approach a minimum of the
+    function.
+
+    With an initial numerical guess for all the design variables :math:`\mathbf{x}`,
+    the following iterative calculation is performed:
+
+    .. math::
+
+        \mathbf{x}_{n+1} = \mathbf{x}_{n}-\alpha\frac{\nabla f\left(\mathbf{x}\right)}
+                                                     {\lVert\nabla f\left(\mathbf{x}\right)\rVert}
+
+    where :math:`\alpha` is defined as the step size hyperparameter. The step size
+    must be specified numerically, and a :class:`LineSearch` can be performed to find
+    an optimal step size value if desired.
+
+    Parameters
+    ----------
+    abs_tol : float or dict
+        The absolute tolerance or tolerances (keyed on the :class:`~relentless.optimize.objective.ObjectiveFunction`
+        design variables).
+    step_size : dict or float
+        The step size hyperparameter (:math:`\alpha`), as either a single value
+        or keyed on the :class:`~relentless.optimize.objective.ObjectiveFunction`
+        design variables).
+    max_iter : int
+        The maximum number of optimization iterations allowed.
+    line_search : :class:`LineSearch`
+        The line search object used to find the optimal step size, using the
+        specified step size value as the "maximum" step size (defaults to ``None``).
+
+    """
+    def __init__(self, abs_tol, max_iter, step_size, line_search=None):
+        super().__init__(abs_tol, max_iter, step_size, line_search)
+
+    def descent_amount(self, gradient):
+        r"""Calculate the descent amount for the optimization.
+
+        The descent amount is:
+
+        .. math::
+
+            d = \alpha
+
+        Parameters
+        ----------
+        gradient : :class:`~relentless._collections.KeyedArray`
+            The gradient of the objective function.
+
+        Returns
+        -------
+        :class:`~relentless._collections.KeyedArray`
+            The descent amount, keyed on the objective function design variables.
+
+        """
+        k = _collections.KeyedArray(keys=gradient.keys)
+        try:
+            k.update(self.step_size)
+        except TypeError:
+            for i in k:
+                k[i] = self.step_size
+        return k

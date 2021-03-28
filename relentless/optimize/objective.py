@@ -6,7 +6,7 @@ An objective function is the quantity to be minimized in an optimization problem
 by adjusting the variables on which the function depends.
 
 This function, :math:`f`, is a scalar value that is defined as a function of :math:`n`
-problem :class:`DesignVariables<~relentless.variable.DesignVariable>`
+problem :class:`DesignVariables<~relentless.variable.DesignVariable>`                           #this doesn't make a hyperlink, do you know how to fix this?
 :math:`\mathbf{x}=\left[x_1,\ldots,x_n\right]`.
 
 The value of the function, :math:`f\left(\mathbf{x}\right)` is specified.
@@ -76,7 +76,7 @@ class ObjectiveFunction(abc.ABC):
         Returns
         -------
         array_like
-            The :class:`DesignVariable` parameters.
+            The :class:`~relentless.variable.DesignVariable` parameters.
 
         """
         pass
