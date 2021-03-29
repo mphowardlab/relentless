@@ -6,8 +6,8 @@ A :class:`PairPotential` is a two-particle interaction typically computed
 between nonbonded particles to represent physics like dispersion forces.
 Here, the :class:`PairPotential` will be restricted to short-ranged interactions
 that can be safely truncated at some sufficiently large distance. Each
-:class:`PairPotential` is parameterized by a set of coefficients stored
-in :class:`PairParameters`. Once a pair has been parameterized, the
+:class:`PairPotential` is parametrized by a set of coefficients stored
+in :class:`PairParameters`. Once a pair has been parametrized, the
 :meth:`~PairPotential.energy`, :meth:`~PairPotential.force`, and parameter
 :meth:`~PairPotential.derivative` can be computed as a function of distance
 between the particles.

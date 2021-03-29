@@ -263,5 +263,112 @@ class test_PairMatrix(unittest.TestCase):
         self.assertEqual(m['A','A'], {'energy':3.0, 'mass':2.0})
         self.assertEqual(m['B','B'], {'energy':3.0, 'mass':2.0})
 
+class test_KeyedArray(unittest.TestCase):
+    """Unit tests for relentless._collections.KeyedArray."""
+
+    def test_init(self):
+        """Test construction with data."""
+        k = relentless._collections.KeyedArray(keys=('A','B'))
+        self.assertDictEqual(k.todict(), {'A':None, 'B':None})
+
+        k = relentless._collections.KeyedArray(keys=('A','B'), default=2.0)
+        self.assertDictEqual(k.todict(), {'A':2.0, 'B':2.0})
+
+        #invalid key
+        with self.assertRaises(KeyError):
+            x = k['C']
+
+    def test_arithmetic_ops(self):
+        """Test arithmetic operations."""
+        k1 = relentless._collections.KeyedArray(keys=('A','B'))
+        k1.update({'A':1.0, 'B':2.0})
+        k2 = relentless._collections.KeyedArray(keys=('A','B'))
+        k2.update({'A':2.0, 'B':3.0})
+        k3 = relentless._collections.KeyedArray(keys=('A','B','C'))
+        k3.update({'A':3.0, 'B':4.0, 'C':5.0})
+
+        #addition
+        k4 = k1 + k2
+        self.assertDictEqual(k4.todict(), {'A':3.0, 'B':5.0})
+        k4 += k2
+        self.assertDictEqual(k4.todict(), {'A':5.0, 'B':8.0})
+        k4 = k1 + 1
+        self.assertDictEqual(k4.todict(), {'A':2.0, 'B':3.0})
+        k4 = 2 + k1
+        self.assertDictEqual(k4.todict(), {'A':3.0, 'B':4.0})
+        k4 += 1
+        self.assertDictEqual(k4.todict(), {'A':4.0, 'B':5.0})
+        with self.assertRaises(KeyError):
+            k4 = k1 + k3
+        with self.assertRaises(KeyError):
+            k3 += k2
+
+        #subtraction
+        k4 = k1 - k2
+        self.assertDictEqual(k4.todict(), {'A':-1.0, 'B':-1.0})
+        k4 -= k2
+        self.assertDictEqual(k4.todict(), {'A':-3.0, 'B':-4.0})
+        k4 = k1 - 1
+        self.assertDictEqual(k4.todict(), {'A':0.0, 'B':1.0})
+        k4 = 2 - k1
+        self.assertDictEqual(k4.todict(), {'A':1.0, 'B':0.0})
+        k4 -= 1
+        self.assertDictEqual(k4.todict(), {'A':0.0, 'B':-1.0})
+        with self.assertRaises(KeyError):
+            k4 = k1 - k3
+        with self.assertRaises(KeyError):
+            k3 -= k2
+
+        #multiplication
+        k4 = k1*k2
+        self.assertDictEqual(k4.todict(), {'A':2.0, 'B':6.0})
+        k4 *= k2
+        self.assertDictEqual(k4.todict(), {'A':4.0, 'B':18.0})
+        k4 = 3*k1
+        self.assertDictEqual(k4.todict(), {'A':3.0, 'B':6.0})
+        k4 = k2*3
+        self.assertDictEqual(k4.todict(), {'A':6.0, 'B':9.0})
+        k4 *= 3
+        self.assertDictEqual(k4.todict(), {'A':18.0, 'B':27.0})
+        with self.assertRaises(KeyError):
+            k4 = k1*k3
+
+        #division
+        k4 = k1/k2
+        self.assertDictEqual(k4.todict(), {'A':0.5, 'B':0.6666666666666666})
+        k4 /= k2
+        self.assertDictEqual(k4.todict(), {'A':0.25, 'B':0.2222222222222222})
+        k4 = 2/k2
+        self.assertDictEqual(k4.todict(), {'A':1.0, 'B':0.6666666666666666})
+        k4 = k2/2
+        self.assertDictEqual(k4.todict(), {'A':1.0, 'B':1.5})
+        k4 /= 2
+        self.assertDictEqual(k4.todict(), {'A':0.5, 'B':0.75})
+        with self.assertRaises(KeyError):
+            k4 = k1/k3
+
+        #negation
+        k4 = -k1
+        self.assertDictEqual(k4.todict(), {'A':-1.0, 'B':-2.0})
+
+    def test_vector_ops(self):
+        """Test vector operations."""
+        k1 = relentless._collections.KeyedArray(keys=('A','B'))
+        k1.update({'A':1.0, 'B':2.0})
+        k2 = relentless._collections.KeyedArray(keys=('A','B'))
+        k2.update({'A':2.0, 'B':3.0})
+        k3 = relentless._collections.KeyedArray(keys=('A','B','C'))
+        k3.update({'A':3.0, 'B':4.0, 'C':5.0})
+
+        #norm
+        self.assertAlmostEqual(k1.norm(), np.sqrt(5))
+        self.assertAlmostEqual(k3.norm(), np.sqrt(50))
+
+        #dot product
+        self.assertAlmostEqual(k1.dot(k2), 8.0)
+        self.assertAlmostEqual(k1.dot(k2), k2.dot(k1))
+        with self.assertRaises(KeyError):
+            k4 = k2.dot(k3)
+
 if __name__ == '__main__':
     unittest.main()
