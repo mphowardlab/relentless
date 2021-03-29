@@ -367,6 +367,10 @@ class SteepestDescent(Optimizer):
         to place the objective function at a location such that the specified
         step size will reach a minimum.
 
+        If specified, the line search is used as described in :class:`LineSearch`
+        to place the objective function at a location such that the specified
+        step size will reach a minimum.
+
         Parameters
         ----------
         objective : :class:`~relentless.optimize.objective.ObjectiveFunction`
@@ -387,6 +391,7 @@ class SteepestDescent(Optimizer):
         cur_res = objective.compute()
         alpha = self.descent_amount(cur_res.gradient)
         update = alpha*cur_res.gradient/cur_res.gradient.norm()
+
         while not self.has_converged(cur_res) and iter_num < self.max_iter:
             #steepest descent update
             for x in dvars:
