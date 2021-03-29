@@ -367,10 +367,6 @@ class SteepestDescent(Optimizer):
         to place the objective function at a location such that the specified
         step size will reach a minimum.
 
-        If specified, the line search is used as described in :class:`LineSearch`
-        to place the objective function at a location such that the specified
-        step size will reach a minimum.
-
         Parameters
         ----------
         objective : :class:`~relentless.optimize.objective.ObjectiveFunction`
