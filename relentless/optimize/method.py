@@ -42,6 +42,7 @@ To implement your own optimization algorithm, create a class that derives from
         optimize,
         max_iter,
         step_size,
+        grad_scale,
         line_search
 
 .. autoclass:: FixedStepDescent
@@ -152,15 +153,23 @@ class LineSearch:
 
         \mathbf{d} = \mathbf{x}_{end} - \mathbf{x}_{start}
 
-        \hat{\mathbf{d}} = \frac{\mathbf{d}}{\lVert\mathbf{d}\rVert}
+        \mathbf{\hat{d}} = \frac{\mathbf{d}}{\lVert\mathbf{d}\rVert}
 
     Then, a "target" value :math:`t` is defined as:
 
     .. math::
 
-        t = -\hat{\mathbf{d}} \cdot \nabla{f\left(\mathbf{x}\right)}
+        \nabla f\left(\mathbf{\hat{x}}\right) = \left[{b_1}^2 \frac{\partial f}{\partial x_1},
+                                                      \cdots,
+                                                      {b_n}^2 \frac{\partial f}{\partial x_n}\right]
 
-    Because :math:`\hat{\mathbf{d}}` is a descent direction, the target at the
+        t = -\mathbf{\hat{d}} \cdot \nabla{f\left(\mathbf{\hat{x}}\right)}
+
+    :math:`\mathbf{b}=\left[b_1,\ldots,b_n\right]` is defined as the scaling
+    parameters for the gradient such that :math:`\hat{x}_i=\frac{x_i}{b_i}`. By
+    default, the gradient is left unscaled (:math:`b_i=1`).
+
+    Because :math:`\mathbf{\hat{d}}` is a descent direction, the target at the
     start of the search interval is always positive. If the target is positive
     (or within the tolerance) at the end of the search interval, then the maximum
     step size is acceptable and the algorithm steps to the end of the search
@@ -184,7 +193,7 @@ class LineSearch:
         self.abs_tol = abs_tol
         self.max_iter = max_iter
 
-    def find(self, objective, start, end):
+    def find(self, objective, start, end, grad_scale=1.0):
         """Apply the line search algorithm to take the optimal step.
 
         Note that the objective function is kept at its initial state, and the
@@ -198,9 +207,15 @@ class LineSearch:
             The objective function evaluated at the start of the search interval.
         end : :class:`~relentless.optimize.objective.ObjectiveFunctionResult`
             The objective function evaluated at the end of the search interval.
+        grad_scale : float or dict or :class:`~relentless._collections.KeyedArray`
+            The gradient scaling parameter or parameters (:math:`\mathbf{b}`)
+            keyed on the :class:`~relentless.optimize.objective.ObjectiveFunction`
+            design variables (defaults to ``1.0``).
 
         Raises
         ------
+        ValueError
+            If the gradient scaling parameters are not positive.
         ValueError
             If the defined search interval is not a descent direction.
 
@@ -210,15 +225,35 @@ class LineSearch:
             The objective function evaluated at the new, "optimal" location.
 
         """
+        # check if valid scaling
+        if isinstance(grad_scale, _collections.KeyedArray):
+            scale = grad_scale
+            err = any([sc <= 0 for sc in grad_scale.todict().values()])
+        else:
+            try:
+                scale = dict(grad_scale)
+                scale = _collections.KeyedArray(keys=grad_scale.keys())
+                scale.update(grad_scale)
+                err = any([sc <= 0  for sc in grad_scale.values()])
+            except TypeError:
+                scale = grad_scale
+                err = grad_scale <= 0
+        if err:
+            raise ValueError('The gradient scaling parameters must be positive.')
+
         ovars = {x: x.value for x in objective.design_variables()}
 
         # compute normalized search direction
         d = end.design_variables - start.design_variables
         max_step = d.norm()
+        if max_step == 0:
+            raise ValueError('The start and end of the search interval must be different.')
         d /= max_step
 
         # compute start and end target values
-        targets = np.array([-d.dot(start.gradient), -d.dot(end.gradient)])
+        grad_hat_start = start.gradient*scale**2
+        grad_hat_end = end.gradient*scale**2
+        targets = np.array([-d.dot(grad_hat_start), -d.dot(grad_hat_end)])
         if targets[0] < 0:
             raise ValueError('The defined search interval must be a descent direction.')
 
@@ -238,7 +273,8 @@ class LineSearch:
                 for x in ovars:
                     x.value = start.design_variables[x] + new_step*d[x]
                 new_res = objective.compute()
-                new_target = -d.dot(new_res.gradient)
+                grad_hat_new = new_res.gradient*scale**2
+                new_target = -d.dot(grad_hat_new)
 
                 # update search intervals
                 if new_target > 0:
@@ -295,32 +331,52 @@ class SteepestDescent(Optimizer):
 
     .. math::
 
-        \mathbf{x}_{n+1} = \mathbf{x}_{n}-\alpha\nabla f\left(\mathbf{x}\right)
+        \nabla f\left(\mathbf{\hat{x}}\right) = \left[{b_1}^2 \frac{\partial f}{\partial x_1},
+                                                      \cdots,
+                                                      {b_n}^2 \frac{\partial f}{\partial x_n}\right]
 
-    where :math:`\alpha` is defined as the step size hyperparameter. The step size
-    must be specified numerically, and a :class:`LineSearch` can be performed to find
+        \mathbf{x}_{n+1} = \mathbf{x}_{n}-\alpha\nabla f\left(\mathbf{\hat{x}}\right)
+
+    :math:`\mathbf{b}=\left[b_1,\ldots,b_n\right]` is defined as the scaling
+    parameters for the gradient such that :math:`\hat{x}_i=\frac{x_i}{b_i}`. By default,
+    the gradient is left unscaled (:math:`b_i=1`).
+
+    :math:`\alpha` is defined as the step size hyperparameter. The step size must
+    be specified numerically, and a :class:`LineSearch` can be performed to find
     an optimal step size value if desired.
+
+    Note that this update is equivalent to:
+
+    .. math::
+
+        \mathbf{x}_{n+1} = \mathbf{x}_{n}-c\frac{\nabla f\left(\mathbf{\hat{x}}\right)}
+                                                {\lVert\nabla f\left(\mathbf{\hat{x}}\right)\rVert}
+
+    where :math:`c` is the descent amount returned by :meth:`descent_amount()`.
 
     Parameters
     ----------
     abs_tol : float or dict
-        The absolute tolerance or tolerances (keyed on the :class:`~relentless.optimize.objective.ObjectiveFunction`
-        design variables).
-    step_size : dict or float
-        The step size hyperparameter (:math:`\alpha`), as either a single value
-        or keyed on the :class:`~relentless.optimize.objective.ObjectiveFunction`
-        design variables).
+        The absolute tolerance or tolerances keyed on the
+        :class:`~relentless.optimize.objective.ObjectiveFunction` design variables.
     max_iter : int
         The maximum number of optimization iterations allowed.
+    step_size : float
+        The step size hyperparameter (:math:`\alpha`).
+    grad_scale : float or dict
+        The gradient scaling parameter or parameters (:math:`\mathbf{b}`) keyed on the
+        :class:`~relentless.optimize.objective.ObjectiveFunction` design variables
+        (defaults to ``1.0``, so that the gradient is unscaled).
     line_search : :class:`LineSearch`
         The line search object used to find the optimal step size, using the
         specified step size value as the "maximum" step size (defaults to ``None``).
 
     """
-    def __init__(self, abs_tol, max_iter, step_size, line_search=None):
+    def __init__(self, abs_tol, max_iter, step_size, grad_scale=1.0, line_search=None):
         super().__init__(abs_tol)
         self.max_iter = max_iter
         self.step_size = step_size
+        self.grad_scale = grad_scale
         self.line_search = line_search
 
     def descent_amount(self, gradient):
@@ -330,12 +386,12 @@ class SteepestDescent(Optimizer):
 
         .. math::
 
-            d = \alpha\lVert\nabla f\left(\mathbf{x}\right)\rVert
+            c = \alpha\lVert\nabla f\left(\mathbf{\hat{x}}\right)\rVert
 
         Parameters
         ----------
         gradient : :class:`~relentless._collections.KeyedArray`
-            The gradient of the objective function.
+            The scaled gradient of the objective function.
 
         Returns
         -------
@@ -344,24 +400,12 @@ class SteepestDescent(Optimizer):
 
         """
         k = _collections.KeyedArray(keys=gradient.keys)
-        try:
-            k.update(self.step_size)
-        except TypeError:
-            for i in k:
-                k[i] = self.step_size
+        for i in k:
+            k[i] = self.step_size
         return k*gradient.norm()
 
     def optimize(self, objective):
         r"""Perform the steepest descent optimization for the given objective function.
-
-        A single steepest descent update is performed as:
-
-        .. math::
-
-            \mathbf{x}_{n+1} = \mathbf{x}_{n}-d\frac{\nabla f\left(\mathbf{x}\right)}
-                                                    {\lVert\nabla f\left(\mathbf{x}\right)\rVert}
-
-        :math:`d` is the descent amount returned by :meth:`descent_amount()`.
 
         If specified, the line search is used as described in :class:`LineSearch`
         to place the objective function at a location such that the specified
@@ -385,20 +429,22 @@ class SteepestDescent(Optimizer):
 
         iter_num = 0
         cur_res = objective.compute()
-        alpha = self.descent_amount(cur_res.gradient)
-        update = alpha*cur_res.gradient/cur_res.gradient.norm()
-
         while not self.has_converged(cur_res) and iter_num < self.max_iter:
+            grad_hat = cur_res.gradient*self.grad_scale**2
+            c = self.descent_amount(grad_hat)
+            update = c*grad_hat/grad_hat.norm()
+
             #steepest descent update
             for x in dvars:
                 x.value = cur_res.design_variables[x] - update[x]
             next_res = objective.compute()
-            alpha = self.descent_amount(cur_res.gradient)
-            update = alpha*cur_res.gradient/cur_res.gradient.norm()
 
             #if line search, attempt backtracking in interval
             if self.line_search is not None:
-                line_res = self.line_search.find(objective=objective, start=cur_res, end=next_res)
+                line_res = self.line_search.find(objective=objective,
+                                                 start=cur_res,
+                                                 end=next_res,
+                                                 grad_scale=self.grad_scale)
                 for x in dvars:
                     x.value = line_res.design_variables[x]
                 next_res = line_res
@@ -424,21 +470,35 @@ class SteepestDescent(Optimizer):
 
     @property
     def step_size(self):
-        r"""dict or float: The step size hyperparameter(s) (:math:`\alpha`).
-        Must be positive."""
+        r"""float: The step size hyperparameter (:math:`\alpha`). Must be positive."""
         return self._step_size
 
     @step_size.setter
     def step_size(self, value):
+        if value <= 0:
+            raise ValueError('The step size must be positive.')
+        self._step_size = value
+
+    @property
+    def grad_scale(self):
+        r"""float or :class:`~relentless._collections.KeyedArray`: The gradient
+        scaling parameter or parameters (:math:`\mathbf{b}`) keyed on the design
+        variables. Must be positive."""
+        return self._grad_scale
+
+    @grad_scale.setter
+    def grad_scale(self, value):
         try:
-            step_size = dict(value)
-            err = any([step <= 0  for step in value.values()])
+            grad_scale = dict(value)
+            grad_scale = _collections.KeyedArray(keys=value.keys())
+            grad_scale.update(value)
+            err = any([scale <= 0  for scale in value.values()])
         except TypeError:
-            step_size = value
+            grad_scale = value
             err = value <= 0
         if err:
-            raise ValueError('The step sizes must be positive.')
-        self._step_size = value
+            raise ValueError('The gradient scaling parameters must be positive.')
+        self._grad_scale = grad_scale
 
     @property
     def line_search(self):
@@ -463,31 +523,50 @@ class FixedStepDescent(SteepestDescent):
 
     .. math::
 
-        \mathbf{x}_{n+1} = \mathbf{x}_{n}-\alpha\frac{\nabla f\left(\mathbf{x}\right)}
-                                                     {\lVert\nabla f\left(\mathbf{x}\right)\rVert}
+        \nabla f\left(\mathbf{\hat{x}}\right) = \left[{b_1}^2 \frac{\partial f}{\partial x_1},
+                                                      \cdots,
+                                                      {b_n}^2 \frac{\partial f}{\partial x_n}\right]
 
-    where :math:`\alpha` is defined as the step size hyperparameter. The step size
-    must be specified numerically, and a :class:`LineSearch` can be performed to find
+        \mathbf{x}_{n+1} = \mathbf{x}_{n}-\alpha\frac{\nabla f\left(\mathbf{\hat{x}}\right)}
+                                                     {\lVert\nabla f\left(\mathbf{\hat{x}}\right)\rVert}
+
+    :math:`\mathbf{b}=\left[b_1,\ldots,b_n\right]` is defined as the scaling
+    parameters for the gradient such that :math:`\hat{x}_i=\frac{x_i}{b_i}`. By
+    default, the gradient is left unscaled (:math:`b_i=1`).
+
+    :math:`\alpha` is defined as the step size hyperparameter. The step size must
+    be specified numerically, and a :class:`LineSearch` can be performed to find
     an optimal step size value if desired.
+
+    Note that this update is equivalent to:
+
+    .. math::
+
+        \mathbf{x}_{n+1} = \mathbf{x}_{n}-c\frac{\nabla f\left(\mathbf{\hat{x}}\right)}
+                                                {\lVert\nabla f\left(\mathbf{\hat{x}}\right)\rVert}
+
+    where :math:`c` is the descent amount returned by :meth:`descent_amount()`.
 
     Parameters
     ----------
     abs_tol : float or dict
         The absolute tolerance or tolerances (keyed on the :class:`~relentless.optimize.objective.ObjectiveFunction`
         design variables).
-    step_size : dict or float
-        The step size hyperparameter (:math:`\alpha`), as either a single value
-        or keyed on the :class:`~relentless.optimize.objective.ObjectiveFunction`
-        design variables).
     max_iter : int
         The maximum number of optimization iterations allowed.
+    step_size : float
+        The step size hyperparameter (:math:`\alpha`).
+    grad_scale : float or dict
+        The gradient scaling parameter or parameters (:math:`\mathbf{b}`) keyed on the
+        :class:`~relentless.optimize.objective.ObjectiveFunction` design variables
+        (defaults to ``1.0``, so that the gradient is unscaled).
     line_search : :class:`LineSearch`
         The line search object used to find the optimal step size, using the
         specified step size value as the "maximum" step size (defaults to ``None``).
 
     """
-    def __init__(self, abs_tol, max_iter, step_size, line_search=None):
-        super().__init__(abs_tol, max_iter, step_size, line_search)
+    def __init__(self, abs_tol, max_iter, step_size, grad_scale=1.0, line_search=None):
+        super().__init__(abs_tol, max_iter, step_size, grad_scale, line_search)
 
     def descent_amount(self, gradient):
         r"""Calculate the descent amount for the optimization.
@@ -496,12 +575,12 @@ class FixedStepDescent(SteepestDescent):
 
         .. math::
 
-            d = \alpha
+            c = \alpha
 
         Parameters
         ----------
         gradient : :class:`~relentless._collections.KeyedArray`
-            The gradient of the objective function.
+            The scaled gradient of the objective function.
 
         Returns
         -------
@@ -510,9 +589,6 @@ class FixedStepDescent(SteepestDescent):
 
         """
         k = _collections.KeyedArray(keys=gradient.keys)
-        try:
-            k.update(self.step_size)
-        except TypeError:
-            for i in k:
-                k[i] = self.step_size
+        for i in k:
+            k[i] = self.step_size
         return k

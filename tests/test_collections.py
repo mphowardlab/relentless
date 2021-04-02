@@ -347,6 +347,12 @@ class test_KeyedArray(unittest.TestCase):
         with self.assertRaises(KeyError):
             k4 = k1/k3
 
+        #exponentiation
+        k4 = k1**k2
+        self.assertDictEqual(k4.todict(), {'A':1.0, 'B':8.0})
+        k4 = k2**2
+        self.assertDictEqual(k4.todict(), {'A':4.0, 'B':9.0})
+
         #negation
         k4 = -k1
         self.assertDictEqual(k4.todict(), {'A':-1.0, 'B':-2.0})
