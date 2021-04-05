@@ -822,7 +822,7 @@ class RDFCallback:
         self.system = system
         self._rdf = PairMatrix(params.types)
         self.communicator = communicator
-        for i,j in self.rdf:
+        for i,j in self._rdf:
             self._rdf[i,j] = freud.density.RDF(bins=params[i,j]['bins'],
                                                r_max=params[i,j]['rmax'],
                                                normalize=(i==j))
@@ -839,7 +839,7 @@ class RDFCallback:
         snap = self.system.take_snapshot()
         if self.communicator.rank == 0:
             box = freud.box.Box.from_box(snap.box)
-            for i,j in self.rdf:
+            for i,j in self._rdf:
                 typei = (snap.particles.typeid == snap.particles.types.index(i))
                 typej = (snap.particles.typeid == snap.particles.types.index(j))
                 aabb = freud.locality.AABBQuery(box,snap.particles.position[typej])
