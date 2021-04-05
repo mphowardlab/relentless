@@ -1,3 +1,4 @@
+import numpy as np
 try:
     from mpi4py import MPI
     _has_mpi4py = True
@@ -53,5 +54,15 @@ class Communicator:
         if root is None:
             root = self.root
         self.comm.bcast(data,root)
+
+    def loadtxt(self, filename, root=None, **kwargs):
+        if root is None:
+            root = self.root
+        if self.rank == root:
+            dat = np.loadtxt(filename, **kwargs)
+        else:
+            dat = None
+        self.bcast(dat,root)
+        return dat
 
 communicator = Communicator()
