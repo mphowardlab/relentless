@@ -62,22 +62,14 @@ class test_LineSearch(unittest.TestCase):
         x.value = 51.0
         res_4 = q.compute()
         x.value = -3.0
-        res_new = l.find(objective=q, start=res_4, end=res_1, grad_scale=0.1)
+        res_new = l.find(objective=q, start=res_4, end=res_1, scale=0.1)
         self.assertAlmostEqual(res_new.design_variables[x], 1.0)
         self.assertAlmostEqual(res_new.gradient[x], 0.0)
         self.assertEqual(q.x.value, -3.0)
 
         #include non-trivial scaling parameters (dict)
         x.value = -3.0
-        res_new = l.find(objective=q, start=res_4, end=res_1, grad_scale={x:0.45})
-        self.assertAlmostEqual(res_new.design_variables[x], 1.0)
-        self.assertAlmostEqual(res_new.gradient[x], 0.0)
-        self.assertEqual(q.x.value, -3.0)
-
-        #include non-trivial scaling parameters (KeyedArray)
-        x.value = -3.0
-        k = relentless._collections.KeyedArray(keys=(x,), default=0.45)
-        res_new = l.find(objective=q, start=res_4, end=res_1, grad_scale=k)
+        res_new = l.find(objective=q, start=res_4, end=res_1, scale={x:0.45})
         self.assertAlmostEqual(res_new.design_variables[x], 1.0)
         self.assertAlmostEqual(res_new.gradient[x], 0.0)
         self.assertEqual(q.x.value, -3.0)
@@ -92,12 +84,9 @@ class test_LineSearch(unittest.TestCase):
 
         #invalid scaling parameters
         with self.assertRaises(ValueError):
-            res_new = l.find(objective=q, start=res_4, end=res_1, grad_scale=-0.1)
+            res_new = l.find(objective=q, start=res_4, end=res_1, scale=-0.1)
         with self.assertRaises(ValueError):
-            res_new = l.find(objective=q, start=res_4, end=res_1, grad_scale={x:-0.1})
-        with self.assertRaises(ValueError):
-            k = relentless._collections.KeyedArray(keys=(x,), default=-0.1)
-            res_new = l.find(objective=q, start=res_4, end=res_1, grad_scale=k)
+            res_new = l.find(objective=q, start=res_4, end=res_1, scale={x:-0.1})
 
 class test_SteepestDescent(unittest.TestCase):
     """Unit tests for relentless.optimize.SteepestDescent"""
@@ -112,7 +101,7 @@ class test_SteepestDescent(unittest.TestCase):
         self.assertAlmostEqual(o.abs_tol, 1e-8)
         self.assertEqual(o.max_iter, 1000)
         self.assertAlmostEqual(o.step_size, 0.25)
-        self.assertAlmostEqual(o.grad_scale, 1.0)
+        self.assertAlmostEqual(o.scale, 1.0)
         self.assertIsNone(o.line_search)
 
         #test dictionary of tolerances
@@ -120,23 +109,23 @@ class test_SteepestDescent(unittest.TestCase):
         self.assertDictEqual(o.abs_tol, {x:1e-9})
         self.assertEqual(o.max_iter, 1000)
         self.assertAlmostEqual(o.step_size, 0.25)
-        self.assertAlmostEqual(o.grad_scale, 1.0)
+        self.assertAlmostEqual(o.scale, 1.0)
         self.assertIsNone(o.line_search)
 
         #test scalar scaling parameter
-        o.grad_scale = 0.5
+        o.scale = 0.5
         self.assertDictEqual(o.abs_tol, {x:1e-9})
         self.assertEqual(o.max_iter, 1000)
         self.assertAlmostEqual(o.step_size, 0.25)
-        self.assertAlmostEqual(o.grad_scale, 0.5)
+        self.assertAlmostEqual(o.scale, 0.5)
         self.assertIsNone(o.line_search)
 
         #test dictionary of scaling parameters
-        o.grad_scale = {x:0.3}
+        o.scale = {x:0.3}
         self.assertDictEqual(o.abs_tol, {x:1e-9})
         self.assertEqual(o.max_iter, 1000)
         self.assertAlmostEqual(o.step_size, 0.25)
-        self.assertDictEqual(o.grad_scale.todict(), {x:0.3})
+        self.assertDictEqual(o.scale, {x:0.3})
         self.assertIsNone(o.line_search)
 
         #test using line search
@@ -145,7 +134,7 @@ class test_SteepestDescent(unittest.TestCase):
         self.assertDictEqual(o.abs_tol, {x:1e-9})
         self.assertEqual(o.max_iter, 1000)
         self.assertAlmostEqual(o.step_size, 0.25)
-        self.assertDictEqual(o.grad_scale.todict(), {x:0.3})
+        self.assertDictEqual(o.scale, {x:0.3})
         self.assertEqual(o.line_search, l)
 
         #test invalid parameters
@@ -160,9 +149,9 @@ class test_SteepestDescent(unittest.TestCase):
         with self.assertRaises(ValueError):
             o.step_size = -0.25
         with self.assertRaises(ValueError):
-            o.grad_scale = -0.5
+            o.scale = -0.5
         with self.assertRaises(ValueError):
-            o.grad_scale = {x:-0.5}
+            o.scale = {x:-0.5}
         with self.assertRaises(TypeError):
             o.line_search = q
 
@@ -188,21 +177,20 @@ class test_SteepestDescent(unittest.TestCase):
 
         #test with nontrivial scalar scaling parameter
         x.value = 50
-        o.grad_scale = 0.85
+        o.scale = 0.85
         o.max_iter = 1000
         self.assertTrue(o.optimize(objective=q))
         self.assertAlmostEqual(x.value, 1.0)
 
         #test with nontrivial dictionary of scaling parameters
         x.value = -35
-        o.grad_scale = {x:1.5}
+        o.scale = {x:1.5}
         self.assertTrue(o.optimize(objective=q))
         self.assertAlmostEqual(x.value, 1.0)
 
         #test using line search option
         x.value = 3
-        l = relentless.optimize.LineSearch(abs_tol=1e-8, max_iter=100)
-        o.line_search = l
+        o.line_search = relentless.optimize.LineSearch(abs_tol=1e-8, max_iter=100)
         self.assertTrue(o.optimize(objective=q))
         self.assertAlmostEqual(x.value, 1.0)
 
@@ -238,19 +226,18 @@ class test_FixedStepDescent(unittest.TestCase):
         #test with nontrivial scalar scaling parameter
         x.value = 50
         o.step_size = 0.25
-        o.grad_scale = 4.0
+        o.scale = 4.0
         self.assertTrue(o.optimize(objective=q))
         self.assertAlmostEqual(x.value, 1.0)
 
         #test with nontrivial dictionary of scaling parameters
         x.value = -35
-        o.grad_scale = {x:1.5}
+        o.scale = {x:1.5}
         self.assertTrue(o.optimize(objective=q))
         self.assertAlmostEqual(x.value, 1.0)
 
         #test using line search option
         x.value = 3
-        l = relentless.optimize.LineSearch(abs_tol=1e-8, max_iter=100)
-        o.line_search = l
+        o.line_search = relentless.optimize.LineSearch(abs_tol=1e-8, max_iter=100)
         self.assertTrue(o.optimize(objective=q))
         self.assertAlmostEqual(x.value, 1.0)
