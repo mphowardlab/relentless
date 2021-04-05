@@ -101,7 +101,7 @@ class SimulationInstance:
         Optional arguments for the initialize, analyze, and defined "operations" functions.
 
     """
-    def __init__(self, backend, ensemble, potentials, directory, communicator=None, **options):
+    def __init__(self, backend, ensemble, potentials, directory, communicator, **options):
         self.backend = backend
         self.ensemble = ensemble
         self.potentials = potentials

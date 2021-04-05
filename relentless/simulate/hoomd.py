@@ -45,7 +45,6 @@ class HOOMD(simulate.Simulation):
             raise ImportError('Only freud 2.x is supported.')
 
         super().__init__(operations,**options)
-        self._communicator = None
 
     def _new_instance(self, ensemble, potentials, directory, communicator):
         sim = super()._new_instance(ensemble,potentials,directory,communicator)
@@ -54,13 +53,15 @@ class HOOMD(simulate.Simulation):
         if hoomd.context.exec_conf is None:
             hoomd.context.initialize('--notice-level=0', mpi_comm=sim.communicator.comm)
             hoomd.util.quiet_status()
-            self._communicator = sim.communicator
-        elif sim.communicator is not self._communicator:
+            HOOMD._communicator = sim.communicator
+        elif sim.communicator is not HOOMD._communicator:
+            # HOOMD 2.x does not allow changing the communicator
             raise ValueError('HOOMD-blue does not support changing communicators after first initialization')
 
         sim.context = hoomd.context.SimulationContext()
         sim.system = None
         return sim
+HOOMD._communicator = None
 
 ## initializers
 class Initialize(simulate.SimulationOperation):
