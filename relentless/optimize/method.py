@@ -177,8 +177,7 @@ class LineSearch:
 
     .. math::
 
-        t = \sum{i=1}^{n} \left(-\hat{d}_i {X_i}^2 \frac{\partial f}{\partial x_i}\right)
-
+        t = \sum_{i=1}^{n} \left(-\hat{d}_i {X_i}^2 \frac{\partial f}{\partial x_i}\right)
 
     Because :math:`\mathbf{\hat{d}}` is a descent direction, the target at the
     start of the search interval is always positive. If the target is positive
@@ -382,7 +381,7 @@ class SteepestDescent(Optimizer):
 
     .. math::
 
-        {x_i}_{n+1} = {x_i}_{n}-\alpha{X__i}^2 \frac{\partial f}{\partial x_i}
+        \left(x_i\right)_{n+1} = \left(x_i\right)_{n}-\alpha{X_i}^2 \frac{\partial f}{\partial x_i}
 
     Parameters
     ----------
@@ -601,8 +600,8 @@ class FixedStepDescent(SteepestDescent):
 
     .. math::
 
-        {x_i}_{n+1} = {x_i}_{n}-\frac{\alpha{X__i}^2 \frac{\partial f}{\partial x_i}}
-                                     {\sqrt{\sum_{i=1}^{n} \left({X_i}^2 \frac{\partial f}{\partial x_i}\right)^2}}
+        \left(x_i\right)_{n+1} = \left(x_i\right)_{n}-\frac{\alpha{X_i}^2 \frac{\partial f}{\partial x_i}}
+                                                           {\sqrt{\sum\limits_{i=1}^{n} \left({X_i}^2 \frac{\partial f}{\partial x_i}\right)^2}}
 
     Parameters
     ----------
