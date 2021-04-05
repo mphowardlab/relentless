@@ -746,8 +746,9 @@ class ThermodynamicsCallback:
         Logger from which to retrieve data.
 
     """
-    def __init__(self, logger):
+    def __init__(self, logger, communicator):
         self.logger = logger
+        self.communicator = communicator
         self.reset()
 
     def __call__(self, timestep):
@@ -762,16 +763,16 @@ class ThermodynamicsCallback:
         self.num_samples += 1
 
         T = self.logger.query('temperature')
-        sim.communicator.bcast(T,root=0)
+        self.communicator.bcast(T,root=0)
         self._T += T
 
         P = self.logger.query('P')
-        sim.communicator.bcast(P,root=0)
+        self.communicator.bcast(P,root=0)
         self._P += P
 
         for key in self._V:
             val = self.logger.query(key.lower())
-            sim.communicator.bcast(val,root=0)
+            self.communicator.bcast(val,root=0)
             self._V[key] += val
 
     def reset(self):
@@ -900,7 +901,7 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
                                                              'pressure',
                                                              'lx','ly','lz','xy','xz','yz'],
                                                  period=self.check_thermo_every)
-            sim[self].thermo_callback = ThermodynamicsCallback(sim[self].logger)
+            sim[self].thermo_callback = ThermodynamicsCallback(sim[self].logger,sim.communicator)
             hoomd.analyze.callback(callback=sim[self].thermo_callback,
                                    period=self.check_thermo_every)
 
@@ -910,7 +911,7 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
             bins = np.round(rmax/self.rdf_dr).astype(int)
             for pair in rdf_params:
                 rdf_params[pair] = {'bins': bins, 'rmax': rmax}
-            sim[self].rdf_callback = RDFCallback(sim.system,rdf_params)
+            sim[self].rdf_callback = RDFCallback(sim.system,rdf_params,sim.communicator)
             hoomd.analyze.callback(callback=sim[self].rdf_callback,
                                    period=self.check_rdf_every)
 

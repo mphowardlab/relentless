@@ -100,14 +100,14 @@ class test_SimulationInstance(unittest.TestCase):
         pots = relentless.simulate.Potentials()
 
         #no options
-        sim = relentless.simulate.SimulationInstance(None, ens, pots, self.directory)
+        sim = relentless.simulate.SimulationInstance(None, ens, pots, self.directory, relentless.mpi.world)
         self.assertEqual(sim.ensemble, ens)
         self.assertEqual(sim.potentials, pots)
         with self.assertRaises(AttributeError):
             sim.constant_ens
 
         #with options
-        sim = relentless.simulate.SimulationInstance(None, ens, pots, self.directory, **options)
+        sim = relentless.simulate.SimulationInstance(None, ens, pots, self.directory, relentless.mpi.world, **options)
         self.assertEqual(sim.ensemble, ens)
         self.assertEqual(sim.potentials, pots)
         self.assertTrue(sim.constant_ens)
