@@ -1,3 +1,4 @@
+import os
 import numpy as np
 try:
     from mpi4py import MPI
@@ -14,6 +15,12 @@ class Communicator:
                 self._comm = comm
             self._comm.Set_errhandler(MPI.ERRORS_ARE_FATAL)
         else:
+            hints = ('MV2_COMM_WORLD_LOCAL_RANK',
+                     'OMPI_COMM_WORLD_RANK',
+                     'PMI_RANK',
+                     'ALPS_APP_PE')
+            if any(h in os.environ for h in hints):
+                raise RuntimeError('Python seems to running in MPI, but mpi4py is not installed.')
             self._comm = None
 
         if self.enabled:
@@ -50,19 +57,55 @@ class Communicator:
 
     def bcast(self, data, root=None):
         if not self.enabled or self.size == 1:
-            return
+            return data
+
         if root is None:
             root = self.root
-        self.comm.bcast(data,root)
+
+        return self.comm.bcast(data,root)
+
+    def bcast_numpy(self, data, root=None):
+        if not self.enabled or self.size == 1:
+            return data
+
+        if root is None:
+            root = self.root
+
+        # broadcast the shape and data type
+        if self.rank == root:
+            shape = data.shape
+            dtype = data.dtype
+        else:
+            shape = None
+            dtype = None
+        shape = self.bcast(shape,root)
+        dtype = self.bcast(dtype,root)
+
+        # allocate memory if needed (storage may already exist)
+        if self.rank != root:
+            try:
+                alloc = data.shape != shape or data.dtype != dtype
+            except AttributeError:
+                alloc = True
+            if alloc:
+                data = np.empty(shape,dtype=dtype)
+
+        # broadcast from the root rank
+        self.comm.Bcast(data,root)
+
+        return data
 
     def loadtxt(self, filename, root=None, **kwargs):
         if root is None:
             root = self.root
+
+        # load on root rank and broadcast
         if self.rank == root:
             dat = np.loadtxt(filename, **kwargs)
         else:
             dat = None
-        self.bcast(dat,root)
+        self.bcast_numpy(dat,root)
+
         return dat
 
 world = Communicator()

@@ -763,16 +763,16 @@ class ThermodynamicsCallback:
         self.num_samples += 1
 
         T = self.logger.query('temperature')
-        self.communicator.bcast(T,root=0)
+        T = self.communicator.bcast(T,root=0)
         self._T += T
 
         P = self.logger.query('pressure')
-        self.communicator.bcast(P,root=0)
+        P = self.communicator.bcast(P,root=0)
         self._P += P
 
         for key in self._V:
             val = self.logger.query(key.lower())
-            self.communicator.bcast(val,root=0)
+            val = self.communicator.bcast(val,root=0)
             self._V[key] += val
 
     def reset(self):
@@ -855,7 +855,7 @@ class RDFCallback:
                 gr = np.column_stack((self._rdf[pair].bin_centers,self._rdf[pair].rdf))
             else:
                 gr = None
-            self.communicator.bcast(gr,root=0)
+            gr = self.communicator.bcast_numpy(gr,root=0)
             rdf[pair] = RDF(gr[:,0],gr[:,1])
         return rdf
 
