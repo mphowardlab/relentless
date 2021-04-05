@@ -766,7 +766,7 @@ class ThermodynamicsCallback:
         self.communicator.bcast(T,root=0)
         self._T += T
 
-        P = self.logger.query('P')
+        P = self.logger.query('pressure')
         self.communicator.bcast(P,root=0)
         self._P += P
 
