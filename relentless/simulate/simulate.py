@@ -56,7 +56,7 @@ class Simulation:
             raise TypeError('All operations must be SimulationOperations.')
 
         if communicator is None:
-            communicator = mpi.Communicator()
+            communicator = mpi.world
 
         sim = self._new_instance(ensemble, potentials, directory, communicator)
         for op in self.operations:

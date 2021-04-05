@@ -52,10 +52,10 @@ class HOOMD(simulate.Simulation):
 
         # initialize hoomd exec conf once
         if hoomd.context.exec_conf is None:
-            hoomd.context.initialize('--notice-level=0', mpi_comm=communicator.comm)
+            hoomd.context.initialize('--notice-level=0', mpi_comm=sim.communicator.comm)
             hoomd.util.quiet_status()
-            self._communicator = communicator
-        elif sim.communicator != self._communicator:
+            self._communicator = sim.communicator
+        elif sim.communicator is not self._communicator:
             raise ValueError('HOOMD-blue does not support changing communicators after first initialization')
 
         sim.context = hoomd.context.SimulationContext()

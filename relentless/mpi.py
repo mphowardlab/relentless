@@ -65,4 +65,4 @@ class Communicator:
         self.bcast(dat,root)
         return dat
 
-communicator = Communicator()
+world = Communicator()
