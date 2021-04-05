@@ -167,11 +167,18 @@ class LineSearch:
                                                 \cdots,
                                                 {X_n}^2 \frac{\partial f}{\partial x_n}\right]
 
-    Then, a "target" value :math:`t` is defined as:
+    Then, a scalar "target" value :math:`t` is defined as:
 
     .. math::
 
         t = -\mathbf{\hat{d}} \cdot \nabla{f\left(\mathbf{y}\right)}
+
+    which is equivalent to:
+
+    .. math::
+
+        t = \sum{i=1}^{n} \left(-\hat{d}_i {X_i}^2 \frac{\partial f}{\partial x_i}\right)
+
 
     Because :math:`\mathbf{\hat{d}}` is a descent direction, the target at the
     start of the search interval is always positive. If the target is positive
@@ -249,7 +256,7 @@ class LineSearch:
         # compute normalized search direction
         d = end.design_variables - start.design_variables
         max_step = d.norm()
-        if max_step == 0: #np.isclose(max_step,0):
+        if max_step == 0:
             raise ValueError('The start and end of the search interval must be different.')
         d /= max_step
 
@@ -371,26 +378,26 @@ class SteepestDescent(Optimizer):
 
         \mathbf{x}_{n+1} = \mathbf{x}_{n}-\alpha\nabla f\left(\mathbf{y}\right)
 
-    which is equivalent to:
+    where each term is equivalent to:
 
     .. math::
 
-        \mathbf{x}_{n+1} = \mathbf{x}_{n}
-                           -\alpha\mathbf{X}^2\left(\nabla f\left(\mathbf{y}\right)\right)^\intercal
+        {x_i}_{n+1} = {x_i}_{n}-\alpha{X__i}^2 \frac{\partial f}{\partial x_i}
 
     Parameters
     ----------
     abs_tol : float or dict
         The absolute tolerance or tolerances keyed on the
         :class:`~relentless.optimize.objective.ObjectiveFunction` design variables.
+        The tolerance is defined on the `scaled gradient`.
     max_iter : int
         The maximum number of optimization iterations allowed.
     step_size : float
         The step size hyperparameter (:math:`\alpha`).
     scale : float or dict
-        The scaling parameter or parameters (:math:`\mathbf{X}`) keyed on the
-        :class:`~relentless.optimize.objective.ObjectiveFunction` design variables
-        (defaults to ``1.0``, so that the variables are unscaled).
+        A scalar scaling parameter or scaling parameters (:math:`\mathbf{X}`)
+        keyed on one or more `~relentless.optimize.objective.ObjectiveFunction`
+        design variables (defaults to ``1.0``, so that the variables are unscaled).
     line_search : :class:`LineSearch`
         The line search object used to find the optimal step size, using the
         specified step size value as the "maximum" step size (defaults to ``None``).
@@ -451,6 +458,9 @@ class SteepestDescent(Optimizer):
         KeyError
             If the scaling parameters are defined on a variable which is not in
             the objective function.
+        ValueError
+            If the line search used has a tolerance greater than the tolerance
+            for the steepest descent.
 
         """
         dvars = objective.design_variables()
@@ -480,6 +490,14 @@ class SteepestDescent(Optimizer):
 
             #if line search, attempt backtracking in interval
             if self.line_search is not None:
+                try:
+                    err = self.line_search.abs_tol > self.abs_tol
+                except TypeError:
+                    err = any([self.line_search.abs_tol > t for t in self.abs_tol.values()])
+                if err:
+                    raise ValueError('''The line search object must have a tolerance less
+                                        than or equal to the steepest descent object.''')
+
                 line_res = self.line_search.find(objective=objective,
                                                  start=cur_res,
                                                  end=next_res,
@@ -579,18 +597,19 @@ class FixedStepDescent(SteepestDescent):
         \mathbf{x}_{n+1} = \mathbf{x}_{n}-\alpha\frac{\nabla f\left(\mathbf{y}\right)}
                                                      {\lVert\nabla f\left(\mathbf{y}\right)\rVert}
 
-    which is equivalent to:
+    where each term is equivalent to:
 
     .. math::
 
-        \mathbf{x}_{n+1} = \mathbf{x}_{n}
-                           -\alpha\mathbf{X}^2\left(\nabla f\left(\mathbf{y}\right)\right)^\intercal
+        {x_i}_{n+1} = {x_i}_{n}-\frac{\alpha{X__i}^2 \frac{\partial f}{\partial x_i}}
+                                     {\sqrt{\sum_{i=1}^{n} \left({X_i}^2 \frac{\partial f}{\partial x_i}\right)^2}}
 
     Parameters
     ----------
     abs_tol : float or dict
-        The absolute tolerance or tolerances (keyed on the :class:`~relentless.optimize.objective.ObjectiveFunction`
-        design variables).
+        The absolute tolerance or tolerances keyed on the
+        :class:`~relentless.optimize.objective.ObjectiveFunction` design variables.
+        The tolerance is defined on the `scaled gradient`.
     max_iter : int
         The maximum number of optimization iterations allowed.
     step_size : float
