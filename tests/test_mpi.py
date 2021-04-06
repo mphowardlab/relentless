@@ -6,7 +6,10 @@ import tempfile
 import numpy as np
 
 import relentless
-import mpi4py.MPI as MPI
+try:
+    import mpi4py.MPI as MPI
+except ImportError:
+    pass
 
 has_mpi = relentless.mpi._mpi_running()
 
