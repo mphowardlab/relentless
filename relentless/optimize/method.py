@@ -157,13 +157,16 @@ class LineSearch:
 
         t = -\mathbf{d} \cdot \nabla{f\left(\mathbf{x}\right)}
 
-    With an input relative tolerance value :math:`c`, the tolerance is defined as:
+    One measure of the optimal value of :math:`\alpha` is when :math:`t` decreases
+    sufficiently relative to its value at the start of the interval:
 
     .. math::
 
-        c\lvert t_{start} \rvert
+        t(\alpha) < c\lvert t_{start} \rvert
 
-    where :math:`t_{start}` is the target value at the start of the search interval.
+    where :math:`c` is a defined relative tolerance value, and :math:`t_{start}`
+    is the target value at the start of the search interval. This is the
+    `strong Wolfe condition on curvature <https://wikipedia.org/wiki/Wolfe_conditions#Strong_Wolfe_condition_on_curvature>`_.
 
     Because :math:`\mathbf{d}` is a descent direction, the target at the
     start of the search interval is always positive. If the target is positive
@@ -173,9 +176,6 @@ class LineSearch:
     the search interval, then the algorithm iteratively computes a new step size
     by linear interpolation within the search interval until the target at the
     new location is minimized to within the tolerance.
-
-    Note: This algorithm applies the
-    `strong Wolfe condition on curvature <https://wikipedia.org/wiki/Wolfe_conditions#Strong_Wolfe_condition_on_curvature>`_.
 
     Parameters
     ----------
@@ -302,20 +302,18 @@ class SteepestDescent(Optimizer):
 
     The optimization is performed using scaled variables :math:`\mathbf{y}`.
     Define :math:`\mathbf{X}` as the scaling parameters for each variable such
-    that :math:`y_i=\frac{x_i}{X_i}`. (A variable can be left unscaled by setting
+    that :math:`y_i=x_i/X_i`. (A variable can be left unscaled by setting
     :math:`X_i=1`).
 
     Define :math:`\alpha` as the descent step size hyperparameter. A :class:`LineSearch`
     can optionally be performed to optimize the value of :math:`\alpha` between
-    :math:`0` and the input value.
-
-    The function is iteratively minimized by taking successive steps down the
-    gradient of the functional. If the scaled variables are :math:`\mathbf{y}_n`
-    at iteration :math:`n`, the next value of the variables is:
+    :math:`0` and the input value. The function is iteratively minimized by taking
+    successive steps down the gradient of the function. If the scaled variables
+    are :math:`\mathbf{y}_n` at iteration :math:`n`, the next value of the variables is:
 
     .. math::
 
-        \mathbf{y}_{n+1} = \mathbf{y}_n-\alpha\nabla f\left(\mathbf{y}\right)
+        \mathbf{y}_{n+1} = \mathbf{y}_n-\alpha\nabla f\left(\mathbf{y}_n\right)
 
     The gradient of the function with respect to the scaled variables is:
 
@@ -362,11 +360,8 @@ class SteepestDescent(Optimizer):
     def descent_amount(self, gradient):
         r"""Calculate the descent amount for the optimization.
 
-        The amount that each update descends down the scaled gradient is:
-
-        .. math::
-
-            \alpha
+        The amount that each update descends down the scaled gradient is a
+        constant :math:`alpha`.
 
         Parameters
         ----------
@@ -507,7 +502,7 @@ class FixedStepDescent(SteepestDescent):
     .. math::
 
         \mathbf{y}_{n+1} = \mathbf{y}_n
-                          -\frac{\alpha}{\lVert\nabla f\left(\mathbf{y}\right)\rVert}\nabla f\left(\mathbf{y}\right)
+                          -\frac{\alpha}{\lVert\nabla f\left(\mathbf{y}_n\right)\rVert}\nabla f\left(\mathbf{y}_n\right)
 
     Parameters
     ----------
@@ -539,6 +534,8 @@ class FixedStepDescent(SteepestDescent):
         .. math::
 
             \frac{\alpha}{\lVert\nabla y\rVert}
+
+        which make a step of constant magnitude.
 
         Parameters
         ----------
