@@ -535,7 +535,7 @@ class FixedStepDescent(SteepestDescent):
 
             \frac{\alpha}{\lVert\nabla y\rVert}
 
-        which make a step of constant magnitude.
+        which makes a step of constant magnitude.
 
         Parameters
         ----------
