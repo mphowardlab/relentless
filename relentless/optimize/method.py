@@ -361,7 +361,7 @@ class SteepestDescent(Optimizer):
         r"""Calculate the descent amount for the optimization.
 
         The amount that each update descends down the scaled gradient is a
-        constant :math:`alpha`.
+        constant :math:`\alpha`.
 
         Parameters
         ----------
