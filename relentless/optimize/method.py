@@ -144,19 +144,15 @@ class LineSearch:
     r"""Line search algorithm.
 
     Given an :class:`~relentless.optimize.objective.ObjectiveFunction` :math:`f\left(\mathbf{x}\right)`
-    and a search interval defined by :math:`\mathbf{x}_{start}` and :math:`\mathbf{x}_{end}`,
+    and a search interval defined as :math:`\mathbf{d}=\mathbf{x}_{end}-\mathbf{x}_{start}`,
     the line search algorithm seeks an optimal step size :math:`0<\alpha<1` such
-    that :math:`f\left(\mathbf{x}_{start}+\alpha d\right)` is minimized.
-
-    :math:`\mathbf{d}` is the search interval, which can be normalized to :math:`\mathbf{\hat{d}}` as:
+    that the following quantity is minimized:
 
     .. math::
 
-        \mathbf{d} = \mathbf{x}_{end} - \mathbf{x}_{start}
+        f\left(\mathbf{x}_{start}+\alpha\mathbf{d}\right)
 
-        \mathbf{\hat{d}} = \frac{\mathbf{d}}{\lVert\mathbf{d}\rVert}
-
-    Then, a scalar "target" value :math:`t` is defined as:
+    This is done by defining a scalar "target" value :math:`t` as:
 
     .. math::
 
@@ -216,12 +212,10 @@ class LineSearch:
         """
         ovars = {x: x.value for x in objective.design_variables()}
 
-        # compute normalized search direction
+        # compute search direction
         d = end.design_variables - start.design_variables
-        max_step = d.norm()
-        if max_step == 0:
+        if d.norm() == 0:
             raise ValueError('The start and end of the search interval must be different.')
-        d /= max_step
 
         # compute start and end target values
         targets = np.array([-d.dot(start.gradient), -d.dot(end.gradient)])
@@ -232,7 +226,7 @@ class LineSearch:
         if targets[1] > 0 or np.abs(targets[1]) < self.abs_tol:
             result = end
         else:
-            steps = np.array([0, max_step])
+            steps = np.array([0,1], dtype=np.float64)
             iter_num = 0
             new_target = np.inf
             new_res = targets[1]
