@@ -39,6 +39,7 @@ To implement your own optimization algorithm, create a class that derives from
 .. autoclass:: SteepestDescent
     :member-order: bysource
     :members: descent_amount,
+        scale_grad,
         optimize,
         max_iter,
         step_size,
@@ -142,12 +143,12 @@ class Optimizer(abc.ABC):
 class LineSearch:
     r"""Line search algorithm.
 
-    For an :class:`~relentless.optimize.objective.ObjectiveFunction` :math:`f\left(\mathbf{x}\right)`,
-    the line search algorithm seeks to take a single, optimally-sized step along
-    a search interval, which must be a descent direction (a vector which points
-    towards or crosses a local minimum of the objective function).
+    Given an :class:`~relentless.optimize.objective.ObjectiveFunction` :math:`f\left(\mathbf{x}\right)`
+    and a search interval defined by :math:`\mathbf{x}_{start}` and :math:`\mathbf{x}_{end}`,
+    the line search algorithm seeks an optimal step size :math:`0<\alpha<1` such
+    that :math:`f\left(\mathbf{x}_{start}+\alpha d\right)` is minimized.
 
-    A search interval :math:`\mathbf{d}` is specified, and normalized to :math:`\hat{\mathbf{d}}`:
+    :math:`\mathbf{d}` is the search interval, which can be normalized to :math:`\mathbf{\hat{d}}` as:
 
     .. math::
 
@@ -155,29 +156,11 @@ class LineSearch:
 
         \mathbf{\hat{d}} = \frac{\mathbf{d}}{\lVert\mathbf{d}\rVert}
 
-    :math:`\mathbf{X}=\left[X_1,\ldots,X_n\right]` is defined as the scaling
-    parameters for the gradient such that :math:`y_i=\frac{x_i}{X_i}`. By
-    default, the variables are left unscaled (:math:`X_i=1`).
-
-    With scaling, the gradient of the function becomes:
-
-    .. math::
-
-        \nabla f\left(\mathbf{y}\right) = \left[{X_1}^2 \frac{\partial f}{\partial x_1},
-                                                \cdots,
-                                                {X_n}^2 \frac{\partial f}{\partial x_n}\right]
-
     Then, a scalar "target" value :math:`t` is defined as:
 
     .. math::
 
-        t = -\mathbf{\hat{d}} \cdot \nabla{f\left(\mathbf{y}\right)}
-
-    which is equivalent to:
-
-    .. math::
-
-        t = \sum_{i=1}^{n} \left(-\hat{d}_i {X_i}^2 \frac{\partial f}{\partial x_i}\right)
+        t = -\mathbf{\hat{d}} \cdot \nabla{f\left(\mathbf{x}\right)}
 
     Because :math:`\mathbf{\hat{d}}` is a descent direction, the target at the
     start of the search interval is always positive. If the target is positive
@@ -203,7 +186,7 @@ class LineSearch:
         self.abs_tol = abs_tol
         self.max_iter = max_iter
 
-    def find(self, objective, start, end, scale=1.0):
+    def find(self, objective, start, end):
         """Apply the line search algorithm to take the optimal step.
 
         Note that the objective function is kept at its initial state, and the
@@ -217,20 +200,11 @@ class LineSearch:
             The objective function evaluated at the start of the search interval.
         end : :class:`~relentless.optimize.objective.ObjectiveFunctionResult`
             The objective function evaluated at the end of the search interval.
-        scale : float or dict
-            A scalar scaling parameter or scaling parameters (:math:`\mathbf{X}`)
-            keyed on one or more `~relentless.optimize.objective.ObjectiveFunction`
-            design variables (defaults to ``1.0``, so that the variables are unscaled).
 
         Raises
         ------
         ValueError
-            If the scaling parameters are not positive.
-        ValueError
             If the start and the end of the search interval are identical.
-        KeyError
-            If the scaling parameters are defined on a variable which is not in
-            the objective function.
         ValueError
             If the defined search interval is not a descent direction.
 
@@ -240,16 +214,6 @@ class LineSearch:
             The objective function evaluated at the new, "optimal" location.
 
         """
-        # check if valid scaling
-        try:
-            sc = dict(scale)
-            err = any([s <= 0 for s in scale.values()])
-        except TypeError:
-            sc = scale
-            err = scale <= 0
-        if err:
-            raise ValueError('The scaling parameters must be positive.')
-
         ovars = {x: x.value for x in objective.design_variables()}
 
         # compute normalized search direction
@@ -259,24 +223,8 @@ class LineSearch:
             raise ValueError('The start and end of the search interval must be different.')
         d /= max_step
 
-        # compute scaled gradients
-        grad_y_start = start.gradient
-        grad_y_end = end.gradient
-        if np.isscalar(sc):
-            grad_y_start *= sc**2
-            grad_y_end *= sc**2
-        else:
-            for x in sc:
-                try:
-                    grad_y_start[x] *= sc[x]**2
-                    grad_y_end[x] *= sc[x]**2
-                except KeyError:
-                    raise KeyError('''The scaling parameters cannot be defined
-                                      on a variable which is not in the objective
-                                      function.''')
-
         # compute start and end target values
-        targets = np.array([-d.dot(grad_y_start), -d.dot(grad_y_end)])
+        targets = np.array([-d.dot(start.gradient), -d.dot(end.gradient)])
         if targets[0] < 0:
             raise ValueError('The defined search interval must be a descent direction.')
 
@@ -292,17 +240,11 @@ class LineSearch:
                 # linear interpolation for step size
                 new_step = (steps[0]*targets[1] - steps[1]*targets[0])/(targets[1] - targets[0])
 
-                # adjust variables based on new step size, compute scaled gradient and new target
+                # adjust variables based on new step size, compute new target
                 for x in ovars:
                     x.value = start.design_variables[x] + new_step*d[x]
                 new_res = objective.compute()
-                grad_y_new = new_res.gradient
-                if np.isscalar(sc):
-                    grad_y_new *= sc**2
-                else:
-                    for x in sc:
-                        grad_y_new[x] *= sc[x]**2
-                new_target = -d.dot(grad_y_new)
+                new_target = -d.dot(new_res.gradient)
 
                 # update search intervals
                 if new_target > 0:
@@ -362,9 +304,9 @@ class SteepestDescent(Optimizer):
 
     .. math::
 
-        \nabla f\left(\mathbf{y}\right) = \left[{X_1}^2 \frac{\partial f}{\partial x_1},
+        \nabla f\left(\mathbf{y}\right) = \left[X_1 \frac{\partial f}{\partial x_1},
                                                       \cdots,
-                                                {X_n}^2 \frac{\partial f}{\partial x_n}\right]
+                                                X_n \frac{\partial f}{\partial x_n}\right]
 
     :math:`\alpha` is defined as the step size hyperparameter. The step size must
     be specified numerically, and a :class:`LineSearch` can be performed to find
@@ -375,9 +317,9 @@ class SteepestDescent(Optimizer):
 
     .. math::
 
-        \mathbf{x}_{n+1} = \mathbf{x}_{n}-\alpha\nabla f\left(\mathbf{y}\right)
+        \mathbf{y}_{n+1} = \mathbf{y}_{n}-\alpha\nabla f\left(\mathbf{y}\right)
 
-    where each term is equivalent to:
+    such that each term is equivalent to:
 
     .. math::
 
@@ -434,6 +376,50 @@ class SteepestDescent(Optimizer):
             k[i] = self.step_size
         return k
 
+    def scale_grad(self, gradient, scale):
+        r"""Computes the scaled gradient of the objective function.
+
+        The scaled gradient is defined as:
+
+        .. math::
+
+            \nabla f\left(\mathbf{y}\right) = \left[X_1 \frac{\partial f}{\partial x_1},
+                                                          \cdots,
+                                                    X_n \frac{\partial f}{\partial x_n}\right]
+
+        Parameters
+        ----------
+        gradient : `~relentless._collections.KeyedArray`
+            A gradient vector, keyed on one or more design variables.
+        scale : float or dict
+            A scalar scaling parameter or scaling parameters keyed on one or
+            more design variables.
+
+        Returns
+        -------
+        `~relentless._collections.KeyedArray`
+            The scaled gradient.
+
+        Raises
+        ------
+        KeyError
+            If the scaling parameters are defined on a variable which is not in
+            the objective function.
+
+        """
+        grad_sc = gradient
+        if np.isscalar(scale):
+            grad_sc *= scale
+        else:
+            for x in scale:
+                try:
+                    grad_sc[x] *= scale[x]
+                except KeyError:
+                    raise KeyError('''The scaling parameters cannot be defined
+                                      on a variable which is not in the objective
+                                      function.''')
+        return grad_sc
+
     def optimize(self, objective):
         r"""Perform the steepest descent optimization for the given objective function.
 
@@ -454,9 +440,6 @@ class SteepestDescent(Optimizer):
 
         Raises
         ------
-        KeyError
-            If the scaling parameters are defined on a variable which is not in
-            the objective function.
         ValueError
             If the line search used has a tolerance greater than the tolerance
             for the steepest descent.
@@ -469,18 +452,8 @@ class SteepestDescent(Optimizer):
         iter_num = 0
         cur_res = objective.compute()
         while not self.has_converged(cur_res) and iter_num < self.max_iter:
-            grad_y = cur_res.gradient
-            if np.isscalar(self.scale):
-                grad_y *= self.scale**2
-            else:
-                for x in self.scale:
-                    try:
-                        grad_y[x] *= self.scale[x]**2
-                    except KeyError:
-                        raise KeyError('''The scaling parameters cannot be defined
-                                          on a variable which is not in the objective
-                                          function.''')
-            update = self.descent_amount(grad_y)*grad_y
+            grad_y = self.scale_grad(cur_res.gradient, self.scale)
+            update = self.descent_amount(grad_y)*self.scale_grad(grad_y, self.scale)
 
             #steepest descent update
             for x in dvars:
@@ -497,10 +470,7 @@ class SteepestDescent(Optimizer):
                     raise ValueError('''The line search object must have a tolerance less
                                         than or equal to the steepest descent object.''')
 
-                line_res = self.line_search.find(objective=objective,
-                                                 start=cur_res,
-                                                 end=next_res,
-                                                 scale=self.scale)
+                line_res = self.line_search.find(objective=objective, start=cur_res, end=next_res)
                 for x in dvars:
                     x.value = line_res.design_variables[x]
                 next_res = line_res
@@ -580,9 +550,9 @@ class FixedStepDescent(SteepestDescent):
 
     .. math::
 
-        \nabla f\left(\mathbf{y}\right) = \left[{X_1}^2 \frac{\partial f}{\partial x_1},
+        \nabla f\left(\mathbf{y}\right) = \left[X_1 \frac{\partial f}{\partial x_1},
                                                       \cdots,
-                                                {X_n}^2 \frac{\partial f}{\partial x_n}\right]
+                                                X_n \frac{\partial f}{\partial x_n}\right]
 
     :math:`\alpha` is defined as the step size hyperparameter. The step size must
     be specified numerically, and a :class:`LineSearch` can be performed to find
@@ -593,10 +563,10 @@ class FixedStepDescent(SteepestDescent):
 
     .. math::
 
-        \mathbf{x}_{n+1} = \mathbf{x}_{n}-\alpha\frac{\nabla f\left(\mathbf{y}\right)}
+        \mathbf{y}_{n+1} = \mathbf{y}_{n}-\alpha\frac{\nabla f\left(\mathbf{y}\right)}
                                                      {\lVert\nabla f\left(\mathbf{y}\right)\rVert}
 
-    where each term is equivalent to:
+    such that each term is equivalent to:
 
     .. math::
 

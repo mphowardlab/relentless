@@ -58,22 +58,6 @@ class test_LineSearch(unittest.TestCase):
         self.assertAlmostEqual(res_new.gradient[x], 0.0)
         self.assertEqual(q.x.value, -3.0)
 
-        #include a non-trivial scaling parameter (float)
-        x.value = 51.0
-        res_4 = q.compute()
-        x.value = -3.0
-        res_new = l.find(objective=q, start=res_4, end=res_1, scale=0.1)
-        self.assertAlmostEqual(res_new.design_variables[x], 1.0)
-        self.assertAlmostEqual(res_new.gradient[x], 0.0)
-        self.assertEqual(q.x.value, -3.0)
-
-        #include non-trivial scaling parameters (dict)
-        x.value = -3.0
-        res_new = l.find(objective=q, start=res_4, end=res_1, scale={x:0.45})
-        self.assertAlmostEqual(res_new.design_variables[x], 1.0)
-        self.assertAlmostEqual(res_new.gradient[x], 0.0)
-        self.assertEqual(q.x.value, -3.0)
-
         #invalid search interval (not descent direction)
         with self.assertRaises(ValueError):
             res_new = l.find(objective=q, start=res_3, end=res_1)
@@ -81,12 +65,6 @@ class test_LineSearch(unittest.TestCase):
         #invalid search interval (0 distance from start to end)
         with self.assertRaises(ValueError):
             res_new = l.find(objective=q, start=res_3, end=res_3)
-
-        #invalid scaling parameters
-        with self.assertRaises(ValueError):
-            res_new = l.find(objective=q, start=res_4, end=res_1, scale=-0.1)
-        with self.assertRaises(ValueError):
-            res_new = l.find(objective=q, start=res_4, end=res_1, scale={x:-0.1})
 
 class test_SteepestDescent(unittest.TestCase):
     """Unit tests for relentless.optimize.SteepestDescent"""
