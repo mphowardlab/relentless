@@ -9,8 +9,10 @@ Optimization
     method
 
 """
-from .method import (Optimizer,
-                     SteepestDescent,
-                     LineSearch)
+from .method import (FixedStepDescent,
+                     LineSearch,
+                     Optimizer,
+                     SteepestDescent)
 
 from .objective import (ObjectiveFunction)
+
