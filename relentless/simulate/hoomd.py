@@ -763,16 +763,13 @@ class ThermodynamicsCallback:
         self.num_samples += 1
 
         T = self.logger.query('temperature')
-        T = self.communicator.bcast(T,root=0)
         self._T += T
 
         P = self.logger.query('pressure')
-        P = self.communicator.bcast(P,root=0)
         self._P += P
 
         for key in self._V:
             val = self.logger.query(key.lower())
-            val = self.communicator.bcast(val,root=0)
             self._V[key] += val
 
     def reset(self):
