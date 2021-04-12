@@ -30,7 +30,7 @@ class test_HOOMD(unittest.TestCase):
 
     #mock (NVT) ensemble and potential for testing
     def ens_pot(self):
-        ens = relentless.ensemble.Ensemble(T=2.0, V=relentless.volume.Cube(L=10.0), N={'A':2,'B':3})
+        ens = relentless.ensemble.Ensemble(T=2.0, V=relentless.volume.Cube(L=20.0), N={'A':2,'B':3})
 
         # setup potentials
         pot = LinPot(ens.types,params=('m',))
@@ -51,7 +51,7 @@ class test_HOOMD(unittest.TestCase):
             s.particles.types = ['A','B']
             s.particles.typeid = [0,0,1,1,1]
             s.particles.position = np.random.uniform(low=-5.0,high=5.0,size=(5,3))
-            s.configuration.box = [10,10,10,0,0,0]
+            s.configuration.box = [20,20,20,0,0,0]
             f.append(s)
         return f
 

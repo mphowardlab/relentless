@@ -59,5 +59,6 @@ autosummary_generate = False
 intersphinx_mapping = {
     'python': ('https://docs.python.org/3', None),
     'network': ('https://networkx.org/documentation/stable', None),
+    'mpi4py': ('https://mpi4py.readthedocs.io/en/stable', None),
     'numpy': ('https://docs.scipy.org/doc/numpy', None)
 }

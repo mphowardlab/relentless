@@ -15,6 +15,7 @@ relentless
     :caption: API
 
     api/index
+    api/mpi
     api/potential/index
     api/optimize/index
     api/variable

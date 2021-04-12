@@ -2,6 +2,8 @@ import abc
 
 import numpy as np
 
+from relentless import mpi
+
 class Simulation:
     """Ensemble simulation container.
 
@@ -23,7 +25,7 @@ class Simulation:
             self.operations = []
         self.options = options
 
-    def run(self, ensemble, potentials, directory):
+    def run(self, ensemble, potentials, directory, communicator=None):
         """Run the simulation and return the result of analyze.
 
         A new simulation instance is created to perform the run. It is intended
@@ -53,7 +55,10 @@ class Simulation:
         if not all([isinstance(op,SimulationOperation) for op in self.operations]):
             raise TypeError('All operations must be SimulationOperations.')
 
-        sim = self._new_instance(ensemble, potentials, directory)
+        if communicator is None:
+            communicator = mpi.world
+
+        sim = self._new_instance(ensemble, potentials, directory, communicator)
         for op in self.operations:
             op(sim)
         return sim
@@ -70,11 +75,12 @@ class Simulation:
         except TypeError:
             self._operations = [ops]
 
-    def _new_instance(self, ensemble, potentials, directory):
+    def _new_instance(self, ensemble, potentials, directory, communicator):
         return SimulationInstance(type(self),
                                   ensemble,
                                   potentials,
                                   directory,
+                                  communicator,
                                   **self.options)
 
 class SimulationInstance:
@@ -95,11 +101,12 @@ class SimulationInstance:
         Optional arguments for the initialize, analyze, and defined "operations" functions.
 
     """
-    def __init__(self, backend, ensemble, potentials, directory, **options):
+    def __init__(self, backend, ensemble, potentials, directory, communicator, **options):
         self.backend = backend
         self.ensemble = ensemble
         self.potentials = potentials
         self.directory = directory
+        self.communicator = communicator
         for opt,val in options.items():
             setattr(self,opt,val)
         self._opdata = {}

@@ -46,16 +46,22 @@ class HOOMD(simulate.Simulation):
 
         super().__init__(operations,**options)
 
+    def _new_instance(self, ensemble, potentials, directory, communicator):
+        sim = super()._new_instance(ensemble,potentials,directory,communicator)
+
         # initialize hoomd exec conf once
         if hoomd.context.exec_conf is None:
-            hoomd.context.initialize('--notice-level=0')
+            hoomd.context.initialize('--notice-level=0', mpi_comm=sim.communicator.comm)
             hoomd.util.quiet_status()
+            HOOMD._communicator = sim.communicator
+        elif sim.communicator is not HOOMD._communicator:
+            # HOOMD 2.x does not allow changing the communicator
+            raise ValueError('HOOMD-blue does not support changing communicators after first initialization')
 
-    def _new_instance(self, ensemble, potentials, directory):
-        sim = super()._new_instance(ensemble,potentials,directory)
         sim.context = hoomd.context.SimulationContext()
         sim.system = None
         return sim
+HOOMD._communicator = None
 
 ## initializers
 class Initialize(simulate.SimulationOperation):
@@ -279,17 +285,18 @@ class InitializeRandomly(Initialize):
                 snap,box = self.make_snapshot(sim)
 
                 # randomly place particles in fractional coordinates
-                rs = np.random.uniform(size=(snap.particles.N,3))
-                snap.particles.position[:] = box.make_absolute(rs)
+                if sim.communicator.rank == 0:
+                    rs = np.random.uniform(size=(snap.particles.N,3))
+                    snap.particles.position[:] = box.make_absolute(rs)
 
-                # set types of each
-                snap.particles.typeid[:] = np.repeat(np.arange(len(sim.ensemble.types)),
-                                                    [sim.ensemble.N[t] for t in sim.ensemble.types])
+                    # set types of each
+                    snap.particles.typeid[:] = np.repeat(np.arange(len(sim.ensemble.types)),
+                                                        [sim.ensemble.N[t] for t in sim.ensemble.types])
 
-                # assume unit mass and thermalize to Maxwell-Boltzmann distribution
-                snap.particles.mass[:] = 1.0
-                vel = np.random.normal(scale=np.sqrt(sim.ensemble.kT),size=(snap.particles.N,3))
-                snap.particles.velocity[:] = vel-np.mean(vel,axis=0)
+                    # assume unit mass and thermalize to Maxwell-Boltzmann distribution
+                    snap.particles.mass[:] = 1.0
+                    vel = np.random.normal(scale=np.sqrt(sim.ensemble.kT),size=(snap.particles.N,3))
+                    snap.particles.velocity[:] = vel-np.mean(vel,axis=0)
 
                 # read snapshot
                 sim.system = hoomd.init.read_snapshot(snap)
@@ -739,8 +746,9 @@ class ThermodynamicsCallback:
         Logger from which to retrieve data.
 
     """
-    def __init__(self, logger):
+    def __init__(self, logger, communicator):
         self.logger = logger
+        self.communicator = communicator
         self.reset()
 
     def __call__(self, timestep):
@@ -753,10 +761,16 @@ class ThermodynamicsCallback:
 
         """
         self.num_samples += 1
-        self._T += self.logger.query('temperature')
-        self._P += self.logger.query('pressure')
+
+        T = self.logger.query('temperature')
+        self._T += T
+
+        P = self.logger.query('pressure')
+        self._P += P
+
         for key in self._V:
-            self._V[key] += self.logger.query(key.lower())
+            val = self.logger.query(key.lower())
+            self._V[key] += val
 
     def reset(self):
         """Resets sample number, *T*, *P*, and all *V* parameters to 0."""
@@ -801,13 +815,14 @@ class RDFCallback:
         Parameters to be used to initialize an instance of :class:`freud.density.RDF`.
 
     """
-    def __init__(self, system, params):
+    def __init__(self, system, params, communicator):
         self.system = system
-        self.rdf = PairMatrix(params.types)
-        for i,j in self.rdf:
-            self.rdf[i,j] = freud.density.RDF(bins=params[i,j]['bins'],
-                                              r_max=params[i,j]['rmax'],
-                                              normalize=(i==j))
+        self._rdf = PairMatrix(params.types)
+        self.communicator = communicator
+        for i,j in self._rdf:
+            self._rdf[i,j] = freud.density.RDF(bins=params[i,j]['bins'],
+                                               r_max=params[i,j]['rmax'],
+                                               normalize=(i==j))
 
     def __call__(self, timestep):
         """Evaluates the callback.
@@ -819,15 +834,27 @@ class RDFCallback:
 
         """
         snap = self.system.take_snapshot()
+        if self.communicator.rank == 0:
+            box = freud.box.Box.from_box(snap.box)
+            for i,j in self._rdf:
+                typei = (snap.particles.typeid == snap.particles.types.index(i))
+                typej = (snap.particles.typeid == snap.particles.types.index(j))
+                aabb = freud.locality.AABBQuery(box,snap.particles.position[typej])
+                self._rdf[i,j].compute(aabb,
+                                       snap.particles.position[typei],
+                                       reset=False)
 
-        box = freud.box.Box.from_box(snap.box)
-        for i,j in self.rdf:
-            typei = (snap.particles.typeid == snap.particles.types.index(i))
-            typej = (snap.particles.typeid == snap.particles.types.index(j))
-            aabb = freud.locality.AABBQuery(box,snap.particles.position[typej])
-            self.rdf[i,j].compute(aabb,
-                                  snap.particles.position[typei],
-                                  reset=False)
+    @property
+    def rdf(self):
+        rdf = PairMatrix(self._rdf.types)
+        for pair in rdf:
+            if self.communicator.rank == 0:
+                gr = np.column_stack((self._rdf[pair].bin_centers,self._rdf[pair].rdf))
+            else:
+                gr = None
+            gr = self.communicator.bcast_numpy(gr,root=0)
+            rdf[pair] = RDF(gr[:,0],gr[:,1])
+        return rdf
 
 class AddEnsembleAnalyzer(simulate.SimulationOperation):
     """Analyzes the simulation ensemble and rdf at specified timestep intervals.
@@ -871,7 +898,7 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
                                                              'pressure',
                                                              'lx','ly','lz','xy','xz','yz'],
                                                  period=self.check_thermo_every)
-            sim[self].thermo_callback = ThermodynamicsCallback(sim[self].logger)
+            sim[self].thermo_callback = ThermodynamicsCallback(sim[self].logger,sim.communicator)
             hoomd.analyze.callback(callback=sim[self].thermo_callback,
                                    period=self.check_thermo_every)
 
@@ -881,7 +908,7 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
             bins = np.round(rmax/self.rdf_dr).astype(int)
             for pair in rdf_params:
                 rdf_params[pair] = {'bins': bins, 'rmax': rmax}
-            sim[self].rdf_callback = RDFCallback(sim.system,rdf_params)
+            sim[self].rdf_callback = RDFCallback(sim.system,rdf_params,sim.communicator)
             hoomd.analyze.callback(callback=sim[self].rdf_callback,
                                    period=self.check_rdf_every)
 
@@ -907,9 +934,8 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
         ens.P = thermo_recorder.P
         ens.V = thermo_recorder.V
 
-        rdf_recorder = sim[self].rdf_callback
-        for pair in rdf_recorder.rdf:
-            ens.rdf[pair] = RDF(rdf_recorder.rdf[pair].bin_centers,
-                                rdf_recorder.rdf[pair].rdf)
+        rdf = sim[self].rdf_callback.rdf
+        for pair in rdf:
+            ens.rdf[pair] = rdf[pair]
 
         return ens
