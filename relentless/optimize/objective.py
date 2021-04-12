@@ -6,8 +6,7 @@ An objective function is the quantity to be minimized in an optimization problem
 by adjusting the variables on which the function depends.
 
 This function, :math:`f`, is a scalar value that is defined as a function of :math:`n`
-problem :class:`DesignVariables<~relentless.variable.DesignVariable>`
-:math:`\mathbf{x}=\left[x_1,\ldots,x_n\right]`.
+problem :class:`~relentless.variable.DesignVariable`\s :math:`\mathbf{x}=\left[x_1,\ldots,x_n\right]`.
 
 The value of the function, :math:`f\left(\mathbf{x}\right)` is specified.
 The gradient is also specified for all of the design variables:
@@ -50,7 +49,7 @@ class ObjectiveFunction(abc.ABC):
     """Abstract base class for the optimization objective function.
 
     An :class:`ObjectiveFunction` defines the objective function parametrized on
-    one or more adjustable :class:`DesignVariables<~relentless.variable.DesignVariable>`.
+    one or more adjustable :class:`~relentless.variable.DesignVariable`\s.
     The function must also have a defined value and gradient for all values of its parameters.
 
     """
@@ -70,13 +69,13 @@ class ObjectiveFunction(abc.ABC):
 
     @abc.abstractmethod
     def design_variables(self):
-        """Return all :class:`DesignVariables<~relentless.variable.DesignVariable>`
+        """Return all :class:`~relentless.variable.DesignVariable`\s
         parametrized by the objective function.
 
         Returns
         -------
         array_like
-            The :class:`DesignVariable` parameters.
+            The :class:`~relentless.variable.DesignVariable` parameters.
 
         """
         pass

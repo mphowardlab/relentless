@@ -305,6 +305,8 @@ class KeyedArray(FixedKeyDict):
         {'A':6.0, 'B':12.0}
         >>> print(k1/k2)
         {'A':0.6666666666666666, 'B':0.75}
+        >>> print(k1**k2)
+        {'A':8.0, 'B':81.0}
 
     Perform array-scalar arithmetic operations::
 
@@ -316,6 +318,10 @@ class KeyedArray(FixedKeyDict):
         {'A':6.0, 'B':9.0}
         >>> print(k1/10)
         {'A':0.2, 'B':0.3}
+        >>> print(k1**2)
+        {'A':4.0, 'B':9.0}
+        >>> print(-k1)
+        {'A':-2.0, 'B':-3.0}
 
     Compute vector dot product::
 
@@ -470,6 +476,18 @@ class KeyedArray(FixedKeyDict):
         else:
             raise TypeError('A KeyedArray can only divide a scalar or a KeyedArray.')
         return self
+
+    def __pow__(self, val):
+        """Element-wise exponentiation of an array by a scalar or by an array."""
+        k = KeyedArray(keys=self.keys)
+        if isinstance(val, KeyedArray):
+            self._assert_same_keys(val)
+            k.update({x: self[x]**val[x] for x in self})
+        elif np.isscalar(val):
+            k.update({x: self[x]**val for x in self})
+        else:
+            raise TypeError('A KeyedArray can only be exponentiated by a scalar or by a KeyedArray.')
+        return k
 
     def __neg__(self):
         """Element-wise negation of an array."""
