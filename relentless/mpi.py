@@ -163,7 +163,7 @@ class Communicator:
 
         Example
         -------
-        Broadcast a float:
+        Broadcast an integer:
 
         .. code::
 
