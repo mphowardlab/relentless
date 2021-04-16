@@ -75,18 +75,10 @@ class test_SteepestDescent(unittest.TestCase):
         """Test creation with data."""
         x = relentless.variable.DesignVariable(value=3.0)
         q = QuadraticObjective(x=x)
+        t = relentless.optimize.AbsoluteGradientTest(tolerance=1e-8)
 
-        #test scalar tolerance
-        o = relentless.optimize.SteepestDescent(abs_tol=1e-8, max_iter=1000, step_size=0.25)
-        self.assertAlmostEqual(o.abs_tol, 1e-8)
-        self.assertEqual(o.max_iter, 1000)
-        self.assertAlmostEqual(o.step_size, 0.25)
-        self.assertAlmostEqual(o.scale, 1.0)
-        self.assertIsNone(o.line_search)
-
-        #test dictionary of tolerances
-        o.abs_tol = {x:1e-9}
-        self.assertDictEqual(o.abs_tol, {x:1e-9})
+        o = relentless.optimize.SteepestDescent(stop=t, max_iter=1000, step_size=0.25)
+        self.assertEqual(o.stop, t)
         self.assertEqual(o.max_iter, 1000)
         self.assertAlmostEqual(o.step_size, 0.25)
         self.assertAlmostEqual(o.scale, 1.0)
@@ -94,7 +86,7 @@ class test_SteepestDescent(unittest.TestCase):
 
         #test scalar scaling parameter
         o.scale = 0.5
-        self.assertDictEqual(o.abs_tol, {x:1e-9})
+        self.assertEqual(o.stop, t)
         self.assertEqual(o.max_iter, 1000)
         self.assertAlmostEqual(o.step_size, 0.25)
         self.assertAlmostEqual(o.scale, 0.5)
@@ -102,7 +94,7 @@ class test_SteepestDescent(unittest.TestCase):
 
         #test dictionary of scaling parameters
         o.scale = {x:0.3}
-        self.assertDictEqual(o.abs_tol, {x:1e-9})
+        self.assertEqual(o.stop, t)
         self.assertEqual(o.max_iter, 1000)
         self.assertAlmostEqual(o.step_size, 0.25)
         self.assertDictEqual(o.scale, {x:0.3})
@@ -111,17 +103,15 @@ class test_SteepestDescent(unittest.TestCase):
         #test using line search
         l = relentless.optimize.LineSearch(rel_tol=1e-9, max_iter=100)
         o.line_search = l
-        self.assertDictEqual(o.abs_tol, {x:1e-9})
+        self.assertEqual(o.stop, t)
         self.assertEqual(o.max_iter, 1000)
         self.assertAlmostEqual(o.step_size, 0.25)
         self.assertDictEqual(o.scale, {x:0.3})
         self.assertEqual(o.line_search, l)
 
         #test invalid parameters
-        with self.assertRaises(ValueError):
-            o.abs_tol = -1e-9
-        with self.assertRaises(ValueError):
-            o.abs_tol = {x:-1e-10}
+        with self.assertRaises(TypeError):
+            o.stop = 1e-8
         with self.assertRaises(ValueError):
             o.max_iter = 0
         with self.assertRaises(TypeError):
@@ -139,14 +129,9 @@ class test_SteepestDescent(unittest.TestCase):
         """Test run method."""
         x = relentless.variable.DesignVariable(value=3.0)
         q = QuadraticObjective(x=x)
-        o = relentless.optimize.SteepestDescent(abs_tol=1e-8, max_iter=1000, step_size=0.25)
+        t = relentless.optimize.AbsoluteGradientTest(tolerance=1e-8)
+        o = relentless.optimize.SteepestDescent(stop=t, max_iter=1000, step_size=0.25)
 
-        self.assertTrue(o.optimize(objective=q))
-        self.assertAlmostEqual(x.value, 1.0)
-
-        #test dictionary of tolerances
-        x.value = -9
-        o.abs_tol = {x:1e-9}
         self.assertTrue(o.optimize(objective=q))
         self.assertAlmostEqual(x.value, 1.0)
 
@@ -181,14 +166,9 @@ class test_FixedStepDescent(unittest.TestCase):
         """Test run method."""
         x = relentless.variable.DesignVariable(value=3.0)
         q = QuadraticObjective(x=x)
-        o = relentless.optimize.FixedStepDescent(abs_tol=1e-8, max_iter=1000, step_size=0.25)
+        t = relentless.optimize.AbsoluteGradientTest(tolerance=1e-8)
+        o = relentless.optimize.FixedStepDescent(stop=t, max_iter=1000, step_size=0.25)
 
-        self.assertTrue(o.optimize(objective=q))
-        self.assertAlmostEqual(x.value, 1.0)
-
-        #test dictionary of tolerances
-        x.value = -9
-        o.abs_tol = {x:1e-9}
         self.assertTrue(o.optimize(objective=q))
         self.assertAlmostEqual(x.value, 1.0)
 

@@ -54,6 +54,7 @@ import abc
 import numpy as np
 
 from relentless import _collections
+from .criteria import ConvergenceTest
 from .objective import ObjectiveFunction
 
 class Optimizer(abc.ABC):
@@ -63,7 +64,7 @@ class Optimizer(abc.ABC):
 
     Parameters
     ----------
-    stop : :class:`~relentless.optimize.criteria.ConvergenceTest` or :class:`~relentless.optimize.criteria.LogicTest`
+    stop : :class:`~relentless.optimize.criteria.ConvergenceTest`
         The convergence test used as the stopping criterion for the optimizer.
 
     """
@@ -74,8 +75,7 @@ class Optimizer(abc.ABC):
     def optimize(self, objective):
         """Minimize an objective function.
 
-        The design variables of the objective function are adjusted until convergence
-        (see :meth:`has_converged()`).
+        The design variables of the objective function are adjusted until convergence.
 
         Parameters
         ----------
@@ -87,9 +87,15 @@ class Optimizer(abc.ABC):
 
     @property
     def stop(self):
-        """:class:`~relentless.optimize.criteria.ConvergenceTest` or :class:`~relentless.optimize.criteria.LogicTest`:
-        The convergence test used as the stopping criterion for the optimizer."""
+        """:class:`~relentless.optimize.criteria.ConvergenceTest`: The convergence
+        test used as the stopping criterion for the optimizer."""
         return self._stop
+
+    @stop.setter
+    def stop(self, value):
+        if not isinstance(value, ConvergenceTest):
+            raise TypeError('The stopping criterion must be a ConvergenceTest.')
+        self._stop = value
 
 class LineSearch:
     r"""Line search algorithm.
@@ -285,7 +291,7 @@ class SteepestDescent(Optimizer):
 
     Parameters
     ----------
-    stop : :class:`~relentless.optimize.criteria.ConvergenceTest` or :class:`~relentless.optimize.criteria.LogicTest`
+    stop : :class:`~relentless.optimize.criteria.ConvergenceTest`
         The convergence test used as the stopping criterion for the optimizer.
         Note that the tolerances are defined on the `scaled gradient`.
     max_iter : int
@@ -457,7 +463,7 @@ class FixedStepDescent(SteepestDescent):
 
     Parameters
     ----------
-    stop : :class:`~relentless.optimize.criteria.ConvergenceTest` or :class:`~relentless.optimize.criteria.LogicTest`
+    stop : :class:`~relentless.optimize.criteria.ConvergenceTest`
         The convergence test used as the stopping criterion for the optimizer.
         Note that the tolerances are defined on the `scaled gradient`.
     max_iter : int
