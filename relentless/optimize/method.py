@@ -120,7 +120,7 @@ class LineSearch:
 
     .. math::
 
-        t(\alpha) < c\lvert t_{start} \rvert
+        t(\alpha) < c\left\lvert t_{start}\right\rvert
 
     where :math:`c` is a defined relative tolerance value, and :math:`t_{start}`
     is the target value at the start of the search interval. This is the
@@ -459,7 +459,7 @@ class FixedStepDescent(SteepestDescent):
     .. math::
 
         \mathbf{y}_{n+1} = \mathbf{y}_n
-                          -\frac{\alpha}{\lVert\nabla f\left(\mathbf{y}_n\right)\rVert}\nabla f\left(\mathbf{y}_n\right)
+                          -\frac{\alpha}{\left\lVert\nabla f\left(\mathbf{y}_n\right)\right\rVert}\nabla f\left(\mathbf{y}_n\right)
 
     Parameters
     ----------
@@ -489,7 +489,7 @@ class FixedStepDescent(SteepestDescent):
 
         .. math::
 
-            \frac{\alpha}{\lVert\nabla y\rVert}
+            \frac{\alpha}{\left\lVert\nabla y\right\rVert}
 
         which makes a step of constant magnitude.
 

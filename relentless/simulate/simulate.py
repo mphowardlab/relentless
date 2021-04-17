@@ -40,6 +40,8 @@ class Simulation:
             The interaction potentials.
         directory : :class:`Directory`
             Directory to use for writing data.
+        communicator: :class:`~relentless.mpi.Communicator`
+            The MPI communicator to use. Defaults to ``None``.
 
         Returns
         -------
@@ -97,6 +99,8 @@ class SimulationInstance:
         The interaction potentials.
     directory : :class:`Directory`
         Directory for output.
+    communicator: :class:`~relentless.mpi.Communicator`
+        The MPI communicator to use.
     options : kwargs
         Optional arguments for the initialize, analyze, and defined "operations" functions.
 
