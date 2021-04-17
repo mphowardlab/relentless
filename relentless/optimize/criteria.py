@@ -48,22 +48,22 @@ class AbsoluteTolerance(ConvergenceTest):
         return t
 
 class RelativeTolerance(ConvergenceTest):
-    def __init__(self, value):
+    def __init__(self, tolerance):
         self.tolerance = tolerance
 
     @property
     def tolerance(self):
         """float or dict: The relative tolerance(s). Must be between 0 and 1. Defaults to 0."""
-        return self._rel_tol
+        return self._tolerance
 
     @tolerance.setter
     def tolerance(self, value):
         try:
             tol = dict(value)
-            err = any([t <= 0 or t >= 1 for t in value.values()])
+            err = any([t < 0 or t > 1 for t in value.values()])
         except TypeError:
             tol = value
-            err = value <= 0 or value >= 1
+            err = value < 0 or value > 1
         except TypeError:
             tol = 0.
         if err:
@@ -110,7 +110,13 @@ class RelativeGradientTest(RelativeTolerance):
         for x in result.design_variables:
             grad = result.gradient[x]
             tol =  self._get_tol(x)
-            if x.isfree() and np.abs(grad/x.value) > tol:
+            if x.athigh() and -grad < -tol:
+                converged = False
+                break
+            elif x.atlow() and -grad > tol:
+                converged = False
+                break
+            elif x.isfree() and np.abs(grad/x.value) > tol:
                 converged = False
                 break
 

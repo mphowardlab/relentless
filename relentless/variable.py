@@ -235,7 +235,7 @@ class DesignVariable(IndependentVariable):
                 self._low = low
             else:
                 raise ValueError('The low bound must be less than the high bound')
-        except AttributeError:
+        except (AttributeError,TypeError):
             self._low = low
 
         try:
@@ -259,7 +259,7 @@ class DesignVariable(IndependentVariable):
                 self._high = high
             else:
                 raise ValueError('The high bound must be greater than the low bound')
-        except AttributeError:
+        except (AttributeError,TypeError):
             self._high = high
 
         try:
