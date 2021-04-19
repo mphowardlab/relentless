@@ -112,12 +112,12 @@ class test_Directory(unittest.TestCase):
         #delete sub-directory
         self.assertCountEqual(os.listdir(d1.path), ['bar','ham.txt','eggs.txt'])
         self.assertCountEqual(os.listdir(d3.path), ['baz.txt'])
-        d3.clear()
+        d3.clear_contents()
         self.assertCountEqual(os.listdir(d1.path), ['bar','ham.txt','eggs.txt'])
         self.assertCountEqual(os.listdir(d3.path), [])
         #delete parent directory
         self.assertCountEqual(os.listdir(d.path), ['foo','bar','spam.txt'])
-        d.clear()
+        d.clear_contents()
         self.assertCountEqual(os.listdir(d.path), [])
 
 

@@ -38,12 +38,14 @@ To implement your own objective function, create a class that derives from
     :member-order: bysource
     :members: value,
         gradient,
-        design_variables
+        design_variables,
+        directory
 
 """
 import abc
 
 from relentless import _collections
+from relentless import data
 
 class ObjectiveFunction(abc.ABC):
     """Abstract base class for the optimization objective function.
@@ -54,7 +56,7 @@ class ObjectiveFunction(abc.ABC):
 
     """
     @abc.abstractmethod
-    def compute(self):
+    def compute(self, directory=None):
         """Evaluate the value and gradient of the objective function.
 
         This method must call :meth:`make_result()` and return its result.
@@ -80,7 +82,7 @@ class ObjectiveFunction(abc.ABC):
         """
         pass
 
-    def make_result(self, value, gradient):
+    def make_result(self, value, gradient, directory):
         """Construct a :class:`ObjectiveFunctionResult` to store the result
         of :meth:`compute()`.
 
@@ -92,6 +94,9 @@ class ObjectiveFunction(abc.ABC):
             The gradient of the objective function. Each partial derivative is
             keyed on the :class:`~relentless.variable.DesignVariable`
             with respect to which it is taken.
+        directory : :class:`~relentless.data.Directory`
+            Directory holding written output associated with result. Setting
+            a value of `None` indicates no written output.
 
         Returns
         -------
@@ -99,33 +104,38 @@ class ObjectiveFunction(abc.ABC):
             Object storing the value and gradient of this objective function.
 
         """
-        return ObjectiveFunctionResult(value, gradient, self)
+        return ObjectiveFunctionResult(self, value, gradient, directory)
 
 class ObjectiveFunctionResult:
     """Class storing the value and gradient of a :class:`ObjectiveFunction`.
 
     Parameters
     ----------
+    objective : :class:`ObjectiveFunction`
+       The objective function for which this result is constructed.
     value : float
         The value of the objective function.
     gradient : dict
         The gradient of the objective function. Each partial derivative is
         keyed on the :class:`~relentless.variable.DesignVariable`
         with respect to which it is taken.
-    objective : :class:`ObjectiveFunction`
-       The objective function for which this result is constructed.
+    directory : :class:`~relentless.data.Directory`
+        Directory holding written output associated with result. Setting
+        a value of `None` indicates no written output.
 
     """
-    def __init__(self, value, gradient, objective):
-        self._value = value
-
+    def __init__(self, objective, value, gradient, directory):
         dvars = objective.design_variables()
-        self._gradient = _collections.KeyedArray(keys=dvars)
-        self._gradient.update(gradient)
-
         self._design_variables = _collections.KeyedArray(keys=dvars)
         variable_values = {x: x.value for x in dvars}
         self._design_variables.update(variable_values)
+
+        self._value = value
+
+        self._gradient = _collections.KeyedArray(keys=dvars)
+        self._gradient.update(gradient)
+
+        self.directory = directory
 
     @property
     def value(self):
@@ -137,6 +147,17 @@ class ObjectiveFunctionResult:
         """:class:`~relentless.KeyedArray`: The gradient of the objective function,
         keyed on its design variables."""
         return self._gradient
+
+    @property
+    def directory(self):
+        """:class:`~relentless.data.Directory` Directory holding written output."""
+        return self._directory
+
+    @directory.setter
+    def directory(self, value):
+        if value is not None and not isinstance(value, data.Directory):
+            value = data.Directory(value)
+        self._directory = value
 
     @property
     def design_variables(self):

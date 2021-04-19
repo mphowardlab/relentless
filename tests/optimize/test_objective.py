@@ -9,11 +9,11 @@ class QuadraticObjective(relentless.optimize.ObjectiveFunction):
     def __init__(self, x):
         self.x = x
 
-    def compute(self):
+    def compute(self, directory=None):
         val = (self.x.value-1)**2
         grad = {self.x:2*(self.x.value-1)}
 
-        res = self.make_result(val, grad)
+        res = self.make_result(val, grad, None)
         return res
 
     def design_variables(self):

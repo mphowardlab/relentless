@@ -44,13 +44,8 @@ class Directory:
 
     """
     def __init__(self, path):
-        self.path = os.path.realpath(path)
-        if not os.path.exists(self.path):
-            os.makedirs(self.path)
         self._start = []
-
-        if not os.path.isdir(self.path):
-            raise OSError('The specified path is not a valid directory.')
+        self.path = path
 
     def __enter__(self):
         """Enter the directory context.
@@ -80,6 +75,28 @@ class Directory:
             os.chdir(self._start.pop())
         except OSError:
             pass
+
+    def _in_context(self):
+        """bool: True if object is being used as a context."""
+        return len(self._start) > 0
+
+    @property
+    def path(self):
+        """str: Real path to the directory."""
+        return self._path
+
+    @path.setter
+    def path(self, value):
+        if self._in_context():
+            raise OSError('Cannot set path while using as context')
+
+        _path = os.path.realpath(value)
+        if not os.path.exists(_path):
+            os.makedirs(_path)
+        if not os.path.isdir(_path):
+            raise OSError('The specified path is not a valid directory.')
+
+        self._path = _path
 
     def file(self, name):
         """Get the absolute path to a file in the directory.
@@ -133,19 +150,51 @@ class Directory:
         """
         return Directory(os.path.join(self.path, name))
 
-    def clear(self):
+    def clear_contents(self):
         r"""Clear the contents of a directory.
 
         This method **removes** all the contents of a directory (files and
         directories), so it should be used carefully!
 
         """
-        with self:
-            for entry in os.scandir(self.path):
-                if entry.is_file():
-                    os.remove(entry.name)
-                elif entry.is_dir():
-                    shutil.rmtree(entry.name)
+        for entry in os.scandir(self.path):
+            if entry.is_file():
+                os.remove(entry.path)
+            elif entry.is_dir():
+                shutil.rmtree(entry.path)
+
+    def move_contents(self, dest):
+        """Move the contents of the directory.
+
+        Parameters
+        ----------
+        dest : :class:`Directory` or str
+            Destination directory.
+
+        """
+        if not isinstance(dest, Directory):
+            dest = Directory(dest)
+
+        for entry in os.scandir(self.path):
+            shutil.move(entry.path, dest.path)
+
+    def copy_contents(self, dest):
+        """Copy the contents of the directory.
+
+        Parameters
+        ----------
+        dest : :class:`Directory` or str
+            Destination directory.
+
+        """
+        if not isinstance(dest, Directory):
+            dest = Directory(dest)
+
+        for entry in os.scandir(self.path):
+            if entry.is_file():
+                shutil.copy2(entry.path, dest.path)
+            elif entry.is_dir():
+                shutil.copytree(entry.path, os.path.join(dest.path,entry.name))
 
 class Project:
     r"""Project data.
