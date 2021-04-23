@@ -75,7 +75,7 @@ class test_SteepestDescent(unittest.TestCase):
         """Test creation with data."""
         x = relentless.variable.DesignVariable(value=3.0)
         q = QuadraticObjective(x=x)
-        t = relentless.optimize.AbsoluteGradientTest(tolerance=1e-8)
+        t = relentless.optimize.GradientTest(tolerance=1e-8)
 
         o = relentless.optimize.SteepestDescent(stop=t, max_iter=1000, step_size=0.25)
         self.assertEqual(o.stop, t)
@@ -129,7 +129,7 @@ class test_SteepestDescent(unittest.TestCase):
         """Test run method."""
         x = relentless.variable.DesignVariable(value=3.0)
         q = QuadraticObjective(x=x)
-        t = relentless.optimize.AbsoluteGradientTest(tolerance=1e-8)
+        t = relentless.optimize.GradientTest(tolerance=1e-8)
         o = relentless.optimize.SteepestDescent(stop=t, max_iter=1000, step_size=0.25)
 
         self.assertTrue(o.optimize(objective=q))
@@ -166,7 +166,7 @@ class test_FixedStepDescent(unittest.TestCase):
         """Test run method."""
         x = relentless.variable.DesignVariable(value=3.0)
         q = QuadraticObjective(x=x)
-        t = relentless.optimize.AbsoluteGradientTest(tolerance=1e-8)
+        t = relentless.optimize.GradientTest(tolerance=1e-8)
         o = relentless.optimize.FixedStepDescent(stop=t, max_iter=1000, step_size=0.25)
 
         self.assertTrue(o.optimize(objective=q))

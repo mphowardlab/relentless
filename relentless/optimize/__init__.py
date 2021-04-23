@@ -10,14 +10,14 @@ Optimization
     objective
 
 """
-from .criteria import (AbsoluteGradientTest,
-                       AbsoluteTolerance,
-                       AllTest,
+from .criteria import (AllTest,
+                       AndTest,
                        AnyTest,
                        ConvergenceTest,
+                       GradientTest,
                        LogicTest,
-                       RelativeGradientTest,
-                       RelativeTolerance,
+                       OrTest,
+                       Tolerance,
                        ValueTest)
 
 from .method import (FixedStepDescent,
