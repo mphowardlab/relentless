@@ -1,3 +1,5 @@
+import collections
+
 import numpy as np
 
 class FixedKeyDict:
@@ -537,3 +539,47 @@ class KeyedArray(FixedKeyDict):
         """
         self._assert_same_keys(val)
         return np.sum([self[x]*val[x] for x in self])
+
+class DefaultDict(collections.abc.MutableMapping):
+    """Dictionary which supports a default value.
+
+    Parameters
+    ----------
+    default : float
+        The default value.
+
+    """
+    def __init__(self, default):
+        self._data = {}
+        self.default = default
+
+    def __delitem__(self, key):
+        del self._data[key]
+
+    def __getitem__(self, key):
+        """Get keyed item or default value if key is invalid."""
+        try:
+            return self._data[key]
+        except KeyError:
+            return self.default
+
+    def __iter__(self):
+        return iter(self._data)
+
+    def __setitem__(self, key, value):
+        """Set value of keyed item."""
+        if key is None:
+            raise KeyError('A DefaultDict key cannot be None.')
+        self._data[key] = value
+
+    def __len__(self):
+        return len(self._data)
+
+    @property
+    def default(self):
+        """float or dict: The default value."""
+        return self._default
+
+    @default.setter
+    def default(self, value):
+        self._default = value

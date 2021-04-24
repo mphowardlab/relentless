@@ -27,13 +27,12 @@ To implement your own optimization algorithm, create a class that derives from
 .. autoclass:: Optimizer
     :member-order: bysource
     :members: optimize,
-        has_converged,
-        abs_tol
+        stop
 
 .. autoclass:: LineSearch
     :member-order: bysource
     :members: find,
-        rel_tol,
+        tolerance,
         max_iter
 
 .. autoclass:: FixedStepDescent
@@ -55,6 +54,7 @@ import abc
 import numpy as np
 
 from relentless import _collections
+from .criteria import ConvergenceTest,Tolerance
 from .objective import ObjectiveFunction
 
 class Optimizer(abc.ABC):
@@ -64,20 +64,18 @@ class Optimizer(abc.ABC):
 
     Parameters
     ----------
-    abs_tol : float or dict
-        The absolute tolerance or tolerances (keyed on the :class:`~relentless.optimize.objective.ObjectiveFunction`
-        design variables).
+    stop : :class:`~relentless.optimize.criteria.ConvergenceTest`
+        The convergence test used as the stopping criterion for the optimizer.
 
     """
-    def __init__(self, abs_tol):
-        self.abs_tol = abs_tol
+    def __init__(self, stop):
+        self.stop = stop
 
     @abc.abstractmethod
     def optimize(self, objective):
         """Minimize an objective function.
 
-        The design variables of the objective function are adjusted until convergence
-        (see :meth:`has_converged()`).
+        The design variables of the objective function are adjusted until convergence.
 
         Parameters
         ----------
@@ -87,57 +85,17 @@ class Optimizer(abc.ABC):
         """
         pass
 
-    def has_converged(self, result):
-        """Check if the convergence criteria is satisfied.
-
-        The absolute value of the gradient for each design variable of the objective
-        function must be less than the absolute tolerance for that variable.
-
-        Parameters
-        ----------
-        result : :class:`~relentless.optimize.objective.ObjectiveFunctionResult`
-            The computed value of the objective function.
-
-        Returns
-        -------
-        bool
-            ``True`` if the criteria is satisfied.
-
-        Raises
-        ------
-        KeyError
-            If the absolute tolerance value is not set for all design variables.
-        """
-        for x in result.design_variables:
-            grad = result.gradient[x]
-            try:
-                tol = self.abs_tol[x]
-            except TypeError:
-                tol = self.abs_tol
-            except KeyError:
-                raise KeyError('Absolute tolerance not set for design variable ' + str(x))
-            if abs(grad) > tol:
-                return False
-
-        return True
-
     @property
-    def abs_tol(self):
-        """float or dict: The absolute tolerance(s). Must be non-negative."""
-        return self._abs_tol
+    def stop(self):
+        """:class:`~relentless.optimize.criteria.ConvergenceTest`: The convergence
+        test used as the stopping criterion for the optimizer."""
+        return self._stop
 
-    @abs_tol.setter
-    def abs_tol(self, value):
-        try:
-            abs_tol = dict(value)
-            err = any([tol < 0 for tol in value.values()])
-        except TypeError:
-            abs_tol = value
-            err = value < 0
-        if err:
-            raise ValueError('Absolute tolerances must be non-negative.')
-        else:
-            self._abs_tol = abs_tol
+    @stop.setter
+    def stop(self, value):
+        if not isinstance(value, ConvergenceTest):
+            raise TypeError('The stopping criterion must be a ConvergenceTest.')
+        self._stop = value
 
 class LineSearch:
     r"""Line search algorithm.
@@ -162,7 +120,7 @@ class LineSearch:
 
     .. math::
 
-        t(\alpha) < c\lvert t_{start} \rvert
+        t(\alpha) < c\left\lvert t_{start}\right\rvert
 
     where :math:`c` is a defined relative tolerance value, and :math:`t_{start}`
     is the target value at the start of the search interval. This is the
@@ -179,14 +137,14 @@ class LineSearch:
 
     Parameters
     ----------
-    rel_tol : float
+    tolerance : float
         The relative tolerance for the target (:math:`c`).
     max_iter : int
         The maximum number of line search iterations allowed.
 
     """
-    def __init__(self, rel_tol, max_iter):
-        self.rel_tol = rel_tol
+    def __init__(self, tolerance, max_iter):
+        self.tolerance = tolerance
         self.max_iter = max_iter
 
     def find(self, objective, start, end):
@@ -216,6 +174,11 @@ class LineSearch:
         :class:`~relentless.optimize.objective.ObjectiveFunctionResult`
             The objective function evaluated at the new, "optimal" location.
 
+        Raises
+        ------
+        ValueError
+            If the relative tolerance is not between 0 and 1.
+
         """
         ovars = {x: x.value for x in objective.design_variables()}
 
@@ -230,17 +193,17 @@ class LineSearch:
             raise ValueError('The defined search interval must be a descent direction.')
 
         # compute tolerance
-        tol = self.rel_tol*np.abs(targets[0])
+        tol = Tolerance(absolute=self.tolerance*np.abs(targets[0]), relative=0)
 
         # check if max step size acceptable, else iterate to minimize target
-        if targets[1] > 0 or np.abs(targets[1]) < tol:
+        if targets[1] > 0 or tol.isclose(targets[1], 0):
             result = end
         else:
             steps = np.array([0., 1.])
             iter_num = 0
             new_target = np.inf
-            new_res = targets[1]
-            while np.abs(new_target) >= tol and iter_num < self.max_iter:
+            new_res = end
+            while not tol.isclose(new_target, 0) and iter_num < self.max_iter:
                 # linear interpolation for step size
                 new_step = (steps[0]*targets[1] - steps[1]*targets[0])/(targets[1] - targets[0])
 
@@ -267,19 +230,15 @@ class LineSearch:
         return result
 
     @property
-    def rel_tol(self):
-        """float: The relative tolerance for the target. Must be in the range :math:`0<c<1`."""
-        return self._abs_tol
+    def tolerance(self):
+        """float: The relative tolerance for the target. Must be between 0 and 1."""
+        return self._tolerance
 
-    @rel_tol.setter
-    def rel_tol(self, value):
-        try:
-            if value <= 0 or value >= 1:
-                raise ValueError('The absolute tolerance must be between 0 and 1.')
-            else:
-                self._abs_tol = value
-        except TypeError:
-            raise TypeError('The absolute tolerance must be a scalar float.')
+    @tolerance.setter
+    def tolerance(self, value):
+        if value < 0 or value > 1:
+            raise ValueError('The relative tolerance must be between 0 and 1.')
+        self._tolerance = value
 
     @property
     def max_iter(self):
@@ -333,10 +292,9 @@ class SteepestDescent(Optimizer):
 
     Parameters
     ----------
-    abs_tol : float or dict
-        The absolute tolerance or tolerances keyed on the
-        :class:`~relentless.optimize.objective.ObjectiveFunction` design variables.
-        The tolerance is defined on the `scaled gradient`.
+    stop : :class:`~relentless.optimize.criteria.ConvergenceTest`
+        The convergence test used as the stopping criterion for the optimizer.
+        Note that the result being tested will have *unscaled* variables and gradient.
     max_iter : int
         The maximum number of optimization iterations allowed.
     step_size : float
@@ -350,8 +308,8 @@ class SteepestDescent(Optimizer):
         specified step size value as the "maximum" step size (defaults to ``None``).
 
     """
-    def __init__(self, abs_tol, max_iter, step_size, scale=1.0, line_search=None):
-        super().__init__(abs_tol)
+    def __init__(self, stop, max_iter, step_size, scale=1.0, line_search=None):
+        super().__init__(stop)
         self.max_iter = max_iter
         self.step_size = step_size
         self.scale = scale
@@ -413,7 +371,7 @@ class SteepestDescent(Optimizer):
 
         iter_num = 0
         cur_res = objective.compute()
-        while not self.has_converged(cur_res) and iter_num < self.max_iter:
+        while not self.stop.converged(cur_res) and iter_num < self.max_iter:
             grad_y = scale*cur_res.gradient
             update = self.descent_amount(grad_y)*grad_y
 
@@ -433,7 +391,7 @@ class SteepestDescent(Optimizer):
             cur_res = next_res
             iter_num += 1
 
-        return self.has_converged(cur_res)
+        return self.stop.converged(cur_res)
 
     @property
     def max_iter(self):
@@ -494,7 +452,7 @@ class FixedStepDescent(SteepestDescent):
 
     This is a modification of :class:`SteepestDescent` in which the function is
     iteratively minimized by taking successive steps of fixed magnitude down
-    the normalized gradient of the functional.
+    the normalized gradient of the function.
 
     If the scaled variables are :math:`\mathbf{y}_n` at iteration :math:`n`, the
     next value of the variables is:
@@ -502,14 +460,13 @@ class FixedStepDescent(SteepestDescent):
     .. math::
 
         \mathbf{y}_{n+1} = \mathbf{y}_n
-                          -\frac{\alpha}{\lVert\nabla f\left(\mathbf{y}_n\right)\rVert}\nabla f\left(\mathbf{y}_n\right)
+                          -\frac{\alpha}{\left\lVert\nabla f\left(\mathbf{y}_n\right)\right\rVert}\nabla f\left(\mathbf{y}_n\right)
 
     Parameters
     ----------
-    abs_tol : float or dict
-        The absolute tolerance or tolerances keyed on the
-        :class:`~relentless.optimize.objective.ObjectiveFunction` design variables.
-        The tolerance is defined on the `scaled gradient`.
+    stop : :class:`~relentless.optimize.criteria.ConvergenceTest`
+        The convergence test used as the stopping criterion for the optimizer.
+        Note that the result being tested will have *unscaled* variables and gradient.
     max_iter : int
         The maximum number of optimization iterations allowed.
     step_size : float
@@ -523,8 +480,8 @@ class FixedStepDescent(SteepestDescent):
         specified step size value as the "maximum" step size (defaults to ``None``).
 
     """
-    def __init__(self, abs_tol, max_iter, step_size, scale=1.0, line_search=None):
-        super().__init__(abs_tol, max_iter, step_size, scale, line_search)
+    def __init__(self, stop, max_iter, step_size, scale=1.0, line_search=None):
+        super().__init__(stop, max_iter, step_size, scale, line_search)
 
     def descent_amount(self, gradient):
         r"""Calculate the descent amount for the optimization.
@@ -533,7 +490,7 @@ class FixedStepDescent(SteepestDescent):
 
         .. math::
 
-            \frac{\alpha}{\lVert\nabla y\rVert}
+            \frac{\alpha}{\left\lVert\nabla y\right\rVert}
 
         which makes a step of constant magnitude.
 

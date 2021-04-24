@@ -744,6 +744,8 @@ class ThermodynamicsCallback:
     ----------
     logger : `hoomd.analyze` logger
         Logger from which to retrieve data.
+    communicator : :class:`~relentless.mpi.Communicator`
+        The MPI communicator to use.
 
     """
     def __init__(self, logger, communicator):
@@ -813,6 +815,8 @@ class RDFCallback:
         Simulation system object.
     params : :class:`PairMatrix`
         Parameters to be used to initialize an instance of :class:`freud.density.RDF`.
+    communicator : :class:`~relentless.mpi.Communicator`
+        The MPI communicator to use.
 
     """
     def __init__(self, system, params, communicator):

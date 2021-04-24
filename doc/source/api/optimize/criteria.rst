@@ -1,0 +1,1 @@
+.. automodule:: relentless.optimize.criteria
