@@ -11,46 +11,50 @@ class test_Tolerance(unittest.TestCase):
     def test_init(self):
         """Test creation with data."""
         x = relentless.variable.DesignVariable(value=3.0)
+        y = relentless.variable.DesignVariable(value=4.0)
 
-        #test scalar tolerances
         t = relentless.optimize.Tolerance(absolute=1.0, relative=0.5)
-        self.assertAlmostEqual(t.absolute, 1.0)
-        self.assertAlmostEqual(t.relative, 0.5)
-        self.assertAlmostEqual(t._atol(x), 1.0)
-        self.assertAlmostEqual(t._rtol(x), 0.5)
+        self.assertAlmostEqual(t.absolute[x], 1.0)
+        self.assertAlmostEqual(t.relative[x], 0.5)
+        self.assertAlmostEqual(t.absolute[y], 1.0)
+        self.assertAlmostEqual(t.relative[y], 0.5)
+        '''
+        #test changing tolerances by scalar
+        t.absolute = 1.1
+        t.relative = 0.6
+        self.assertAlmostEqual(t.absolute[x], 1.1)
+        self.assertAlmostEqual(t.relative[x], 0.6)
+        self.assertAlmostEqual(t.absolute[y], 1.1)
+        self.assertAlmostEqual(t.relative[y], 0.6)
 
-        #test dictionaries of tolerances
-        t.absolute = {x:1.1}
-        t.relative = {x:0.6}
-        self.assertDictEqual(t.absolute, {x:1.1})
-        self.assertDictEqual(t.relative, {x:0.6})
-        self.assertAlmostEqual(t._atol(x), 1.1)
-        self.assertAlmostEqual(t._rtol(x), 0.6)
-
-        #test invalid tolerances
-        with self.assertRaises(ValueError):
-            t.absolute = -1e-8
-        with self.assertRaises(ValueError):
-            t.absolute = {x:-1e-8}
-        with self.assertRaises(ValueError):
-            t.relative = 1.2
-        with self.assertRaises(ValueError):
-            t.relative = {x:-0.1}
-
+        #test changing tolerances by key
+        t.absolute[x] = 1.2
+        t.relative[x] = 0.7
+        self.assertAlmostEqual(t.absolute[x], 1.2)
+        self.assertAlmostEqual(t.relative[x], 0.7)
+        self.assertAlmostEqual(t.absolute[y], 1.1)
+        self.assertAlmostEqual(t.relative[y], 0.6)
+        '''
     def test_isclose(self):
         """Test isclose method."""
         x = relentless.variable.DesignVariable(value=3.0)
 
-        #test scalar tolerances
         t = relentless.optimize.Tolerance(absolute=0.1, relative=0.1)
-        self.assertFalse(t.isclose(x, x.value, 2.5))
-        self.assertTrue(t.isclose(x, x.value, 2.7))
+        self.assertFalse(t.isclose(x.value, 2.5, key=x))
+        self.assertFalse(t.isclose(x.value, 2.5))
+        self.assertTrue(t.isclose(x.value, 2.7, key=x))
+        self.assertTrue(t.isclose(x.value, 2.7))
 
-        #test dictionary of tolerances
-        t.absolute = {x:0.2}
-        t.relative = {x:0.2}
-        self.assertFalse(t.isclose(x, x.value, 2.2))
-        self.assertTrue(t.isclose(x, x.value, 2.4))
+        #test invalid tolerances
+        with self.assertRaises(ValueError):
+            t = relentless.optimize.Tolerance(absolute=-0.1, relative=0.1)
+            t.isclose(x.value, 2.5)
+        with self.assertRaises(ValueError):
+            t = relentless.optimize.Tolerance(absolute=0.1, relative=-0.1)
+            t.isclose(x.value, 2.5)
+        with self.assertRaises(ValueError):
+            t = relentless.optimize.Tolerance(absolute=0.1, relative=1.1)
+            t.isclose(x.value, 2.5)
 
 class test_GradientTest(unittest.TestCase):
     """Unit tests for relentless.optimize.GradientTest"""
@@ -59,30 +63,21 @@ class test_GradientTest(unittest.TestCase):
         """Test creation with data."""
         x = relentless.variable.DesignVariable(value=3.0)
 
-        #test scalar tolerance
         t = relentless.optimize.GradientTest(tolerance=1e-8)
-        self.assertAlmostEqual(t.tolerance, 1e-8)
-
-        #test dictionary of tolerances
-        t.tolerance = {x:1e-8}
-        self.assertDictEqual(t.tolerance, {x:1e-8})
-
+        self.assertAlmostEqual(t._tolerance.absolute[x], 1e-8)
+        '''
+        #change tolerance
+        t._tolerance.absolute[x] = 1e-5                             ##CAN also change relative tol here, how to prevent?
+        self.assertAlmostEqual(t._tolerance.absolute[x], 1e-5)
+        '''
     def test_converged(self):
         """Test converged method."""
         x = relentless.variable.DesignVariable(value=3.0)
         q = QuadraticObjective(x=x)
 
-        #test scalar tolerance
         t = relentless.optimize.GradientTest(tolerance=1e-8)
         self.assertFalse(t.converged(result=q.compute()))
         x.value = 0.999999999
-        self.assertTrue(t.converged(result=q.compute()))
-
-        #test dictionary of tolerances
-        x.value = 3.0
-        t.tolerance = {x:1e-9}
-        self.assertFalse(t.converged(result=q.compute()))
-        x.value = 1.0000000001
         self.assertTrue(t.converged(result=q.compute()))
 
         #test at high
@@ -109,37 +104,38 @@ class test_ValueTest(unittest.TestCase):
         """Test creation with data."""
         x = relentless.variable.DesignVariable(value=3.0)
 
-        #test scalar tolerance
-        t = relentless.optimize.ValueTest(absolute=1e-8, relative=1e-5, value=3.0)
-        self.assertAlmostEqual(t.absolute, 1e-8)
-        self.assertAlmostEqual(t.relative, 1e-5)
+        #test default values
+        t = relentless.optimize.ValueTest(value=2.5)
+        self.assertAlmostEqual(t._tolerance.absolute[x], 1e-8)
+        self.assertAlmostEqual(t._tolerance.relative[x], 1e-5)
+        self.assertAlmostEqual(t.value, 2.5)
+
+        t = relentless.optimize.ValueTest(absolute=1e-7, relative=1e-4, value=3.0)
+        self.assertAlmostEqual(t._tolerance.absolute[x], 1e-7)
+        self.assertAlmostEqual(t._tolerance.relative[x], 1e-4)
         self.assertAlmostEqual(t.value, 3.0)
-
-        #test dictionary of parameters
-        t.absolute = {x:1e-8}
-        t.relative = {x:1e-5}
-        t.value = {x:3.0}
-        self.assertDictEqual(t.absolute, {x:1e-8})
-        self.assertDictEqual(t.relative, {x:1e-5})
-        self.assertDictEqual(t.value, {x:3.0})
-
+        '''
+        #change parameters
+        t._tolerance.absolute = 1e-9
+        t._tolerance.relative = 1e-4
+        t.value = 1.5
+        self.assertAlmostEqual(t._tolerance.absolute[x], 1e-9)
+        self.assertAlmostEqual(t._tolerance.relative[x], 1e-4)
+        self.assertAlmostEqual(t.value, 2.5)
+        '''
     def test_converged(self):
         """Test converged method."""
         x = relentless.variable.DesignVariable(value=3.0)
         q = QuadraticObjective(x=x)
 
-        #test scalar tolerance
-        t = relentless.optimize.ValueTest(absolute=0.2, relative=0.2, value=2.0)
+        t = relentless.optimize.ValueTest(absolute=0.2, relative=0.2, value=1.0)
         self.assertFalse(t.converged(result=q.compute()))
-        x.value = 2.4
+        x.value = 1.999999999
         self.assertTrue(t.converged(result=q.compute()))
 
-        #test dictionary of parameters
-        t.absolute = {x:1e-8}
-        t.relative = {x:1e-5}
-        t.value = {x:2.5}
+        t = relentless.optimize.ValueTest(value=9.0)
         self.assertFalse(t.converged(result=q.compute()))
-        x.value = 2.5000000001
+        x.value = 3.9999999999
         self.assertTrue(t.converged(result=q.compute()))
 
 class AnyTest(unittest.TestCase):
@@ -149,8 +145,8 @@ class AnyTest(unittest.TestCase):
         """Test creation with data."""
         x = relentless.variable.DesignVariable(value=3.0)
         t1 = relentless.optimize.GradientTest(tolerance=1e-8)
-        t2 = relentless.optimize.ValueTest(absolute=1e-5, relative=1e-3, value=2.0)
-        t3 = relentless.optimize.ValueTest(absolute=1e-5, relative=1e-3, value=1.0)
+        t2 = relentless.optimize.ValueTest(value=2.0)
+        t3 = relentless.optimize.ValueTest(value=1.0)
 
         t = relentless.optimize.AnyTest(t1,t2,t3)
         self.assertCountEqual(t.tests, (t1,t2,t3))
@@ -160,8 +156,8 @@ class AnyTest(unittest.TestCase):
         x = relentless.variable.DesignVariable(value=3.0)
         q = QuadraticObjective(x=x)
         t1 = relentless.optimize.GradientTest(tolerance=1e-8)
-        t2 = relentless.optimize.ValueTest(absolute=1e-5, relative=1e-3, value=2.0)
-        t3 = relentless.optimize.ValueTest(absolute=1e-5, relative=1e-3, value=1.0)
+        t2 = relentless.optimize.ValueTest(value=1.0)
+        t3 = relentless.optimize.ValueTest(value=0.0)
 
         t = relentless.optimize.AnyTest(t1,t2,t3)
         self.assertFalse(t.converged(result=q.compute()))
@@ -179,8 +175,8 @@ class AllTest(unittest.TestCase):
         """Test creation with data."""
         x = relentless.variable.DesignVariable(value=3.0)
         t1 = relentless.optimize.GradientTest(tolerance=1e-8)
-        t2 = relentless.optimize.ValueTest(absolute=1e-5, relative=1e-3, value=2.0)
-        t3 = relentless.optimize.ValueTest(absolute=1e-5, relative=1e-3, value=1.0)
+        t2 = relentless.optimize.ValueTest(value=1.0)
+        t3 = relentless.optimize.ValueTest(value=0.0)
 
         t = relentless.optimize.AllTest(t1,t2,t3)
         self.assertCountEqual(t.tests, (t1,t2,t3))
@@ -190,17 +186,17 @@ class AllTest(unittest.TestCase):
         x = relentless.variable.DesignVariable(value=3.0)
         q = QuadraticObjective(x=x)
         t1 = relentless.optimize.GradientTest(tolerance=1e-8)
-        t2 = relentless.optimize.ValueTest(absolute=1e-5, relative=1e-3, value=2.0)
-        t3 = relentless.optimize.ValueTest(absolute=1e-5, relative=1e-3, value=1.0)
+        t2 = relentless.optimize.ValueTest(value=1.0)
+        t3 = relentless.optimize.ValueTest(value=0.0)
 
         t = relentless.optimize.AllTest(t1,t2,t3)
         self.assertFalse(t.converged(result=q.compute()))
 
-        x.value = 2.0000001
+        x.value = 1.999999999
         self.assertFalse(t.converged(result=q.compute()))
 
-        t2.value = 1.0
-        x.value = 1.000000001
+        t2.value = 0.0
+        x.value = 0.999999999
         self.assertTrue(t.converged(result=q.compute()))
 
 class OrTest(unittest.TestCase):
@@ -210,7 +206,7 @@ class OrTest(unittest.TestCase):
         """Test creation with data."""
         x = relentless.variable.DesignVariable(value=3.0)
         t1 = relentless.optimize.GradientTest(tolerance=1e-8)
-        t2 = relentless.optimize.ValueTest(absolute=1e-5, relative=1e-3, value=2.0)
+        t2 = relentless.optimize.ValueTest(value=1.0)
 
         t = relentless.optimize.OrTest(t1,t2)
         self.assertCountEqual(t.tests, (t1,t2))
@@ -220,15 +216,15 @@ class OrTest(unittest.TestCase):
         x = relentless.variable.DesignVariable(value=3.0)
         q = QuadraticObjective(x=x)
         t1 = relentless.optimize.GradientTest(tolerance=1e-8)
-        t2 = relentless.optimize.ValueTest(absolute=1e-5, relative=1e-3, value=2.0)
+        t2 = relentless.optimize.ValueTest(value=1.0)
 
         t = relentless.optimize.OrTest(t1,t2)
         self.assertFalse(t.converged(result=q.compute()))
 
-        x.value = 2.000000001
+        x.value = 1.9999999999
         self.assertTrue(t.converged(result=q.compute()))
 
-        x.value = 1.000000001
+        x.value = 0.9999999999
         self.assertTrue(t.converged(result=q.compute()))
 
 class AndTest(unittest.TestCase):
@@ -238,7 +234,7 @@ class AndTest(unittest.TestCase):
         """Test creation with data."""
         x = relentless.variable.DesignVariable(value=3.0)
         t1 = relentless.optimize.GradientTest(tolerance=1e-8)
-        t2 = relentless.optimize.ValueTest(absolute=1e-5, relative=1e-3, value=1.0)
+        t2 = relentless.optimize.ValueTest(value=1.0)
 
         t = relentless.optimize.AndTest(t1,t2)
         self.assertCountEqual(t.tests, (t1,t2))
@@ -248,14 +244,17 @@ class AndTest(unittest.TestCase):
         x = relentless.variable.DesignVariable(value=3.0)
         q = QuadraticObjective(x=x)
         t1 = relentless.optimize.GradientTest(tolerance=1e-8)
-        t2 = relentless.optimize.ValueTest(absolute=1e-5, relative=1e-3, value=2.0)
+        t2 = relentless.optimize.ValueTest(value=1.0)
 
         t = relentless.optimize.AndTest(t1,t2)
         self.assertFalse(t.converged(result=q.compute()))
 
-        x.value = 2.0000001
+        x.value = 1.999999999
         self.assertFalse(t.converged(result=q.compute()))
 
-        t2.value = 1.0
-        x.value = 1.000000001
+        t2.value = 0.0
+        x.value = 0.999999999
         self.assertTrue(t.converged(result=q.compute()))
+
+if __name__ == '__main__':
+    unittest.main()

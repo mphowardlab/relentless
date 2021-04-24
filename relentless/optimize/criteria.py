@@ -42,14 +42,11 @@ It may be helpful for the class to be composed having a :class:`Tolerance`.
 
 .. autoclass:: GradientTest
     :member-order: bysource
-    :members: tolerance,
-        converged
+    :members: converged
 
 .. autoclass:: ValueTest
     :member-order: bysource
-    :members: absolute,
-        relative,
-        value,
+    :members: value,
         converged
 
 .. autoclass:: LogicTest
@@ -75,6 +72,8 @@ import abc
 
 import numpy as np
 
+from relentless import _collections
+
 class ConvergenceTest(abc.ABC):
     r"""Abstract base class for optimization convergence tests.
 
@@ -97,115 +96,88 @@ class ConvergenceTest(abc.ABC):
         pass
 
 class Tolerance:
-    """Tolerance for convergence tests.
+    r"""Tolerance for convergence tests.
+
+    A tolerance can be used to check if one value is close to another in either
+    an absolute or a relative sense. The test for closeness is based on the
+    NumPy method :func:`numpy.isclose`, which can use both an absolute tolerance
+    :math:`\varepsilon_{\rm a}` and a relative tolerance :math:`\varepsilon_{\rm r}`.
+
+    A value :math:`a` is close to a value :math:`b` if and only if:
+
+    .. math::
+
+        \lvert a-b\rvert\le\varepsilon_{\rm a}+\varepsilon_{\rm r}\lvert b\rvert
 
     An absolute tolerance can be any non-negative numerical value. A relative
-    tolerance must be a non-negative numerical value between 0 and 1
+    tolerance must be a non-negative numerical value between 0 and 1. By setting
+    :math:`\varepsilon_{\rm r}=0`, only an absolute tolerance test is performed.
+    Similarlly, setting :math:`\varepsilon_{\rm a}=0` will perform only a
+    relative tolerance test.
 
     Parameters
     ----------
-    absolute : float or dict
-        The absolute tolerance or tolerances (keyed on the :class:`~relentless.optimize.objective.ObjectiveFunction`
-        design variables).
+    absolute : float
+        The default absolute tolerance.
     relative : float or dict
-        The relative tolerance or tolerances (keyed on the :class:`~relentless.optimize.objective.ObjectiveFunction`
-        design variables).
+        The default relative tolerance.
 
     """
     def __init__(self, absolute, relative):
-        self.absolute = absolute
-        self.relative = relative
+        self._absolute = _collections.DefaultDict(absolute)
+        self._relative = _collections.DefaultDict(relative)
 
     @property
     def absolute(self):
-        """float or dict: The absolute tolerance(s). Must be non-negative."""
+        """:class:`~relentless._collections.DefaultDict`: The absolute
+        tolerance(s). Must be non-negative."""
         return self._absolute
-
-    @absolute.setter
-    def absolute(self, value):
-        try:
-            tol = dict(value)
-            err = any([t < 0 for t in value.values()])
-        except TypeError:
-            tol = value
-            err = value < 0
-        if err:
-            raise ValueError('Absolute tolerances must be non-negative.')
-        else:
-            self._absolute = tol
 
     @property
     def relative(self):
-        """float or dict: The relative tolerance(s). Must be between 0 and 1."""
-        return self._tolerance
+        """:class:`~relentless._collections.DefaultDict`: The relative
+        tolerance(s). Must be between 0 and 1."""
+        return self._relative
 
-    @relative.setter
-    def relative(self, value):
-        try:
-            tol = dict(value)
-            err = any([t < 0 or t > 1 for t in value.values()])
-        except TypeError:
-            tol = value
-            err = value < 0 or value > 1
-        if err:
-            raise ValueError('Relative tolerances must be between 0 and 1.')
-        else:
-            self._tolerance = tol
+    def isclose(self, a, b, key=None):
+        """Check if the two values are equivalent within a tolerance.
 
-    def isclose(self, key, a, b):
-        r"""Check if the two values are equivalent within a tolerance.
-
-        For a specific relative tolerance :math:`t_r` and absolute tolerance :math:`t_a`,
-        two values :math:`a` and :math:`b` are determined to be `close` if:
-
-        .. math::
-
-            \lvert a-b\rvert <= t_a+t_r\lvert b\rvert
+        The test is performed using :func:`numpy.isclose`.
 
         Parameters
         ----------
-        key : :class:`~relentless.variable.DesignVariable`
-            The variable on which the tolerances to be used are keyed.
         a : float
             The first value to compare.
         b : float
             The second value to compare.
+        key : :class:`~relentless.variable.DesignVariable`
+            The variable on which the tolerances to be used are keyed (defaults
+            to ``None``).
 
         Returns
         -------
         bool
             ``True`` if values are close.
 
+        Raises
+        ------
+        ValueError
+            If the absolute tolerance is not non-negative.
+        ValueError
+            If the relative tolerance is not between 0 and 1.
+
         """
-        atol = self._atol(key)
-        rtol = self._rtol(key)
-        return np.isclose(a, b, atol=atol, rtol=rtol)
-
-    def _atol(self, key):
-        # get the scalar or keyed value of the absolute tolerance
-        try:
-            t = self.absolute[key]
-        except TypeError:
-            t = self.absolute
-        except KeyError:
-            raise KeyError('An absolute tolerance is not set for design variable ' + str(key))
-        return t
-
-    def _rtol(self, key):
-        # get the scalar or keyed value of the relative tolerance
-        try:
-            t = self.relative[key]
-        except TypeError:
-            t = self.relative
-        except KeyError:
-            raise KeyError('A relative tolerance is not set for design variable ' + str(key))
-        return t
+        if self.absolute[key] < 0:
+            raise ValueError('Absolute tolerances must be non-negative.')
+        if self.relative[key] < 0 or self.relative[key] > 1:
+            raise ValueError('Relative tolerances must be between 0 and 1.')
+        return np.isclose(a, b, atol=self.absolute[key], rtol=self.relative[key])
 
 class GradientTest(ConvergenceTest):
     r"""Gradient test for convergence using absolute tolerance.
 
-    The absolute tolerance, :math:`t`, can be any non-negative numerical value.
-    (The relative tolerance is automatically set to 0).
+    The absolute tolerance, :math:`\varepsilon_{\rm a}`, can be any non-negative
+    numerical value.
 
     The result is converged with respect to an unconstrained design variable
     :math:`x_i` (i.e., having :class:`~relentless.variable.DesignVariable.State` ``FREE``
@@ -237,21 +209,11 @@ class GradientTest(ConvergenceTest):
     Parameters
     ----------
     tolerance : float or dict
-        The absolute tolerance or tolerances (keyed on the :class:`~relentless.optimize.objective.ObjectiveFunction`
-        design variables).
+        The default absolute tolerance.
 
     """
     def __init__(self, tolerance):
-        self._tolerance = Tolerance(absolute=tolerance, relative=0.)
-
-    @property
-    def tolerance(self):
-        """float or dict: The absolute tolerance(s). Must be non-negative."""
-        return self._tolerance.absolute
-
-    @tolerance.setter
-    def tolerance(self, value):
-        self._tolerance.absolute = value
+        self._tolerance = Tolerance(absolute=tolerance, relative=0)
 
     def converged(self, result):
         """Check if the function is converged using the absolute gradient test.
@@ -270,14 +232,14 @@ class GradientTest(ConvergenceTest):
         converged = True
         for x in result.design_variables:
             grad = result.gradient[x]
-            tol = self._tolerance._atol(x)
+            tol = self._tolerance.absolute[x]
             if x.athigh() and  -grad < -tol:
                 converged = False
                 break
             elif x.atlow() and -grad > tol:
                 converged = False
                 break
-            elif x.isfree() and np.abs(grad) > tol:
+            elif x.isfree() and not self._tolerance.isclose(grad, 0, key=x):
                 converged = False
                 break
 
@@ -286,50 +248,27 @@ class GradientTest(ConvergenceTest):
 class ValueTest(ConvergenceTest):
     r"""Value test for convergence.
 
-    The absolute tolerance, :math:`t`, can be any non-negative numerical value.
-    A value, :math:`v`, must also be specified.
-
-    The function is determined to be converged if :math:`\left\lvert v-x_i\right\rvert<t`
-    for each of the design variables :math:`x_i`.
+    The result is converged if and only if the value of the function :math:`f`
+    is close to the ``value`` according to :meth:`Tolerance.isclose`. Absolute
+    and/or relative tolerances may be used.
 
     Parameters
     ----------
-    absolute : float or dict
-        The absolute tolerance or tolerances (keyed on the :class:`~relentless.optimize.objective.ObjectiveFunction`
-        design variables).
-    relative : float or dict
-        The relative tolerance or tolerances (keyed on the :class:`~relentless.optimize.objective.ObjectiveFunction`
-        design variables).
-    value : float or dict
-        The value or values (keyed on the :class:`~relentless.optimize.objective.ObjectiveFunction`
-        design variables) to check.
+    value : float
+        The value to check.
+    absolute : float
+        The default absolute tolerance (defaults to ``1e-8``).
+    relative : float
+        The default relative tolerance (defaults to ``1e-5``).
 
     """
-    def __init__(self, absolute, relative, value):
+    def __init__(self, value, absolute=1e-8, relative=1e-5):
         self._tolerance = Tolerance(absolute=absolute, relative=relative)
         self.value = value
 
     @property
-    def absolute(self):
-        """float or dict: The absolute tolerance(s). Must be non-negative."""
-        return self._tolerance.absolute
-
-    @absolute.setter
-    def absolute(self, value):
-        self._tolerance.absolute = value
-
-    @property
-    def relative(self):
-        """float or dict: The relative tolerance(s). Must be between 0 and 1."""
-        return self._tolerance.relative
-
-    @relative.setter
-    def relative(self, value):
-        self._tolerance.relative = value
-
-    @property
     def value(self):
-        """float or dict: The value(s) to check."""
+        """float: The value(s) to check."""
         return self._value
 
     @value.setter
@@ -353,23 +292,7 @@ class ValueTest(ConvergenceTest):
             ``True`` if the function is converged.
 
         """
-        converged = True
-        for x in result.design_variables:
-            if not self._tolerance.isclose(x, x.value, self._val(x)):
-                converged = False
-                break
-
-        return converged
-
-    def _val(self, key):
-        # get the scalar or keyed value of the check value
-        try:
-            v = self.value[key]
-        except TypeError:
-            v = self.value
-        except KeyError:
-            raise KeyError('A value to check is not set for design variable ' + str(key))
-        return v
+        return self._tolerance.isclose(result.value, self.value)
 
 class LogicTest(ConvergenceTest):
     """Abstract base class for logical convergence tests.
@@ -402,9 +325,6 @@ class AnyTest(LogicTest):
         The :class:`ConvergenceTest`\s to be used.
 
     """
-    def __init__(self, *tests):
-        super().__init__(*tests)
-
     def converged(self, result):
         """Check if the function has converged by any of the specified tests.
 
@@ -433,9 +353,6 @@ class AllTest(LogicTest):
         The :class:`ConvergenceTest`\s to be used.
 
     """
-    def __init__(self, *tests):
-        super().__init__(*tests)
-
     def converged(self, result):
         """Check if the function is converged by all of the specified tests.
 

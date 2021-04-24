@@ -54,7 +54,7 @@ import abc
 import numpy as np
 
 from relentless import _collections
-from .criteria import ConvergenceTest
+from .criteria import ConvergenceTest,Tolerance
 from .objective import ObjectiveFunction
 
 class Optimizer(abc.ABC):
@@ -137,14 +137,14 @@ class LineSearch:
 
     Parameters
     ----------
-    rel_tol : float
+    tolerance : float
         The relative tolerance for the target (:math:`c`).
     max_iter : int
         The maximum number of line search iterations allowed.
 
     """
-    def __init__(self, rel_tol, max_iter):
-        self.rel_tol = rel_tol
+    def __init__(self, tolerance, max_iter):
+        self._tolerance = criteria.Tolerance(absolute=0, relative=tolerance)
         self.max_iter = max_iter
 
     def find(self, objective, start, end):
@@ -174,8 +174,15 @@ class LineSearch:
         :class:`~relentless.optimize.objective.ObjectiveFunctionResult`
             The objective function evaluated at the new, "optimal" location.
 
+        Raises
+        ------
+        ValueError
+            If the relative tolerance is not between 0 and 1.
+
         """
-        ovars = {x: x.value for x in objective.design_variables()}
+        if self.tolerance < 0 or self.tolerance > 1:
+            raise ValueError('The relative tolerance must be between 0 and 1.')
+        ovars = {x: x.value for x in objective.design_variables}
 
         # compute search direction
         d = end.design_variables - start.design_variables
@@ -188,7 +195,7 @@ class LineSearch:
             raise ValueError('The defined search interval must be a descent direction.')
 
         # compute tolerance
-        tol = self.rel_tol*np.abs(targets[0])
+        tol = self.tolerance*np.abs(targets[0])
 
         # check if max step size acceptable, else iterate to minimize target
         if targets[1] > 0 or np.abs(targets[1]) < tol:
@@ -225,19 +232,9 @@ class LineSearch:
         return result
 
     @property
-    def rel_tol(self):
-        """float: The relative tolerance for the target. Must be in the range :math:`0<c<1`."""
-        return self._rel_tol
-
-    @rel_tol.setter
-    def rel_tol(self, value):
-        try:
-            if value <= 0 or value >= 1:
-                raise ValueError('The relative tolerance must be between 0 and 1.')
-            else:
-                self._rel_tol = value
-        except TypeError:
-            raise TypeError('The relative tolerance must be a scalar float.')
+    def tolerance(self):
+        """float: The relative tolerance for the target."""
+        return self._tolerance.relative
 
     @property
     def max_iter(self):

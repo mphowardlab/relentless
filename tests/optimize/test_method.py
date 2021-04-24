@@ -13,8 +13,8 @@ class test_LineSearch(unittest.TestCase):
         x = relentless.variable.DesignVariable(value=3.0)
         q = QuadraticObjective(x=x)
 
-        l = relentless.optimize.LineSearch(rel_tol=1e-8, max_iter=1000)
-        self.assertAlmostEqual(l.rel_tol, 1e-8)
+        l = relentless.optimize.LineSearch(tolerance=1e-8, max_iter=1000)
+        self.assertAlmostEqual(l.tolerance, 1e-8)
         self.assertEqual(l.max_iter, 1000)
 
         #test invalid parameters
@@ -22,16 +22,10 @@ class test_LineSearch(unittest.TestCase):
             l.max_iter = 0
         with self.assertRaises(TypeError):
             l.max_iter = 100.0
-        with self.assertRaises(ValueError):
-            l.rel_tol = -1e-9
-        with self.assertRaises(TypeError):
-            l.rel_tol = {x:1e-9}
-        with self.assertRaises(ValueError):
-            l.rel_tol = 1
 
     def test_find(self):
         """Test find method."""
-        l = relentless.optimize.LineSearch(rel_tol=1e-8, max_iter=1000)
+        l = relentless.optimize.LineSearch(tolerance=1e-8, max_iter=1000)
         x = relentless.variable.DesignVariable(value=-3.0)
         q = QuadraticObjective(x=x)
         res_1 = q.compute()
@@ -68,6 +62,15 @@ class test_LineSearch(unittest.TestCase):
         with self.assertRaises(ValueError):
             res_new = l.find(objective=q, start=res_3, end=res_3)
 
+        ''' #confirm about whether or not can be changed, or only invalid in init
+        #invalid tolerance
+        with self.assertRaises(ValueError):
+            l. = -1e-9
+        with self.assertRaises(TypeError):
+            l.rel_tol = {x:1e-9}
+        with self.assertRaises(ValueError):
+            l.rel_tol = 1 '''
+
 class test_SteepestDescent(unittest.TestCase):
     """Unit tests for relentless.optimize.SteepestDescent"""
 
@@ -101,7 +104,7 @@ class test_SteepestDescent(unittest.TestCase):
         self.assertIsNone(o.line_search)
 
         #test using line search
-        l = relentless.optimize.LineSearch(rel_tol=1e-9, max_iter=100)
+        l = relentless.optimize.LineSearch(tolerance=1e-9, max_iter=100)
         o.line_search = l
         self.assertEqual(o.stop, t)
         self.assertEqual(o.max_iter, 1000)
@@ -155,7 +158,7 @@ class test_SteepestDescent(unittest.TestCase):
 
         #test using line search option
         x.value = 3
-        o.line_search = relentless.optimize.LineSearch(rel_tol=1e-5, max_iter=100)
+        o.line_search = relentless.optimize.LineSearch(tolerance=1e-5, max_iter=100)
         self.assertTrue(o.optimize(objective=q))
         self.assertAlmostEqual(x.value, 1.0)
 
@@ -198,6 +201,9 @@ class test_FixedStepDescent(unittest.TestCase):
 
         #test using line search option
         x.value = 3
-        o.line_search = relentless.optimize.LineSearch(rel_tol=1e-5, max_iter=100)
+        o.line_search = relentless.optimize.LineSearch(tolerance=1e-5, max_iter=100)
         self.assertTrue(o.optimize(objective=q))
         self.assertAlmostEqual(x.value, 1.0)
+
+if __name__ == '__main__':
+    unittest.main()

@@ -376,5 +376,39 @@ class test_KeyedArray(unittest.TestCase):
         with self.assertRaises(KeyError):
             k4 = k2.dot(k3)
 
+class test_DefaultDict(unittest.TestCase):
+    """Unit tests for relentless._collections.DefaultDict"""
+
+    def test_funcs(self):
+        """Test functionalities."""
+        #instantiation
+        d = relentless._collections.DefaultDict(default=1.0)
+        self.assertAlmostEqual(d.default, 1.0)
+        self.assertAlmostEqual(d['A'], 1.0)
+        self.assertAlmostEqual(d['B'], 1.0)
+        self.assertEqual(len(d), 0)
+
+        #set individually
+        d['A'] = 2.0
+        self.assertAlmostEqual(d.default, 1.0)
+        self.assertAlmostEqual(d['A'], 2.0)
+        self.assertAlmostEqual(d['B'], 1.0)
+        self.assertEqual(len(d), 1)
+
+        #delete
+        del d['A']
+        self.assertAlmostEqual(d.default, 1.0)
+        self.assertAlmostEqual(d['A'], 1.0)
+        self.assertAlmostEqual(d['B'], 1.0)
+        self.assertEqual(len(d), 0)
+
+        #iterate
+        for key in ('A','B'):
+            d[key] = 2.5
+        self.assertAlmostEqual(d.default, 1.0)
+        self.assertAlmostEqual(d['A'], 2.5)
+        self.assertAlmostEqual(d['B'], 2.5)
+        self.assertEqual(len(d), 2)
+
 if __name__ == '__main__':
     unittest.main()

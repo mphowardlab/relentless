@@ -50,3 +50,6 @@ class test_ObjectiveFunction(unittest.TestCase):
         x.value = 3.0
         self.assertEqual(q.x.value, 3.0)
         self.assertCountEqual((x,), q.design_variables())
+
+if __name__ == '__main__':
+    unittest.main()
