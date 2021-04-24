@@ -32,7 +32,7 @@ To implement your own optimization algorithm, create a class that derives from
 .. autoclass:: LineSearch
     :member-order: bysource
     :members: find,
-        rel_tol,
+        tolerance,
         max_iter
 
 .. autoclass:: FixedStepDescent

@@ -234,7 +234,7 @@ class GradientTest(ConvergenceTest):
 
     @property
     def tolerance(self):
-        """`~relentless._collections.DefaultDict`: The absolute tolerance(s)."""
+        """:class:`~relentless._collections.DefaultDict`: The absolute tolerance(s)."""
         return self._tolerance.absolute
 
     def converged(self, result):
