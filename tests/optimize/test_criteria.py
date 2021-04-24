@@ -108,28 +108,22 @@ class test_ValueTest(unittest.TestCase):
 
         #test default values
         t = relentless.optimize.ValueTest(value=2.5)
-        self.assertAlmostEqual(t.absolute[x], 1e-8)
-        self.assertAlmostEqual(t.absolute.default, 1e-8)
-        self.assertAlmostEqual(t.relative[x], 1e-5)
-        self.assertAlmostEqual(t.relative.default, 1e-5)
+        self.assertAlmostEqual(t.absolute, 1e-8)
+        self.assertAlmostEqual(t.relative, 1e-5)
         self.assertAlmostEqual(t.value, 2.5)
 
         #non-default values
         t = relentless.optimize.ValueTest(absolute=1e-7, relative=1e-4, value=3.0)
-        self.assertAlmostEqual(t.absolute[x], 1e-7)
-        self.assertAlmostEqual(t.absolute.default, 1e-7)
-        self.assertAlmostEqual(t.relative[x], 1e-4)
-        self.assertAlmostEqual(t.relative.default, 1e-4)
+        self.assertAlmostEqual(t.absolute, 1e-7)
+        self.assertAlmostEqual(t.relative, 1e-4)
         self.assertAlmostEqual(t.value, 3.0)
 
         #change parameters
-        t.absolute[x] = 1e-9
-        t.relative[x] = 1e-5
+        t.absolute = 1e-9
+        t.relative = 1e-5
         t.value = 1.5
-        self.assertAlmostEqual(t.absolute[x], 1e-9)
-        self.assertAlmostEqual(t.absolute.default, 1e-7)
-        self.assertAlmostEqual(t.relative[x], 1e-5)
-        self.assertAlmostEqual(t.relative.default, 1e-4)
+        self.assertAlmostEqual(t.absolute, 1e-9)
+        self.assertAlmostEqual(t.relative, 1e-5)
         self.assertAlmostEqual(t.value, 1.5)
 
     def test_converged(self):

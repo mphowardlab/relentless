@@ -94,6 +94,7 @@ class ConvergenceTest(abc.ABC):
         ----------
         result : :class:`~relentless.optimize.objective.ObjectiveFunctionResult`
             The result to check for convergence.
+
         Returns
         -------
         bool
@@ -301,10 +302,18 @@ class ValueTest(ConvergenceTest):
         """float: The absolute tolerance."""
         return self._tolerance.absolute.default
 
+    @absolute.setter
+    def absolute(self, value):
+        self._tolerance.absolute.default = value
+
     @property
     def relative(self):
         """float: The relative tolerance."""
         return self._tolerance.relative.default
+
+    @relative.setter
+    def relative(self, value):
+        self._tolerance.relative.default = value
 
     def converged(self, result):
         """Check if the function is converged using the value test.
