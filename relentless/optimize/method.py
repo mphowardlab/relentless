@@ -144,7 +144,7 @@ class LineSearch:
 
     """
     def __init__(self, tolerance, max_iter):
-        self._tolerance = Tolerance(absolute=0, relative=tolerance)
+        self.tolerance = tolerance
         self.max_iter = max_iter
 
     def find(self, objective, start, end):
@@ -180,8 +180,6 @@ class LineSearch:
             If the relative tolerance is not between 0 and 1.
 
         """
-        if self.tolerance < 0 or self.tolerance > 1:
-            raise ValueError('The relative tolerance must be between 0 and 1.')
         ovars = {x: x.value for x in objective.design_variables()}
 
         # compute search direction
@@ -195,17 +193,17 @@ class LineSearch:
             raise ValueError('The defined search interval must be a descent direction.')
 
         # compute tolerance
-        tol = self.tolerance*np.abs(targets[0])
+        tol = Tolerance(absolute=self.tolerance*np.abs(targets[0]), relative=0)
 
         # check if max step size acceptable, else iterate to minimize target
-        if targets[1] > 0 or np.abs(targets[1]) < tol:
+        if targets[1] > 0 or tol.isclose(targets[1], 0):
             result = end
         else:
             steps = np.array([0., 1.])
             iter_num = 0
             new_target = np.inf
             new_res = targets[1]
-            while np.abs(new_target) >= tol and iter_num < self.max_iter:
+            while tol.isclose(new_target, 0) and iter_num < self.max_iter:
                 # linear interpolation for step size
                 new_step = (steps[0]*targets[1] - steps[1]*targets[0])/(targets[1] - targets[0])
 
@@ -233,8 +231,14 @@ class LineSearch:
 
     @property
     def tolerance(self):
-        """float: The relative tolerance for the target."""
-        return self._tolerance.relative.default
+        """float: The relative tolerance for the target. Must be between 0 and 1."""
+        return self._tolerance
+
+    @tolerance.setter
+    def tolerance(self, value):
+        if value < 0 or value > 1:
+            raise ValueError('The relative tolerance must be between 0 and 1.')
+        self._tolerance = value
 
     @property
     def max_iter(self):

@@ -35,6 +35,7 @@ class test_LineSearch(unittest.TestCase):
         res_2 = q.compute()
         x.value = -3.0
         res_new = l.find(objective=q, start=res_1, end=res_2)
+        print(res_new)
         self.assertAlmostEqual(res_new.design_variables[x], 1.0)
         self.assertAlmostEqual(res_new.gradient[x], 0.0)
         self.assertEqual(q.x.value, -3.0)
@@ -62,14 +63,13 @@ class test_LineSearch(unittest.TestCase):
         with self.assertRaises(ValueError):
             res_new = l.find(objective=q, start=res_3, end=res_3)
 
-        ''' #confirm about whether or not can be changed, or only invalid in init
         #invalid tolerance
         with self.assertRaises(ValueError):
-            l. = -1e-9
-        with self.assertRaises(TypeError):
-            l.rel_tol = {x:1e-9}
+            l.tolerance = -1e-9
+            l.find(objective=q, start=res_1, end=res_3)
         with self.assertRaises(ValueError):
-            l.rel_tol = 1 '''
+            l.tolerance = 1.1
+            l.find(objective=q, start=res_1, end=res_3)
 
 class test_SteepestDescent(unittest.TestCase):
     """Unit tests for relentless.optimize.SteepestDescent"""

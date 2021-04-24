@@ -18,10 +18,10 @@ class test_Tolerance(unittest.TestCase):
         self.assertAlmostEqual(t.relative[x], 0.5)
         self.assertAlmostEqual(t.absolute[y], 1.0)
         self.assertAlmostEqual(t.relative[y], 0.5)
-        '''
+
         #test changing tolerances by scalar
-        t.absolute = 1.1
-        t.relative = 0.6
+        t.absolute.default = 1.1
+        t.relative.default = 0.6
         self.assertAlmostEqual(t.absolute[x], 1.1)
         self.assertAlmostEqual(t.relative[x], 0.6)
         self.assertAlmostEqual(t.absolute[y], 1.1)
@@ -34,7 +34,7 @@ class test_Tolerance(unittest.TestCase):
         self.assertAlmostEqual(t.relative[x], 0.7)
         self.assertAlmostEqual(t.absolute[y], 1.1)
         self.assertAlmostEqual(t.relative[y], 0.6)
-        '''
+
     def test_isclose(self):
         """Test isclose method."""
         x = relentless.variable.DesignVariable(value=3.0)
@@ -64,12 +64,14 @@ class test_GradientTest(unittest.TestCase):
         x = relentless.variable.DesignVariable(value=3.0)
 
         t = relentless.optimize.GradientTest(tolerance=1e-8)
-        self.assertAlmostEqual(t._tolerance.absolute[x], 1e-8)
-        '''
+        self.assertAlmostEqual(t.tolerance[x], 1e-8)
+        self.assertAlmostEqual(t.tolerance.default, 1e-8)
+
         #change tolerance
-        t._tolerance.absolute[x] = 1e-5                             ##CAN also change relative tol here, how to prevent?
-        self.assertAlmostEqual(t._tolerance.absolute[x], 1e-5)
-        '''
+        t.tolerance[x] = 1e-5
+        self.assertAlmostEqual(t.tolerance[x], 1e-5)
+        self.assertAlmostEqual(t.tolerance.default, 1e-8)
+
     def test_converged(self):
         """Test converged method."""
         x = relentless.variable.DesignVariable(value=3.0)
@@ -106,23 +108,30 @@ class test_ValueTest(unittest.TestCase):
 
         #test default values
         t = relentless.optimize.ValueTest(value=2.5)
-        self.assertAlmostEqual(t._tolerance.absolute[x], 1e-8)
-        self.assertAlmostEqual(t._tolerance.relative[x], 1e-5)
+        self.assertAlmostEqual(t.absolute[x], 1e-8)
+        self.assertAlmostEqual(t.absolute.default, 1e-8)
+        self.assertAlmostEqual(t.relative[x], 1e-5)
+        self.assertAlmostEqual(t.relative.default, 1e-5)
         self.assertAlmostEqual(t.value, 2.5)
 
+        #non-default values
         t = relentless.optimize.ValueTest(absolute=1e-7, relative=1e-4, value=3.0)
-        self.assertAlmostEqual(t._tolerance.absolute[x], 1e-7)
-        self.assertAlmostEqual(t._tolerance.relative[x], 1e-4)
+        self.assertAlmostEqual(t.absolute[x], 1e-7)
+        self.assertAlmostEqual(t.absolute.default, 1e-7)
+        self.assertAlmostEqual(t.relative[x], 1e-4)
+        self.assertAlmostEqual(t.relative.default, 1e-4)
         self.assertAlmostEqual(t.value, 3.0)
-        '''
+
         #change parameters
-        t._tolerance.absolute = 1e-9
-        t._tolerance.relative = 1e-4
+        t.absolute[x] = 1e-9
+        t.relative[x] = 1e-5
         t.value = 1.5
-        self.assertAlmostEqual(t._tolerance.absolute[x], 1e-9)
-        self.assertAlmostEqual(t._tolerance.relative[x], 1e-4)
-        self.assertAlmostEqual(t.value, 2.5)
-        '''
+        self.assertAlmostEqual(t.absolute[x], 1e-9)
+        self.assertAlmostEqual(t.absolute.default, 1e-7)
+        self.assertAlmostEqual(t.relative[x], 1e-5)
+        self.assertAlmostEqual(t.relative.default, 1e-4)
+        self.assertAlmostEqual(t.value, 1.5)
+
     def test_converged(self):
         """Test converged method."""
         x = relentless.variable.DesignVariable(value=3.0)

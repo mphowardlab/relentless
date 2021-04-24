@@ -42,11 +42,14 @@ It may be helpful for the class to be composed having a :class:`Tolerance`.
 
 .. autoclass:: GradientTest
     :member-order: bysource
-    :members: converged
+    :members: tolerance,
+        converged
 
 .. autoclass:: ValueTest
     :member-order: bysource
-    :members: value,
+    :members: absolute,
+        relative,
+        value,
         converged
 
 .. autoclass:: LogicTest
@@ -215,6 +218,11 @@ class GradientTest(ConvergenceTest):
     def __init__(self, tolerance):
         self._tolerance = Tolerance(absolute=tolerance, relative=0)
 
+    @property
+    def tolerance(self):
+        """`~relentless._collections.DefaultDict`: The absolute tolerance(s)."""
+        return self._tolerance.absolute
+
     def converged(self, result):
         """Check if the function is converged using the absolute gradient test.
 
@@ -232,7 +240,7 @@ class GradientTest(ConvergenceTest):
         converged = True
         for x in result.design_variables:
             grad = result.gradient[x]
-            tol = self._tolerance.absolute[x]
+            tol = self.tolerance[x]
             if x.athigh() and  -grad < -tol:
                 converged = False
                 break
@@ -274,6 +282,16 @@ class ValueTest(ConvergenceTest):
     @value.setter
     def value(self, value):
         self._value = value
+
+    @property
+    def absolute(self):
+        """`~relentless._collections.DefaultDict`: The absolute tolerance(s)."""
+        return self._tolerance.absolute
+
+    @property
+    def relative(self):
+        """`~relentless._collections.DefaultDict`: The relative tolerance(s)."""
+        return self._tolerance.relative
 
     def converged(self, result):
         """Check if the function is converged using the value test.
