@@ -202,8 +202,8 @@ class LineSearch:
             steps = np.array([0., 1.])
             iter_num = 0
             new_target = np.inf
-            new_res = targets[1]
-            while tol.isclose(new_target, 0) and iter_num < self.max_iter:
+            new_res = end
+            while not tol.isclose(new_target, 0) and iter_num < self.max_iter:
                 # linear interpolation for step size
                 new_step = (steps[0]*targets[1] - steps[1]*targets[0])/(targets[1] - targets[0])
 
@@ -294,7 +294,7 @@ class SteepestDescent(Optimizer):
     ----------
     stop : :class:`~relentless.optimize.criteria.ConvergenceTest`
         The convergence test used as the stopping criterion for the optimizer.
-        Note that the tolerances are defined on the `scaled gradient`.
+        Note that the result being tested will have *unscaled* variables and gradient.
     max_iter : int
         The maximum number of optimization iterations allowed.
     step_size : float
@@ -466,7 +466,7 @@ class FixedStepDescent(SteepestDescent):
     ----------
     stop : :class:`~relentless.optimize.criteria.ConvergenceTest`
         The convergence test used as the stopping criterion for the optimizer.
-        Note that the tolerances are defined on the `scaled gradient`.
+        Note that the result being tested will have *unscaled* variables and gradient.
     max_iter : int
         The maximum number of optimization iterations allowed.
     step_size : float

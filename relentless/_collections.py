@@ -577,7 +577,7 @@ class DefaultDict(collections.abc.MutableMapping):
 
     @property
     def default(self):
-        """float or dict: The default value(s)."""
+        """float or dict: The default value."""
         return self._default
 
     @default.setter

@@ -1,5 +1,5 @@
 """
-Convergence Criteria
+Convergence criteria
 ====================
 
 A convergence test determines if an objective function has converged to the
@@ -94,7 +94,10 @@ class ConvergenceTest(abc.ABC):
         ----------
         result : :class:`~relentless.optimize.objective.ObjectiveFunctionResult`
             The result to check for convergence.
-
+        Returns
+        -------
+        bool
+            ``True`` if the ``result`` is converged.
         """
         pass
 
@@ -115,14 +118,14 @@ class Tolerance:
     An absolute tolerance can be any non-negative numerical value. A relative
     tolerance must be a non-negative numerical value between 0 and 1. By setting
     :math:`\varepsilon_{\rm r}=0`, only an absolute tolerance test is performed.
-    Similarlly, setting :math:`\varepsilon_{\rm a}=0` will perform only a
+    Similarly, setting :math:`\varepsilon_{\rm a}=0` will perform only a
     relative tolerance test.
 
     Parameters
     ----------
     absolute : float
         The default absolute tolerance.
-    relative : float or dict
+    relative : float
         The default relative tolerance.
 
     """
@@ -147,15 +150,18 @@ class Tolerance:
 
         The test is performed using :func:`numpy.isclose`.
 
+        The default :attr:`absolute` and :attr:`relative` tolerances can be overridden based on a ``key``,
+        which can be any valid dictionary key other than ``None``. When testing for closeness, if a ``key``
+        is given, the keyed tolerance will be used if has been specified; otherwise, the default tolerance is used.
+
         Parameters
         ----------
         a : float
             The first value to compare.
         b : float
             The second value to compare.
-        key : :class:`~relentless.variable.DesignVariable`
-            The variable on which the tolerances to be used are keyed (defaults
-            to ``None``).
+        key : object
+            The key to use for determining the tolerance (defaults to ``None``).
 
         Returns
         -------
@@ -179,8 +185,15 @@ class Tolerance:
 class GradientTest(ConvergenceTest):
     r"""Gradient test for convergence using absolute tolerance.
 
-    The absolute tolerance, :math:`\varepsilon_{\rm a}`, can be any non-negative
-    numerical value.
+    This test is useful for finding minima / maxima where the gradient should be zero.
+    This is implemented using an absolute tolerance, :math:`\varepsilon_{\rm a}`, which
+    can be any non-negative numerical value. One ``tolerance`` must be initially specified
+    for all variables, but a different tolerance can be set for each variable:
+
+    .. code::
+
+        test = GradientTest(1.e-3)
+        test.tolerance[x] = 1.e-2
 
     The result is converged with respect to an unconstrained design variable
     :math:`x_i` (i.e., having :class:`~relentless.variable.DesignVariable.State` ``FREE``
@@ -211,7 +224,7 @@ class GradientTest(ConvergenceTest):
 
     Parameters
     ----------
-    tolerance : float or dict
+    tolerance : float
         The default absolute tolerance.
 
     """
@@ -285,13 +298,13 @@ class ValueTest(ConvergenceTest):
 
     @property
     def absolute(self):
-        """`~relentless._collections.DefaultDict`: The absolute tolerance(s)."""
-        return self._tolerance.absolute
+        """float: The absolute tolerance."""
+        return self._tolerance.absolute.default
 
     @property
     def relative(self):
-        """`~relentless._collections.DefaultDict`: The relative tolerance(s)."""
-        return self._tolerance.relative
+        """float: The relative tolerance."""
+        return self._tolerance.relative.default
 
     def converged(self, result):
         """Check if the function is converged using the value test.
@@ -357,7 +370,7 @@ class AnyTest(LogicTest):
             ``True`` if the function is converged by any test.
 
         """
-        return any([t.converged(result) for t in self.tests])
+        return any(t.converged(result) for t in self.tests)
 
 class AllTest(LogicTest):
     """Logic test if all specified tests return convergence.
@@ -385,7 +398,7 @@ class AllTest(LogicTest):
             ``True`` if the function is converged by all tests.
 
         """
-        return all([t.converged(result) for t in self.tests])
+        return all(t.converged(result) for t in self.tests)
 
 class OrTest(AnyTest):
     """Logic test if either of the specified tests return convergence.
