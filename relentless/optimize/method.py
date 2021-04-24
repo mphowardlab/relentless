@@ -144,7 +144,7 @@ class LineSearch:
 
     """
     def __init__(self, tolerance, max_iter):
-        self._tolerance = criteria.Tolerance(absolute=0, relative=tolerance)
+        self._tolerance = Tolerance(absolute=0, relative=tolerance)
         self.max_iter = max_iter
 
     def find(self, objective, start, end):
@@ -182,7 +182,7 @@ class LineSearch:
         """
         if self.tolerance < 0 or self.tolerance > 1:
             raise ValueError('The relative tolerance must be between 0 and 1.')
-        ovars = {x: x.value for x in objective.design_variables}
+        ovars = {x: x.value for x in objective.design_variables()}
 
         # compute search direction
         d = end.design_variables - start.design_variables
@@ -234,7 +234,7 @@ class LineSearch:
     @property
     def tolerance(self):
         """float: The relative tolerance for the target."""
-        return self._tolerance.relative
+        return self._tolerance.relative.default
 
     @property
     def max_iter(self):
