@@ -73,3 +73,6 @@ class test_ObjectiveFunction(unittest.TestCase):
     def tearDown(self):
         self.directory.cleanup()
         del self.directory
+
+if __name__ == '__main__':
+    unittest.main()

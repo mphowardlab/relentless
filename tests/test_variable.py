@@ -106,7 +106,28 @@ class test_DesignVariable(unittest.TestCase):
         self.assertEqual(v.atlow(), False)
         self.assertEqual(v.athigh(), True)
 
-        #test invalid value initialization
+        #test setting bounds after construction
+        v = relentless.variable.DesignVariable(value=-1.0)
+        self.assertAlmostEqual(v.value, -1.0)
+        self.assertEqual(v.high, None)
+        self.assertEqual(v.low, None)
+        #only low
+        v.low = -1.5
+        self.assertAlmostEqual(v.value, -1.0)
+        self.assertEqual(v.high, None)
+        self.assertEqual(v.low, -1.5)
+        #only high
+        v.low = None
+        v.high = 1.5
+        self.assertAlmostEqual(v.value, -1.0)
+        self.assertEqual(v.high, 1.5)
+        self.assertEqual(v.low, None)
+        #both
+        v.low = -1.5
+        self.assertAlmostEqual(v.value, -1.0)
+        self.assertEqual(v.high, 1.5)
+        self.assertEqual(v.low, -1.5)
+
         with self.assertRaises(ValueError):
             v.value = '4'
         #test invalid low initialization
