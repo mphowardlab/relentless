@@ -185,7 +185,8 @@ class test_SteepestDescent(unittest.TestCase):
     def test_directory(self):
         x = relentless.variable.DesignVariable(value=1.5)
         q = QuadraticObjective(x=x)
-        o = relentless.optimize.SteepestDescent(abs_tol=1e-8, max_iter=1, step_size=0.25)
+        t = relentless.optimize.GradientTest(tolerance=1e-8)
+        o = relentless.optimize.SteepestDescent(stop=t, max_iter=1, step_size=0.25)
 
         # optimize with output
         d = relentless.data.Directory(self.directory.name)
@@ -210,8 +211,9 @@ class test_SteepestDescent(unittest.TestCase):
     def test_directory_line_search(self):
         x = relentless.variable.DesignVariable(value=0.5)
         q = QuadraticObjective(x=x)
-        o = relentless.optimize.SteepestDescent(abs_tol=1e-8, max_iter=1, step_size=2.)
-        o.line_search = relentless.optimize.LineSearch(rel_tol=1e-5, max_iter=1)
+        t = relentless.optimize.GradientTest(tolerance=1e-8)
+        o = relentless.optimize.SteepestDescent(stop=t, max_iter=1, step_size=2.)
+        o.line_search = relentless.optimize.LineSearch(tolerance=1e-5, max_iter=1)
 
         # optimize with output
         d = relentless.data.Directory(self.directory.name)
