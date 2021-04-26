@@ -72,7 +72,7 @@ class Optimizer(abc.ABC):
         self.stop = stop
 
     @abc.abstractmethod
-    def optimize(self, objective):
+    def optimize(self, objective, directory=None):
         """Minimize an objective function.
 
         The design variables of the objective function are adjusted until convergence.
@@ -81,6 +81,9 @@ class Optimizer(abc.ABC):
         ----------
         objective : :class:`~relentless.optimize.objective.ObjectiveFunction`
             The objective function to be optimized.
+        directory : :class:`~relentless.data.Directory`
+            Directory for writing output during optimization. Default of `None`
+            requests no output is written.
 
         """
         pass
@@ -135,6 +138,9 @@ class LineSearch:
     by linear interpolation within the search interval until the target at the
     new location is minimized to within the tolerance.
 
+    If ``directory`` is specified,  one directory is created for each iteration
+    of the line search, e.g., ``directory/0``.
+
     Parameters
     ----------
     tolerance : float
@@ -147,7 +153,7 @@ class LineSearch:
         self.tolerance = tolerance
         self.max_iter = max_iter
 
-    def find(self, objective, start, end):
+    def find(self, objective, start, end, directory=None):
         """Apply the line search algorithm to take the optimal step.
 
         Note that the objective function is kept at its initial state, and the
@@ -161,6 +167,9 @@ class LineSearch:
             The objective function evaluated at the start of the search interval.
         end : :class:`~relentless.optimize.objective.ObjectiveFunctionResult`
             The objective function evaluated at the end of the search interval.
+        directory : :class:`~relentless.data.Directory`
+            Directory for writing output during search. Default of `None`
+            requests no output is written.
 
         Raises
         ------
@@ -210,7 +219,8 @@ class LineSearch:
                 # adjust variables based on new step size, compute new target
                 for x in ovars:
                     x.value = start.design_variables[x] + new_step*d[x]
-                new_res = objective.compute()
+                new_dir = directory.directory(str(iter_num)) if directory is not None else None
+                new_res = objective.compute(new_dir)
                 new_target = -d.dot(new_res.gradient)
 
                 # update search intervals
@@ -337,15 +347,28 @@ class SteepestDescent(Optimizer):
             k[i] = self.step_size
         return k
 
-    def optimize(self, objective):
+    def optimize(self, objective, directory=None):
         r"""Perform the steepest descent optimization for the given objective function.
 
         If specified, a :class:`LineSearch` is performed to choose an optimal step size.
+
+        If ``directory`` is specified, output will be saved into a directory
+        created for each iteration of the optimization, e.g., ``directory/0``.
+        To advance to the next iteration of the optimization (e.g., from iteration
+        0 to iteration 1), a directory ``directory/0/.next`` is created at
+        iteration 0 to hold the proposed result at iteration 1. If
+        :attr:`line_search` is `None`, its contents are immediately moved to
+        ``directory/1`` (leaving ``directory/0/.next``) empty. If :attr:`line_search`
+        is not `None`, ``directory/0/.line`` will be created for :meth:`LineSearch.find`
+        to use; the final result of the line search will be moved to ``directory/1``.
 
         Parameters
         ----------
         objective : :class:`~relentless.optimize.objective.ObjectiveFunction`
             The objective function to be optimized.
+        directory : :class:`~relentless.data.Directory`
+            Directory for writing output during optimization. Default of `None`
+            requests no output is written.
 
         Returns
         -------
@@ -370,7 +393,8 @@ class SteepestDescent(Optimizer):
                     scale[x] = 1.0
 
         iter_num = 0
-        cur_res = objective.compute()
+        cur_dir = directory.directory(str(iter_num)) if directory is not None else None
+        cur_res = objective.compute(cur_dir)
         while not self.stop.converged(cur_res) and iter_num < self.max_iter:
             grad_y = scale*cur_res.gradient
             update = self.descent_amount(grad_y)*grad_y
@@ -378,17 +402,30 @@ class SteepestDescent(Optimizer):
             #steepest descent update
             for x in dvars:
                 x.value = cur_res.design_variables[x] - update[x]
-            next_res = objective.compute()
+            next_dir = cur_dir.directory('.next') if cur_dir is not None else None
+            next_res = objective.compute(next_dir)
 
             #if line search, attempt backtracking in interval
             if self.line_search is not None:
-                line_res = self.line_search.find(objective=objective, start=cur_res, end=next_res)
-                for x in dvars:
-                    x.value = line_res.design_variables[x]
-                next_res = line_res
+                line_dir = cur_dir.directory('.line') if cur_dir is not None else None
+                line_res = self.line_search.find(objective=objective,
+                                                 start=cur_res,
+                                                 end=next_res,
+                                                 directory=line_dir)
 
-            #recycle next result
+                if line_res is not next_res:
+                    for x in dvars:
+                        x.value = line_res.design_variables[x]
+                    next_res = line_res
+
+            # move the contents of the "next" result contents to the new "current" result
+            cur_dir = directory.directory(str(iter_num+1)) if directory is not None else None
+            if next_res.directory is not None:
+                next_res.directory.move_contents(cur_dir)
+
+            # recycle next result, updating directory to new location
             cur_res = next_res
+            cur_res.directory = cur_dir
             iter_num += 1
 
         return self.stop.converged(cur_res)
