@@ -1,4 +1,5 @@
 """Unit tests for objective module."""
+import tempfile
 import unittest
 
 import relentless
@@ -13,7 +14,12 @@ class QuadraticObjective(relentless.optimize.ObjectiveFunction):
         val = (self.x.value-1)**2
         grad = {self.x:2*(self.x.value-1)}
 
-        res = self.make_result(val, grad, None)
+        # optionally write output
+        if directory is not None:
+            with open(directory.file('x.log'),'w') as f:
+                f.write(str(self.x.value) + '\n')
+
+        res = self.make_result(val, grad, directory)
         return res
 
     def design_variables(self):
@@ -21,6 +27,9 @@ class QuadraticObjective(relentless.optimize.ObjectiveFunction):
 
 class test_ObjectiveFunction(unittest.TestCase):
     """Unit tests for relentless.optimize.ObjectiveFunction"""
+
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
 
     def test_compute(self):
         """Test compute method"""
@@ -50,3 +59,17 @@ class test_ObjectiveFunction(unittest.TestCase):
         x.value = 3.0
         self.assertEqual(q.x.value, 3.0)
         self.assertCountEqual((x,), q.design_variables())
+
+    def test_directory(self):
+        x = relentless.variable.DesignVariable(value=1.0)
+        q = QuadraticObjective(x=x)
+        d = relentless.data.Directory(self.directory.name)
+        res = q.compute(d)
+
+        with open(d.file('x.log')) as f:
+            x = float(f.readline())
+        self.assertAlmostEqual(x,1.0)
+
+    def tearDown(self):
+        self.directory.cleanup()
+        del self.directory

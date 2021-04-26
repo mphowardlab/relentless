@@ -1,4 +1,6 @@
 """Unit tests for method module."""
+import os
+import tempfile
 import unittest
 
 import relentless
@@ -7,6 +9,9 @@ from .test_objective import QuadraticObjective
 
 class test_LineSearch(unittest.TestCase):
     """Unit tests for relentless.optimize.LineSearch"""
+
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
 
     def test_init(self):
         """Test creation with data."""
@@ -45,6 +50,15 @@ class test_LineSearch(unittest.TestCase):
         self.assertAlmostEqual(res_new.gradient[x], 0.0)
         self.assertEqual(q.x.value, -3.0)
 
+        # use directory for output, check result of first iteration
+        d = relentless.data.Directory(self.directory.name)
+        res_new = l.find(q, res_1, res_2, d)
+        self.assertAlmostEqual(res_new.design_variables[x], 1.0)
+        self.assertAlmostEqual(res_new.gradient[x], 0.0)
+        self.assertEqual(q.x.value, -3.0)
+        self.assertTrue(os.path.isdir(os.path.join(d.path,'0')))
+        self.assertTrue(os.path.isfile(os.path.join(d.path,'0','x.log')))
+
         #not bracketing the minimum (accept "maximum" step size)
         x.value = -1.0
         res_3 = q.compute()
@@ -68,8 +82,15 @@ class test_LineSearch(unittest.TestCase):
         with self.assertRaises(ValueError):
             res_new = l.find(objective=q, start=res_3, end=res_3)
 
+    def tearDown(self):
+        self.directory.cleanup()
+        del self.directory
+
 class test_SteepestDescent(unittest.TestCase):
     """Unit tests for relentless.optimize.SteepestDescent"""
+
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
 
     def test_init(self):
         """Test creation with data."""
@@ -173,6 +194,69 @@ class test_SteepestDescent(unittest.TestCase):
         o.line_search = relentless.optimize.LineSearch(rel_tol=1e-5, max_iter=100)
         self.assertTrue(o.optimize(objective=q))
         self.assertAlmostEqual(x.value, 1.0)
+
+    def test_directory(self):
+        x = relentless.variable.DesignVariable(value=1.5)
+        q = QuadraticObjective(x=x)
+        o = relentless.optimize.SteepestDescent(abs_tol=1e-8, max_iter=1, step_size=0.25)
+
+        # optimize with output
+        d = relentless.data.Directory(self.directory.name)
+        o.optimize(q,d)
+
+        # 0/ holds the initial value
+        self.assertTrue(os.path.isdir(os.path.join(d.path,'0')))
+        self.assertTrue(os.path.isfile(os.path.join(d.path,'0','x.log')))
+        with open(d.directory('0').file('x.log')) as f:
+            self.assertAlmostEqual(float(f.readline()), 1.5)
+
+        # 0/.next should be empty because it has been accepted to 1/
+        self.assertTrue(os.path.isdir(os.path.join(d.path,'0','.next')))
+        self.assertEqual(len(os.listdir(d.directory('0/.next').path)), 0)
+
+        # 1/ holds the next output
+        self.assertTrue(os.path.isdir(os.path.join(d.path,'1')))
+        self.assertTrue(os.path.isfile(os.path.join(d.path,'1','x.log')))
+        with open(d.directory('1').file('x.log')) as f:
+            self.assertAlmostEqual(float(f.readline()), 1.25)
+
+    def test_directory_line_search(self):
+        x = relentless.variable.DesignVariable(value=0.5)
+        q = QuadraticObjective(x=x)
+        o = relentless.optimize.SteepestDescent(abs_tol=1e-8, max_iter=1, step_size=2.)
+        o.line_search = relentless.optimize.LineSearch(rel_tol=1e-5, max_iter=1)
+
+        # optimize with output
+        d = relentless.data.Directory(self.directory.name)
+        o.optimize(q,d)
+
+        # 0/ holds the initial value
+        self.assertTrue(os.path.isdir(os.path.join(d.path,'0')))
+        with open(d.directory('0').file('x.log')) as f:
+            self.assertAlmostEqual(float(f.readline()), 0.5)
+
+        # 0/.next/ holds the overshoot
+        self.assertTrue(os.path.isdir(os.path.join(d.path,'0','.next')))
+        with open(d.directory('0/.next').file('x.log')) as f:
+            self.assertAlmostEqual(float(f.readline()), 2.5)
+
+        # 0/.line/ should exist, but it should have only one entry (0/) because
+        # line search is exact for this function
+        self.assertTrue(os.path.isdir(os.path.join(d.path,'0','.line')))
+        self.assertEqual(len(os.listdir(d.directory('0/.line').path)), 1)
+
+        # .line/0 should be empty because it has been accepted to 1/
+        self.assertTrue(os.path.isdir(os.path.join(d.path,'0','.line','0')))
+        self.assertEqual(len(os.listdir(d.directory('0/.line/0').path)), 0)
+
+        # 1/ holds the solved value
+        self.assertTrue(os.path.isdir(os.path.join(d.path,'1')))
+        with open(d.directory('1').file('x.log')) as f:
+            self.assertAlmostEqual(float(f.readline()), 1.0)
+
+    def tearDown(self):
+        self.directory.cleanup()
+        del self.directory
 
 class test_FixedStepDescent(unittest.TestCase):
     """Unit tests for relentless.optimize.FixedStepDescent"""
