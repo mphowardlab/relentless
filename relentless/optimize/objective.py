@@ -44,7 +44,10 @@ To implement your own objective function, create a class that derives from
 """
 import abc
 
-from relentless import _collections
+import numpy as np
+import scipy
+
+from relentless import _collections, _math
 from relentless import data
 
 class ObjectiveFunction(abc.ABC):
@@ -165,3 +168,55 @@ class ObjectiveFunctionResult:
         :class:`ObjectiveFunction` for which the result was constructed, mapped
         to the value of the variables at the time the result was constructed."""
         return self._design_variables
+
+class RelativeEntropy(ObjectiveFunction):
+    def __init__(self, target, simulation, potentials, thermo, dr, communicator=None):
+        self.target = target
+        self.simulation = simulation
+        self.potentials = potentials
+        self.thermo = thermo
+        self.dr = dr
+        self.communicator = communicator
+
+    def compute(self, directory=None):
+        sim = self.simulation.run(self.target, self.potentials, directory, self.communicator)
+        sim_ens = self.thermo.extract_ensemble(sim)
+
+        # compute the relative entropy gradient by integration
+        g_tgt = self.target.rdf
+        g_sim = sim_ens.rdf
+        gradient = {}
+        dvars = self.design_variables()
+
+        for x in dvars:
+            update = 0
+            for i,j in self.potentials.pair.potentials.coeff.pairs:
+                # evaluate derivative wrt x and interpolate
+                dudx = _math.Interpolator(self.potentials.pair.x, self.potentials.pair.derivative((i,j), x))
+
+                # find common domain to compare rdfs
+                r0 = max(g_sim[i,j].table[0][0], g_tgt[i,j].table[0][0])
+                r1 = min(g_sim[i,j].table[-1][0], g_tgt[i,j].table[-1][0])
+                r = np.arange(r0, r1+0.5*self.dr, self.dr)
+
+                # take integral by trapezoidal rule
+                sim_factor = sim_ens.N[i]*sim_ens.N[j]/sim_ens.V.volume
+                tgt_factor = self.target.N[i]*self.target.N[j]/self.target.V.volume
+                mult = 2 if i == j else 4 # 2 if same, otherwise need i,j and j,i contribution
+                y = mult*np.pi*r**2*(sim_factor*g_sim[i,j](r)-tgt_factor*g_tgt[i,j](r))*self.target.beta*dudx(r)
+                update += scipy.integrate.trapz(x=r, y=y)
+
+            gradient[x] = update
+
+        #TODO: directory
+
+        return self.make_result(None, gradient, directory)
+
+    def design_variables(self):
+        dvars = set()
+        for p in self.potentials.pair.potentials:
+            for x in p.coeff.design_variables():
+                if not x.const:
+                    dvars.add(x)
+
+        return tuple(dvars)

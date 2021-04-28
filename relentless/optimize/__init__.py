@@ -25,4 +25,5 @@ from .method import (FixedStepDescent,
                      Optimizer,
                      SteepestDescent)
 
-from .objective import (ObjectiveFunction)
+from .objective import (ObjectiveFunction,
+                        RelativeEntropy)

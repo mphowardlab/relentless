@@ -74,5 +74,27 @@ class test_ObjectiveFunction(unittest.TestCase):
         self.directory.cleanup()
         del self.directory
 
+class test_RelativeEntropy(unittest.TestCase):
+    """Unit tests for relentless.optimize.RelativeEntropy"""
+
+    def test_compute(self):
+        """Test compute method"""
+        v_obj = relentless.volume.Cube(L=3.0)
+        target = relentless.ensemble.Ensemble(T=10, V=v_obj, N={'A':1, 'B':2})
+
+        thermo = relentless.simulate.dilute.AddEnsembleAnalyzer()
+        operations = [relentless.simulate.InitializeRandomly(seed=2,neighbor_buffer=0.4),
+                      relentless.simulate.AddNVTIntegrator(dt=0.1,tau_T=1.0),
+                      thermo]
+        simulation = relentless.simulate.dilute.Dilute(operations)
+
+        lj = relentless.potential.LennardJones(types=('1','2'))
+        potentials = relentless.simulate.Potentials(pair_potentials=lj)
+        potentials.pair.rmax = 5.0
+        potentials.pair.num = 6
+
+        relent = relentless.optimize.RelativeEntropy(target,simulation,potentials,thermo,dr=0.2)
+        res = relent.compute()
+
 if __name__ == '__main__':
     unittest.main()
