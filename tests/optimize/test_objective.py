@@ -2,6 +2,8 @@
 import tempfile
 import unittest
 
+import numpy as np
+
 import relentless
 
 class QuadraticObjective(relentless.optimize.ObjectiveFunction):
@@ -79,22 +81,32 @@ class test_RelativeEntropy(unittest.TestCase):
 
     def test_compute(self):
         """Test compute method"""
-        v_obj = relentless.volume.Cube(L=3.0)
-        target = relentless.ensemble.Ensemble(T=10, V=v_obj, N={'A':1, 'B':2})
+        dr = 0.1
+
+        lj = relentless.potential.LennardJones(types=('1',))
+        epsilon = relentless.variable.DesignVariable(value=1.0)
+        sigma = relentless.variable.DesignVariable(value=0.9)
+        lj.coeff['1','1'].update({'epsilon':epsilon, 'sigma':sigma, 'rmax':2.7})
+        potentials = relentless.simulate.Potentials(pair_potentials=lj)
+        potentials.pair.rmax = 3.6
+        potentials.pair.num = 1000
+        potentials.pair.fmax = 100.
+
+        v_obj = relentless.volume.Cube(L=10.)
+        target = relentless.ensemble.Ensemble(T=1.5, V=v_obj, N={'1':50})
+        rs = np.arange(0.5*dr, 5.0, dr)
+        gs = np.exp(-target.beta*lj.energy(('1','1'),rs))
+        target.rdf['1','1'] = relentless.ensemble.RDF(r=rs, g=gs)
 
         thermo = relentless.simulate.dilute.AddEnsembleAnalyzer()
-        operations = [relentless.simulate.InitializeRandomly(seed=2,neighbor_buffer=0.4),
-                      relentless.simulate.AddNVTIntegrator(dt=0.1,tau_T=1.0),
-                      thermo]
-        simulation = relentless.simulate.dilute.Dilute(operations)
+        simulation = relentless.simulate.dilute.Dilute(operations=[thermo])
 
-        lj = relentless.potential.LennardJones(types=('1','2'))
-        potentials = relentless.simulate.Potentials(pair_potentials=lj)
-        potentials.pair.rmax = 5.0
-        potentials.pair.num = 6
-
-        relent = relentless.optimize.RelativeEntropy(target,simulation,potentials,thermo,dr=0.2)
+        relent = relentless.optimize.RelativeEntropy(target,simulation,potentials,thermo,dr)
         res = relent.compute()
+        self.assertIsNone(res.value)
+        assert not np.isinf(res.gradient[epsilon])
+        assert not np.isinf(res.gradient[sigma])
+        self.assertCountEqual(res.design_variables, (epsilon,sigma))
 
 if __name__ == '__main__':
     unittest.main()

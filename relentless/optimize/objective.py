@@ -45,7 +45,7 @@ To implement your own objective function, create a class that derives from
 import abc
 
 import numpy as np
-import scipy
+import scipy.integrate
 
 from relentless import _collections, _math
 from relentless import data
@@ -171,6 +171,9 @@ class ObjectiveFunctionResult:
 
 class RelativeEntropy(ObjectiveFunction):
     def __init__(self, target, simulation, potentials, thermo, dr, communicator=None):
+        if target.V is None or target.N is None:
+            raise ValueError('The target ensemble must have both V and N set.')
+
         self.target = target
         self.simulation = simulation
         self.potentials = potentials
@@ -185,31 +188,39 @@ class RelativeEntropy(ObjectiveFunction):
         # compute the relative entropy gradient by integration
         g_tgt = self.target.rdf
         g_sim = sim_ens.rdf
-        gradient = {}
         dvars = self.design_variables()
+        gradient = _collections.KeyedArray(keys=dvars)
 
-        for x in dvars:
+        for var in dvars:
             update = 0
-            for i,j in self.potentials.pair.potentials.coeff.pairs:
-                # evaluate derivative wrt x and interpolate
-                dudx = _math.Interpolator(self.potentials.pair.x, self.potentials.pair.derivative((i,j), x))
+            for i,j in self.target.pairs:
+                # evaluate derivative wrt design variable and interpolate with r
+                rs = self.potentials.pair.r
+                dus = self.potentials.pair.derivative((i,j),var)
+                for k,duk in enumerate(dus):
+                    if np.isinf(duk):
+                        rs = np.delete(rs,k)
+                        dus = np.delete(dus,k)
+                        break
+                dudvar = _math.Interpolator(rs,dus)
 
                 # find common domain to compare rdfs
-                r0 = max(g_sim[i,j].table[0][0], g_tgt[i,j].table[0][0])
-                r1 = min(g_sim[i,j].table[-1][0], g_tgt[i,j].table[-1][0])
-                r = np.arange(r0, r1+0.5*self.dr, self.dr)
+                r0 = max(g_sim[i,j].table[0][0],g_tgt[i,j].table[0][0])
+                r1 = min(g_sim[i,j].table[-1][0],g_tgt[i,j].table[-1][0],self.potentials.pair.rmax)
+                r = np.arange(r0,r1+0.5*self.dr,self.dr)
 
                 # take integral by trapezoidal rule
-                sim_factor = sim_ens.N[i]*sim_ens.N[j]/sim_ens.V.volume
-                tgt_factor = self.target.N[i]*self.target.N[j]/self.target.V.volume
-                mult = 2 if i == j else 4 # 2 if same, otherwise need i,j and j,i contribution
-                y = mult*np.pi*r**2*(sim_factor*g_sim[i,j](r)-tgt_factor*g_tgt[i,j](r))*self.target.beta*dudx(r)
+                sim_factor = sim_ens.N[i]*sim_ens.N[j]*sim_ens.beta/sim_ens.V.volume**2
+                tgt_factor = self.target.N[i]*self.target.N[j]*self.target.beta/self.target.V.volume**2
+                mult = 1 if i == j else 2 # 1 if same, otherwise need i,j and j,i contributions
+                y = 2*mult*np.pi*r**2*(sim_factor*g_sim[i,j](r)-tgt_factor*g_tgt[i,j](r))*dudvar(r)
                 update += scipy.integrate.trapz(x=r, y=y)
 
-            gradient[x] = update
+            gradient[var] = update
 
         #TODO: directory
 
+        # value is None
         return self.make_result(None, gradient, directory)
 
     def design_variables(self):
