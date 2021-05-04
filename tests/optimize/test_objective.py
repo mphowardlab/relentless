@@ -1,8 +1,10 @@
 """Unit tests for objective module."""
+import json
 import tempfile
 import unittest
 
 import numpy as np
+import scipy.integrate
 
 import relentless
 
@@ -79,34 +81,122 @@ class test_ObjectiveFunction(unittest.TestCase):
 class test_RelativeEntropy(unittest.TestCase):
     """Unit tests for relentless.optimize.RelativeEntropy"""
 
-    def test_compute(self):
-        """Test compute method"""
-        dr = 0.1
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+
+        self.dr = 0.1
 
         lj = relentless.potential.LennardJones(types=('1',))
-        epsilon = relentless.variable.DesignVariable(value=1.0)
-        sigma = relentless.variable.DesignVariable(value=0.9)
-        lj.coeff['1','1'].update({'epsilon':epsilon, 'sigma':sigma, 'rmax':2.7})
-        potentials = relentless.simulate.Potentials(pair_potentials=lj)
-        potentials.pair.rmax = 3.6
-        potentials.pair.num = 1000
-        potentials.pair.fmax = 100.
+        self.epsilon = relentless.variable.DesignVariable(value=1.0)
+        self.sigma = relentless.variable.DesignVariable(value=0.9)
+        lj.coeff['1','1'].update({'epsilon':self.epsilon, 'sigma':self.sigma, 'rmax':2.7})
+        self.potentials = relentless.simulate.Potentials(pair_potentials=lj)
+        self.potentials.pair.rmax = 3.6
+        self.potentials.pair.num = 1000
+        self.potentials.pair.fmax = 100.
 
         v_obj = relentless.volume.Cube(L=10.)
-        target = relentless.ensemble.Ensemble(T=1.5, V=v_obj, N={'1':50})
-        rs = np.arange(0.5*dr, 5.0, dr)
-        gs = np.exp(-target.beta*lj.energy(('1','1'),rs))
-        target.rdf['1','1'] = relentless.ensemble.RDF(r=rs, g=gs)
+        self.target = relentless.ensemble.Ensemble(T=1.5, V=v_obj, N={'1':50})
+        rs = np.arange(0.5*self.dr, 5.0, self.dr)
+        gs = np.exp(-self.target.beta*lj.energy(('1','1'),rs))
+        self.target.rdf['1','1'] = relentless.ensemble.RDF(r=rs, g=gs)
 
-        thermo = relentless.simulate.dilute.AddEnsembleAnalyzer()
-        simulation = relentless.simulate.dilute.Dilute(operations=[thermo])
+        self.thermo = relentless.simulate.dilute.AddEnsembleAnalyzer()
+        self.simulation = relentless.simulate.dilute.Dilute(operations=[self.thermo])
 
-        relent = relentless.optimize.RelativeEntropy(target,simulation,potentials,thermo,dr)
+    def test_init(self):
+        relent = relentless.optimize.RelativeEntropy(self.target,
+                                                     self.simulation,
+                                                     self.potentials,
+                                                     self.thermo,
+                                                     self.dr)
+        self.assertEqual(relent.target, self.target)
+        self.assertEqual(relent.simulation, self.simulation)
+        self.assertEqual(relent.potentials, self.potentials)
+        self.assertEqual(relent.thermo, self.thermo)
+        self.assertAlmostEqual(relent.dr, self.dr)
+        self.assertIsNone(relent.communicator)
+
+        #test communicator argument
+        comm = relentless.mpi.world
+        relent.communicator = comm
+        self.assertEqual(relent.target, self.target)
+        self.assertEqual(relent.simulation, self.simulation)
+        self.assertEqual(relent.potentials, self.potentials)
+        self.assertEqual(relent.thermo, self.thermo)
+        self.assertAlmostEqual(relent.dr, self.dr)
+        self.assertEqual(relent.communicator, comm)
+
+        #test invalid target ensemble
+        with self.assertRaises(ValueError):
+            relent.target = relentless.ensemble.Ensemble(T=1.5, P=1, N={'1':50})
+
+    def relent_grad(self, var):
+        sim = self.simulation.run(self.target, self.potentials, directory=None)
+        sim_ens = self.thermo.extract_ensemble(sim)
+        rs = self.potentials.pair.r[1:]
+        dus = self.potentials.pair.derivative(('1','1'),var)[1:]
+        dudvar = relentless._math.Interpolator(rs,dus)
+        sim_factor = sim_ens.N['1']**2*sim_ens.beta/(sim_ens.V.volume*self.target.V.volume)
+        tgt_factor = self.target.N['1']**2*self.target.beta/(self.target.V.volume**2)
+
+        r = np.arange(0.05, 3.55, self.dr)
+        y = 2*np.pi*r**2*(sim_factor*sim_ens.rdf['1','1'](r)-tgt_factor*self.target.rdf['1','1'](r))*dudvar(r)
+        return scipy.integrate.trapz(x=r, y=y)
+
+    def test_compute(self):
+        """Test compute method"""
+        relent = relentless.optimize.RelativeEntropy(self.target,
+                                                     self.simulation,
+                                                     self.potentials,
+                                                     self.thermo,
+                                                     self.dr)
+
+        grad_eps = self.relent_grad(self.epsilon)
+        grad_sig = self.relent_grad(self.sigma)
+
         res = relent.compute()
         self.assertIsNone(res.value)
-        assert not np.isinf(res.gradient[epsilon])
-        assert not np.isinf(res.gradient[sigma])
-        self.assertCountEqual(res.design_variables, (epsilon,sigma))
+        self.assertAlmostEqual(res.gradient[self.epsilon], grad_eps)
+        self.assertAlmostEqual(res.gradient[self.sigma], grad_sig)
+        self.assertCountEqual(res.design_variables, (self.epsilon,self.sigma))
+
+    def test_design_variables(self):
+        """Test design_variables method"""
+        relent = relentless.optimize.RelativeEntropy(self.target,
+                                                     self.simulation,
+                                                     self.potentials,
+                                                     self.thermo,
+                                                     self.dr)
+
+        self.assertCountEqual((self.epsilon,self.sigma), relent.design_variables())
+
+        #test constant variable
+        self.epsilon.const = True
+        self.assertCountEqual((self.sigma,), relent.design_variables())
+
+        self.sigma.const = True
+        self.assertCountEqual((), relent.design_variables())
+
+    def test_directory(self):
+        relent = relentless.optimize.RelativeEntropy(self.target,
+                                                     self.simulation,
+                                                     self.potentials,
+                                                     self.thermo,
+                                                     self.dr)
+
+        d = relentless.data.Directory(self.directory.name)
+        res = relent.compute(d)
+
+        with open(d.file('potential_0.log')) as f:
+            x = json.load(f)
+        self.assertAlmostEqual(x["('1', '1')"]['epsilon'], self.epsilon.value)
+        self.assertAlmostEqual(x["('1', '1')"]['sigma'], self.sigma.value)
+        self.assertAlmostEqual(x["('1', '1')"]['rmax'], 2.7)
+
+    def tearDown(self):
+        self.directory.cleanup()
+        del self.directory
 
 if __name__ == '__main__':
     unittest.main()
