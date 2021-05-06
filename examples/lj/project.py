@@ -2,31 +2,35 @@ import numpy as np
 
 import relentless
 
-class Desktop(relentless.environment.Environment):
-    mpiexec = 'mpirun -np {np}'
-    always_wrap = False
+# lj potential appended to tabulated potentials
+lj = relentless.potential.LennardJones(types=('1',))
+epsilon = relentless.variable.DesignVariable(value=1.0)
+sigma = relentless.variable.DesignVariable(value=0.9)
+lj.coeff['1','1'].update({'epsilon': epsilon, 'sigma': sigma, 'rmax': 2.7})
+potentials = relentless.simulate.Potentials(pair_potentials=lj)
+potentials.pair.rmax = 3.6
+potentials.pair.num = 1000
+potentials.pair.fmax = 100.
 
-# lj potential
-lj = relentless.potential.LennardJones(types=('1',), shift=True)
-lj.coeff['1','1'] = {'epsilon': 1.0, 'sigma': 0.9, 'rmax': lambda c : 3*c['1','1']['sigma']}
-
-# reference ensemble
-tgt = relentless.Ensemble(types=('1',), N={'1': 50}, V=1000., T=1.5)
+# target ensemble
+target = relentless.ensemble.Ensemble(T=1.5, V=relentless.volume.Cube(L=10.), N={'1':50})
 dr = 0.1
 rs = np.arange(0.5*dr,5.0,dr)
-tgt.rdf['1','1'] = relentless.RDF(rs,np.exp(-tgt.beta*lj(rs,('1','1'))))
+target.rdf['1','1'] = relentless.ensemble.RDF(rs,np.exp(-target.beta*lj.energy(('1','1'),rs)))
 
-# change parameters and setup optimization
-lj.coeff['1','1'] = {'epsilon': 1.0, 'sigma': 1.0}
-lj.variables['1','1'] = (relentless.Variable('sigma', low=0.8, high=1.2),)
+# change parameters for optimization
+epsilon.value = 1.0
+sigma.value = 1.0
+sigma.low = 0.8
+sigma.high = 1.2
 
-# lammps simulation engine
-tab = relentless.potential.Tabulator(nbins=1000, rmin=0.0, rmax=3.6, fmax=100., fcut=1.e-6)
-sim = relentless.engine.LAMMPS(ensemble=tgt, table=tab, lammps='lmp_mpi', template='nvt.in', policy=relentless.environment.Policy(procs=2), potentials=lj)
+# dilute molecular simulation
+thermo = relentless.simulate.dilute.AddEnsembleAnalayzer()
+simulation = relentless.simulate.dilute.Dilute(operations=[thermo])
 
 # relative entropy + steepest descent
-re = relentless.optimize.RelativeEntropy(sim,tgt)
-opt = relentless.optimize.GradientDescent(re)
+relent = relentless.optimize.RelativeEntropy(target, simulation, potentials, thermo)
+tol = relentless.optimize.GradientTest(tolerance=1e-8)
+optimizer = relentless.optimize.SteepestDescent(stop=tol, max_iter=1000, step_size=0.25)
 
-with Desktop(path='./workspace') as env:
-    opt.run(env=env, maxiter=1, rates={('1','1'): 1e-3})
+optimizer.optimize(objective=relent)
