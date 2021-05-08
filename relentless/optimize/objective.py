@@ -214,7 +214,7 @@ class RelativeEntropy(ObjectiveFunction):
 
     .. math::
 
-        \nabla_\mathbf{x} S_{\rm rel}=\frac{1}{2}\sum_{i,j}\int{dr\left(4\pi r^2\right)\left[\frac{\beta N_i N_j}{V} g_{ij}(r)-\frac{\beta_0 N_{i,0} N_{j,0}}{V_0} g_{ij,0}(r)\right]\nabla_\mathbf{x} u_{ij}(r)}
+        \nabla_\mathbf{x} S_{\rm rel}=-\frac{1}{2}\sum_{i,j}\int{dr\left(4\pi r^2\right)\left[\frac{\beta N_i N_j}{V} g_{ij}(r)-\frac{\beta_0 N_{i,0} N_{j,0}}{V_0} g_{ij,0}(r)\right]\nabla_\mathbf{x} u_{ij}(r)}
 
     where :math:`\beta=1/(k_{\rm B}T)` is the thermodynamic beta, :math:`N_i` is
     the number of particles of type :math:`i`, :math:`V` is the volume, and
@@ -326,7 +326,7 @@ class RelativeEntropy(ObjectiveFunction):
                 sim_factor = sim_ens.N[i]*sim_ens.N[j]*sim_ens.beta/(sim_ens.V.volume*norm_factor)
                 tgt_factor = self.target.N[i]*self.target.N[j]*self.target.beta/(self.target.V.volume*norm_factor)
                 mult = 1 if i == j else 2 # 1 if same, otherwise need i,j and j,i contributions
-                y = 2*mult*np.pi*r**2*(sim_factor*g_sim[i,j](r)-tgt_factor*g_tgt[i,j](r))*dudvar(r)
+                y = -2*mult*np.pi*r**2*(sim_factor*g_sim[i,j](r)-tgt_factor*g_tgt[i,j](r))*dudvar(r)
                 update += scipy.integrate.trapz(y, x=r)
 
             gradient[var] = update

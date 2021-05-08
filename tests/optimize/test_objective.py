@@ -129,7 +129,7 @@ class test_RelativeEntropy(unittest.TestCase):
         tgt_factor = 50**2*(1/1.5)/(1000*norm_factor)
 
         r = np.linspace(0.05, 3.55, 1001)
-        y = 2*np.pi*r**2*(sim_factor*sim_rdf(r)-tgt_factor*tgt_rdf(r))*dudvar(r)
+        y = -2*np.pi*r**2*(sim_factor*sim_rdf(r)-tgt_factor*tgt_rdf(r))*dudvar(r)
         return scipy.integrate.trapz(x=r, y=y)
 
     def test_init(self):

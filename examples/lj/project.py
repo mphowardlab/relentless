@@ -25,9 +25,9 @@ simulation = relentless.simulate.dilute.Dilute([thermo])
 # relative entropy + steepest descent
 relent = relentless.optimize.RelativeEntropy(target, simulation, potentials, thermo)
 tol = relentless.optimize.GradientTest(1e-4)
-optimizer = relentless.optimize.SteepestDescent(tol, max_iter=1000, step_size=0.005)
+optimizer = relentless.optimize.SteepestDescent(tol, max_iter=1000, step_size=0.50)
 
 # change parameters and optimize
-epsilon.value = 0.5
-sigma.value = 1.1
+epsilon.value = 1.1
+sigma.value = 1.0
 optimizer.optimize(relent)
