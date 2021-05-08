@@ -103,8 +103,8 @@ class test_RelativeEntropy(unittest.TestCase):
         self.simulation = relentless.simulate.dilute.Dilute(operations=[self.thermo])
 
     def relent_grad(self, var, ext=False):
-        rs = np.arange(0,3.6,3.6/1000)[1:]
-        r6_inv = np.power(0.9*1./rs, 6)
+        rs = np.linspace(0,3.6,1001)[1:]
+        r6_inv = np.power(0.9/rs, 6)
         gs = np.exp(-(1/1.5)*4.*1.0*(r6_inv**2 - r6_inv))
         sim_rdf = relentless._math.Interpolator(rs,gs)
 
@@ -113,8 +113,8 @@ class test_RelativeEntropy(unittest.TestCase):
         gs = np.exp(-4.*1.0*(r6_inv**2 - r6_inv))
         tgt_rdf = relentless._math.Interpolator(rs,gs)
 
-        rs = np.arange(0,3.6,3.6/1000)[1:]
-        r6_inv = np.power(0.9*1./rs, 6)
+        rs = np.linspace(0,3.6,1001)[1:]
+        r6_inv = np.power(0.9/rs, 6)
         if var is self.epsilon:
             dus = 4*(r6_inv**2 - r6_inv)
         elif var is self.sigma:
@@ -128,7 +128,7 @@ class test_RelativeEntropy(unittest.TestCase):
         sim_factor = 50**2*(1/1.5)/(1000*norm_factor)
         tgt_factor = 50**2*(1/1.5)/(1000*norm_factor)
 
-        r = np.arange(0.05, 3.55, 0.00355)
+        r = np.linspace(0.05, 3.55, 1001)
         y = 2*np.pi*r**2*(sim_factor*sim_rdf(r)-tgt_factor*tgt_rdf(r))*dudvar(r)
         return scipy.integrate.trapz(x=r, y=y)
 
@@ -167,10 +167,8 @@ class test_RelativeEntropy(unittest.TestCase):
         self.assertIsNone(res.value)
         grad_eps = self.relent_grad(self.epsilon)
         grad_sig = self.relent_grad(self.sigma)
-        err_grad_eps = 1.-np.abs(grad_eps/res.gradient[self.epsilon])
-        err_grad_sig = 1.-np.abs(grad_sig/res.gradient[self.sigma])
-        self.assertLess(err_grad_eps, 0.01) #<1% error in floating point rounding
-        self.assertLess(err_grad_sig, 0.01)
+        np.testing.assert_allclose(res.gradient[self.epsilon], grad_eps, atol=1e-4)
+        np.testing.assert_allclose(res.gradient[self.sigma], grad_sig, atol=1e-4)
         self.assertCountEqual(res.design_variables, (self.epsilon,self.sigma))
 
         #test extensive option
@@ -184,10 +182,8 @@ class test_RelativeEntropy(unittest.TestCase):
         self.assertIsNone(res.value)
         grad_eps = self.relent_grad(self.epsilon, ext=True)
         grad_sig = self.relent_grad(self.sigma, ext=True)
-        err_grad_eps = 1.-np.abs(grad_eps/res.gradient[self.epsilon])
-        err_grad_sig = 1.-np.abs(grad_sig/res.gradient[self.sigma])
-        self.assertLess(err_grad_eps, 0.01)
-        self.assertLess(err_grad_sig, 0.01)
+        np.testing.assert_allclose(res.gradient[self.epsilon], grad_eps, atol=1e-1)
+        np.testing.assert_allclose(res.gradient[self.sigma], grad_sig, atol=1e-1)
         self.assertCountEqual(res.design_variables, (self.epsilon,self.sigma))
 
     def test_design_variables(self):

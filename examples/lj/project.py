@@ -4,33 +4,30 @@ import relentless
 
 # lj potential appended to tabulated potentials
 lj = relentless.potential.LennardJones(types=('1',))
-epsilon = relentless.variable.DesignVariable(value=1.0)
-sigma = relentless.variable.DesignVariable(value=0.9)
+epsilon = relentless.variable.DesignVariable(1.0)
+sigma = relentless.variable.DesignVariable(value=0.9, low=0.8, high=1.2)
 lj.coeff['1','1'].update({'epsilon': epsilon, 'sigma': sigma, 'rmax': 2.7})
-potentials = relentless.simulate.Potentials(pair_potentials=lj)
+potentials = relentless.simulate.Potentials(lj)
 potentials.pair.rmax = 3.6
 potentials.pair.num = 1000
-potentials.pair.fmax = 100.
 
 # target ensemble
 target = relentless.ensemble.Ensemble(T=1.5, V=relentless.volume.Cube(L=10.), N={'1':50})
 dr = 0.1
 rs = np.arange(0.5*dr,5.0,dr)
-target.rdf['1','1'] = relentless.ensemble.RDF(rs,np.exp(-target.beta*lj.energy(('1','1'),rs)))
-
-# change parameters for optimization
-epsilon.value = 1.0
-sigma.value = 1.0
-sigma.low = 0.8
-sigma.high = 1.2
+gs = np.exp(-target.beta*lj.energy(('1','1'),rs))
+target.rdf['1','1'] = relentless.ensemble.RDF(rs,gs)
 
 # dilute molecular simulation
-thermo = relentless.simulate.dilute.AddEnsembleAnalayzer()
-simulation = relentless.simulate.dilute.Dilute(operations=[thermo])
+thermo = relentless.simulate.dilute.AddEnsembleAnalyzer()
+simulation = relentless.simulate.dilute.Dilute([thermo])
 
 # relative entropy + steepest descent
 relent = relentless.optimize.RelativeEntropy(target, simulation, potentials, thermo)
-tol = relentless.optimize.GradientTest(tolerance=1e-8)
-optimizer = relentless.optimize.SteepestDescent(stop=tol, max_iter=1000, step_size=0.25)
+tol = relentless.optimize.GradientTest(1e-4)
+optimizer = relentless.optimize.SteepestDescent(tol, max_iter=1000, step_size=0.005)
 
-optimizer.optimize(objective=relent)
+# change parameters and optimize
+epsilon.value = 0.5
+sigma.value = 1.1
+optimizer.optimize(relent)
