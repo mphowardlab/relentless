@@ -19,15 +19,15 @@ gs = np.exp(-target.beta*lj.energy(('1','1'),rs))
 target.rdf['1','1'] = relentless.ensemble.RDF(rs,gs)
 
 # dilute molecular simulation
-thermo = relentless.simulate.dilute.AddEnsembleAnalyzer()
+thermo = relentless.simulate.AddEnsembleAnalyzer(check_thermo_every=5, check_rdf_every=5, rdf_dr=dr)
 simulation = relentless.simulate.dilute.Dilute([thermo])
 
 # relative entropy + steepest descent
 relent = relentless.optimize.RelativeEntropy(target, simulation, potentials, thermo)
 tol = relentless.optimize.GradientTest(1e-4)
-optimizer = relentless.optimize.SteepestDescent(tol, max_iter=1000, step_size=0.50)
+optimizer = relentless.optimize.SteepestDescent(tol, max_iter=100, step_size=1.5)
 
 # change parameters and optimize
-epsilon.value = 1.1
-sigma.value = 1.0
+epsilon.value = 1.05
+sigma.value = 0.85
 optimizer.optimize(relent)
