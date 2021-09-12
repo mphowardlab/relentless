@@ -463,9 +463,6 @@ class AddBrownianIntegrator(AddMDIntegrator):
             If the simulation ensemble is not NVT.
 
         """
-        if not sim.ensemble.aka('NVT'):
-            raise ValueError('Simulation ensemble is not NVT.')
-
         self.attach_integrator(sim)
         with sim.context:
             all_ = hoomd.group.all()
@@ -534,9 +531,6 @@ class AddLangevinIntegrator(AddMDIntegrator):
             If the simulation ensemble is not NVT.
 
         """
-        if not sim.ensemble.aka('NVT'):
-            raise ValueError('Simulation ensemble is not NVT.')
-
         self.attach_integrator(sim)
         with sim.context:
             all_ = hoomd.group.all()
@@ -605,9 +599,6 @@ class AddNPTIntegrator(AddMDIntegrator):
             If the simulation ensemble is not NPT.
 
         """
-        if not sim.ensemble.aka('NPT'):
-            raise ValueError('Simulation ensemble is not NPT.')
-
         self.attach_integrator(sim)
         with sim.context:
             all_ = hoomd.group.all()
@@ -674,9 +665,6 @@ class AddNVTIntegrator(AddMDIntegrator):
             If the simulation ensemble is not NVT.
 
         """
-        if not sim.ensemble.aka('NVT'):
-            raise ValueError('Simulation ensemble is not NVT.')
-
         self.attach_integrator(sim)
         with sim.context:
             all_ = hoomd.group.all()
@@ -931,7 +919,6 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
 
         """
         ens = sim.ensemble.copy()
-        ens.clear()
 
         thermo_recorder = sim[self].thermo_callback
         ens.T = thermo_recorder.T
