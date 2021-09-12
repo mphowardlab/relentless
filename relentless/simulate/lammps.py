@@ -608,9 +608,6 @@ class AddEnsembleAnalyzer(LAMMPSOperation):
         self.rdf_dr = rdf_dr
 
     def to_commands(self, sim):
-        if not all([sim.ensemble.constant['N'][t] for t in sim.ensemble.types]):
-            return ValueError('This analyzer requires constant N.')
-
         # check that IDs reserved for analysis do not yet exist
         reserved_ids = (('fix','thermo_avg'),
                         ('compute','rdf'),
