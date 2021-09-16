@@ -1,6 +1,8 @@
 .DS_Store
 build
+*.egg-info
 *.pyc
 __pycache__
+dist
 doc/build
 examples/*/workspace

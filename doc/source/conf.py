@@ -14,7 +14,7 @@ sys.path.insert(0, os.path.abspath('../..'))
 # -- Project information -----------------------------------------------------
 
 project = 'relentless'
-copyright = '2021, Michael P. Howard'
+copyright = '2021, Auburn University'
 author = 'Michael P. Howard'
 version = '0.1.0'
 release = '0.1.0'
@@ -58,7 +58,7 @@ autosummary_generate = False
 
 intersphinx_mapping = {
     'python': ('https://docs.python.org/3', None),
-    'network': ('https://networkx.org/documentation/stable', None),
+    'networkx': ('https://networkx.org/documentation/stable', None),
     'mpi4py': ('https://mpi4py.readthedocs.io/en/stable', None),
-    'numpy': ('https://docs.scipy.org/doc/numpy', None)
+    'numpy': ('https://numpy.org/doc/stable', None)
 }
