@@ -34,12 +34,6 @@ class test_Dilute(unittest.TestCase):
         ens_ = analyzer.extract_ensemble(sim)
         self.assertAlmostEqual(ens_.P, -207.5228556)
 
-        #invalid ensemble (non-NVT)
-        ens_ = relentless.ensemble.Ensemble(T=1, V=relentless.volume.Cube(1), N={'A':2}, mu={'B':0.2})
-        d = relentless.simulate.dilute.Dilute(analyzer)
-        with self.assertRaises(ValueError):
-            d.run(ensemble=ens_, potentials=pots, directory=self.directory)
-
     def tearDown(self):
         self._tmp.cleanup()
 

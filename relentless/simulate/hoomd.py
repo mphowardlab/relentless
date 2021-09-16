@@ -231,7 +231,7 @@ class InitializeFromFile(Initialize):
             sim.system = hoomd.init.read_gsd(self.filename,**self.options)
 
             # check that the boxes are consistent in constant volume sims.
-            if sim.ensemble.constant['V']:
+            if sim.ensemble.V is not None:
                 system_box = sim.system.box
                 box_from_file = np.array([system_box.Lx,
                                           system_box.Ly,
@@ -463,9 +463,6 @@ class AddBrownianIntegrator(AddMDIntegrator):
             If the simulation ensemble is not NVT.
 
         """
-        if not sim.ensemble.aka('NVT'):
-            raise ValueError('Simulation ensemble is not NVT.')
-
         self.attach_integrator(sim)
         with sim.context:
             all_ = hoomd.group.all()
@@ -534,9 +531,6 @@ class AddLangevinIntegrator(AddMDIntegrator):
             If the simulation ensemble is not NVT.
 
         """
-        if not sim.ensemble.aka('NVT'):
-            raise ValueError('Simulation ensemble is not NVT.')
-
         self.attach_integrator(sim)
         with sim.context:
             all_ = hoomd.group.all()
@@ -605,9 +599,6 @@ class AddNPTIntegrator(AddMDIntegrator):
             If the simulation ensemble is not NPT.
 
         """
-        if not sim.ensemble.aka('NPT'):
-            raise ValueError('Simulation ensemble is not NPT.')
-
         self.attach_integrator(sim)
         with sim.context:
             all_ = hoomd.group.all()
@@ -674,9 +665,6 @@ class AddNVTIntegrator(AddMDIntegrator):
             If the simulation ensemble is not NVT.
 
         """
-        if not sim.ensemble.aka('NVT'):
-            raise ValueError('Simulation ensemble is not NVT.')
-
         self.attach_integrator(sim)
         with sim.context:
             all_ = hoomd.group.all()
@@ -892,9 +880,6 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
             If the simulation ensemble does not have constant N.
 
         """
-        if not all([sim.ensemble.constant['N'][t] for t in sim.ensemble.types]):
-            return ValueError('This analyzer requires constant N.')
-
         with sim.context:
             # thermodynamic properties
             sim[self].logger = hoomd.analyze.log(filename=None,
@@ -931,7 +916,6 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
 
         """
         ens = sim.ensemble.copy()
-        ens.clear()
 
         thermo_recorder = sim[self].thermo_callback
         ens.T = thermo_recorder.T

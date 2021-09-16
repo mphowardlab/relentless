@@ -80,11 +80,7 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
             If r and u are not both set in the potentials matrix.
 
         """
-        if not sim.ensemble.aka("NVT"):
-            raise ValueError('Dilute simulations must be run in the NVT ensemble.')
-
         ens = sim.ensemble.copy()
-        ens.clear()
 
         # pair distribution function
         for pair in ens.pairs:

@@ -380,9 +380,6 @@ class AddLangevinIntegrator(LAMMPSOperation):
         self._fix_nve = self.new_fix_id()
 
     def to_commands(self, sim):
-        if not sim.ensemble.aka('NVT'):
-            raise ValueError('Simulation ensemble is not NVT.')
-
         # obtain per-type mass (arrays 1-indexed using lammps convention)
         Ntypes = len(sim.ensemble.types)
         mass = sim.lammps.numpy.extract_atom('mass')
@@ -469,8 +466,6 @@ class AddNPTIntegrator(LAMMPSOperation):
         self._fix = super().new_fix_id()
 
     def to_commands(self, sim):
-        if not sim.ensemble.aka('NPT'):
-            raise ValueError('Simulation ensemble is not NPT.')
         cmds = ['fix {idx} {group_idx} npt temp {Tstart} {Tstop} {Tdamp} iso {Pstart} {Pstop} {Pdamp}'.format(idx=self._fix,
                                                                                                               group_idx='all',
                                                                                                               Tstart=sim.ensemble.T,
@@ -525,8 +520,6 @@ class AddNVTIntegrator(LAMMPSOperation):
         self._fix = super().new_fix_id()
 
     def to_commands(self, sim):
-        if not sim.ensemble.aka('NVT'):
-            raise ValueError('Simulation ensemble is not NVT.')
         cmds = ['fix {idx} {group_idx} nvt temp {Tstart} {Tstop} {Tdamp}'.format(idx=self._fix,
                                                                                  group_idx='all',
                                                                                  Tstart=sim.ensemble.T,
@@ -615,9 +608,6 @@ class AddEnsembleAnalyzer(LAMMPSOperation):
         self.rdf_dr = rdf_dr
 
     def to_commands(self, sim):
-        if not all([sim.ensemble.constant['N'][t] for t in sim.ensemble.types]):
-            return ValueError('This analyzer requires constant N.')
-
         # check that IDs reserved for analysis do not yet exist
         reserved_ids = (('fix','thermo_avg'),
                         ('compute','rdf'),
@@ -694,7 +684,6 @@ class AddEnsembleAnalyzer(LAMMPSOperation):
 
         """
         ens = sim.ensemble.copy()
-        ens.clear()
 
         # extract thermo properties
         # we skip the first 2 rows, which are LAMMPS junk, and slice out the timestep from col. 0
