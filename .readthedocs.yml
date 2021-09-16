@@ -9,5 +9,5 @@ python:
   install:
     - requirements: requirements.txt
     - requirements: doc/requirements.txt
-    - method: setuptools
+    - method: pip
       path: .
