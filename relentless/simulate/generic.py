@@ -2,6 +2,16 @@
 Generic simulation operations
 =============================
 
+A common set of generic simulation operations for all the compatible simulation
+interfaces (HOOMD-blue, LAMMPS, dilute system) is provided. This grants the user
+immense ease of use as a single command can be used to achieve the same function
+using multiple simulation packages. The supported generic operations are initialization
+of a system from file or randomly, energy minimization, simulation run, and a number
+of integrators (Brownian, Langevin, NPT, NVT), as well as an operation to extract
+the model ensemble and RDF at a given timestep interval.
+
+The generic simulation operations are compatible with the following simulation packages:
+
 .. toctree::
     :maxdepth: 1
 

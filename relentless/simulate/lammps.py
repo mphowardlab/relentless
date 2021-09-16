@@ -2,6 +2,7 @@
 LAMMPS operations
 =================
 
+Implements the generic simulation operations using LAMMPS.
 
 .. autosummary::
     :nosignatures:
@@ -504,7 +505,7 @@ class AddNPTIntegrator(LAMMPSOperation):
         self._fix = super().new_fix_id()
 
     def to_commands(self, sim):
-       cmds = ['fix {idx} {group_idx} npt temp {Tstart} {Tstop} {Tdamp} iso {Pstart} {Pstop} {Pdamp}'.format(idx=self._fix,
+        cmds = ['fix {idx} {group_idx} npt temp {Tstart} {Tstop} {Tdamp} iso {Pstart} {Pstop} {Pdamp}'.format(idx=self._fix,
                                                                                                               group_idx='all',
                                                                                                               Tstart=sim.ensemble.T,
                                                                                                               Tstop=sim.ensemble.T,
@@ -513,7 +514,7 @@ class AddNPTIntegrator(LAMMPSOperation):
                                                                                                               Pstop=sim.ensemble.P,
                                                                                                               Pdamp=self.tau_P)]
 
-       return cmds
+        return cmds
 
 class RemoveNPTIntegrator(LAMMPSOperation):
     """Removes the NPT integrator operation.
@@ -644,9 +645,6 @@ class AddEnsembleAnalyzer(LAMMPSOperation):
         self.rdf_dr = rdf_dr
 
     def to_commands(self, sim):
-        if not all([sim.ensemble.constant['N'][t] for t in sim.ensemble.types]):
-            return ValueError('This analyzer requires constant N.')
-
         # check that IDs reserved for analysis do not yet exist
         reserved_ids = (('fix','thermo_avg'),
                         ('compute','rdf'),
@@ -723,7 +721,6 @@ class AddEnsembleAnalyzer(LAMMPSOperation):
 
         """
         ens = sim.ensemble.copy()
-        ens.clear()
 
         # extract thermo properties
         # we skip the first 2 rows, which are LAMMPS junk, and slice out the timestep from col. 0

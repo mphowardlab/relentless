@@ -2,6 +2,7 @@
 HOOMD operations
 ================
 
+Implements the generic simulation operations using HOOMD-blue.
 
 .. autosummary::
     :nosignatures:
@@ -281,7 +282,7 @@ class InitializeFromFile(Initialize):
             sim.system = hoomd.init.read_gsd(self.filename,**self.options)
 
             # check that the boxes are consistent in constant volume sims.
-            if sim.ensemble.constant['V']:
+            if sim.ensemble.V is not None:
                 system_box = sim.system.box
                 box_from_file = np.array([system_box.Lx,
                                           system_box.Ly,
@@ -910,9 +911,6 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
             If the simulation ensemble does not have constant ``N``.
 
         """
-        if not all([sim.ensemble.constant['N'][t] for t in sim.ensemble.types]):
-            return ValueError('This analyzer requires constant N.')
-
         with sim.context:
             # thermodynamic properties
             sim[self].logger = hoomd.analyze.log(filename=None,
@@ -949,7 +947,6 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
 
         """
         ens = sim.ensemble.copy()
-        ens.clear()
 
         thermo_recorder = sim[self].thermo_callback
         ens.T = thermo_recorder.T
