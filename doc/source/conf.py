@@ -40,11 +40,7 @@ exclude_patterns = []
 
 html_theme = 'sphinx_rtd_theme'
 html_static_path = ['_static']
-html_context = {
-    'css_files': [
-        '_static/theme_overrides.css',
-        ],
-    }
+html_css_files = ['theme_overrides.css']
 
 # -- Options for autodoc & autosummary ---------------------------------------
 
