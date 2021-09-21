@@ -1,3 +1,56 @@
+"""
+Volumes
+=======
+A :class:`Volume` represents a 3D region of space with a fixed volume. It corresponds
+to the "box" used in simulations. The following box types have been implemented:
+
+.. autosummary::
+    :nosignatures:
+
+    Parallelepiped
+    TriclinicBox
+    Cuboid
+    Cube
+
+The TriclinicBox can be constructed using both the LAMMPS and HOOMD-blue conventions
+for applying tilt factors.
+
+Examples
+--------
+Construct a simulation box with defined basis vectors and volume::
+
+    v = relentless.volume.Cube(L=3)
+    >>> print(v.a)
+    [3.0 0.0 0.0]
+    >>> print(v.b)
+    [0.0 3.0 0.0]
+    >>> print(v.c)
+    [0.0 0.0 3.0]
+    >>> print(v.volume)
+    27.0
+
+.. rubric:: Developer notes
+
+To implement your own simulation box, create a class that derives from :class:`Volume`
+and define the required methods.
+
+.. autosummary::
+    :nosignatures:
+
+    Volume
+
+.. autoclass:: Volume
+    :members:
+.. autoclass:: Parallelepiped
+    :members:
+.. autoclass:: TriclinicBox
+    :members:
+.. autoclass:: Cuboid
+    :members:
+.. autoclass:: Cube
+    :members:
+
+"""
 import abc
 from enum import Enum
 
@@ -39,7 +92,7 @@ class Volume(abc.ABC):
 
         Returns
         -------
-        Volume
+        :class:`Volume`
             The object reconstructed from the ``data``.
 
         """
@@ -53,7 +106,7 @@ class Parallelepiped(Volume):
 
     .. math::
 
-        V = (\mathbf{a} \cross \mathbf{b}) \cdot \mathbf{c} > 0
+        V = (\mathbf{a} \times \mathbf{b}) \cdot \mathbf{c} > 0
 
     Parameters
     ----------
@@ -131,24 +184,8 @@ class TriclinicBox(Parallelepiped):
     elements of the matrix of box vectors. As a result, the **a** vector is
     always aligned along the *x*-axis, while the other two vectors may be tilted.
 
-    The tilt factors can be defined using one of two :class:`TriclinicBox.Convention`.
-    In the `LAMMPS <https://lammps.sandia.gov/doc/Howto_triclinic.html>`_
-    simulation convention, specified using ``TriclinicBox.Convention.LAMMPS``,
-
-    .. math::
-
-        \mathbf{a} = (L_x,0,0)
-        \mathbf{b} = (xy,L_y,0)
-        \mathbf{c} = (xz,yz,L_z)
-
-    In the `HOOMD-blue <https://hoomd-blue.readthedocs.io/en/stable/box.html>`_
-    simulation convention, specified using ``TriclinicBox.Convention.HOOMD``,
-
-    .. math::
-
-        \mathbf{a} = (L_x,0,0)
-        \mathbf{b} = (xy*L_y,L_y,0)
-        \mathbf{c} = (xz*L_z,yz*L_z,L_z)
+    The tilt factors can be defined using one of two options in :class:`TriclinicBox.Convention`.
+    By default, the LAMMPS convention is applied to calculate the basis vectors.
 
     Parameters
     ----------
@@ -170,29 +207,33 @@ class TriclinicBox(Parallelepiped):
     ValueError
         If *Lx*, *Ly*, *Lz* are not all positive.
     ValueError
-        If the convention is not `TriclinicBox.Convention.LAMMPS` or
-        `TriclinicBox.Convention.HOOMD`.
+        If the convention is not ``TriclinicBox.Convention.LAMMPS`` or
+        ``TriclinicBox.Convention.HOOMD``.
 
     """
 
     class Convention(Enum):
         r"""Convention by which the tilt factors are applied to the basis vectors.
 
-        Calculation of the basis vectors by the `LAMMPS convention <https://lammps.sandia.gov/doc/Howto_triclinic.html>`_:
+        In the `LAMMPS <https://lammps.sandia.gov/doc/Howto_triclinic.html>`_
+        simulation convention, specified using ``TriclinicBox.Convention.LAMMPS``,
+        the basis vectors are
 
         .. math::
 
             \mathbf{a} = (L_x,0,0)
-            \mathbf{b} = (xy,L_y,0)
-            \mathbf{c} = (xz,yz,L_z)
+            \quad \mathbf{b} = (xy,L_y,0)
+            \quad \mathbf{c} = (xz,yz,L_z)
 
-        Calculation of the basis vectors by the `HOOMD convention <https://hoomd-blue.readthedocs.io/en/stable/box.html>`_:
+        In the `HOOMD-blue <https://hoomd-blue.readthedocs.io/en/stable/box.html>`_
+        simulation convention, specified using ``TriclinicBox.Convention.HOOMD``,
+        the basis vectors are
 
         .. math::
 
             \mathbf{a} = (L_x,0,0)
-            \mathbf{b} = (xy*L_y,L_y,0)
-            \mathbf{c} = (xz*L_z,yz*L_z,L_z)
+            \quad \mathbf{b} = (xy \cdot L_y,L_y,0)
+            \quad \mathbf{c} = (xz \cdot L_z,yz \cdot L_z,L_z)
 
         Attributes
         ----------
