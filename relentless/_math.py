@@ -1,3 +1,19 @@
+"""
+Math functions
+==============
+
+Contains a interpolator using `Akima 1D splines <https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.Akima1DInterpolator.html>`_.
+The function's value and derivatives can be evaluated.
+
+.. autosummary::
+    :nosignatures:
+
+    Interpolator
+
+.. autoclass:: Interpolator
+    :members:
+
+"""
 import numpy as np
 import scipy.interpolate
 
