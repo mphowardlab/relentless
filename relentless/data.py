@@ -1,8 +1,23 @@
-"""Core data management.
+"""
+Data management
+===============
+The :class:`Directory` class provides an interface for creating hierarchical
+filesystem directories and files within those directories using either an absolute
+or relative `path`. Additionally, project simulation and optimization data
+can be stored using a :class:`Project`, which includes options for ``workspace``
+and ``scratch`` directories.
 
-Todo
-----
-Improve this documentation for developers!
+.. autosummary::
+    :nosignatures:
+
+    Directory
+    Project
+
+.. autoclass:: Directory
+    :members:
+
+.. autoclass:: Project
+    :members:
 
 """
 import os
