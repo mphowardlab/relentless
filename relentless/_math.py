@@ -45,7 +45,7 @@ class Interpolator:
 
     Examples
     --------
-    Interpolating the line :math:`y=2x`::
+    Interpolating the line :math:`y=2x`\::
 
         f = Interpolator(x=(-1,0,1), y=(-2,0,2))
 
@@ -56,7 +56,7 @@ class Interpolator:
         >>> f([-0.5,0.5])
         (-1.0, 1.0)
 
-    Evaluate the :math:`n`th derivative of the function::
+    Evaluate the :math:`n`\th derivative of the function::
 
         >>> f.derivative(x=0.5, n=1)
         2.0
