@@ -23,14 +23,14 @@ class Interpolator:
     Interpolates through a function :math:`y(x)` on the domain
     :math:`a \le x \le b` using Akima splines. Outside this domain, `y` is
     extrapolated as a constant, i.e., :math:`y(x < a) = y(a)` and
-    :math:`y(x > b) = y(b)`.
+    :math:`y(x > b) = y(b)`\.
 
     Parameters
     ----------
     x : array_like
-        1-d array of `x`-coordinates that must be continually increasing.
+        1D array of x coordinates that must be continually increasing.
     y : array_like
-        1-d array of `y`-coordinates.
+        1D array of y coordinates.
 
     Raises
     ------
