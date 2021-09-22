@@ -28,9 +28,9 @@ class Interpolator:
     Parameters
     ----------
     x : array_like
-        1-d array of :math:`x` coordinates that must be continually increasing.
+        1-d array of :math:`x`\ coordinates that must be continually increasing.
     y : array_like
-        1-d array of :math:`y` coordinates.
+        1-d array of :math:`y`\ coordinates.
 
     Raises
     ------
@@ -122,7 +122,7 @@ class Interpolator:
         return result
 
     def derivative(self, x, n):
-        r"""Evaluate the :math:`n`th derivative of the interpolating function.
+        r"""Evaluate the :math:`n`\th derivative of the interpolating function.
 
         Parameters
         ----------

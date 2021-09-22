@@ -40,12 +40,12 @@ class Simulation:
     """Ensemble simulation container.
 
     Base class that initializes and runs a simulation described by a set of
-    :class:`SimulationOperation`s.
+    :class:`SimulationOperation`\s.
 
     Parameters
     ----------
     operations : array_like
-        Array of :class:`SimulationOperation`s to call.
+        Array of :class:`SimulationOperation`\s to call.
     options : kwargs
         Optional arguments to attach to each instance of a simulation.
 
@@ -83,7 +83,7 @@ class Simulation:
         Raises
         ------
         TypeError
-            If all operations are not :class:`SimulationOperation`s.
+            If all operations are not :class:`SimulationOperation`\s.
 
         """
         if not all([isinstance(op,SimulationOperation) for op in self.operations]):
