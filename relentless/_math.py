@@ -28,9 +28,9 @@ class Interpolator:
     Parameters
     ----------
     x : array_like
-        1-d array of :math:`x`\ coordinates that must be continually increasing.
+        1-d array of `x`-coordinates that must be continually increasing.
     y : array_like
-        1-d array of :math:`y`\ coordinates.
+        1-d array of `y`-coordinates.
 
     Raises
     ------
