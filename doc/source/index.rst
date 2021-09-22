@@ -17,6 +17,7 @@ relentless
     api/index
     api/data
     api/mpi
+    api/collections
     api/math
     api/potential/index
     api/optimize/index

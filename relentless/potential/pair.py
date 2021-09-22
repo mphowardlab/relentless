@@ -62,7 +62,7 @@ from . import potential
 class PairParameters(potential.Parameters):
     """Parameters for pairs of types.
 
-    A pair is a tuple of two types, and each type is a :class:`str`. A named
+    A pair is a tuple of two types, and each type is a `str`. A named
     list of parameters can be set for each pair of types. The parameters for a
     pair are assumed to be symmetric, so the pair *(i,j)* is the same as the
     pair *(j,i)*. An optional shared value can be set for any of the parameters,
@@ -237,7 +237,7 @@ class PairPotential(potential.Potential):
             \end{cases}.
 
     The pair potential can also be shifted to zero at :math:`r_{\rm max}`.
-    Shifting subtracts :math:`u_0(r_{\rm max})` from all pieces of u(r) and
+    Shifting subtracts :math:`u_0(r_{\rm max})` from all pieces of :math:`u(r)` and
     :math:`-f_0(r_{\rm max})` from all parameter derivatives. The force is
     unaffected by shifting the pair potential.
 
@@ -562,17 +562,17 @@ class Depletion(PairPotential):
         u(r) = -\frac{\pi P}{12 r} \left[\frac{1}{2}(\sigma_i+\sigma_j)+\sigma_d-r\right]^2
             \left[r^2+r(\sigma_i+\sigma_j+2\sigma_d)-\frac{3}{4}(\sigma_i-\sigma_j)^2\right]
 
-    where *r* is the distance between two particles. The parameters for
-    each *(i,j)* pair are:
+    where :math:`r` is the distance between two particles. The parameters for
+    each :math:`(i,j)` pair are:
 
     +-------------+--------------------------------------------------+-----------+
     | Parameter   | Description                                      | Initial   |
     +=============+==================================================+===========+
-    | ``P``       | Osmotic pressure *P* of depletant.               |           |
+    | ``P``       | Osmotic pressure :math:`P` of depletant.         |           |
     +-------------+--------------------------------------------------+-----------+
-    | ``sigma_i`` | Diameter :math:`\sigma_i` of type *i*.           |           |
+    | ``sigma_i`` | Diameter :math:`\sigma_i` of type :math:`i`.     |           |
     +-------------+--------------------------------------------------+-----------+
-    | ``sigma_j`` | Diameter :math:`\sigma_j` of type *j*.           |           |
+    | ``sigma_j`` | Diameter :math:`\sigma_j` of type :math:`j`.     |           |
     +-------------+--------------------------------------------------+-----------+
     | ``sigma_d`` | Diameter :math:`\sigma_d` of depletant.          |           |
     +-------------+--------------------------------------------------+-----------+
@@ -746,8 +746,8 @@ class LennardJones(PairPotential):
         u(r) = 4 \varepsilon\left[\left(\frac{\sigma}{r}\right)^{12}
                 - \left(\frac{\sigma}{r}\right)^6 \right]
 
-    where *r* is the distance between two particles. The parameters for
-    each *(i,j)* pair are:
+    where :math:`r` is the distance between two particles. The parameters for
+    each :math:`(i,j)` pair are:
 
     +-------------+-----------------------------------------------+-----------+
     | Parameter   | Description                                   | Initial   |
@@ -862,17 +862,17 @@ class PairSpline(PairPotential):
         Number of knots.
     mode : str
         Mode for storing the values of the knots in :class:`~relentless.variable.DesignVariable`
-        that can be optimized. If ``mode`` is 'value', the knot amplitudes are stored
-        directly. If ``mode`` is 'diff', the amplitude of the *last* knot is stored
+        that can be optimized. If ``mode='value'``, the knot amplitudes are stored
+        directly. If ``mode='diff'``, the amplitude of the *last* knot is stored
         directly, and differences between neighboring knots are stored for all
-        other knots. Defaults to 'diff'.
+        other knots. Defaults to ``'diff'``.
 
     Raises
     ------
     ValueError
         If there are not at least two knots.
     ValueError
-        If the mode is not 'value' or 'diff'.
+        If the mode is not ``'value'`` or ``'diff'``.
 
     Examples
     --------
@@ -1090,8 +1090,8 @@ class Yukawa(PairPotential):
 
         u(r) = \varepsilon \frac{e^{-\kappa r}}{r}
 
-    where *r* is the distance between two particles. The parameters for
-    each *(i,j)* pair are:
+    where :math:`r` is the distance between two particles. The parameters for
+    each :math:`(i,j)` pair are:
 
     +-------------+-----------------------------------------------+-----------+
     | Parameter   | Description                                   | Initial   |

@@ -113,7 +113,7 @@ class ObjectiveFunction(abc.ABC):
             with respect to which it is taken.
         directory : :class:`~relentless.data.Directory`
             Directory holding written output associated with result. Setting
-            a value of `None` indicates no written output.
+            a value of ``None`` indicates no written output.
 
         Returns
         -------
@@ -138,7 +138,7 @@ class ObjectiveFunctionResult:
         with respect to which it is taken.
     directory : :class:`~relentless.data.Directory`
         Directory holding written output associated with result. Setting
-        a value of `None` indicates no written output.
+        a value of ``None`` indicates no written output.
 
     """
     def __init__(self, objective, value, gradient, directory):
@@ -189,8 +189,8 @@ class RelativeEntropy(ObjectiveFunction):
     The relative entropy :math:`S_{\rm rel}` (or Kullback-Leibler divergence)
     quantifies the overlap of two probability distributions. For a known target
     statistical mechanical ensemble having distribution :math:`p_0` and a simulated
-    model ensemble having distribution *p* and parametrized on a set of design
-    variables **x**, the relative entropy from the model to the target is:
+    model ensemble having distribution :math:`p` and parametrized on a set of design
+    variables :math:`\mathbf{x}`, the relative entropy from the model to the target is:
 
     .. math::
 
@@ -204,8 +204,8 @@ class RelativeEntropy(ObjectiveFunction):
     The value of the relative entropy is not readily determined in  molecular
     simulations, so this :class:`ObjectiveFunction` does not return a value.
     However, the gradient of the relative entropy with respect to the design
-    variables **x** is much easier to compute as ensemble averages. Currently,
-    the :class:`RelativeEntropy` objective function supports only
+    variables :math:`\mathbf{x}` is much easier to compute as ensemble averages.
+    Currently, the :class:`RelativeEntropy` objective function supports only
     :class:`~relentless.potential.pair.PairPotential` interactions. These interactions
     are characterized by :math:`g_{ij}(r)`, an :class:`~relentless.ensemble.RDF`
     for each pair of interacting types :math:`(i,j)` in each
@@ -216,9 +216,9 @@ class RelativeEntropy(ObjectiveFunction):
         \nabla_\mathbf{x} S_{\rm rel} = -\frac{1}{2}\sum_{i,j}\int{dr\left(4\pi r^2\right)\left[\frac{\beta N_i N_j}{V} g_{ij}(r)-\frac{\beta_0 N_{i,0} N_{j,0}}{V_0} g_{ij,0}(r)\right]\nabla_\mathbf{x} u_{ij}(r)}
 
     where :math:`\beta=1/(k_{\rm B}T)`, :math:`N_i` is the number of particles
-    of type *i*, *V* is the volume, and :math:`u_{ij}(r)` is the pair potential
+    of type :math:`i`, :math:`V` is the volume, and :math:`u_{ij}(r)` is the pair potential
     in the *model* ensemble. The corresponding properties of the *target*
-    ensemble are denoted with subscript 0.
+    ensemble are denoted with subscript :math:`0`.
 
     :math:`S_{\rm rel}` is extensive as written, meaning that it depends on the
     size of the system. This can be undesirable for optimization because it means
@@ -229,14 +229,14 @@ class RelativeEntropy(ObjectiveFunction):
     Parameters
     ----------
     target : :class:`~relentless.ensemble.Ensemble`
-        The target ensemble (must have specified :math:`V` and :math:`N`).
+        The target ensemble (must have specified ``V`` and ``N``).
     simulation : :class:`~relentless.simulate.Simulation`
         The simulation engine to use, with specified simulation operations.
     potentials : :class:`~relentless.simulate.Potentials`
         The pair potentials to use in the simulations.
     thermo : :class:`~relentless.simulate.SimulationOperation`
         The thermodynamic analyzer operation for the simulation ensemble and rdf
-        (usually :meth:`AddEnsembleAnalyzer()`). The model ensemble will be
+        (usually :meth:`~relentless.simulate.AddEnsembleAnalyzer()`). The model ensemble will be
         extracted from this operation.
     communicator : :class:`~relentless.mpi.Communicator`
         The communicator used to run the ``simulation`` (defaults to
@@ -262,7 +262,7 @@ class RelativeEntropy(ObjectiveFunction):
         computationally expensive.
 
         Optionally, a directory can be specified both to write the simulation
-        output as defined in :meth:`Simulation.run()`, and the values of the pair
+        output as defined in :meth:`~relentless.simulate.Simulation.run()`, and the values of the pair
         potential design variables, which are written to ``potential.i.json``
         for the :math:`i`\th pair potential.
 
@@ -358,7 +358,7 @@ class RelativeEntropy(ObjectiveFunction):
     @property
     def target(self):
         r""":class:`~relentless.ensemble.Ensemble`: The target ensemble. Must have
-        both :math:`V` and :math:`N` parameters set."""
+        both ``V`` and ``N`` parameters set."""
         return self._target
 
     @target.setter

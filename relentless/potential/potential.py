@@ -178,7 +178,7 @@ class Parameters:
 
     @property
     def shared(self):
-        """:class:`~relentless.FixedKeyDict`: The shared parameters."""
+        """:class:`~relentless._collections.FixedKeyDict`: The shared parameters."""
         return self._shared
 
 class Potential(abc.ABC):
@@ -216,7 +216,7 @@ class Potential(abc.ABC):
         key
             Key parametrizing the potential in :attr:`coeff<container>`.
         x : float or list
-            Potential coordinate.
+            Potential energy coordinate.
 
         Returns
         -------
@@ -238,7 +238,7 @@ class Potential(abc.ABC):
         key
             Key parametrizing the potential in :attr:`coeff<container>`.
         x : float or list
-            Potential coordinate.
+            Potential energy coordinate.
 
         Returns
         -------

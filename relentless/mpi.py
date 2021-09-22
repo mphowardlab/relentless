@@ -75,7 +75,7 @@ class Communicator:
     ----------
     comm : :class:`mpi4py.MPI.Comm`
         Communicator backend. Defaults to ``None``, which is converted to
-        :class:`mpi4py.MPI.COMM_WORLD` if running under MPI.
+        :data:`mpi4py.MPI.COMM_WORLD` if running under MPI.
     root : int
         Root rank index (defaults to 0).
 

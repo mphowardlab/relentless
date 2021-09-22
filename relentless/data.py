@@ -3,7 +3,7 @@ Data management
 ===============
 The :class:`Directory` class provides an interface for creating hierarchical
 filesystem directories and files within those directories using either an absolute
-or relative `path`. Additionally, project simulation and optimization data
+or relative path. Additionally, project simulation and optimization data
 can be stored using a :class:`Project`, which includes options for ``workspace``
 and ``scratch`` directories.
 
@@ -26,14 +26,14 @@ import shutil
 class Directory:
     """Context for a filesystem directory.
 
-    The directory specified by `path` (which can be either absolute or relative)
+    The directory specified by ``path`` (which can be either absolute or relative)
     is created if it does not already exist. This process is recursive, so
-    `path` may include multiple directories that do not yet exist. This object
-    represents the final directory in `path`.
+    ``path`` may include multiple directories that do not yet exist. This object
+    represents the final directory in ``path``.
 
     A :class:`Directory` is a context that can be used to manage the current
     working directory. Entering the context changes the current working
-    directory to *path*, and exiting restores the working directory before the
+    directory to ``path``, and exiting restores the working directory before the
     context was entered.
 
     Parameters
@@ -52,7 +52,7 @@ class Directory:
 
         d = Directory('foo')
 
-    Using the context to open a file `foo/bar.txt` in a directory::
+    Using the context to open a file ``foo/bar.txt`` in a directory::
 
         with Directory('foo') as d:
             f = open('bar.txt')
@@ -65,7 +65,7 @@ class Directory:
     def __enter__(self):
         """Enter the directory context.
 
-        The working directory is changed to the `path` of this object.
+        The working directory is changed to the ``path`` of this object.
 
         Returns
         -------
@@ -157,7 +157,7 @@ class Directory:
 
         Examples
         --------
-        Making nested directories `foo/bar`::
+        Making nested directories ``foo/bar``::
 
             foo = Directory('foo')
             bar = foo.directory('bar')

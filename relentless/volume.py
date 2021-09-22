@@ -101,8 +101,8 @@ class Volume(abc.ABC):
 class Parallelepiped(Volume):
     r"""Parallelepiped box defined by three vectors.
 
-    The three vectors **a**, **b**, and **c** must form a right-hand basis
-    so that the box volume *V* is positive:
+    The three vectors :math:`\mathbf{a}`, :math:`\mathbf{b}`, and :math:`\mathbf{c}`
+    must form a right-hand basis so that the box volume :math:`V` is positive:
 
     .. math::
 
@@ -120,7 +120,7 @@ class Parallelepiped(Volume):
     Raises
     ------
     TypeError
-        If a, b, and c are not all 3-element vectors.
+        If ``a``, ``b``, and ``c`` are not all 3-element vectors.
     ValueError
         If the volume is not positive.
 
@@ -141,8 +141,7 @@ class Parallelepiped(Volume):
     def to_json(self):
         r"""Serialize as a dictionary.
 
-        The dictionary contains the three box vectors **a**, **b**, and **c**
-        as tuples.
+        The dictionary contains the three box vectors ``a``, ``b``, and ``c`` as tuples.
 
         Returns
         -------
@@ -179,22 +178,23 @@ class TriclinicBox(Parallelepiped):
 
     A TriclinicBox is a special type of :class:`Parallelepiped`. The box is
     defined by an orthorhombic box oriented along the Cartesian axes and having
-    three vectors of length ``Lx``, ``Ly``, and ``Lz``, respectively. The box is
-    then tilted by factors ``xy``, ``xy``, and ``xz``, which are upper off-diagonal
-    elements of the matrix of box vectors. As a result, the **a** vector is
-    always aligned along the *x*-axis, while the other two vectors may be tilted.
+    three vectors of length :math:`L_x`, :math:`L_y`, and :math:`L_z`, respectively.
+    The box is then tilted by factors :math:`xy`, :math:`xz`, and :math:`yz`, which
+    are upper off-diagonal elements of the matrix of box vectors. As a result,
+    the :math:`\mathbf{a}` vector is always aligned along the :math:`x` axis, while
+    the other two vectors may be tilted.
 
-    The tilt factors can be defined using one of two options in :class:`TriclinicBox.Convention`.
+    The tilt factors can be defined using one of two :class:`TriclinicBox.Convention`\s.
     By default, the LAMMPS convention is applied to calculate the basis vectors.
 
     Parameters
     ----------
     Lx : float
-        Length along the *x* axis.
+        Length along the :math:`x` axis.
     Ly : float
-        Length along the *y* axis.
+        Length along the :math:`y` axis.
     Lz : float
-        Length along the *z* axis.
+        Length along the :math:`z` axis.
     xy : float
         First tilt factor.
     xz : float
@@ -205,7 +205,7 @@ class TriclinicBox(Parallelepiped):
     Raises
     ------
     ValueError
-        If *Lx*, *Ly*, *Lz* are not all positive.
+        If ``Lx``, ``Ly``, and ``Lz`` are not all positive.
     ValueError
         If the convention is not ``TriclinicBox.Convention.LAMMPS`` or
         ``TriclinicBox.Convention.HOOMD``.
@@ -333,18 +333,18 @@ class Cuboid(TriclinicBox):
     r"""Orthorhombic box.
 
     A Cuboid is a special type of :class:`TriclinicBox`. The three box vectors
-    point along the *x*, *y*, and *z* axes, so they are all orthogonal (i.e. the
-    tilt factors ``xy``, ``xz``, and ``yz`` are all 0). Each vector can have a
-    different length, *Lx*, *Ly*, and *Lz*.
+    point along the :math:`x`, :math:`y`, and :math:`z` axes, so they are all
+    orthogonal (i.e. :math:`xy=xz=yz=0`). Each vector can have a different length,
+    :math:`L_x`, :math:`L_y`, and :math:`L_z`.
 
     Parameters
     ----------
     Lx : float
-        Length along the *x* axis.
+        Length along the :math:`x` axis.
     Ly : float
-        Length along the *y* axis.
+        Length along the :math:`y` axis.
     Lz : float
-        Length along the *z* axis.
+        Length along the :math:`z` axis.
 
     """
     def __init__(self, Lx, Ly, Lz):
@@ -389,7 +389,7 @@ class Cube(Cuboid):
     r"""Cubic box.
 
     A Cube is a special type of :class:`Cuboid` where all vectors have the
-    same length *L*.
+    same length :math:`L`.
 
     Parameters
     ----------
