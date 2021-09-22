@@ -761,7 +761,7 @@ class ThermodynamicsCallback:
 
     Parameters
     ----------
-    logger : :module:`hoomd.analyze` logger
+    logger : :class:`hoomd.analyze` logger
         Logger from which to retrieve data.
     communicator : :class:`~relentless.mpi.Communicator`
         The MPI communicator to use.
