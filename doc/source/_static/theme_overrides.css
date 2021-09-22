@@ -1,6 +1,6 @@
 /*
  * Fix wrapping of table cells in RTD style.
- * h/t: https://rackerlabs.github.io/docs-rackspace/tools/rtd-tables.html
+ * h/t: https://sphinx-argparse.readthedocs.io/en/stable/misc.html
  */
 @media screen and (min-width: 767px) {
    .wy-table-responsive table td {
