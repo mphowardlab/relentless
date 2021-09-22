@@ -2,13 +2,15 @@
 Dilute system
 =============
 
-Provides the :meth:`EnzembleAnalyzer()` operation for a dilute system.
+Provides the :meth:`AddEnzembleAnalyzer()` operation for a dilute system.
 
 .. autosummary::
     :nosignatures:
 
 .. autoclass:: AddEnsembleAnalyzer
-    :members:
+    :member-order: bysource
+    :members: __call__,
+        extract_ensemble
 
 """
 import numpy as np

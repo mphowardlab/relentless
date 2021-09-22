@@ -12,6 +12,15 @@ for generic simulation operations is provided:
 
     generic
 
+These operations are compatible with the following simulation interfaces:
+
+.. toctree::
+    :maxdepth: 1
+
+    dilute
+    hoomd
+    lammps
+
 .. automodule:: relentless.simulate.simulate
 
 """

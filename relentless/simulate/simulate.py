@@ -3,13 +3,13 @@ Simulation interface
 ====================
 
 Molecular simulation runs are performed in a :class:`Simulation` ensemble container,
-which initializes and runs a set of :class:`SimulationOperations`. Each simulation
+which initializes and runs a set of :class:`SimulationOperation`s. Each simulation
 run requires the input of an ensemble, the interaction potentials, a directory
 to write the output data, and an optional MPI communicator to use, which are all
 used to construct a :class:`SimulationInstance`.
 
-The simulations can use a combination of multiple :class:`~relentless.potential.Potential`s or
-:class:`~relentless.potential.PairPotential`s tabulated together, the interface for
+The simulations can use a combination of multiple :class:`~relentless.potential.Potential`\s or
+:class:`~relentless.potential.PairPotential`\s tabulated together, the interface for
 which is given here using :class:`Potentials` and the tabulators :class:`PotentialTabulator`
 and :class:`PairPotentialTabulator`.
 
@@ -19,6 +19,8 @@ and :class:`PairPotentialTabulator`.
 .. autoclass:: Simulation
     :members:
 .. autoclass:: SimulationInstance
+    :members:
+.. autoclass:: SimulationOperation
     :members:
 .. autoclass:: Potentials
     :members:
@@ -43,7 +45,7 @@ class Simulation:
     Parameters
     ----------
     operations : array_like
-        Array of :class:`SimulationOperation` to call.
+        Array of :class:`SimulationOperation`s to call.
     options : kwargs
         Optional arguments to attach to each instance of a simulation.
 
@@ -63,12 +65,12 @@ class Simulation:
 
         Parameters
         ----------
-        ensemble : :class:`Ensemble`
+        ensemble : :class:`~relentless.ensemble.Ensemble`
             Simulation ensemble. Must include values for ``N`` and ``V`` even if
             these variables fluctuate.
         potentials : :class:`Potentials`
             The interaction potentials.
-        directory : :class:`Directory`
+        directory : :class:`~relentless.data.Directory`
             Directory to use for writing data.
         communicator: :class:`~relentless.mpi.Communicator`
             The MPI communicator to use. Defaults to ``None``.
@@ -122,12 +124,12 @@ class SimulationInstance:
     ----------
     backend : type
         Type of the simulation class.
-    ensemble : :class:`Ensemble`
+    ensemble : :class:`~relentless.ensemble.Ensemble`
         Simulation ensemble. Must include values for ``N`` and ``V`` even if
         these variables fluctuate.
     potentials : :class:`Potentials`
         The interaction potentials.
-    directory : :class:`Directory`
+    directory : :class:`~relentless.data.Directory`
         Directory for output.
     communicator: :class:`~relentless.mpi.Communicator`
         The MPI communicator to use.
@@ -194,9 +196,9 @@ class PotentialTabulator:
         The positional value of ``x`` at which to end tabulation.
     num : int
         The number of points (value of ``x``) at which to tabulate and evaluate the potential.
-    potentials : :class:`Potential` or array_like
+    potentials : :class:`~relentless.potential.Potential` or array_like
         The potential(s) to be tabulated. If array_like, all elements must
-        be :class:`Potential`s. (Defaults to ``None``).
+        be :class:`~relentless.potential.Potential`\s. (Defaults to ``None``).
 
     """
     def __init__(self, start, stop, num, potentials=None):
@@ -345,9 +347,9 @@ class PairPotentialTabulator(PotentialTabulator):
         The maximum value of ``r`` at which to tabulate.
     num : int
         The number of points (value of ``r``) at which to tabulate and evaluate the potential.
-    potentials : :class:`PairPotential` or array_like
+    potentials : :class:`~relentless.potential.PairPotential` or array_like
         The pair potential(s) to be tabulated. If array_like, all elements must
-        be :class:`PairPotential`s. (Defaults to ``None``).
+        be :class:`~relentless.potential.PairPotential`\s. (Defaults to ``None``).
     fmax : float
         The maximum value of force at which to allow evaluation.
 
@@ -385,7 +387,7 @@ class PairPotentialTabulator(PotentialTabulator):
     def energy(self, pair):
         """Evaluates and accumulates energy for all potentials.
 
-        Shifts the energy to be 0 at :attr:``rmax``.
+        Shifts the energy to be 0 at :property:``rmax``.
 
         Parameters
         ----------

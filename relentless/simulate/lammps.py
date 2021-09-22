@@ -513,7 +513,7 @@ class AddNPTIntegrator(LAMMPSOperation):
                                                                                                               Pstop=sim.ensemble.P,
                                                                                                               Pdamp=self.tau_P)]
 
-        return cmds
+       return cmds
 
 class RemoveNPTIntegrator(LAMMPSOperation):
     """Removes the NPT integrator operation.

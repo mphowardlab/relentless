@@ -73,7 +73,7 @@ except ImportError:
     _freud_found = False
 
 class HOOMD(simulate.Simulation):
-    """:class:`Simulation` using HOOMD framework.
+    """:class:`~relentless.simulation.Simulation` using HOOMD framework.
 
     Raises
     ------
@@ -132,7 +132,7 @@ class Initialize(simulate.SimulationOperation):
 
         Parameters
         ----------
-        sim : :class:`Simulation`
+        sim : :class:`~relentless.simulation.Simulation`
             Simulation object.
 
         Returns
@@ -174,7 +174,7 @@ class Initialize(simulate.SimulationOperation):
 
         Returns
         -------
-        :module:`hoomd.data` snapshot
+        :class:`hoomd.data` snapshot
             Particle simulation snapshot.
         :class:`freud.Box`
             Particle simulation box.
