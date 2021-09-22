@@ -1,7 +1,12 @@
+"""
+Ensemble
+========
+
+"""
 import copy
 import json
 
-import numpy
+import numpy as np
 
 from ._collections import FixedKeyDict,PairMatrix
 from ._math import Interpolator
@@ -23,60 +28,102 @@ class RDF(Interpolator):
     """
     def __init__(self, r, g):
         super().__init__(r,g)
-        self.table = numpy.column_stack((r,g))
+        self.table = np.column_stack((r,g))
 
-class Ensemble:
+class Ensemble(object):
     r"""Thermodynamic ensemble.
 
-    An ensemble is defined by:
-        - The temperature ``T``.
-        - The number ``N`` for each particle type. The particle types are
-          strings determined from the keys of ``N``.
-        - The volume ``V`` and/or pressure ``P``.
+    The parameters of the ensemble are defined as follows:
+        - The temperature (``T``) is always a constant.
+        - Either the pressure (``P``) or the volume (``V``) can be specified.
+        - Either the chemical potential (``mu``) or the particle number (``N``)
+          can be specified for each type. The particle types in the Ensemble are
+          determined from the keys in the ``mu`` and ``N`` dictionaries.
+
+    The variables that are "constants" of the ensemble (e.g. *N*, *V*, and *T*
+    for the canonical ensemble) are determined from the arguments specified in the
+    constructor. The fluctuating (conjugate) variables must be set subsequently.
+    It is an error to set both variables in a conjugate pair (e.g. *P* and *V*)
+    during construction.
 
     Parameters
     ----------
     T : float
         Temperature of the system.
-    N : dict
-        The number of particles for each specified type.
-    V : :class:`Volume`
-        Volume of the system (defaults to None).
     P : float
         Pressure of the system (defaults to None).
+    V : :class:`Volume`
+        Volume of the system (defaults to None).
+    mu : dict
+        The chemical potential for each specified type (defaults to None).
+    N : dict
+        The number of particles for each specified type (defaults to None).
     kB : float
         Boltzmann constant (defaults to 1.0).
 
     Raises
     ------
-    TypeError
-        If the types in ``N`` are not all strings.
+    ValueError
+        If neither ``P`` nor ``V`` is set.
+    ValueError
+        If both ``P`` and ``V`` are set.
     TypeError
         If all values of ``N`` are not integers or None.
+    ValueError
+        If both ``mu`` and ``N`` are set for a type.
+    ValueError
+        If both ``mu`` and ``N`` are None.
 
     """
-    def __init__(self, T, N, V=None, P=None, kB=1.0):
-        # T
+    def __init__(self, T, P=None, V=None, mu=None, N=None, kB=1.0):
+        # P-V checking
+        if P is None and V is None:
+            raise ValueError('Either P or V must be set.')
+        elif P is not None and V is not None:
+            raise ValueError('Both P and V cannot be set.')
+
+        # mu-N checking
+        if mu is None:
+            mu = dict()
+        if N is None:
+            N = dict()
+        # type list
+        types = list(mu.keys()) + list(N.keys())
+        types = tuple(set(types))
+        if len(types) == 0:
+            raise ValueError('At least one type must be specified by N or mu.')
+        for t in types:
+            mu_i = mu.get(t)
+            N_i = N.get(t)
+            if mu_i is not None and N_i is not None:
+                raise ValueError('Both mu and N cannot be set for type {}.'.format(t))
+            elif N_i is not None and not isinstance(N_i,int):
+                raise TypeError('Value of N for type {} must be an integer or None.'.format(t))
+
+        # temperature
         self.kB = kB
         self.T = T
-
-        # N
-        types = tuple(N.keys())
-        for t in types:
-            if not isinstance(t,str):
-                raise TypeError('Particle type must be a string')
-            N_i = N.get(t)
-            if N_i is not None and not isinstance(N_i,int):
-                raise TypeError('N for type {} must be an integer.'.format(t))
-        self._N = FixedKeyDict(keys=types)
-        self.N.update(N)
 
         # P-V
         self.P = P
         self.V = V
 
+        # mu-N
+        self._mu = FixedKeyDict(keys=types)
+        self._N = FixedKeyDict(keys=types)
+        self.mu.update(mu)
+        self.N.update(N)
+
         # rdf per-pair
         self._rdf = PairMatrix(types=types)
+
+        # build the set of constant variables from the constructor
+        self._constant = {'T': True,
+                          'P': self.P is not None,
+                          'V': self.V is not None,
+                          'mu': {t: (self.mu[t] is not None) for t in types},
+                          'N': {t: (self.N[t] is not None) for t in types}
+                         }
 
     @property
     def T(self):
@@ -123,6 +170,11 @@ class Ensemble:
         return self._N
 
     @property
+    def mu(self):
+        r""":class:`FixedKeyDict`: Chemical potential of each type."""
+        return self._mu
+
+    @property
     def types(self):
         r"""tuple: The types in the ensemble."""
         return self.N.keys
@@ -133,9 +185,82 @@ class Ensemble:
         return self.rdf.pairs
 
     @property
+    def constant(self):
+        r"""dict: The constant variables in the system.
+
+        Each key of the dictionary indicates which variables were defined as
+        constants when the Ensemble was constructed. The user **must not**
+        mutate the values in this dictionary.
+
+        """
+        return self._constant
+
+    def aka(self,name):
+        """Check if the ensemble is also known by a common type.
+
+        Parameters
+        ----------
+        name : str
+            Common name of a thermodynamic ensemble. The recognized names are:
+
+            - "NVT" or "canonical" for constant *N*, *V*, and *T*.
+            - "NPT or "isothermal-isobaric for constant *N*, *P*, and *T*.
+            - "muVT" or "grand canonical" for constant :math:`\mu`, *V*, and *T*.
+
+        Returns
+        -------
+        bool:
+            True if the ensemble matches the name, and False otherwise.
+
+        Raises
+        ------
+        ValueError:
+            The name is not one of the recognized types.
+
+        """
+        if name in ("NVT","canonical"):
+            return (self.constant['T'] and self.constant['V']
+                and all(self.constant['N'][t] for t in self.types))
+        elif name in ("NPT","isothermal-isobaric"):
+            return (self.constant['T'] and self.constant['P']
+                and all(self.constant['N'][t] for t in self.types))
+        elif name in ("muVT","grand canonical"):
+            return (self.constant['T'] and self.constant['V']
+                and all(self.constant['mu'][t] for t in self.types))
+        else:
+            raise ValueError("Ensemble name not recognized")
+
+
+    @property
     def rdf(self):
         r""":class:`PairMatrix`: Radial distribution function per pair."""
         return self._rdf
+
+    def clear(self):
+        r"""Clear the value of all conjugate (fluctuating) variables in the ensemble.
+
+        The values of the non-constant variables and all radial distribution
+        functions become None.
+
+        Returns
+        -------
+        :class:`Ensemble`
+            This Ensemble with cleared parameters.
+
+        """
+        if not self.constant['V']:
+            self._V = None
+        if not self.constant['P']:
+            self._P = None
+        for t in self.types:
+            if not self.constant['N'][t]:
+                self._N[t] = None
+            if not self.constant['mu'][t]:
+                self._mu[t] = None
+        for pair in self.rdf:
+            self.rdf[pair] = None
+
+        return self
 
     def copy(self):
         r"""Make a copy of the ensemble.
@@ -158,12 +283,14 @@ class Ensemble:
 
         """
         data = {'T': self.T,
-                'N': self.N.todict(),
+                'P': self.P,
                 'V': {'__name__':type(self.V).__name__,
                       'data':self.V.to_json()
                      },
-                'P': self.P,
+                'mu': self.mu.todict(),
+                'N': self.N.todict(),
                 'kB': self.kB,
+                'constant': self.constant,
                 'rdf': {}
                }
 
@@ -196,23 +323,42 @@ class Ensemble:
         with open(filename) as f:
             data = json.load(f)
 
-        # create initial ensemble
+        # retrieve thermodynamic parameters
         VolumeType = getattr(volume,data['V']['__name__'])
         thermo = {'T': data['T'],
-                  'N': data['N'],
-                  'V': VolumeType.from_json(data['V']['data']),
                   'P': data['P'],
-                  'kB': data['kB']
+                  'V': VolumeType.from_json(data['V']['data']),
+                  'mu': data['mu'],
+                  'N': data['N']
                  }
-        ens = Ensemble(**thermo)
 
-        # unpack rdfs
+        # create Ensemble with constant variables only
+        thermo_const = copy.deepcopy(thermo)
+        for var in thermo:
+            if var == 'mu' or var == 'N':
+                for t in thermo[var]:
+                    if not data['constant'][var][t]:
+                        thermo_const[var][t] = None
+            elif not data['constant'][var]:
+                thermo_const[var] = None
+        ens = Ensemble(kB=data['kB'],**thermo_const)
+
+        # then set values of fluctuating variables
+        for var in thermo:
+            if var == 'mu' or var == 'N':
+                for t in thermo[var]:
+                    if not data['constant'][var][t]:
+                        getattr(ens,var).update({t:thermo[var][t]})
+            elif not data['constant'][var]:
+                setattr(ens,var,thermo[var])
+
+        # set rdf values
         for pair in ens.rdf:
             pair_ = str(pair)
             if data['rdf'][pair_] is None:
                 continue
             r = [i[0] for i in data['rdf'][pair_]]
             g = [i[1] for i in data['rdf'][pair_]]
-            ens.rdf[pair] = RDF(r,g)
+            ens.rdf[pair] = RDF(r=r, g=g)
 
         return ens

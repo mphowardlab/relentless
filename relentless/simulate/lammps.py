@@ -1,3 +1,43 @@
+"""
+LAMMPS operations
+=================
+
+
+.. autosummary::
+    :nosignatures:
+
+.. autoclass:: LAMMPS
+    :members:
+.. autoclass:: LAMMPSOperation
+    :members:
+.. autoclass:: Initialize
+    :members:
+.. autoclass:: InitializeFromFile
+    :members:
+.. autoclass:: InitializeRandomly
+    :members:
+.. autoclass:: MinimizeEnergy
+    :members:
+.. autoclass:: AddLangevinIntegrator
+    :members:
+.. autoclass:: RemoveLangevinIntegrator
+    :members:
+.. autoclass:: AddNPTIntegrator
+    :members:
+.. autoclass:: RemoveNPTIntegrator
+    :members:
+.. autoclass:: AddNVTIntegrator
+    :members:
+.. autoclass:: RemoveNVTIntegrator
+    :members:
+.. autoclass:: Run
+    :members:
+.. autoclass:: RunUpTo
+    :members:
+.. autoclass:: AddEnsembleAnalyzer
+    :members:
+
+"""
 import abc
 import os
 
@@ -22,7 +62,7 @@ class LAMMPS(simulate.Simulation):
     Raises
     ------
     ImportError
-        If the `lammps` package is not found.
+        If the ``lammps`` package is not found.
 
     """
     def __init__(self, operations=None, quiet=True, **options):
@@ -120,9 +160,9 @@ class Initialize(LAMMPSOperation):
     neighbor_buffer : float
         Buffer width.
     units : str
-        The LAMMPS style of units used in the simulation (defaults to `lj`).
+        The LAMMPS style of units used in the simulation (defaults to ``lj``).
     atom_style : str
-        The LAMMPS style of atoms used in a simulation (defaults to `atomic`).
+        The LAMMPS style of atoms used in a simulation (defaults to ``atomic``).
 
     """
     def __init__(self, neighbor_buffer, units='lj', atom_style='atomic'):
@@ -138,7 +178,7 @@ class Initialize(LAMMPSOperation):
         return cmds
 
     def extract_box_params(self, sim):
-        """Extracts LAMMPS box parameters (*Lx*, *Ly*, *Lz*, *xy*, *xz*, *yz*)
+        """Extracts LAMMPS box parameters (``Lx``, ``Ly``, ``Lz``, ``xy``, ``xz``, ``yz``)
         from the simulation's ensemble volume.
 
         Parameters
@@ -156,7 +196,7 @@ class Initialize(LAMMPSOperation):
         ValueError
             If the volume is not set.
         TypeError
-            If the volume does not derive from :class:`TriclinicBox`.
+            If the volume does not derive from :class:`~relentless.volume.TriclinicBox`.
 
         """
         # cast simulation box in LAMMPS parameters
@@ -196,7 +236,7 @@ class Initialize(LAMMPSOperation):
         ValueError
             If there are not at least two points in the tabulated potential.
         ValueError
-            If the pair potentials do not have equally spaced r.
+            If the pair potentials do not have equally spaced ``r``.
 
         """
         # lammps requires r > 0
@@ -264,9 +304,9 @@ class InitializeFromFile(Initialize):
     neighbor_buffer : float
         Buffer width.
     units : str
-        The LAMMPS style of units used in the simulation (defaults to `lj`).
+        The LAMMPS style of units used in the simulation (defaults to ``lj``).
     atom_style : str
-        The LAMMPS style of atoms used in a simulation (defaults to `atomic`).
+        The LAMMPS style of atoms used in a simulation (defaults to ``atomic``).
 
     """
     def __init__(self, filename, neighbor_buffer, units='lj', atom_style='atomic'):
@@ -292,9 +332,9 @@ class InitializeRandomly(Initialize):
     neighbor_buffer : float
         Buffer width.
     units : str
-        The LAMMPS style of units used in the simulation (defaults to `lj`).
+        The LAMMPS style of units used in the simulation (defaults to ``lj``).
     atom_style : str
-        The LAMMPS style of atoms used in a simulation (defaults to `atomic`).
+        The LAMMPS style of atoms used in a simulation (defaults to ``atomic``).
 
     """
     def __init__(self, seed, neighbor_buffer, units='lj', atom_style='atomic'):
@@ -359,7 +399,7 @@ class MinimizeEnergy(LAMMPSOperation):
 class AddLangevinIntegrator(LAMMPSOperation):
     """Langevin dynamics for a NVE ensemble.
 
-    The simulation ensemble must be NVT, with all per-type particle masses set.
+    The simulation ensemble must have all per-type particle masses set.
     The friction factor can be a single value or defined per-type for all types.
 
     Parameters
@@ -447,8 +487,6 @@ class RemoveLangevinIntegrator(LAMMPSOperation):
 class AddNPTIntegrator(LAMMPSOperation):
     r"""NPT integration via Nos\'e-Hoover thermostat/barostat.
 
-    The simulation ensemble must be NPT.
-
     Parameters
     ----------
     dt : float
@@ -466,7 +504,7 @@ class AddNPTIntegrator(LAMMPSOperation):
         self._fix = super().new_fix_id()
 
     def to_commands(self, sim):
-        cmds = ['fix {idx} {group_idx} npt temp {Tstart} {Tstop} {Tdamp} iso {Pstart} {Pstop} {Pdamp}'.format(idx=self._fix,
+       cmds = ['fix {idx} {group_idx} npt temp {Tstart} {Tstop} {Tdamp} iso {Pstart} {Pstop} {Pdamp}'.format(idx=self._fix,
                                                                                                               group_idx='all',
                                                                                                               Tstart=sim.ensemble.T,
                                                                                                               Tstop=sim.ensemble.T,
@@ -503,8 +541,6 @@ class RemoveNPTIntegrator(LAMMPSOperation):
 
 class AddNVTIntegrator(LAMMPSOperation):
     r"""NVT integration via Nos\'e-Hoover thermostat.
-
-    The simulation ensemble must be NVT.
 
     Parameters
     ----------
@@ -589,8 +625,8 @@ class RunUpTo(LAMMPSOperation):
 class AddEnsembleAnalyzer(LAMMPSOperation):
     """Analyzes the simulation ensemble and rdf at specified timestep intervals.
 
-    The simulation ensemble must have constant N, and only one LAMMPS
-    :class:AddEnsembleAnalyzer` can be initialized at a time.
+    The simulation ensemble must have constant ``N``, and only one LAMMPS
+    :class:`AddEnsembleAnalyzer` can be initialized at a time.
 
     Parameters
     ----------
@@ -599,7 +635,7 @@ class AddEnsembleAnalyzer(LAMMPSOperation):
     check_rdf_every : int
         Interval of time steps at which to log the rdf of the simulation.
     rdf_dr : float
-        The width (in units *r*) of a bin in the histogram of the rdf.
+        The width (in units ``r``) of a bin in the histogram of the rdf.
 
     """
     def __init__(self, check_thermo_every, check_rdf_every, rdf_dr):
@@ -608,6 +644,9 @@ class AddEnsembleAnalyzer(LAMMPSOperation):
         self.rdf_dr = rdf_dr
 
     def to_commands(self, sim):
+        if not all([sim.ensemble.constant['N'][t] for t in sim.ensemble.types]):
+            return ValueError('This analyzer requires constant N.')
+
         # check that IDs reserved for analysis do not yet exist
         reserved_ids = (('fix','thermo_avg'),
                         ('compute','rdf'),
@@ -684,6 +723,7 @@ class AddEnsembleAnalyzer(LAMMPSOperation):
 
         """
         ens = sim.ensemble.copy()
+        ens.clear()
 
         # extract thermo properties
         # we skip the first 2 rows, which are LAMMPS junk, and slice out the timestep from col. 0

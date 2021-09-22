@@ -1,3 +1,16 @@
+"""
+Dilute system
+=============
+
+Provides the :meth:`EnzembleAnalyzer()` operation for a dilute system.
+
+.. autosummary::
+    :nosignatures:
+
+.. autoclass:: AddEnsembleAnalyzer
+    :members:
+
+"""
 import numpy as np
 
 from relentless.ensemble import RDF
@@ -58,7 +71,7 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
 
     def __call__(self, sim):
         r"""Creates a copy of the ensemble with cleared fluctuating/conjugate variables.
-        The pressure *P* and :math:`g(r)` parameters for the new ensemble are calculated
+        The pressure :math:`P` and :math:`g(r)` parameters for the new ensemble are calculated
         as follows:
 
         .. math::
@@ -77,10 +90,14 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
         Raises
         ------
         ValueError
-            If r and u are not both set in the potentials matrix.
+            If ``r`` and ``u`` are not both set in the potentials matrix.
 
         """
+        if not sim.ensemble.aka("NVT"):
+            raise ValueError('Dilute simulations must be run in the NVT ensemble.')
+
         ens = sim.ensemble.copy()
+        ens.clear()
 
         # pair distribution function
         for pair in ens.pairs:

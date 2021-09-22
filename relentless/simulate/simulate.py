@@ -1,3 +1,33 @@
+"""
+Simulation interface
+====================
+
+Molecular simulation runs are performed in a :class:`Simulation` ensemble container,
+which initializes and runs a set of :class:`SimulationOperations`. Each simulation
+run requires the input of an ensemble, the interaction potentials, a directory
+to write the output data, and an optional MPI communicator to use, which are all
+used to construct a :class:`SimulationInstance`.
+
+The simulations can use a combination of multiple :class:`~relentless.potential.Potential`s or
+:class:`~relentless.potential.PairPotential`s tabulated together, the interface for
+which is given here using :class:`Potentials` and the tabulators :class:`PotentialTabulator`
+and :class:`PairPotentialTabulator`.
+
+.. autosummary::
+    :nosignatures:
+
+.. autoclass:: Simulation
+    :members:
+.. autoclass:: SimulationInstance
+    :members:
+.. autoclass:: Potentials
+    :members:
+.. autoclass:: PotentialTabulator
+    :members:
+.. autoclass:: PairPotentialTabulator
+    :members:
+
+"""
 import abc
 
 import numpy as np
@@ -34,7 +64,7 @@ class Simulation:
         Parameters
         ----------
         ensemble : :class:`Ensemble`
-            Simulation ensemble. Must include values for *N* and *V* even if
+            Simulation ensemble. Must include values for ``N`` and ``V`` even if
             these variables fluctuate.
         potentials : :class:`Potentials`
             The interaction potentials.
@@ -93,7 +123,7 @@ class SimulationInstance:
     backend : type
         Type of the simulation class.
     ensemble : :class:`Ensemble`
-        Simulation ensemble. Must include values for *N* and *V* even if
+        Simulation ensemble. Must include values for ``N`` and ``V`` even if
         these variables fluctuate.
     potentials : :class:`Potentials`
         The interaction potentials.
@@ -133,12 +163,12 @@ class Potentials:
 
     Iniitializes a :class:`PairPotentialTabulator` object that can store multiple potentials.
     Before the :class:`Potentials` object can be used, the ``rmax`` and ``num``
-    attributes of all ``pair``s (that are not `None`) must be set.
+    attributes of all ``pair``s (that are not ``None``) must be set.
 
     Parameters
     ----------
     pair_potentials : array_like
-        The pair potentials to be combined and tabulated. (Defaults to `None`,
+        The pair potentials to be combined and tabulated. (Defaults to ``None``,
         resulting in an empty :class:`PairPotentialTabulator` object).
 
     """
@@ -154,19 +184,19 @@ class PotentialTabulator:
     """Tabulates one or more potentials.
 
     Enables evaluation of energy, force, and derivative at different
-    positional values (i.e. *x*).
+    positional values (i.e. ``x``).
 
     Parameters
     ----------
     start : float
-        The positional value of *x* at which to begin tabulation.
+        The positional value of ``x`` at which to begin tabulation.
     stop : float
-        The positional value of *x* at which to end tabulation.
+        The positional value of ``x`` at which to end tabulation.
     num : int
-        The number of points (value of *x*) at which to tabulate and evaluate the potential.
+        The number of points (value of ``x``) at which to tabulate and evaluate the potential.
     potentials : :class:`Potential` or array_like
         The potential(s) to be tabulated. If array_like, all elements must
-        be :class:`Potential`s. (Defaults to `None`).
+        be :class:`Potential`s. (Defaults to ``None``).
 
     """
     def __init__(self, start, stop, num, potentials=None):
@@ -192,7 +222,7 @@ class PotentialTabulator:
 
     @property
     def start(self):
-        """float: The *x* value at which to start tabulation."""
+        """float: The ``x`` value at which to start tabulation."""
         return self._start
 
     @start.setter
@@ -202,7 +232,7 @@ class PotentialTabulator:
 
     @property
     def stop(self):
-        """float: The *x* value at which to stop tabulation."""
+        """float: The ``x`` value at which to stop tabulation."""
         return self._stop
 
     @stop.setter
@@ -225,7 +255,7 @@ class PotentialTabulator:
 
     @property
     def x(self):
-        """array_like: The values of *x* at which to evaluate energy, force, and derivative."""
+        """array_like: The values of ``x`` at which to evaluate :meth:`energy`, :meth:`force`, and :meth:`derivative`."""
         if self._compute_x:
             if self.start is None:
                 raise ValueError('Start of range must be set.')
@@ -248,7 +278,7 @@ class PotentialTabulator:
         Returns
         -------
         array_like
-            Accumulated energy at each *x* value.
+            Accumulated energy at each ``x`` value.
 
         """
         u = np.zeros_like(self.x)
@@ -270,7 +300,7 @@ class PotentialTabulator:
         Returns
         -------
         array_like
-            Accumulated force at each *x* value.
+            Accumulated force at each ``x`` value.
 
         """
         f = np.zeros_like(self.x)
@@ -292,7 +322,7 @@ class PotentialTabulator:
         Returns
         -------
         array_like
-            Accumulated force at each *x* value.
+            Accumulated force at each ``x`` value.
 
         """
         d = np.zeros_like(self.x)
@@ -307,17 +337,17 @@ class PairPotentialTabulator(PotentialTabulator):
     """Tabulates one or more pair potentials.
 
     Enables evaluation of energy, force, and derivative at different
-    positional values (i.e. *r*).
+    positional values (i.e. ``r``).
 
     Parameters
     ----------
     rmax : float
-        The maximum value of *r* at which to tabulate.
+        The maximum value of ``r`` at which to tabulate.
     num : int
-        The number of points (value of *r) at which to tabulate and evaluate the potential.
+        The number of points (value of ``r``) at which to tabulate and evaluate the potential.
     potentials : :class:`PairPotential` or array_like
         The pair potential(s) to be tabulated. If array_like, all elements must
-        be :class:`PairPotential`s. (Defaults to `None`).
+        be :class:`PairPotential`s. (Defaults to ``None``).
     fmax : float
         The maximum value of force at which to allow evaluation.
 
@@ -328,12 +358,12 @@ class PairPotentialTabulator(PotentialTabulator):
 
     @property
     def r(self):
-        """array_like: The values of *r* at which to evaluate energy, force, and derivative."""
+        """array_like: The values of ``r`` at which to evaluate :meth:`energy`, :meth:`force`, and :meth:`derivative`."""
         return self.x
 
     @property
     def rmax(self):
-        """float: The maximum value of *r* at which to allow tabulation."""
+        """float: The maximum value of ``r`` at which to allow tabulation."""
         return self.stop
 
     @rmax.setter
@@ -355,7 +385,7 @@ class PairPotentialTabulator(PotentialTabulator):
     def energy(self, pair):
         """Evaluates and accumulates energy for all potentials.
 
-        Shifts the energy to be 0 at rmax.
+        Shifts the energy to be 0 at :attr:``rmax``.
 
         Parameters
         ----------
@@ -365,7 +395,7 @@ class PairPotentialTabulator(PotentialTabulator):
         Returns
         -------
         array_like
-            Accumulated energy at each *r* value.
+            Accumulated energy at each ``r`` value.
 
         """
         u = super().energy(pair)
@@ -385,7 +415,7 @@ class PairPotentialTabulator(PotentialTabulator):
         Returns
         -------
         array_like
-            Accumulated force at each *r* value.
+            Accumulated force at each ``r`` value.
 
         """
         f = super().force(pair)
@@ -398,7 +428,7 @@ class PairPotentialTabulator(PotentialTabulator):
     def derivative(self, pair, var):
         """Evaluates and accumulates derivative for all potentials.
 
-        Shifts the derivative to be 0 at rmax.
+        Shifts the derivative to be 0 at :attr:`rmax`.
 
         Parameters
         ----------
@@ -408,7 +438,7 @@ class PairPotentialTabulator(PotentialTabulator):
         Returns
         -------
         array_like
-            Accumulated derivative at each *r* value.
+            Accumulated derivative at each ``r`` value.
 
         """
         d = super().derivative(pair, var)

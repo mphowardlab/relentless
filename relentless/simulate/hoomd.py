@@ -1,3 +1,53 @@
+"""
+HOOMD operations
+================
+
+
+.. autosummary::
+    :nosignatures:
+
+.. autoclass:: HOOMD
+    :members:
+.. autoclass:: Initialize
+    :members:
+.. autoclass:: InitializeFromFile
+    :members:
+.. autoclass:: InitializeRandomly
+    :members:
+.. autoclass:: MinimizeEnergy
+    :members:
+.. autoclass:: AddMDIntegrator
+    :members:
+.. autoclass:: RemoveMDIntegrator
+    :members:
+.. autoclass:: AddBrownianIntegrator
+    :members:
+.. autoclass:: RemoveBrownianIntegrator
+    :members:
+.. autoclass:: AddLangevinIntegrator
+    :members:
+.. autoclass:: RemoveLangevinIntegrator
+    :members:
+.. autoclass:: AddNPTIntegrator
+    :members:
+.. autoclass:: RemoveNPTIntegrator
+    :members:
+.. autoclass:: AddNVTIntegrator
+    :members:
+.. autoclass:: RemoveNVTIntegrator
+    :members:
+.. autoclass:: Run
+    :members:
+.. autoclass:: RunUpTo
+    :members:
+.. autoclass:: ThermodynamicsCallback
+    :members:
+.. autoclass:: RDFCallback
+    :members:
+.. autoclass:: AddEnsembleAnalyzer
+    :members:
+
+"""
 import os
 from packaging import version
 
@@ -28,9 +78,9 @@ class HOOMD(simulate.Simulation):
     Raises
     ------
     ImportError
-        If the `hoomd` package is not found, or is not version 2.x.
+        If the ``hoomd`` package is not found, or is not version 2.x.
     ImportError
-        If the `freud` package is not found, or is not version 2.x.
+        If the ``freud`` package is not found, or is not version 2.x.
 
     """
     def __init__(self, operations=None, **options):
@@ -77,7 +127,7 @@ class Initialize(simulate.SimulationOperation):
         self.neighbor_buffer = neighbor_buffer
 
     def extract_box_params(self, sim):
-        """Extracts HOOMD box parameters (*Lx*, *Ly*, *Lz*, *xy*, *xz*, *yz*)
+        """Extracts HOOMD box parameters (``Lx``, ``Ly``, ``Lz``, ``xy``, ``xz``, ``yz``)
         from the simulation's ensemble volume.
 
         Parameters
@@ -95,7 +145,7 @@ class Initialize(simulate.SimulationOperation):
         ValueError
             If the volume is not set.
         TypeError
-            If the volume does not derive from :class:`TriclinicBox`.
+            If the volume does not derive from :class:`~relentless.volume.TriclinicBox`.
 
         """
         # cast simulation box in HOOMD parameters
@@ -124,7 +174,7 @@ class Initialize(simulate.SimulationOperation):
 
         Returns
         -------
-        `hoomd.data` snapshot
+        :module:`hoomd.data` snapshot
             Particle simulation snapshot.
         :class:`freud.Box`
             Particle simulation box.
@@ -167,7 +217,7 @@ class Initialize(simulate.SimulationOperation):
         Raises
         ------
         ValueError
-            If the length of the *r*, *u*, and *f* arrays are not all equal.
+            If the length of the ``r``, ``u``, and ``f`` arrays are not all equal.
 
         """
         with sim.context:
@@ -231,7 +281,7 @@ class InitializeFromFile(Initialize):
             sim.system = hoomd.init.read_gsd(self.filename,**self.options)
 
             # check that the boxes are consistent in constant volume sims.
-            if sim.ensemble.V is not None:
+            if sim.ensemble.constant['V']:
                 system_box = sim.system.box
                 box_from_file = np.array([system_box.Lx,
                                           system_box.Ly,
@@ -440,7 +490,7 @@ class AddBrownianIntegrator(AddMDIntegrator):
     seed : int
         Seed used to randomly generate a uniform force.
     options : kwargs
-        Options used in :class:`hoomd.md.integrate.brownian()`.
+        Options used in :meth:`hoomd.md.integrate.brownian()`.
 
     """
     def __init__(self, dt, friction, seed, **options):
@@ -456,11 +506,6 @@ class AddBrownianIntegrator(AddMDIntegrator):
         ----------
         sim : :class:`Simulation`
             The simulation object.
-
-        Raises
-        ------
-        ValueError
-            If the simulation ensemble is not NVT.
 
         """
         self.attach_integrator(sim)
@@ -508,7 +553,7 @@ class AddLangevinIntegrator(AddMDIntegrator):
     seed : int
         Seed used to randomly generate a uniform force.
     options : kwargs
-        Options used in :class:`hoomd.md.integrate.langevin()`.
+        Options used in :meth:`hoomd.md.integrate.langevin()`.
 
     """
     def __init__(self, dt, friction, seed, **options):
@@ -524,11 +569,6 @@ class AddLangevinIntegrator(AddMDIntegrator):
         ----------
         sim : :class:`Simulation`
             The simulation object.
-
-        Raises
-        ------
-        ValueError
-            If the simulation ensemble is not NVT.
 
         """
         self.attach_integrator(sim)
@@ -576,7 +616,7 @@ class AddNPTIntegrator(AddMDIntegrator):
     tau_P : float
         Coupling constant for the barostat.
     options : kwargs
-        Options used in :class:`hoomd.md.integrate.npt()`.
+        Options used in :meth:`hoomd.md.integrate.npt()`.
 
     """
     def __init__(self, dt, tau_T, tau_P, **options):
@@ -592,11 +632,6 @@ class AddNPTIntegrator(AddMDIntegrator):
         ----------
         sim : :class:`Simulation`
             The simulation object.
-
-        Raises
-        ------
-        ValueError
-            If the simulation ensemble is not NPT.
 
         """
         self.attach_integrator(sim)
@@ -643,7 +678,7 @@ class AddNVTIntegrator(AddMDIntegrator):
     tau_T : float
         Coupling constant for the thermostat.
     options : kwargs
-        Options used in :class:`hoomd.md.integrate.nvt()`.
+        Options used in :meth:`hoomd.md.integrate.nvt()`.
 
     """
     def __init__(self, dt, tau_T, **options):
@@ -658,11 +693,6 @@ class AddNVTIntegrator(AddMDIntegrator):
         ----------
         sim : :class:`Simulation`
             The simulation object.
-
-        Raises
-        ------
-        ValueError
-            If the simulation ensemble is not NVT.
 
         """
         self.attach_integrator(sim)
@@ -730,7 +760,7 @@ class ThermodynamicsCallback:
 
     Parameters
     ----------
-    logger : `hoomd.analyze` logger
+    logger : :module:`hoomd.analyze` logger
         Logger from which to retrieve data.
     communicator : :class:`~relentless.mpi.Communicator`
         The MPI communicator to use.
@@ -763,7 +793,7 @@ class ThermodynamicsCallback:
             self._V[key] += val
 
     def reset(self):
-        """Resets sample number, *T*, *P*, and all *V* parameters to 0."""
+        """Resets sample number, ``T``, ``P``, and all ``V`` parameters to 0."""
         self.num_samples = 0
         self._T = 0.
         self._P = 0.
@@ -877,9 +907,12 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
         Raises
         ------
         ValueError
-            If the simulation ensemble does not have constant N.
+            If the simulation ensemble does not have constant ``N``.
 
         """
+        if not all([sim.ensemble.constant['N'][t] for t in sim.ensemble.types]):
+            return ValueError('This analyzer requires constant N.')
+
         with sim.context:
             # thermodynamic properties
             sim[self].logger = hoomd.analyze.log(filename=None,
@@ -916,6 +949,7 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
 
         """
         ens = sim.ensemble.copy()
+        ens.clear()
 
         thermo_recorder = sim[self].thermo_callback
         ens.T = thermo_recorder.T

@@ -1,7 +1,7 @@
 """
 Volumes
 =======
-A :class:`Volume` represents a 3D region of space with a fixed volume. It corresponds
+A :class:`Volume` represents a 3D region of space with a fixed, scalar volume. It corresponds
 to the "box" used in simulations. The following box types have been implemented:
 
 .. autosummary::

@@ -1,3 +1,20 @@
+"""
+Simulations
+===========
+
+A generalizable and human-readable interface for molecular simulations is provided.
+Molecular simulations are used to evolve a system described by a potential and
+generate ensemble-averaged descriptions of the system's properties. A framework
+for generic simulation operations is provided:
+
+.. toctree::
+    :maxdepth: 1
+
+    generic
+
+.. automodule:: relentless.simulate.simulate
+
+"""
 from .simulate import (Simulation,
                        SimulationInstance,
                        SimulationOperation,

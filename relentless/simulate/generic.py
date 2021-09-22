@@ -1,3 +1,49 @@
+"""
+Generic simulation operations
+=============================
+
+.. toctree::
+    :maxdepth: 1
+
+    dilute
+    hoomd
+    lammps
+
+.. autosummary::
+    :nosignatures:
+
+.. autoclass:: GenericOperation
+    :members:
+.. autoclass:: InitializeFromFile
+    :members:
+.. autoclass:: InitializeRandomly
+    :members:
+.. autoclass:: MinimizeEnergy
+    :members:
+.. autoclass:: AddBrownianIntegrator
+    :members:
+.. autoclass:: RemoveBrownianIntegrator
+    :members:
+.. autoclass:: AddLangevinIntegrator
+    :members:
+.. autoclass:: RemoveLangevinIntegrator
+    :members:
+.. autoclass:: AddNPTIntegrator
+    :members:
+.. autoclass:: RemoveNPTIntegrator
+    :members:
+.. autoclass:: AddNVTIntegrator
+    :members:
+.. autoclass:: RemoveNVTIntegrator
+    :members:
+.. autoclass:: Run
+    :members:
+.. autoclass:: RunUpTo
+    :members:
+.. autoclass:: AddEnsembleAnalyzer
+    :members:
+
+"""
 import importlib
 import inspect
 
@@ -73,8 +119,8 @@ class GenericOperation(simulate.SimulationOperation):
         ----------
         backend : :class:`Simulation`
             Class to add as a backend.
-        module : module or str or `None`
-            Module in which the backend is defined. If `None` (default), try to
+        module : module or str or ``None``
+            Module in which the backend is defined. If ``None`` (default), try to
             deduce the module from ``backend.__module__``. ``module`` will be
             imported if it has not already been.
 
@@ -299,7 +345,7 @@ class AddEnsembleAnalyzer(GenericOperation):
     check_rdf_every : int
         Interval of time steps at which to log the rdf of the simulation.
     rdf_dr : float
-        The width (in units *r*) of a bin in the histogram of the rdf.
+        The width (in units ``r``) of a bin in the histogram of the rdf.
 
     """
     def __init__(self, check_thermo_every, check_rdf_every, rdf_dr):
