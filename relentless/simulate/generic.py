@@ -93,7 +93,7 @@ from . import simulate
 class GenericOperation(simulate.SimulationOperation):
     """Generic simulation operation adapter.
 
-    Translates a ``generic`` simulation operation into an implemented operation
+    Translates a generic simulation operation into an implemented operation
     for a valid :class:`~relentless.simulate.simulate.Simulation` backend. The
     backend must be an attribute of the :class:`GenericOperation`.
 
@@ -123,7 +123,7 @@ class GenericOperation(simulate.SimulationOperation):
 
         Returns
         -------
-        :obj:
+        :class:`object`
             The result of the generic simulation operation function.
 
         Raises
@@ -317,7 +317,7 @@ class RemoveNPTIntegrator(GenericOperation):
         super().__init__(add_op)
 
 class AddNVTIntegrator(GenericOperation):
-    r"""NVT integration via Nos\'e-Hoover thermostat.
+    r"""NVT integration via Nos\'{e}-Hoover thermostat.
 
     Parameters
     ----------

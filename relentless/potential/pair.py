@@ -94,7 +94,7 @@ class PairParameters(potential.Parameters):
 
         coeff = PairParameters(types=('A','B'), params=('epsilon','sigma'))
 
-    The parameters can be accessed or iterated using :attr:`params`::
+    The parameters can be accessed or iterated using ``params``::
 
         >>> print(coeff.params)
         ('epsilon','sigma')

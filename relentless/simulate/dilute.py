@@ -1,6 +1,9 @@
 """
-Dilute system
-=============
+Dilute
+======
+
+Simulation operations for a dilute system are provided. They can be accessed using
+the corresponding :class:`~relentless.simulate.generic.GenericOperation`.
 
 The :class:`AddEnzembleAnalyzer()` operation is provided for a dilute system.
 
@@ -9,6 +12,10 @@ The :class:`AddEnzembleAnalyzer()` operation is provided for a dilute system.
 
     Dilute
     AddEnsembleAnalyzer
+
+.. autoclass:: Dilute
+    :member-order: bysource
+    :members:
 
 .. autoclass:: AddEnsembleAnalyzer
     :member-order: bysource

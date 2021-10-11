@@ -364,7 +364,7 @@ class DependentVariable(Variable):
 
         Yields
         ------
-        str
+        :class:`str`
             The name of the attribute.
         :class:`Variable`
             The parameter variable object.

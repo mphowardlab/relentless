@@ -133,7 +133,7 @@ class FixedKeyDict:
 
         Parameters
         ----------
-        data : `dict`
+        data : :class:`dict`
             The keys and values to be updated/over-written, in a dictionary form.
         values : kwargs
             The keys and values to be updated/over-written.

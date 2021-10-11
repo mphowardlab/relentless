@@ -142,7 +142,7 @@ class Parameters:
 
         Returns
         -------
-        :class:`tuple`[:class:`~relentless.variable.DesignVariable`]
+        :class:`tuple`\[:class:`~relentless.variable.DesignVariable`\]
             The unique :class:`~relentless.variable.DesignVariable` variables on which the
             parameters depend.
 

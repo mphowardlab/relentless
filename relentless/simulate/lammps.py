@@ -1,6 +1,6 @@
 """
-LAMMPS operations
-=================
+LAMMPS
+======
 
 Simulation operations using the `LAMMPS engine <https://docs.lammps.org>`_
 for classical molecular dynamics are provided. They can be accessed using the
@@ -131,6 +131,10 @@ class LAMMPS(simulate.Simulation):
         return sim
 
 class LAMMPSOperation(simulate.SimulationOperation):
+    """Provides an interface to translate :class:`~relentless.simulate.simulate.SimulationOperation`\s
+    into LAMMPS operations.
+
+    """
     _fix_counter = 1
 
     def __call__(self, sim):

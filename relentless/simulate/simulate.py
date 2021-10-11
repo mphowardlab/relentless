@@ -9,7 +9,7 @@ to write the output data, and an optional MPI communicator to use, which are all
 used to construct a :class:`SimulationInstance`.
 
 The simulations can use a combination of multiple :class:`~relentless.potential.potential.Potential`\s or
-:class:`~relentless.potential.potential.PairPotential`\s tabulated together, the interface for
+:class:`~relentless.potential.pair.PairPotential`\s tabulated together, the interface for
 which is given here using :class:`Potentials` and the tabulators :class:`PotentialTabulator`
 and :class:`PairPotentialTabulator`.
 
@@ -26,6 +26,11 @@ and :class:`PairPotentialTabulator`.
 
 To implement your own simulation operation, create a class that derives from
 :class:`SimulationOperation` and define the required methods.
+
+.. autosummary::
+    :nosignatures:
+
+    SimulationOperation
 
 .. autoclass:: Simulation
     :members:
@@ -361,9 +366,9 @@ class PairPotentialTabulator(PotentialTabulator):
         The maximum value of ``r`` at which to tabulate.
     num : int
         The number of points (value of ``r``) at which to tabulate and evaluate the potential.
-    potentials : :class:`~relentless.potential.potential.PairPotential` or array_like
+    potentials : :class:`~relentless.potential.pair.PairPotential` or array_like
         The pair potential(s) to be tabulated. If array_like, all elements must
-        be :class:`~relentless.potential.potential.PairPotential`\s. (Defaults to ``None``).
+        be :class:`~relentless.potential.pair.PairPotential`\s. (Defaults to ``None``).
     fmax : float
         The maximum value of force at which to allow evaluation.
 
