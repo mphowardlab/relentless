@@ -3,7 +3,7 @@ Dilute
 ======
 
 Simulation operations for a dilute system are provided. They can be accessed using
-the corresponding :class:`~relentless.simulate.generic.GenericOperation`.
+the corresponding :class:`~relentless.simulate.generic.GenericOperation`\.
 
 The :class:`AddEnzembleAnalyzer()` operation is provided for a dilute system.
 
@@ -39,8 +39,6 @@ class Dilute(simulate.Simulation):
     .. math::
 
         f_{ij}(r)=-\nabla u_{ij}(r)
-
-    .. math::
 
         g_{ij}(r)=e^{-\beta u_{ij}(r)}
 
