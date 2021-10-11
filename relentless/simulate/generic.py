@@ -34,7 +34,7 @@ The following generic simulation operations have been implemented:
     AddNPTIntegrator
     RemoveNPTIntegrator
     AddNVTIntegrator
-    RemoveIntegrator
+    RemoveNVTIntegrator
     Run
     RunUpTo
     AddEnsembleAnalyzer
