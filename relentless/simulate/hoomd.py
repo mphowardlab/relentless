@@ -2,51 +2,102 @@
 HOOMD operations
 ================
 
-Implements the generic simulation operations using HOOMD-blue.
+Simulation operations using the `HOOMD-blue engine <https://hoomd-blue.readthedocs.io/en/stable>`_
+for classical molecular dynamics are provided. They can be accessed using the
+corresponding :class:`~relentless.simulate.generic.GenericOperation`.
+
+The following HOOMD operations have been implemented.
 
 .. autosummary::
     :nosignatures:
+
+    Initialize
+    InitializeFromFile
+    InitializeRandomly
+    MinimizeEnergy
+    AddMDIntegrator
+    RemoveMDIntegrator
+    AddBrownianIntegrator
+    RemoveBrownianIntegrator
+    AddLangevinIntegrator
+    RemoveLangevinIntegrator
+    AddNPTIntegrator
+    RemoveNPTIntegrator
+    AddNVTIntegrator
+    RemoveNVTIntegrator
+    Run
+    RunUpTo
+    ThermodynamicsCallback
+    RDFCallback
+    AddEnsembleAnalyzer
+
+:class:`AddMDIntegrator` and :class:`RemoveMDIntegrator` are generic methods
+which can be used to implement additional integrators if desired. :class:`ThermodynamicsCallback`
+and :class:`RDFCallback` are helper operations for the :class:`AddEnsembleAnalyzer`
+operation.
+
+The `freud <https://freud.readthedocs.io>`_
+library is used to assist in the initialization of the simulation box and in the
+calculation of the RDF ensemble average.
+
+.. rubric:: Developer notes
+
+For compatibility with the generic operations, the :class:`HOOMD` backend is
+defined here. If you want to implement your own HOOMD operation, create a class
+that derives from :class:`~relentless.simulate.simulate.SimulationOperation` and
+define the required methods.
+
+.. autosummary::
+    :nosignatures:
+
+    HOOMD
 
 .. autoclass:: HOOMD
     :members:
 .. autoclass:: Initialize
     :members:
 .. autoclass:: InitializeFromFile
-    :members:
+    :members: __call__
 .. autoclass:: InitializeRandomly
-    :members:
+    :members: __call__
 .. autoclass:: MinimizeEnergy
-    :members:
+    :members: __call__
 .. autoclass:: AddMDIntegrator
     :members:
 .. autoclass:: RemoveMDIntegrator
     :members:
 .. autoclass:: AddBrownianIntegrator
-    :members:
+    :members: __call__
 .. autoclass:: RemoveBrownianIntegrator
     :members:
 .. autoclass:: AddLangevinIntegrator
-    :members:
+    :members: __call__
 .. autoclass:: RemoveLangevinIntegrator
     :members:
 .. autoclass:: AddNPTIntegrator
-    :members:
+    :members: __call__
 .. autoclass:: RemoveNPTIntegrator
     :members:
 .. autoclass:: AddNVTIntegrator
-    :members:
+    :members: __call__
 .. autoclass:: RemoveNVTIntegrator
     :members:
 .. autoclass:: Run
-    :members:
+    :members: __call__
 .. autoclass:: RunUpTo
-    :members:
+    :members: __call__
 .. autoclass:: ThermodynamicsCallback
-    :members:
+    :members: __call__,
+        reset,
+        T,
+        P,
+        V
 .. autoclass:: RDFCallback
-    :members:
+    :members: __call__,
+        rdf
 .. autoclass:: AddEnsembleAnalyzer
-    :members:
+    :members: __call__,
+        extract_ensemble
 
 """
 import os
@@ -74,14 +125,14 @@ except ImportError:
     _freud_found = False
 
 class HOOMD(simulate.Simulation):
-    """:class:`~relentless.simulation.Simulation` using HOOMD framework.
+    """:class:`~relentless.simulate.Simulation` using HOOMD framework.
 
     Raises
     ------
     ImportError
-        If the ``hoomd`` package is not found, or is not version 2.x.
+        If the mod:`hoomd` package is not found, or is not version 2.x.
     ImportError
-        If the ``freud`` package is not found, or is not version 2.x.
+        If the mod:`freud` package is not found, or is not version 2.x.
 
     """
     def __init__(self, operations=None, **options):
@@ -133,7 +184,7 @@ class Initialize(simulate.SimulationOperation):
 
         Parameters
         ----------
-        sim : :class:`~relentless.simulation.Simulation`
+        sim : :class:`~relentless.simulate.simulate.Simulation`
             Simulation object.
 
         Returns
@@ -170,14 +221,14 @@ class Initialize(simulate.SimulationOperation):
 
         Parameters
         ----------
-        sim : :class:`Simulation`
+        sim : :class:`~relentless.simulate.simulate.Simulation`
             The simulation object.
 
         Returns
         -------
-        :class:`hoomd.data` snapshot
+        :mod:`hoomd.data` snapshot
             Particle simulation snapshot.
-        :class:`freud.Box`
+        :mod:`freud.Box`
             Particle simulation box.
 
         Raises
@@ -212,7 +263,7 @@ class Initialize(simulate.SimulationOperation):
 
         Parameters
         ----------
-        sim : :class:`Simulation`
+        sim : :class:`~relentless.simulate.simulate.Simulation`
             The simulation object.
 
         Raises
@@ -255,7 +306,7 @@ class InitializeFromFile(Initialize):
     neighbor_buffer : float
         Buffer width.
     options : kwargs
-        Options for file reading (as used in :meth:`hoomd.init.read_gsd()`).
+        Options for file reading (as used in :func:`hoomd.init.read_gsd`).
 
     """
     def __init__(self, filename, neighbor_buffer, **options):
@@ -268,7 +319,7 @@ class InitializeFromFile(Initialize):
 
         Parameters
         ----------
-        sim : :class:`Simulation`
+        sim : :class:`~relentless.simulate.simulate.Simulation`
             The simulation object.
 
         Raises
@@ -319,7 +370,7 @@ class InitializeRandomly(Initialize):
 
         Parameters
         ----------
-        sim : :class:`Simulation`
+        sim : :class:`~relentless.simulate.Simulation`
             The simulation object.
 
         """
@@ -385,7 +436,7 @@ class MinimizeEnergy(simulate.SimulationOperation):
 
         Parameters
         ----------
-        sim : :class:`Simulation`
+        sim : :class:`~relentless.simulate.simulate.Simulation`
             The simulation object.
 
         Raises
@@ -434,7 +485,7 @@ class AddMDIntegrator(simulate.SimulationOperation):
 
         Parameters
         ----------
-        sim : :class:`Simulation`
+        sim : :class:`~relentless.simulate.simulate.Simulation`
             The simulation object.
 
         """
@@ -452,7 +503,7 @@ class RemoveMDIntegrator(simulate.SimulationOperation):
 
     Parameters
     ----------
-    add_op : :class:`SimulationOperation`
+    add_op : :class:`~relentless.simulate.simulate.SimulationOperation`
         The addition/integration operation to be removed.
 
     """
@@ -464,7 +515,7 @@ class RemoveMDIntegrator(simulate.SimulationOperation):
 
         Parameters
         ----------
-        sim : :class:`Simulation`
+        sim : :class:`~relentless.simulate.simulate.Simulation`
             The simulation object.
 
         Raises
@@ -491,7 +542,7 @@ class AddBrownianIntegrator(AddMDIntegrator):
     seed : int
         Seed used to randomly generate a uniform force.
     options : kwargs
-        Options used in :meth:`hoomd.md.integrate.brownian()`.
+        Options used in :func:`hoomd.md.integrate.brownian`.
 
     """
     def __init__(self, dt, friction, seed, **options):
@@ -505,7 +556,7 @@ class AddBrownianIntegrator(AddMDIntegrator):
 
         Parameters
         ----------
-        sim : :class:`Simulation`
+        sim : :class:`~relentless.simulate.simulate.Simulation`
             The simulation object.
 
         """
@@ -554,7 +605,7 @@ class AddLangevinIntegrator(AddMDIntegrator):
     seed : int
         Seed used to randomly generate a uniform force.
     options : kwargs
-        Options used in :meth:`hoomd.md.integrate.langevin()`.
+        Options used in :func:`hoomd.md.integrate.langevin`.
 
     """
     def __init__(self, dt, friction, seed, **options):
@@ -568,7 +619,7 @@ class AddLangevinIntegrator(AddMDIntegrator):
 
         Parameters
         ----------
-        sim : :class:`Simulation`
+        sim : :class:`~relentless.simulate.simulate.Simulation`
             The simulation object.
 
         """
@@ -617,7 +668,7 @@ class AddNPTIntegrator(AddMDIntegrator):
     tau_P : float
         Coupling constant for the barostat.
     options : kwargs
-        Options used in :meth:`hoomd.md.integrate.npt()`.
+        Options used in :func:`hoomd.md.integrate.npt`.
 
     """
     def __init__(self, dt, tau_T, tau_P, **options):
@@ -631,7 +682,7 @@ class AddNPTIntegrator(AddMDIntegrator):
 
         Parameters
         ----------
-        sim : :class:`Simulation`
+        sim : :class:`~relentless.simulate.simulate.Simulation`
             The simulation object.
 
         """
@@ -669,11 +720,6 @@ class AddNVTIntegrator(AddMDIntegrator):
 
     Parameters
     ----------
-    add_op : :class:`AddNVTIntegrator`
-        The integrator addition operation to be removed.
-
-    Parameters
-    ----------
     dt : float
         Time step size for each simulation iteration.
     tau_T : float
@@ -692,7 +738,7 @@ class AddNVTIntegrator(AddMDIntegrator):
 
         Parameters
         ----------
-        sim : :class:`Simulation`
+        sim : :class:`~relentless.simulate.simulate.Simulation`
             The simulation object.
 
         """
@@ -761,7 +807,7 @@ class ThermodynamicsCallback:
 
     Parameters
     ----------
-    logger : :class:`hoomd.analyze` logger
+    logger : :mod:`hoomd.analyze` logger
         Logger from which to retrieve data.
     communicator : :class:`~relentless.mpi.Communicator`
         The MPI communicator to use.
@@ -830,10 +876,10 @@ class RDFCallback:
 
     Parameters
     ----------
-    system : `hoomd.data` system
+    system : :mod:`hoomd.data` system
         Simulation system object.
-    params : :class:`PairMatrix`
-        Parameters to be used to initialize an instance of :class:`freud.density.RDF`.
+    params : :class:`~relentless._collections.PairMatrix`
+        Parameters to be used to initialize an instance of :mod:`freud.density.RDF`.
     communicator : :class:`~relentless.mpi.Communicator`
         The MPI communicator to use.
 
@@ -937,12 +983,12 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
 
         Parameters
         ----------
-        sim : :class:`Simulation`
+        sim : :class:`~relentless.simulate.simulate.Simulation`
             The simulation object.
 
         Returns
         -------
-        :class:`Ensemble`
+        :class:`~relentless.Ensemble`
             Ensemble with averaged thermodynamic properties and rdf.
 
         """

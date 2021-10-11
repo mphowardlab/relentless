@@ -2,12 +2,17 @@
 Collections
 ===========
 
-This module contains some data structures used in ``relentless`` as an alternative
-to Python's general purpose containers, for ease of use in constructing potentials
-and performing computations during the optimization workflow.
+This module contains some data structures used in :module:`relentless` as an
+alternative to Python's general purpose containers, for ease of use in constructing
+potentials and performing computations during the optimization workflow.
 
 .. autosummary::
     :nosignatures:
+
+    FixedKeyDict
+    PairMatrix
+    KeyedArray
+    DefaultDict
 
 .. autoclass:: FixedKeyDict
     :members:
@@ -116,7 +121,7 @@ class FixedKeyDict:
         return str(self._data)
 
     def clear(self):
-        """Clear entries in dict, resetting to default."""
+        """Clear entries in the dictionary, resetting to default."""
         for i in self.keys:
             self._data[i] = self._default
 
@@ -182,7 +187,7 @@ class PairMatrix:
     Parameters
     ----------
     types : array_like
-        List of types (A type must be a `str`).
+        List of types (A type must be a :type:`str`).
 
     Raises
     ------

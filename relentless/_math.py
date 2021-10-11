@@ -2,8 +2,7 @@
 Math functions
 ==============
 
-This module contains a interpolator using Akima 1D splines. The function's value
-and derivatives can be evaluated.
+This module implements some convenience objects for mathematical operations.
 
 .. autosummary::
     :nosignatures:
@@ -45,7 +44,7 @@ class Interpolator:
 
     Examples
     --------
-    Interpolating the line :math:`y=2x`\::
+    Interpolating the line :math:`y=2x`::
 
         f = Interpolator(x=(-1,0,1), y=(-2,0,2))
 

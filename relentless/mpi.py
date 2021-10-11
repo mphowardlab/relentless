@@ -4,7 +4,7 @@ MPI communication
 
 Parallel execution using the Message Passing Interface (MPI) is supported.
 Typically, the calculations required to steer an optimization are simple, so the
-primary reason to support MPI is for :class:`~relentless.simulate.Simulation`
+primary reason to support MPI is for :class:`~relentless.simulate.simulate.Simulation`
 engines that will run on multiple processes. In Python, the MPI interface is
 accessed using the :mod:`mpi4py` package.
 
@@ -219,7 +219,7 @@ class Communicator:
                 x = None
             x = comm.bcast_numpy(x)
 
-        Broadcast an array with preexisting storage:
+        Broadcast an array with pre-existing storage:
 
         .. code::
 

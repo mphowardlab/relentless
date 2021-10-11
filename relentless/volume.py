@@ -12,8 +12,8 @@ to the "box" used in simulations. The following box types have been implemented:
     Cuboid
     Cube
 
-The TriclinicBox can be constructed using both the LAMMPS and HOOMD-blue conventions
-for applying tilt factors.
+The :class:`TriclinicBox` can be constructed using both the LAMMPS and HOOMD-blue
+:class:`TriclinicBox.Convention`\s for applying tilt factors.
 
 Examples
 --------
@@ -317,7 +317,7 @@ class TriclinicBox(Parallelepiped):
         Raises
         ------
         ValueError
-            If the convention specified is not LAMMPS or HOOMD.
+            If the convention specified is not ``'LAMMPS'`` or ``'HOOMD'``.
 
         """
         data_ = dict(data)

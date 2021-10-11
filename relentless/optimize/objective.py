@@ -161,8 +161,8 @@ class ObjectiveFunctionResult:
 
     @property
     def gradient(self):
-        """:class:`~relentless.KeyedArray`: The gradient of the objective function,
-        keyed on its design variables."""
+        """:class:`~relentless._collections.KeyedArray`: The gradient of the
+        objective function, keyed on its design variables."""
         return self._gradient
 
     @property
@@ -178,8 +178,8 @@ class ObjectiveFunctionResult:
 
     @property
     def design_variables(self):
-        """:class:`~relentless.KeyedArray`: The design variables of the
-        :class:`ObjectiveFunction` for which the result was constructed, mapped
+        """:class:`~relentless._collections.KeyedArray`: The design variables of
+        the :class:`ObjectiveFunction` for which the result was constructed, mapped
         to the value of the variables at the time the result was constructed."""
         return self._design_variables
 
@@ -230,14 +230,14 @@ class RelativeEntropy(ObjectiveFunction):
     ----------
     target : :class:`~relentless.ensemble.Ensemble`
         The target ensemble (must have specified ``V`` and ``N``).
-    simulation : :class:`~relentless.simulate.Simulation`
+    simulation : :class:`~relentless.simulate.simulate.Simulation`
         The simulation engine to use, with specified simulation operations.
-    potentials : :class:`~relentless.simulate.Potentials`
+    potentials : :class:`~relentless.simulate.simulate.Potentials`
         The pair potentials to use in the simulations.
-    thermo : :class:`~relentless.simulate.SimulationOperation`
+    thermo : :class:`~relentless.simulate.simulate.SimulationOperation`
         The thermodynamic analyzer operation for the simulation ensemble and rdf
-        (usually :meth:`~relentless.simulate.AddEnsembleAnalyzer()`). The model ensemble will be
-        extracted from this operation.
+        (usually :meth:`~relentless.simulate.simulate.AddEnsembleAnalyzer()`).
+        The model ensemble will be extracted from this operation.
     communicator : :class:`~relentless.mpi.Communicator`
         The communicator used to run the ``simulation`` (defaults to
         ``None``).
@@ -262,9 +262,9 @@ class RelativeEntropy(ObjectiveFunction):
         computationally expensive.
 
         Optionally, a directory can be specified both to write the simulation
-        output as defined in :meth:`~relentless.simulate.Simulation.run()`, and the values of the pair
-        potential design variables, which are written to ``potential.i.json``
-        for the :math:`i`\th pair potential.
+        output as defined in :meth:`~relentless.simulate.simulate.Simulation.run()`,
+        and the values of the pair potential design variables, which are written
+        to ``potential.i.json`` for the :math:`i`\th pair potential.
 
         Parameters
         ----------

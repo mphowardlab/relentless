@@ -127,7 +127,7 @@ class Directory:
         Returns
         -------
         str
-            The absolute path to the file `name`.
+            The absolute path to the file ``name``.
 
         Examples
         --------
@@ -183,7 +183,7 @@ class Directory:
 
         Parameters
         ----------
-        dest : :class:`Directory` or str
+        dest : :class:`Directory` or :type`str`
             Destination directory.
 
         """
@@ -198,7 +198,7 @@ class Directory:
 
         Parameters
         ----------
-        dest : :class:`Directory` or str
+        dest : :class:`Directory` or :type:`str`
             Destination directory.
 
         """

@@ -33,7 +33,7 @@ from relentless import variable
 class Parameters:
     """Parameters for types.
 
-    Each type is a :class:`str`. A named list of parameters can be set for type.
+    Each type is a :type:`str`. A named list of parameters can be set for type.
     An optional shared value can be set for any of the parameters,
     and this value will be used if the per-type value is not set.
 
@@ -142,7 +142,7 @@ class Parameters:
 
         Returns
         -------
-        tuple[:class:`~relentless.variable.DesignVariable`]
+        :type:`tuple`[:class:`~relentless.variable.DesignVariable`]
             The unique :class:`~relentless.variable.DesignVariable` variables on which the
             parameters depend.
 
@@ -184,11 +184,10 @@ class Parameters:
 class Potential(abc.ABC):
     """Abstract base class for interaction potential.
 
-    A :class:`Potential` defines the potential energy abstractly, which can
-    be parametrized on a ``key`` (like a type) and that is a function of an
-    arbitrary scalar coordinate ``x``. Concrete :meth:`energy`, :meth:`force`,
-    :meth:`derivative` methods must be implemented to define the potential
-    energy (and its derivatives).
+    A Potential defines the potential energy abstractly, which can be parametrized
+    on a ``key`` (like a type) and that is a function of an arbitrary scalar
+    coordinate ``x``. Concrete :meth:`energy`, :meth:`force`, and :meth:`derivative`
+    methods must be implemented to define the potential energy (and its derivatives).
 
     Parameters
     ----------

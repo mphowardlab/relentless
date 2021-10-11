@@ -42,7 +42,7 @@ To implement your own pair potential, create a class that derives from
         _force,
         _derivative
 .. autoclass:: PairParameters
-    :members: evaluate, shared, pairs
+    :members: evaluate, pairs
 .. autoclass:: Depletion
 .. autoclass:: LennardJones
 .. autoclass:: PairSpline
@@ -62,10 +62,10 @@ from . import potential
 class PairParameters(potential.Parameters):
     """Parameters for pairs of types.
 
-    A pair is a tuple of two types, and each type is a `str`. A named
+    A pair is a tuple of two types, and each type is a :type:`str`. A named
     list of parameters can be set for each pair of types. The parameters for a
-    pair are assumed to be symmetric, so the pair *(i,j)* is the same as the
-    pair *(j,i)*. An optional shared value can be set for any of the parameters,
+    pair are assumed to be symmetric, so the pair ``(i,j)`` is the same as the
+    pair ``(j,i)``. An optional shared value can be set for any of the parameters,
     and this value will be used if the per-pair value is not set.
 
     The same parameters can also be set for each type. These values are not
@@ -110,7 +110,7 @@ class PairParameters(potential.Parameters):
         >>> print(coeff['A','A'])
         {'epsilon':2.0, 'sigma':2.5}
 
-    Assigning a :class:`dict` to a pair using the ``=`` operator resets any
+    Assigning a :type:`dict` to a pair using the ``=`` operator resets any
     parameters that are not specified::
 
         coeff['A','A'] = {'sigma': 2.5}
@@ -487,7 +487,7 @@ class PairPotential(potential.Potential):
         ----------
         r : float or list
             The pair distance(s) at which to evaluate the energy.
-        **params
+        **params : kwargs
             Named parameters of the potential.
 
         Returns
@@ -512,7 +512,7 @@ class PairPotential(potential.Potential):
         ----------
         r : float or list
             The pair distance(s) at which to evaluate the force.
-        **params
+        **params : kwargs
             Named parameters of the potential.
 
         Returns
@@ -539,7 +539,7 @@ class PairPotential(potential.Potential):
             Name of the parameter.
         r : float or list
             The pair distance(s) at which to evaluate the derivative.
-        **params
+        **params : kwargs
             Named parameters of the potential.
 
         Returns
@@ -909,7 +909,7 @@ class PairSpline(PairPotential):
         super().__init__(types=types,params=params)
 
     def from_array(self, pair, r, u):
-        """Setup the potential from knot points.
+        r"""Set up the potential from knot points.
 
         Each knot will be converted into two :class:`~relentless.variable.DesignVariable`
         objects consistent with the storage ``mode``.
@@ -917,7 +917,7 @@ class PairSpline(PairPotential):
         Parameters
         ----------
         pair : tuple[str]
-            The type pair *(i,j)* for which to set up the potential.
+            The type pair ``(i,j)`` for which to set up the potential.
         r : list
             Position of each knot.
         u : list
@@ -926,9 +926,9 @@ class PairSpline(PairPotential):
         Raises
         ------
         ValueError
-            If the number of r values is not the same as the number of knots.
+            If the number of ``r`` values is not the same as the number of knots.
         ValueError
-            If the number of u values is not the same as the number of knots.
+            If the number of ``u`` values is not the same as the number of knots.
 
         """
         # check that r and u have the right shape
@@ -957,7 +957,7 @@ class PairSpline(PairPotential):
                 self.coeff[pair][ki].value = ks[i]
 
     def _knot_params(self, i):
-        """Get the parameter names for a given knot.
+        r"""Get the parameter names for a given knot.
 
         Parameters
         ----------
@@ -967,7 +967,7 @@ class PairSpline(PairPotential):
         Returns
         -------
         str
-            The parameter name of the r value.
+            The parameter name of the :math:`r` value.
         str
             The parameter name of the knot value.
 
@@ -1034,7 +1034,7 @@ class PairSpline(PairPotential):
 
         Returns
         -------
-        :class:`Interpolator`
+        :class:`~relentless._math.Interpolator`
             The interpolated spline potential.
 
         """
@@ -1060,18 +1060,18 @@ class PairSpline(PairPotential):
         return self._mode
 
     def knots(self, pair):
-        """Generator for knot points.
+        r"""Generator for knot points.
 
         Parameters
         ----------
         pair : tuple[str]
-            The type pair *(i,j)* for which to retrieve the knot points.
+            The type pair ``(i,j)`` for which to retrieve the knot points.
 
         Yields
         ------
-        :class:`DesignVariable`
-            The next *r* variable in the parameters.
-        :class:`DesignVariable`
+        :class:`~relentless.variable.DesignVariable`
+            The next :math:`r` variable in the parameters.
+        :class:`~relentless.variable.DesignVariable`
             The next knot variable in the parameters.
 
         """

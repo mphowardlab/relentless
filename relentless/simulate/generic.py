@@ -7,8 +7,8 @@ interfaces (HOOMD-blue, LAMMPS, dilute system) is provided. This grants the user
 immense ease of use as a single command can be used to achieve the same function
 using multiple simulation packages. The supported generic operations are initialization
 of a system from file or randomly, energy minimization, simulation run, and a number
-of integrators (Brownian, Langevin, NPT, NVT), as well as an operation to extract
-the model ensemble and RDF at a given timestep interval.
+of integrators (Langevin, NPT, NVT, Brownian (LAMMPS only)), as well as an
+operation to extract the model ensemble and RDF at given timestep intervals.
 
 The generic simulation operations are compatible with the following simulation packages:
 
@@ -19,11 +19,40 @@ The generic simulation operations are compatible with the following simulation p
     hoomd
     lammps
 
+The following generic simulation operations have been implemented:
+
 .. autosummary::
     :nosignatures:
 
+    InitializeFromFile
+    InitializeRandomly
+    MinimizeEnergy
+    AddBrownianIntegrator
+    RemoveBrownianIntegrator
+    AddLangevinIntegrator
+    RemoveLangevinIntegrator
+    AddNPTIntegrator
+    RemoveNPTIntegrator
+    AddNVTIntegrator
+    RemoveIntegrator
+    Run
+    RunUpTo
+    AddEnsembleAnalyzer
+
+.. rubric:: Developer notes
+
+To implement your own generic operation, create a class that derives from :class:`GenericOperation`
+and define the required methods. A backend is used to translate the generic operation
+called by the user into an operation associated with a valid :class:`~relentless.simulate.simulate.SimulationOperation` type (i.e. HOOMD, LAMMPS, or dilute).
+
+.. autosummary::
+    :nosignatures:
+
+    GenericOperation
+
 .. autoclass:: GenericOperation
-    :members:
+    :members: __call__,
+        add_backend
 .. autoclass:: InitializeFromFile
     :members:
 .. autoclass:: InitializeRandomly
@@ -65,8 +94,8 @@ class GenericOperation(simulate.SimulationOperation):
     """Generic simulation operation adapter.
 
     Translates a ``generic`` simulation operation into an implemented operation
-    for a valid :class:`Simulation` backend. The backend must be an attribute
-    of the :class:`GenericOperation`.
+    for a valid :class:`~relentless.simulate.simulate.Simulation` backend. The
+    backend must be an attribute of the :class:`GenericOperation`.
 
     Parameters
     ----------
@@ -89,7 +118,7 @@ class GenericOperation(simulate.SimulationOperation):
 
         Parameters
         ----------
-        sim : :class:`Simulation`
+        sim : :class:`~relentless.simulate.simulate.Simulation`
             Simulation object.
 
         Returns
@@ -100,7 +129,7 @@ class GenericOperation(simulate.SimulationOperation):
         Raises
         ------
         TypeError
-            If the specified simulation backend is not registered (using :meth:`add_backend`).
+            If the specified simulation backend is not registered (using :meth:`add_backend()`).
         TypeError
             If the specified operation is not found in the simulation backend.
 
@@ -127,9 +156,9 @@ class GenericOperation(simulate.SimulationOperation):
 
         Parameters
         ----------
-        backend : :class:`Simulation`
+        backend : :class:`~relentless.simulate.simulate.Simulation`
             Class to add as a backend.
-        module : module or str or ``None``
+        module : module or :type:`str` or ``None``
             Module in which the backend is defined. If ``None`` (default), try to
             deduce the module from ``backend.__module__``. ``module`` will be
             imported if it has not already been.
@@ -366,12 +395,13 @@ class AddEnsembleAnalyzer(GenericOperation):
 
         Parameters
         ----------
-        sim : :class:`Simulation`
+        sim : :class:`~relentless.simulate.simulate.Simulation`
             The simulation object.
 
         Returns
         -------
-        :class:`Ensemble`
+        :class:`~relentless.ensemble.Ensemble`
             Ensemble with averaged thermodynamic properties and rdf.
+
         """
         return self._op.extract_ensemble(sim)

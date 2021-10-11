@@ -3,18 +3,29 @@ Simulation interface
 ====================
 
 Molecular simulation runs are performed in a :class:`Simulation` ensemble container,
-which initializes and runs a set of :class:`SimulationOperation`s. Each simulation
+which initializes and runs a set of :class:`SimulationOperation`\s. Each simulation
 run requires the input of an ensemble, the interaction potentials, a directory
 to write the output data, and an optional MPI communicator to use, which are all
 used to construct a :class:`SimulationInstance`.
 
-The simulations can use a combination of multiple :class:`~relentless.potential.Potential`\s or
-:class:`~relentless.potential.PairPotential`\s tabulated together, the interface for
+The simulations can use a combination of multiple :class:`~relentless.potential.potential.Potential`\s or
+:class:`~relentless.potential.potential.PairPotential`\s tabulated together, the interface for
 which is given here using :class:`Potentials` and the tabulators :class:`PotentialTabulator`
 and :class:`PairPotentialTabulator`.
 
 .. autosummary::
     :nosignatures:
+
+    Simulation
+    SimulationInstance
+    Potentials
+    PotentialTabulator
+    PairPotentialTabulator
+
+.. rubric:: Developer notes
+
+To implement your own simulation operation, create a class that derives from
+:class:`SimulationOperation` and define the required methods.
 
 .. autoclass:: Simulation
     :members:
@@ -153,6 +164,9 @@ class SimulationInstance:
         return self._opdata[op]
 
 class SimulationOperation(abc.ABC):
+    """Abstract base class for operations performed using a simulation engine. To
+    implement your own operation, a ``__call__`` method must be defined as specified.
+    """
     class Data:
         pass
 
@@ -163,9 +177,9 @@ class SimulationOperation(abc.ABC):
 class Potentials:
     """Combination of multiple potentials.
 
-    Iniitializes a :class:`PairPotentialTabulator` object that can store multiple potentials.
+    Initializes a :class:`PairPotentialTabulator` object that can store multiple potentials.
     Before the :class:`Potentials` object can be used, the ``rmax`` and ``num``
-    attributes of all ``pair``s (that are not ``None``) must be set.
+    attributes of all ``pair``\s (that are not ``None``) must be set.
 
     Parameters
     ----------
@@ -196,9 +210,9 @@ class PotentialTabulator:
         The positional value of ``x`` at which to end tabulation.
     num : int
         The number of points (value of ``x``) at which to tabulate and evaluate the potential.
-    potentials : :class:`~relentless.potential.Potential` or array_like
+    potentials : :class:`~relentless.potential.potential.Potential` or array_like
         The potential(s) to be tabulated. If array_like, all elements must
-        be :class:`~relentless.potential.Potential`\s. (Defaults to ``None``).
+        be :class:`~relentless.potential.potential.Potential`\s. (Defaults to ``None``).
 
     """
     def __init__(self, start, stop, num, potentials=None):
@@ -347,9 +361,9 @@ class PairPotentialTabulator(PotentialTabulator):
         The maximum value of ``r`` at which to tabulate.
     num : int
         The number of points (value of ``r``) at which to tabulate and evaluate the potential.
-    potentials : :class:`~relentless.potential.PairPotential` or array_like
+    potentials : :class:`~relentless.potential.potential.PairPotential` or array_like
         The pair potential(s) to be tabulated. If array_like, all elements must
-        be :class:`~relentless.potential.PairPotential`\s. (Defaults to ``None``).
+        be :class:`~relentless.potential.potential.PairPotential`\s. (Defaults to ``None``).
     fmax : float
         The maximum value of force at which to allow evaluation.
 
@@ -387,7 +401,7 @@ class PairPotentialTabulator(PotentialTabulator):
     def energy(self, pair):
         """Evaluates and accumulates energy for all potentials.
 
-        Shifts the energy to be 0 at :property:``rmax``.
+        Shifts the energy to be 0 at ``rmax``.
 
         Parameters
         ----------
@@ -407,7 +421,7 @@ class PairPotentialTabulator(PotentialTabulator):
     def force(self, pair):
         """Evaluates and accumulates force for all potentials.
 
-        If set, all forces are truncated to be less than or equal to ``|fmax|``.
+        If set, all forces are truncated to be less than or equal to |``fmax``|.
 
         Parameters
         ----------

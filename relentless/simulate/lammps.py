@@ -2,10 +2,40 @@
 LAMMPS operations
 =================
 
-Implements the generic simulation operations using LAMMPS.
+Simulation operations using the `LAMMPS engine <https://docs.lammps.org>`_
+for classical molecular dynamics are provided. They can be accessed using the
+corresponding :class:`~relentless.simulate.generic.GenericOperation`.
+
+The following LAMMPS operations have been implemented.
 
 .. autosummary::
     :nosignatures:
+
+    Initialize
+    InitializeFromFile
+    InitializeRandomly
+    MinimizeEnergy
+    AddLangevinIntegrator
+    RemoveLangevinIntegrator
+    AddNPTIntegrator
+    RemoveNPTIntegrator
+    AddNVTIntegrator
+    RemoveNVTIntegrator
+    Run
+    RunUpTo
+    AddEnsembleAnalyzer
+
+.. rubric:: Developer notes
+
+For compatibility with the generic operations, the :class:`LAMMPS` backend is
+defined here. If you want to implement your own LAMMPS operation, create a class
+that derives from :class:`LAMMPSOperation` and define the required methods.
+
+.. autosummary::
+    :nosignatures:
+
+    LAMMPS
+    LAMMPSOperation
 
 .. autoclass:: LAMMPS
     :members:
@@ -55,7 +85,7 @@ except ImportError:
     _lammps_found = False
 
 class LAMMPS(simulate.Simulation):
-    """:class:`Simulation` using LAMMPS framework.
+    """:class:`~relentless.simulate.simulate.Simulation` using LAMMPS framework.
 
     LAMMPS must be built with its `Python interface <https://lammps.sandia.gov/doc/Python_head.html>`_
     and must be version 29 Oct 2020 or newer.
@@ -63,7 +93,7 @@ class LAMMPS(simulate.Simulation):
     Raises
     ------
     ImportError
-        If the ``lammps`` package is not found.
+        If the :mod:`lammps` package is not found.
 
     """
     def __init__(self, operations=None, quiet=True, **options):
@@ -112,7 +142,7 @@ class LAMMPSOperation(simulate.SimulationOperation):
 
         Parameters
         ----------
-        sim : :class:`Simulation`
+        sim : :class:`~relentless.simulate.simulate.Simulation`
             The simulation object.
 
         """
@@ -142,7 +172,7 @@ class LAMMPSOperation(simulate.SimulationOperation):
 
         Parameters
         ----------
-        sim : :class:`Simulation`
+        sim : :class:`~relentless.simulate.simulate.Simulation`
             The simulation object.
 
         Returns
@@ -184,7 +214,7 @@ class Initialize(LAMMPSOperation):
 
         Parameters
         ----------
-        sim: :class:`Simulation`
+        sim: :class:`~relentless.simulate.simulate.Simulation`
             The simulation object.
 
         Returns
@@ -224,7 +254,7 @@ class Initialize(LAMMPSOperation):
 
         Parameters
         ----------
-        sim: :class:`Simulation`
+        sim: :class:`~relentless.simulate.simulate.Simulation`
             The simulation object.
 
         Returns
@@ -711,12 +741,12 @@ class AddEnsembleAnalyzer(LAMMPSOperation):
 
         Parameters
         ----------
-        sim : :class:`Simulation`
+        sim : :class:`~relentless.simulate.simulate.Simulation`
             The simulation object.
 
         Returns
         -------
-        :class:`Ensemble`
+        :class:`~relentless.ensemble.Ensemble`
             Ensemble with averaged thermodynamic properties and rdf.
 
         """
