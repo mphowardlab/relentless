@@ -41,6 +41,7 @@ class Dilute(simulate.Simulation):
         f_{ij}(r)=-\nabla u_{ij}(r) \\
         g_{ij}(r)=e^{-\beta u_{ij}(r)}
 
+
     """
     pass
 
