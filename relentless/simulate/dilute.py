@@ -14,11 +14,9 @@ The :class:`AddEnzembleAnalyzer()` operation is provided for a dilute system.
     AddEnsembleAnalyzer
 
 .. autoclass:: Dilute
-    :member-order: bysource
     :members:
 
 .. autoclass:: AddEnsembleAnalyzer
-    :member-order: bysource
     :members: __call__,
         extract_ensemble
 
@@ -41,6 +39,7 @@ class Dilute(simulate.Simulation):
         f_{ij}(r)=-\nabla u_{ij}(r)
 
         g_{ij}(r)=e^{-\beta u_{ij}(r)}
+
 
     """
     pass
