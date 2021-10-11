@@ -38,6 +38,11 @@ class Dilute(simulate.Simulation):
 
         g_{ij}(r)=e^{-\beta u_{ij}(r)}
 
+    The key assumption is that the radial distribution function :math:`g_{ij}(r)`
+    can be determined exactly from the pair potential :math:`u_{ij}(r)`.
+
+    Running a dilute simulation can also be helpful in finding a good initial guess
+    for parameter values before running a full simulation.
 
     """
     pass
