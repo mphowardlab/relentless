@@ -1,6 +1,6 @@
 """
-HOOMD operations
-================
+HOOMD
+=====
 
 Simulation operations using the `HOOMD-blue engine <https://hoomd-blue.readthedocs.io/en/stable>`_
 for classical molecular dynamics are provided. They can be accessed using the
@@ -130,9 +130,9 @@ class HOOMD(simulate.Simulation):
     Raises
     ------
     ImportError
-        If the mod:`hoomd` package is not found, or is not version 2.x.
+        If the :mod:`hoomd` package is not found, or is not version 2.x.
     ImportError
-        If the mod:`freud` package is not found, or is not version 2.x.
+        If the :mod:`freud` package is not found, or is not version 2.x.
 
     """
     def __init__(self, operations=None, **options):
@@ -228,7 +228,7 @@ class Initialize(simulate.SimulationOperation):
         -------
         :mod:`hoomd.data` snapshot
             Particle simulation snapshot.
-        :mod:`freud.box.Box`
+        :class:`freud.box.Box`
             Particle simulation box.
 
         Raises
@@ -716,7 +716,7 @@ class RemoveNPTIntegrator(RemoveMDIntegrator):
         super().__init__(add_op)
 
 class AddNVTIntegrator(AddMDIntegrator):
-    r"""NVT integration via Nos\'{e}-Hoover thermostat.
+    r"""NVT integration via Nosé-Hoover thermostat.
 
     Parameters
     ----------

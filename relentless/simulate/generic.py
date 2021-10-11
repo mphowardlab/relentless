@@ -317,7 +317,7 @@ class RemoveNPTIntegrator(GenericOperation):
         super().__init__(add_op)
 
 class AddNVTIntegrator(GenericOperation):
-    r"""NVT integration via Nos\'{e}-Hoover thermostat.
+    r"""NVT integration via Nosé-Hoover thermostat.
 
     Parameters
     ----------
