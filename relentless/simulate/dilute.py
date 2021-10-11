@@ -26,7 +26,7 @@ from relentless._math import Interpolator
 from . import simulate
 
 class Dilute(simulate.Simulation):
-    """Simulation of a dilute system.
+    r"""Simulation of a dilute system.
 
     A dilute system, which is defined as having a low particle density, is modeled
     using the following approximation for the pairwise interparticle force and
