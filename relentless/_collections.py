@@ -2,7 +2,7 @@
 Collections
 ===========
 
-This module contains some data structures used in :module:`relentless` as an
+This module contains some data structures used in :mod:`relentless` as an
 alternative to Python's general purpose containers, for ease of use in constructing
 potentials and performing computations during the optimization workflow.
 
@@ -187,7 +187,7 @@ class PairMatrix:
     Parameters
     ----------
     types : array_like
-        List of types (A type must be a :type:`str`).
+        List of types (A type must be a :class:`str`).
 
     Raises
     ------

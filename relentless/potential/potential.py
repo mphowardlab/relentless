@@ -33,7 +33,7 @@ from relentless import variable
 class Parameters:
     """Parameters for types.
 
-    Each type is a :type:`str`. A named list of parameters can be set for type.
+    Each type is a :class:`str`. A named list of parameters can be set for type.
     An optional shared value can be set for any of the parameters,
     and this value will be used if the per-type value is not set.
 
@@ -142,7 +142,7 @@ class Parameters:
 
         Returns
         -------
-        :type:`tuple`[:class:`~relentless.variable.DesignVariable`]
+        :class:`tuple`[:class:`~relentless.variable.DesignVariable`]
             The unique :class:`~relentless.variable.DesignVariable` variables on which the
             parameters depend.
 

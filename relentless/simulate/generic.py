@@ -158,7 +158,7 @@ class GenericOperation(simulate.SimulationOperation):
         ----------
         backend : :class:`~relentless.simulate.simulate.Simulation`
             Class to add as a backend.
-        module : module or :type:`str` or ``None``
+        module : module or :class:`str` or ``None``
             Module in which the backend is defined. If ``None`` (default), try to
             deduce the module from ``backend.__module__``. ``module`` will be
             imported if it has not already been.

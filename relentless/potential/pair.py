@@ -62,7 +62,7 @@ from . import potential
 class PairParameters(potential.Parameters):
     """Parameters for pairs of types.
 
-    A pair is a tuple of two types, and each type is a :type:`str`. A named
+    A pair is a tuple of two types, and each type is a :class:`str`. A named
     list of parameters can be set for each pair of types. The parameters for a
     pair are assumed to be symmetric, so the pair ``(i,j)`` is the same as the
     pair ``(j,i)``. An optional shared value can be set for any of the parameters,
@@ -110,7 +110,7 @@ class PairParameters(potential.Parameters):
         >>> print(coeff['A','A'])
         {'epsilon':2.0, 'sigma':2.5}
 
-    Assigning a :type:`dict` to a pair using the ``=`` operator resets any
+    Assigning a :class:`dict` to a pair using the ``=`` operator resets any
     parameters that are not specified::
 
         coeff['A','A'] = {'sigma': 2.5}

@@ -198,7 +198,7 @@ class Directory:
 
         Parameters
         ----------
-        dest : :class:`Directory` or :type:`str`
+        dest : :class:`Directory` or :class:`str`
             Destination directory.
 
         """
