@@ -125,7 +125,7 @@ except ImportError:
     _freud_found = False
 
 class HOOMD(simulate.Simulation):
-    """:class:`~relentless.simulate.Simulation` using HOOMD framework.
+    """:class:`~relentless.simulate.simulate.Simulation` using HOOMD framework.
 
     Raises
     ------
@@ -228,7 +228,7 @@ class Initialize(simulate.SimulationOperation):
         -------
         :mod:`hoomd.data` snapshot
             Particle simulation snapshot.
-        :mod:`freud.Box`
+        :mod:`freud.box.Box`
             Particle simulation box.
 
         Raises
@@ -542,7 +542,7 @@ class AddBrownianIntegrator(AddMDIntegrator):
     seed : int
         Seed used to randomly generate a uniform force.
     options : kwargs
-        Options used in :func:`hoomd.md.integrate.brownian`.
+        Options used in :class:`hoomd.md.integrate.brownian`.
 
     """
     def __init__(self, dt, friction, seed, **options):
@@ -605,7 +605,7 @@ class AddLangevinIntegrator(AddMDIntegrator):
     seed : int
         Seed used to randomly generate a uniform force.
     options : kwargs
-        Options used in :func:`hoomd.md.integrate.langevin`.
+        Options used in :class:`hoomd.md.integrate.langevin`.
 
     """
     def __init__(self, dt, friction, seed, **options):
@@ -668,7 +668,7 @@ class AddNPTIntegrator(AddMDIntegrator):
     tau_P : float
         Coupling constant for the barostat.
     options : kwargs
-        Options used in :func:`hoomd.md.integrate.npt`.
+        Options used in :class:`hoomd.md.integrate.npt`.
 
     """
     def __init__(self, dt, tau_T, tau_P, **options):
@@ -716,7 +716,7 @@ class RemoveNPTIntegrator(RemoveMDIntegrator):
         super().__init__(add_op)
 
 class AddNVTIntegrator(AddMDIntegrator):
-    r"""NVT integration via Nos\'e-Hoover thermostat.
+    r"""NVT integration via Nos\'{e}-Hoover thermostat.
 
     Parameters
     ----------
@@ -725,7 +725,7 @@ class AddNVTIntegrator(AddMDIntegrator):
     tau_T : float
         Coupling constant for the thermostat.
     options : kwargs
-        Options used in :meth:`hoomd.md.integrate.nvt()`.
+        Options used in :class:`hoomd.md.integrate.nvt`.
 
     """
     def __init__(self, dt, tau_T, **options):
@@ -879,7 +879,7 @@ class RDFCallback:
     system : :mod:`hoomd.data` system
         Simulation system object.
     params : :class:`~relentless._collections.PairMatrix`
-        Parameters to be used to initialize an instance of :mod:`freud.density.RDF`.
+        Parameters to be used to initialize an instance of :class:`freud.density.RDF`.
     communicator : :class:`~relentless.mpi.Communicator`
         The MPI communicator to use.
 
@@ -935,7 +935,7 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
     check_rdf_every : int
         Interval of time steps at which to log the rdf of the simulation.
     rdf_dr : float
-        The width (in units *r*) of a bin in the histogram of the rdf.
+        The width (in units ``r``) of a bin in the histogram of the rdf.
 
     """
     def __init__(self, check_thermo_every, check_rdf_every, rdf_dr):
@@ -948,7 +948,7 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
 
         Parameters
         ----------
-        sim : :class:`Simulation`
+        sim : :class:`~relentless.simulate.simulate.Simulation`
             The simulation object.
 
         Raises
@@ -988,7 +988,7 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
 
         Returns
         -------
-        :class:`~relentless.Ensemble`
+        :class:`~relentless.ensemble.Ensemble`
             Ensemble with averaged thermodynamic properties and rdf.
 
         """
