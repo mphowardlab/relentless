@@ -1,3 +1,88 @@
+"""
+Generic simulation operations
+=============================
+
+A common set of generic simulation operations for all the compatible simulation
+interfaces (HOOMD-blue, LAMMPS, dilute system) is provided. This grants the user
+immense ease of use as a single command can be used to achieve the same function
+using multiple simulation packages. The supported generic operations are initialization
+of a system from file or randomly, energy minimization, simulation run, and a number
+of integrators (Langevin, NPT, NVT, Brownian (LAMMPS only)), as well as an
+operation to extract the model ensemble and RDF at given timestep intervals.
+
+The generic simulation operations are compatible with the following simulation packages:
+
+.. toctree::
+    :maxdepth: 1
+
+    dilute
+    hoomd
+    lammps
+
+The following generic simulation operations have been implemented:
+
+.. autosummary::
+    :nosignatures:
+
+    InitializeFromFile
+    InitializeRandomly
+    MinimizeEnergy
+    AddBrownianIntegrator
+    RemoveBrownianIntegrator
+    AddLangevinIntegrator
+    RemoveLangevinIntegrator
+    AddNPTIntegrator
+    RemoveNPTIntegrator
+    AddNVTIntegrator
+    RemoveNVTIntegrator
+    Run
+    RunUpTo
+    AddEnsembleAnalyzer
+
+.. rubric:: Developer notes
+
+To implement your own generic operation, create a class that derives from :class:`GenericOperation`
+and define the required methods. A backend is used to translate the generic operation
+called by the user into an operation associated with a valid :class:`~relentless.simulate.simulate.SimulationOperation` type (i.e. HOOMD, LAMMPS, or dilute).
+
+.. autosummary::
+    :nosignatures:
+
+    GenericOperation
+
+.. autoclass:: GenericOperation
+    :members: __call__,
+        add_backend
+.. autoclass:: InitializeFromFile
+    :members:
+.. autoclass:: InitializeRandomly
+    :members:
+.. autoclass:: MinimizeEnergy
+    :members:
+.. autoclass:: AddBrownianIntegrator
+    :members:
+.. autoclass:: RemoveBrownianIntegrator
+    :members:
+.. autoclass:: AddLangevinIntegrator
+    :members:
+.. autoclass:: RemoveLangevinIntegrator
+    :members:
+.. autoclass:: AddNPTIntegrator
+    :members:
+.. autoclass:: RemoveNPTIntegrator
+    :members:
+.. autoclass:: AddNVTIntegrator
+    :members:
+.. autoclass:: RemoveNVTIntegrator
+    :members:
+.. autoclass:: Run
+    :members:
+.. autoclass:: RunUpTo
+    :members:
+.. autoclass:: AddEnsembleAnalyzer
+    :members:
+
+"""
 import importlib
 import inspect
 
@@ -8,9 +93,9 @@ from . import simulate
 class GenericOperation(simulate.SimulationOperation):
     """Generic simulation operation adapter.
 
-    Translates a ``generic`` simulation operation into an implemented operation
-    for a valid :class:`Simulation` backend. The backend must be an attribute
-    of the :class:`GenericOperation`.
+    Translates a generic simulation operation into an implemented operation
+    for a valid :class:`~relentless.simulate.simulate.Simulation` backend. The
+    backend must be an attribute of the :class:`GenericOperation`.
 
     Parameters
     ----------
@@ -33,18 +118,18 @@ class GenericOperation(simulate.SimulationOperation):
 
         Parameters
         ----------
-        sim : :class:`Simulation`
+        sim : :class:`~relentless.simulate.simulate.Simulation`
             Simulation object.
 
         Returns
         -------
-        :obj:
+        :class:`object`
             The result of the generic simulation operation function.
 
         Raises
         ------
         TypeError
-            If the specified simulation backend is not registered (using :meth:`add_backend`).
+            If the specified simulation backend is not registered (using :meth:`add_backend()`).
         TypeError
             If the specified operation is not found in the simulation backend.
 
@@ -71,10 +156,10 @@ class GenericOperation(simulate.SimulationOperation):
 
         Parameters
         ----------
-        backend : :class:`Simulation`
+        backend : :class:`~relentless.simulate.simulate.Simulation`
             Class to add as a backend.
-        module : module or str or `None`
-            Module in which the backend is defined. If `None` (default), try to
+        module : module or :class:`str` or ``None``
+            Module in which the backend is defined. If ``None`` (default), try to
             deduce the module from ``backend.__module__``. ``module`` will be
             imported if it has not already been.
 
@@ -232,7 +317,7 @@ class RemoveNPTIntegrator(GenericOperation):
         super().__init__(add_op)
 
 class AddNVTIntegrator(GenericOperation):
-    r"""NVT integration via Nos\'e-Hoover thermostat.
+    r"""NVT integration via Nosé-Hoover thermostat.
 
     Parameters
     ----------
@@ -299,7 +384,7 @@ class AddEnsembleAnalyzer(GenericOperation):
     check_rdf_every : int
         Interval of time steps at which to log the rdf of the simulation.
     rdf_dr : float
-        The width (in units *r*) of a bin in the histogram of the rdf.
+        The width (in units ``r``) of a bin in the histogram of the rdf.
 
     """
     def __init__(self, check_thermo_every, check_rdf_every, rdf_dr):
@@ -310,12 +395,13 @@ class AddEnsembleAnalyzer(GenericOperation):
 
         Parameters
         ----------
-        sim : :class:`Simulation`
+        sim : :class:`~relentless.simulate.simulate.Simulation`
             The simulation object.
 
         Returns
         -------
-        :class:`Ensemble`
+        :class:`~relentless.ensemble.Ensemble`
             Ensemble with averaged thermodynamic properties and rdf.
+
         """
         return self._op.extract_ensemble(sim)

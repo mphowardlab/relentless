@@ -42,7 +42,7 @@ To implement your own pair potential, create a class that derives from
         _force,
         _derivative
 .. autoclass:: PairParameters
-    :members: evaluate, shared, pairs
+    :members: evaluate, pairs
 .. autoclass:: Depletion
 .. autoclass:: LennardJones
 .. autoclass:: PairSpline
@@ -64,8 +64,8 @@ class PairParameters(potential.Parameters):
 
     A pair is a tuple of two types, and each type is a :class:`str`. A named
     list of parameters can be set for each pair of types. The parameters for a
-    pair are assumed to be symmetric, so the pair *(i,j)* is the same as the
-    pair *(j,i)*. An optional shared value can be set for any of the parameters,
+    pair are assumed to be symmetric, so the pair ``(i,j)`` is the same as the
+    pair ``(j,i)``. An optional shared value can be set for any of the parameters,
     and this value will be used if the per-pair value is not set.
 
     The same parameters can also be set for each type. These values are not
@@ -94,7 +94,7 @@ class PairParameters(potential.Parameters):
 
         coeff = PairParameters(types=('A','B'), params=('epsilon','sigma'))
 
-    The parameters can be accessed or iterated using :attr:`params`::
+    The parameters can be accessed or iterated using ``params``::
 
         >>> print(coeff.params)
         ('epsilon','sigma')
@@ -237,7 +237,7 @@ class PairPotential(potential.Potential):
             \end{cases}.
 
     The pair potential can also be shifted to zero at :math:`r_{\rm max}`.
-    Shifting subtracts :math:`u_0(r_{\rm max})` from all pieces of u(r) and
+    Shifting subtracts :math:`u_0(r_{\rm max})` from all pieces of :math:`u(r)` and
     :math:`-f_0(r_{\rm max})` from all parameter derivatives. The force is
     unaffected by shifting the pair potential.
 
@@ -487,7 +487,7 @@ class PairPotential(potential.Potential):
         ----------
         r : float or list
             The pair distance(s) at which to evaluate the energy.
-        **params
+        **params : kwargs
             Named parameters of the potential.
 
         Returns
@@ -512,7 +512,7 @@ class PairPotential(potential.Potential):
         ----------
         r : float or list
             The pair distance(s) at which to evaluate the force.
-        **params
+        **params : kwargs
             Named parameters of the potential.
 
         Returns
@@ -539,7 +539,7 @@ class PairPotential(potential.Potential):
             Name of the parameter.
         r : float or list
             The pair distance(s) at which to evaluate the derivative.
-        **params
+        **params : kwargs
             Named parameters of the potential.
 
         Returns
@@ -562,17 +562,17 @@ class Depletion(PairPotential):
         u(r) = -\frac{\pi P}{12 r} \left[\frac{1}{2}(\sigma_i+\sigma_j)+\sigma_d-r\right]^2
             \left[r^2+r(\sigma_i+\sigma_j+2\sigma_d)-\frac{3}{4}(\sigma_i-\sigma_j)^2\right]
 
-    where *r* is the distance between two particles. The parameters for
-    each *(i,j)* pair are:
+    where :math:`r` is the distance between two particles. The parameters for
+    each :math:`(i,j)` pair are:
 
     +-------------+--------------------------------------------------+-----------+
     | Parameter   | Description                                      | Initial   |
     +=============+==================================================+===========+
-    | ``P``       | Osmotic pressure *P* of depletant.               |           |
+    | ``P``       | Osmotic pressure :math:`P` of depletant.         |           |
     +-------------+--------------------------------------------------+-----------+
-    | ``sigma_i`` | Diameter :math:`\sigma_i` of type *i*.           |           |
+    | ``sigma_i`` | Diameter :math:`\sigma_i` of type :math:`i`.     |           |
     +-------------+--------------------------------------------------+-----------+
-    | ``sigma_j`` | Diameter :math:`\sigma_j` of type *j*.           |           |
+    | ``sigma_j`` | Diameter :math:`\sigma_j` of type :math:`j`.     |           |
     +-------------+--------------------------------------------------+-----------+
     | ``sigma_d`` | Diameter :math:`\sigma_d` of depletant.          |           |
     +-------------+--------------------------------------------------+-----------+
@@ -746,8 +746,8 @@ class LennardJones(PairPotential):
         u(r) = 4 \varepsilon\left[\left(\frac{\sigma}{r}\right)^{12}
                 - \left(\frac{\sigma}{r}\right)^6 \right]
 
-    where *r* is the distance between two particles. The parameters for
-    each *(i,j)* pair are:
+    where :math:`r` is the distance between two particles. The parameters for
+    each :math:`(i,j)` pair are:
 
     +-------------+-----------------------------------------------+-----------+
     | Parameter   | Description                                   | Initial   |
@@ -862,17 +862,17 @@ class PairSpline(PairPotential):
         Number of knots.
     mode : str
         Mode for storing the values of the knots in :class:`~relentless.variable.DesignVariable`
-        that can be optimized. If ``mode`` is 'value', the knot amplitudes are stored
-        directly. If ``mode`` is 'diff', the amplitude of the *last* knot is stored
+        that can be optimized. If ``mode='value'``, the knot amplitudes are stored
+        directly. If ``mode='diff'``, the amplitude of the *last* knot is stored
         directly, and differences between neighboring knots are stored for all
-        other knots. Defaults to 'diff'.
+        other knots. Defaults to ``'diff'``.
 
     Raises
     ------
     ValueError
         If there are not at least two knots.
     ValueError
-        If the mode is not 'value' or 'diff'.
+        If the mode is not ``'value'`` or ``'diff'``.
 
     Examples
     --------
@@ -909,7 +909,7 @@ class PairSpline(PairPotential):
         super().__init__(types=types,params=params)
 
     def from_array(self, pair, r, u):
-        """Setup the potential from knot points.
+        r"""Set up the potential from knot points.
 
         Each knot will be converted into two :class:`~relentless.variable.DesignVariable`
         objects consistent with the storage ``mode``.
@@ -917,7 +917,7 @@ class PairSpline(PairPotential):
         Parameters
         ----------
         pair : tuple[str]
-            The type pair *(i,j)* for which to set up the potential.
+            The type pair ``(i,j)`` for which to set up the potential.
         r : list
             Position of each knot.
         u : list
@@ -926,9 +926,9 @@ class PairSpline(PairPotential):
         Raises
         ------
         ValueError
-            If the number of r values is not the same as the number of knots.
+            If the number of ``r`` values is not the same as the number of knots.
         ValueError
-            If the number of u values is not the same as the number of knots.
+            If the number of ``u`` values is not the same as the number of knots.
 
         """
         # check that r and u have the right shape
@@ -957,7 +957,7 @@ class PairSpline(PairPotential):
                 self.coeff[pair][ki].value = ks[i]
 
     def _knot_params(self, i):
-        """Get the parameter names for a given knot.
+        r"""Get the parameter names for a given knot.
 
         Parameters
         ----------
@@ -967,7 +967,7 @@ class PairSpline(PairPotential):
         Returns
         -------
         str
-            The parameter name of the r value.
+            The parameter name of the :math:`r` value.
         str
             The parameter name of the knot value.
 
@@ -1034,7 +1034,7 @@ class PairSpline(PairPotential):
 
         Returns
         -------
-        :class:`Interpolator`
+        :class:`~relentless._math.Interpolator`
             The interpolated spline potential.
 
         """
@@ -1060,18 +1060,18 @@ class PairSpline(PairPotential):
         return self._mode
 
     def knots(self, pair):
-        """Generator for knot points.
+        r"""Generator for knot points.
 
         Parameters
         ----------
         pair : tuple[str]
-            The type pair *(i,j)* for which to retrieve the knot points.
+            The type pair ``(i,j)`` for which to retrieve the knot points.
 
         Yields
         ------
-        :class:`DesignVariable`
-            The next *r* variable in the parameters.
-        :class:`DesignVariable`
+        :class:`~relentless.variable.DesignVariable`
+            The next :math:`r` variable in the parameters.
+        :class:`~relentless.variable.DesignVariable`
             The next knot variable in the parameters.
 
         """
@@ -1090,8 +1090,8 @@ class Yukawa(PairPotential):
 
         u(r) = \varepsilon \frac{e^{-\kappa r}}{r}
 
-    where *r* is the distance between two particles. The parameters for
-    each *(i,j)* pair are:
+    where :math:`r` is the distance between two particles. The parameters for
+    each :math:`(i,j)` pair are:
 
     +-------------+-----------------------------------------------+-----------+
     | Parameter   | Description                                   | Initial   |

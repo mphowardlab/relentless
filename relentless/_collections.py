@@ -1,3 +1,29 @@
+"""
+Collections
+===========
+
+This module contains some data structures used in :mod:`relentless` as an
+alternative to Python's general purpose containers, for ease of use in constructing
+potentials and performing computations during the optimization workflow.
+
+.. autosummary::
+    :nosignatures:
+
+    FixedKeyDict
+    PairMatrix
+    KeyedArray
+    DefaultDict
+
+.. autoclass:: FixedKeyDict
+    :members:
+.. autoclass:: PairMatrix
+    :members:
+.. autoclass:: KeyedArray
+    :members:
+.. autoclass:: DefaultDict
+    :members:
+
+"""
 import collections
 
 import numpy as np
@@ -10,7 +36,7 @@ class FixedKeyDict:
     keys : array_like
         List of keys to be fixed.
     default : scalar
-        Initial value to fill in the dictionary, defaults to `None`.
+        Initial value to fill in the dictionary, defaults to ``None``.
 
     Examples
     --------
@@ -48,7 +74,7 @@ class FixedKeyDict:
         >>> print(d)
         {'A':0.5, 'B':1.0}
 
-    Single-key dictionary still needs `keys` as a tuple::
+    Single-key dictionary still needs ``keys`` as a tuple::
 
         FixedKeyDict(keys=('A',))
 
@@ -95,19 +121,19 @@ class FixedKeyDict:
         return str(self._data)
 
     def clear(self):
-        """Clear entries in dict, resetting to default."""
+        """Clear entries in the dictionary, resetting to default."""
         for i in self.keys:
             self._data[i] = self._default
 
     def update(self, *data, **values):
         """Partially reassigns key values.
 
-        If both positional argument (data) and keyword arguments (values)
-        are given as parameters, any keys in values will take precedence over data.
+        If both positional argument (``data``) and keyword arguments (``values``)
+        are given as parameters, any keys in ``values`` will take precedence over ``data``.
 
         Parameters
         ----------
-        data : `dict`
+        data : :class:`dict`
             The keys and values to be updated/over-written, in a dictionary form.
         values : kwargs
             The keys and values to be updated/over-written.
@@ -145,30 +171,30 @@ class FixedKeyDict:
 class PairMatrix:
     """Generic matrix of values per-pair.
 
-    Defines a symmetric matrix of parameters corresponding to `(i,j)` pairs.
-    The matrix is essentially a dictionary of dictionaries, keyed on `(i,j)`.
-    There is an equivalent virtual entry for `(j,i)`. (The pairs that are
-    actually saved have `j >= i`.) The dictionary associated with each pair
+    Defines a symmetric matrix of parameters corresponding to ``(i,j)`` pairs.
+    The matrix is essentially a dictionary of dictionaries, keyed on ``(i,j)``.
+    There is an equivalent virtual entry for ``(j,i)``. (The pairs that are
+    actually saved have ``j >= i``.) The dictionary associated with each pair
     can have any number of entries in it, although a common use case is to have
     the same parameter stored per-pair.
 
-    The pairs in the matrix are frozen from the list of `types` specified when
+    The pairs in the matrix are frozen from the list of types specified when
     the object is constructed. It is an error to access pairs that cannot be
-    formed from `types`.
+    formed from ``types``.
 
     The pair matrix emulates a dictionary, and its pairs are iterable.
 
     Parameters
     ----------
     types : array_like
-        List of types (A type must be a `str`).
+        List of types (A type must be a :class:`str`).
 
     Raises
     ------
     ValueError
-        If initialization occurs with empty types
+        If initialization occurs with empty ``types``.
     TypeError
-        If types does not consist of only strings
+        If ``types`` does not consist of only strings.
 
     Examples
     --------
@@ -201,7 +227,7 @@ class PairMatrix:
         >>> m['A','B']
         {'energy': -1.0, 'mass': 1.0}
 
-    Single-type matrix still needs types as a tuple::
+    Single-type matrix still needs ``types`` as a tuple::
 
         PairMatrix(types=('A',))
 
@@ -283,7 +309,7 @@ class KeyedArray(FixedKeyDict):
     keys : array_like
         List of keys to be fixed.
     default : scalar
-        Initial value to fill in the dictionary, defaults to `None`.
+        Initial value to fill in the dictionary, defaults to ``None``.
 
     Examples
     --------
@@ -498,7 +524,7 @@ class KeyedArray(FixedKeyDict):
         return k
 
     def norm(self):
-        r"""Vector :math:`ell^2`-norm.
+        r"""Vector :math:`\ell^2`-norm.
 
         For a vector :math:`\mathbf{x}=\left[x_1,\ldots,x_n\right]`, the
         Euclidean 2-norm :math:`\lVert\mathbf{x}\rVert` is computed as:
