@@ -1,4 +1,4 @@
-import numpy as np
+import numpy
 
 from relentless.ensemble import RDF
 from relentless._math import Interpolator
@@ -86,7 +86,7 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
         for pair in ens.pairs:
             u = sim.potentials.pair.energy(pair)
             ens.rdf[pair] = RDF(sim.potentials.pair.r,
-                                np.exp(-sim.ensemble.beta*u))
+                                numpy.exp(-sim.ensemble.beta*u))
 
         # compute pressure
         ens.P = 0.
@@ -99,7 +99,7 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
                 u = sim.potentials.pair.energy((a,b))
                 f = sim.potentials.pair.force((a,b))
                 gr = ens.rdf[a,b].table[:,1]
-                ens.P += (2.*np.pi/3.)*rho_a*rho_b*np.trapz(y=f*gr*r**3,x=r)
+                ens.P += (2.*numpy.pi/3.)*rho_a*rho_b*numpy.trapz(y=f*gr*r**3,x=r)
 
         sim[self].ensemble = ens
 

@@ -1,7 +1,7 @@
 import abc
 import os
 
-import numpy as np
+import numpy
 
 from relentless.ensemble import RDF
 from relentless.volume import TriclinicBox
@@ -173,10 +173,10 @@ class Initialize(LAMMPSOperation):
         xz = V.c[0]
         yz = V.c[1]
 
-        lo = -0.5*np.array([Lx,Ly,Lz])
+        lo = -0.5*numpy.array([Lx,Ly,Lz])
         hi = lo + V.a + V.b + V.c
 
-        return np.array([lo[0],hi[0],lo[1],hi[1],lo[2],hi[2],xy,xz,yz])
+        return numpy.array([lo[0],hi[0],lo[1],hi[1],lo[2],hi[2],xy,xz,yz])
 
     def attach_potentials(self, sim):
         """Adds tabulated pair potentials to the simulation object.
@@ -208,7 +208,7 @@ class Initialize(LAMMPSOperation):
 
         # check that all r are equally spaced
         dr = r[1:]-r[:-1]
-        if not np.all(np.isclose(dr,dr[0])):
+        if not numpy.all(numpy.isclose(dr,dr[0])):
             raise ValueError('LAMMPS requires equally spaced r in pair potentials.')
 
         def pair_map(sim,pair):
@@ -306,7 +306,7 @@ class InitializeRandomly(Initialize):
 
         # make box from ensemble
         box = self.extract_box_params(sim)
-        if not np.all(np.isclose(box[-3:],0)):
+        if not numpy.all(numpy.isclose(box[-3:],0)):
             cmds += ['region box prism {} {} {} {} {} {} {} {} {}'.format(*box)]
         else:
             cmds += ['region box block {} {} {} {} {} {}'.format(*box[:-3])]
@@ -385,10 +385,10 @@ class AddLangevinIntegrator(LAMMPSOperation):
         mass = sim.lammps.numpy.extract_atom('mass')
         if mass is None or mass.shape != (Ntypes+1,1):
             raise ValueError('Per-type masses not set.')
-        mass = np.squeeze(mass)
+        mass = numpy.squeeze(mass)
 
         # obtain per-type friction factor
-        friction = np.zeros_like(mass)
+        friction = numpy.zeros_like(mass)
         for t in sim.ensemble.types:
             try:
                 friction[sim.type_map[t]] = self.friction[t]
@@ -398,7 +398,7 @@ class AddLangevinIntegrator(LAMMPSOperation):
                 raise KeyError('The friction factor for type {} is not set.'.format(t))
 
         # compute per-type damping parameter and rescale if multiple types
-        damp = np.divide(mass, friction, where=(friction>0))
+        damp = numpy.divide(mass, friction, where=(friction>0))
         damp_ref = damp[1]
         if Ntypes>1:
             scale = damp/damp_ref
@@ -648,7 +648,7 @@ class AddEnsembleAnalyzer(LAMMPSOperation):
 
         # pair distribution function
         rmax = sim.potentials.pair.r[-1]
-        sim[self].num_bins = np.round(rmax/self.rdf_dr).astype(int)
+        sim[self].num_bins = numpy.round(rmax/self.rdf_dr).astype(int)
         sim[self].rdf_file = sim.directory.file('lammps_rdf.dat')
         sim[self].rdf_pairs = tuple(sim.ensemble.pairs)
         # string format lammps arguments based on pairs

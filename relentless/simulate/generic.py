@@ -1,7 +1,7 @@
 import importlib
 import inspect
 
-import numpy as np
+import numpy
 
 from . import simulate
 

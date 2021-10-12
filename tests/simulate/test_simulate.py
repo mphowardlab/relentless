@@ -2,7 +2,7 @@
 import tempfile
 import unittest
 
-import numpy as np
+import numpy
 
 import relentless
 
@@ -54,8 +54,8 @@ class test_Simulation(unittest.TestCase):
         ens = relentless.ensemble.Ensemble(T=1.0, P=4.0, N={'A':2})
         pot = relentless._collections.PairMatrix(types=ens.types)
         for pair in pot:
-            pot[pair]['r'] = np.array([1.,2.,3.])
-            pot[pair]['u'] = np.array([2.,3.,4.])
+            pot[pair]['r'] = numpy.array([1.,2.,3.])
+            pot[pair]['u'] = numpy.array([2.,3.,4.])
         dirc = 'mock'
         sim = relentless.simulate.Simulation()
         operations = [self.CheckEnsemble(), self.CheckPotential()]
@@ -156,12 +156,12 @@ class test_PotentialTabulator(unittest.TestCase):
 
     def test_init(self):
         """Test creation with data."""
-        xs = np.array([0.0,0.5,1,1.5])
+        xs = numpy.array([0.0,0.5,1,1.5])
         p1 = QuadPot(types=('1',), params=('m',))
 
         #test creation with no potential
         t = relentless.simulate.PotentialTabulator(start=0.0,stop=1.5,num=4)
-        np.testing.assert_allclose(t.x,xs)
+        numpy.testing.assert_allclose(t.x,xs)
         self.assertAlmostEqual(t.start, 0.0)
         self.assertAlmostEqual(t.stop, 1.5)
         self.assertEqual(t.num, 4)
@@ -169,7 +169,7 @@ class test_PotentialTabulator(unittest.TestCase):
 
         #test creation with defined potential
         t = relentless.simulate.PotentialTabulator(start=0.0,stop=1.5,num=4,potentials=p1)
-        np.testing.assert_allclose(t.x,xs)
+        numpy.testing.assert_allclose(t.x,xs)
         self.assertAlmostEqual(t.start, 0.0)
         self.assertAlmostEqual(t.stop, 1.5)
         self.assertEqual(t.num, 4)
@@ -186,25 +186,25 @@ class test_PotentialTabulator(unittest.TestCase):
 
         # test energy method
         u = t.energy('1')
-        np.testing.assert_allclose(u, np.array([27,12,3,0,3,12]))
+        numpy.testing.assert_allclose(u, numpy.array([27,12,3,0,3,12]))
 
         u = t.energy('2')
-        np.testing.assert_allclose(u, np.array([9,4,1,0,1,4]))
+        numpy.testing.assert_allclose(u, numpy.array([9,4,1,0,1,4]))
 
         # test force method
         f = t.force('1')
-        np.testing.assert_allclose(f, np.array([18,12,6,0,-6,-12]))
+        numpy.testing.assert_allclose(f, numpy.array([18,12,6,0,-6,-12]))
 
         f = t.force('2')
-        np.testing.assert_allclose(f, np.array([6,4,2,0,-2,-4]))
+        numpy.testing.assert_allclose(f, numpy.array([6,4,2,0,-2,-4]))
 
         # test derivative method
         var = p1.coeff['1']['m']
         d = t.derivative('1',var)
-        np.testing.assert_allclose(d, np.array([9,4,1,0,1,4]))
+        numpy.testing.assert_allclose(d, numpy.array([9,4,1,0,1,4]))
 
         d = t.derivative('2',var)
-        np.testing.assert_allclose(d, np.array([0,0,0,0,0,0]))
+        numpy.testing.assert_allclose(d, numpy.array([0,0,0,0,0,0]))
 
 class QuadPairPot(relentless.potential.PairPotential):
     """Quadratic pair potential function used to test relentless.simulate.PairPotentialTabulator"""
@@ -239,18 +239,18 @@ class test_PairPotentialTabulator(unittest.TestCase):
 
     def test_init(self):
         """Test creation with data."""
-        rs = np.array([0.0,0.5,1,1.5])
+        rs = numpy.array([0.0,0.5,1,1.5])
 
         #test creation with required param
         t = relentless.simulate.PairPotentialTabulator(rmax=1.5,num=4)
-        np.testing.assert_allclose(t.r,rs)
+        numpy.testing.assert_allclose(t.r,rs)
         self.assertAlmostEqual(t.rmax, 1.5)
         self.assertEqual(t.num, 4)
         self.assertEqual(t.fmax, None)
 
         #test creation with required param, fmax, fcut, shift
         t = relentless.simulate.PairPotentialTabulator(rmax=1.5,num=4,fmax=1.5)
-        np.testing.assert_allclose(t.r, rs)
+        numpy.testing.assert_allclose(t.r, rs)
         self.assertAlmostEqual(t.rmax, 1.5)
         self.assertEqual(t.num, 4)
         self.assertAlmostEqual(t.fmax, 1.5)
@@ -266,25 +266,25 @@ class test_PairPotentialTabulator(unittest.TestCase):
 
         # test energy method
         u = t.energy(('1','1'))
-        np.testing.assert_allclose(u, np.array([27,12,3,0,3,12])-12)
+        numpy.testing.assert_allclose(u, numpy.array([27,12,3,0,3,12])-12)
 
         u = t.energy(('1','2'))
-        np.testing.assert_allclose(u, np.array([9,4,1,0,1,4])-4)
+        numpy.testing.assert_allclose(u, numpy.array([9,4,1,0,1,4])-4)
 
         # test force method
         f = t.force(('1','1'))
-        np.testing.assert_allclose(f, np.array([18,12,6,0,-6,-12]))
+        numpy.testing.assert_allclose(f, numpy.array([18,12,6,0,-6,-12]))
 
         f = t.force(('1','2'))
-        np.testing.assert_allclose(f, np.array([6,4,2,0,-2,-4]))
+        numpy.testing.assert_allclose(f, numpy.array([6,4,2,0,-2,-4]))
 
         # test derivative method
         var = p1.coeff['1','1']['m']
         d = t.derivative(('1','1'),var)
-        np.testing.assert_allclose(d, np.array([9,4,1,0,1,4])-4)
+        numpy.testing.assert_allclose(d, numpy.array([9,4,1,0,1,4])-4)
 
         d = t.derivative(('1','2'),var)
-        np.testing.assert_allclose(d, np.array([0,0,0,0,0,0]))
+        numpy.testing.assert_allclose(d, numpy.array([0,0,0,0,0,0]))
 
     def test_fmax(self):
         """Test setting and changing fmax."""
@@ -293,15 +293,15 @@ class test_PairPotentialTabulator(unittest.TestCase):
 
         t = relentless.simulate.PairPotentialTabulator(rmax=6.0,num=7,potentials=p1,fmax=4)
         f = t.force(('1','1'))
-        np.testing.assert_allclose(f, np.array([4,4,4,0,-4,-4,-4]))
+        numpy.testing.assert_allclose(f, numpy.array([4,4,4,0,-4,-4,-4]))
 
         t.fmax = 12
         f = t.force(('1','1'))
-        np.testing.assert_allclose(f, np.array([12,12,6,0,-6,-12,-12]))
+        numpy.testing.assert_allclose(f, numpy.array([12,12,6,0,-6,-12,-12]))
 
         t.fmax = 20
         f = t.force(('1','1'))
-        np.testing.assert_allclose(f, np.array([18,12,6,0,-6,-12,-18]))
+        numpy.testing.assert_allclose(f, numpy.array([18,12,6,0,-6,-12,-18]))
 
 if __name__ == '__main__':
     unittest.main()

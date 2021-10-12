@@ -1,6 +1,6 @@
 import abc
 
-import numpy as np
+import numpy
 
 from relentless import mpi
 
@@ -233,7 +233,7 @@ class PotentialTabulator:
                 raise ValueError('End of range must be set.')
             if self.num is None:
                 raise ValueError('Number of points must be set.')
-            self._x = np.linspace(self.start,self.stop,self.num,dtype=np.float64)
+            self._x = numpy.linspace(self.start,self.stop,self.num,dtype=numpy.float64)
             self._compute_x = False
         return self._x
 
@@ -251,7 +251,7 @@ class PotentialTabulator:
             Accumulated energy at each *x* value.
 
         """
-        u = np.zeros_like(self.x)
+        u = numpy.zeros_like(self.x)
         for pot in self.potentials:
             try:
                 u += pot.energy(key,self.x)
@@ -273,7 +273,7 @@ class PotentialTabulator:
             Accumulated force at each *x* value.
 
         """
-        f = np.zeros_like(self.x)
+        f = numpy.zeros_like(self.x)
         for pot in self.potentials:
             try:
                 f += pot.force(key,self.x)
@@ -295,7 +295,7 @@ class PotentialTabulator:
             Accumulated force at each *x* value.
 
         """
-        d = np.zeros_like(self.x)
+        d = numpy.zeros_like(self.x)
         for pot in self.potentials:
             try:
                 d += pot.derivative(key,var,self.x)
@@ -348,7 +348,7 @@ class PairPotentialTabulator(PotentialTabulator):
     @fmax.setter
     def fmax(self, val):
         if val is not None:
-            self._fmax = np.fabs(val)
+            self._fmax = numpy.fabs(val)
         else:
             self._fmax = None
 
@@ -390,8 +390,8 @@ class PairPotentialTabulator(PotentialTabulator):
         """
         f = super().force(pair)
         if self.fmax is not None:
-            flags = np.fabs(f) >= self.fmax
-            sign = np.sign(f[flags])
+            flags = numpy.fabs(f) >= self.fmax
+            sign = numpy.sign(f[flags])
             f[flags] = sign*self.fmax
         return f
 

@@ -2,7 +2,7 @@
 import tempfile
 import unittest
 
-import numpy as np
+import numpy
 
 import relentless
 from ..potential.test_pair import LinPot
