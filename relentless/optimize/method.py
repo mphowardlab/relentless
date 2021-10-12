@@ -51,7 +51,7 @@ To implement your own optimization algorithm, create a class that derives from
 """
 import abc
 
-import numpy as np
+import numpy
 
 from relentless import _collections
 from .criteria import ConvergenceTest,Tolerance
@@ -197,20 +197,20 @@ class LineSearch:
             raise ValueError('The start and end of the search interval must be different.')
 
         # compute start and end target values
-        targets = np.array([-d.dot(start.gradient), -d.dot(end.gradient)])
+        targets = numpy.array([-d.dot(start.gradient), -d.dot(end.gradient)])
         if targets[0] < 0:
             raise ValueError('The defined search interval must be a descent direction.')
 
         # compute tolerance
-        tol = Tolerance(absolute=self.tolerance*np.abs(targets[0]), relative=0)
+        tol = Tolerance(absolute=self.tolerance*numpy.abs(targets[0]), relative=0)
 
         # check if max step size acceptable, else iterate to minimize target
         if targets[1] > 0 or tol.isclose(targets[1], 0):
             result = end
         else:
-            steps = np.array([0., 1.])
+            steps = numpy.array([0., 1.])
             iter_num = 0
-            new_target = np.inf
+            new_target = numpy.inf
             new_res = end
             while not tol.isclose(new_target, 0) and iter_num < self.max_iter:
                 # linear interpolation for step size
@@ -384,7 +384,7 @@ class SteepestDescent(Optimizer):
         #fix scaling parameters
         scale = _collections.KeyedArray(keys=dvars)
         for x in dvars:
-            if np.isscalar(self.scale):
+            if numpy.isscalar(self.scale):
                 scale[x] = self.scale
             else:
                 try:

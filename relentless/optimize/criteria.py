@@ -73,7 +73,7 @@ It may be helpful for the class to be composed having a :class:`Tolerance`.
 """
 import abc
 
-import numpy as np
+import numpy
 
 from relentless import _collections
 
@@ -181,7 +181,7 @@ class Tolerance:
             raise ValueError('Absolute tolerances must be non-negative.')
         if self.relative[key] < 0 or self.relative[key] > 1:
             raise ValueError('Relative tolerances must be between 0 and 1.')
-        return np.isclose(a, b, atol=self.absolute[key], rtol=self.relative[key])
+        return numpy.isclose(a, b, atol=self.absolute[key], rtol=self.relative[key])
 
 class GradientTest(ConvergenceTest):
     r"""Gradient test for convergence using absolute tolerance.

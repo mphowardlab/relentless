@@ -57,7 +57,7 @@ To implement your own objective function, create a class that derives from
 """
 import abc
 
-import numpy as np
+import numpy
 import scipy.integrate
 
 from relentless import _collections
@@ -296,7 +296,7 @@ class RelativeEntropy(ObjectiveFunction):
                 dus = self.potentials.pair.derivative((i,j),var)
 
                 #only count (continuous range of) finite values
-                flags = np.isinf(us)
+                flags = numpy.isinf(us)
                 first_finite = 0
                 while flags[first_finite] and first_finite < len(rs):
                     first_finite += 1
@@ -311,11 +311,11 @@ class RelativeEntropy(ObjectiveFunction):
                 # find common domain to compare rdfs
                 r0 = max(g_sim[i,j].domain[0],g_tgt[i,j].domain[0],dudvar.domain[0])
                 r1 = min(g_sim[i,j].domain[-1],g_tgt[i,j].domain[-1],dudvar.domain[-1])
-                sim_dr = np.min(np.diff(g_sim[i,j].table[:,0]))
-                tgt_dr = np.min(np.diff(g_tgt[i,j].table[:,0]))
-                dudvar_dr = np.min(np.diff(rs))
+                sim_dr = numpy.min(numpy.diff(g_sim[i,j].table[:,0]))
+                tgt_dr = numpy.min(numpy.diff(g_tgt[i,j].table[:,0]))
+                dudvar_dr = numpy.min(numpy.diff(rs))
                 dr = min(sim_dr,tgt_dr,dudvar_dr)
-                r = np.arange(r0,r1+0.5*dr,dr)
+                r = numpy.arange(r0,r1+0.5*dr,dr)
 
                 # normalization to extensive or intensive as specified
                 norm_factor = self.target.V.volume if not self.extensive else 1.
@@ -324,7 +324,7 @@ class RelativeEntropy(ObjectiveFunction):
                 sim_factor = sim_ens.N[i]*sim_ens.N[j]*sim_ens.beta/(sim_ens.V.volume*norm_factor)
                 tgt_factor = self.target.N[i]*self.target.N[j]*self.target.beta/(self.target.V.volume*norm_factor)
                 mult = 1 if i == j else 2 # 1 if same, otherwise need i,j and j,i contributions
-                y = -2*mult*np.pi*r**2*(sim_factor*g_sim[i,j](r)-tgt_factor*g_tgt[i,j](r))*dudvar(r)
+                y = -2*mult*numpy.pi*r**2*(sim_factor*g_sim[i,j](r)-tgt_factor*g_tgt[i,j](r))*dudvar(r)
                 update += scipy.integrate.trapz(y, x=r)
 
             gradient[var] = update
