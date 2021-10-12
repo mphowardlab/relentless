@@ -7,7 +7,7 @@ import numpy
 
 import relentless
 try:
-    from mpi4py.MPI import MPI
+    from mpi4py import MPI
 except ImportError:
     pass
 
