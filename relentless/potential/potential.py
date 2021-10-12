@@ -142,7 +142,7 @@ class Parameters:
 
         Returns
         -------
-        tuple[:class:`~relentless.variable.DesignVariable`]
+        :class:`tuple`\[:class:`~relentless.variable.DesignVariable`\]
             The unique :class:`~relentless.variable.DesignVariable` variables on which the
             parameters depend.
 
@@ -178,17 +178,16 @@ class Parameters:
 
     @property
     def shared(self):
-        """:class:`~relentless.FixedKeyDict`: The shared parameters."""
+        """:class:`~relentless._collections.FixedKeyDict`: The shared parameters."""
         return self._shared
 
 class Potential(abc.ABC):
     """Abstract base class for interaction potential.
 
-    A :class:`Potential` defines the potential energy abstractly, which can
-    be parametrized on a ``key`` (like a type) and that is a function of an
-    arbitrary scalar coordinate ``x``. Concrete :meth:`energy`, :meth:`force`,
-    :meth:`derivative` methods must be implemented to define the potential
-    energy (and its derivatives).
+    A Potential defines the potential energy abstractly, which can be parametrized
+    on a ``key`` (like a type) and that is a function of an arbitrary scalar
+    coordinate ``x``. Concrete :meth:`energy`, :meth:`force`, and :meth:`derivative`
+    methods must be implemented to define the potential energy (and its derivatives).
 
     Parameters
     ----------
@@ -216,7 +215,7 @@ class Potential(abc.ABC):
         key
             Key parametrizing the potential in :attr:`coeff<container>`.
         x : float or list
-            Potential coordinate.
+            Potential energy coordinate.
 
         Returns
         -------
@@ -238,7 +237,7 @@ class Potential(abc.ABC):
         key
             Key parametrizing the potential in :attr:`coeff<container>`.
         x : float or list
-            Potential coordinate.
+            Potential energy coordinate.
 
         Returns
         -------

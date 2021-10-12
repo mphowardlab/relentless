@@ -98,7 +98,7 @@ class ConvergenceTest(abc.ABC):
         Returns
         -------
         bool
-            ``True`` if the ``result`` is converged.
+            True if the result is converged.
         """
         pass
 
@@ -119,8 +119,8 @@ class Tolerance:
     An absolute tolerance can be any non-negative numerical value. A relative
     tolerance must be a non-negative numerical value between 0 and 1. By setting
     :math:`\varepsilon_{\rm r}=0`, only an absolute tolerance test is performed.
-    Similarly, setting :math:`\varepsilon_{\rm a}=0` will perform only a
-    relative tolerance test.
+    Similarly, setting :math:`\varepsilon_{\rm a}=0` will result in the performance
+    of only a relative tolerance test.
 
     Parameters
     ----------
@@ -248,7 +248,7 @@ class GradientTest(ConvergenceTest):
         Returns
         -------
         bool
-            ``True`` if the function is converged.
+            True if the function is converged.
 
         """
         converged = True
@@ -329,7 +329,7 @@ class ValueTest(ConvergenceTest):
         Returns
         -------
         bool
-            ``True`` if the function is converged.
+            True if the function is converged.
 
         """
         return self._tolerance.isclose(result.value, self.value)
@@ -376,7 +376,7 @@ class AnyTest(LogicTest):
         Returns
         -------
         bool
-            ``True`` if the function is converged by any test.
+            True if the function is converged by any test.
 
         """
         return any(t.converged(result) for t in self.tests)
@@ -404,7 +404,7 @@ class AllTest(LogicTest):
         Returns
         -------
         bool
-            ``True`` if the function is converged by all tests.
+            True if the function is converged by all tests.
 
         """
         return all(t.converged(result) for t in self.tests)

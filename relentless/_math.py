@@ -1,31 +1,46 @@
+"""
+Math functions
+==============
+
+This module implements some convenience objects for mathematical operations.
+
+.. autosummary::
+    :nosignatures:
+
+    Interpolator
+
+.. autoclass:: Interpolator
+    :members:
+
+"""
 import numpy
 import scipy.interpolate
 
 class Interpolator:
-    """Interpolating function.
+    r"""Interpolating function.
 
     Interpolates through a function :math:`y(x)` on the domain
     :math:`a \le x \le b` using Akima splines. Outside this domain, `y` is
     extrapolated as a constant, i.e., :math:`y(x < a) = y(a)` and
-    :math:`y(x > b) = y(b)`.
+    :math:`y(x > b) = y(b)`\.
 
     Parameters
     ----------
     x : array_like
-        1-d array of x coordinates that must be continually increasing.
+        1D array of x coordinates that must be continually increasing.
     y : array_like
-        1-d array of y coordinates.
+        1D array of y coordinates.
 
     Raises
     ------
     ValueError
-        If x is a scalar
+        If ``x`` is a scalar.
     ValueError
-        If x is not 1-dimensional
+        If ``x`` is not 1-dimensional.
     ValueError
-        If y is not the same shape as x
+        If ``y`` is not the same shape as ``x``.
     ValueError
-        If x is not strictly increasing
+        If ``x`` is not strictly increasing.
 
     Examples
     --------
@@ -40,7 +55,7 @@ class Interpolator:
         >>> f([-0.5,0.5])
         (-1.0, 1.0)
 
-    Evaluate the n-th derivative of the function::
+    Evaluate the :math:`n`\th derivative of the function::
 
         >>> f.derivative(x=0.5, n=1)
         2.0
@@ -71,17 +86,17 @@ class Interpolator:
             self._spline = scipy.interpolate.InterpolatedUnivariateSpline(x=x, y=y, k=1)
 
     def __call__(self, x):
-        """Evaluate the interpolating function.
+        r"""Evaluate the interpolating function.
 
         Parameters
         ----------
         x : float or array_like
-            1-d array of x coordinates to evaluate.
+            1-d array of :math:`x` coordinates to evaluate.
 
         Returns
         -------
         result : float or numpy.ndarray
-            Interpolated values having the same form as `x`.
+            Interpolated values having the same form as ``x``.
 
         """
         scalar_x = numpy.isscalar(x)
@@ -106,24 +121,24 @@ class Interpolator:
         return result
 
     def derivative(self, x, n):
-        """Evaluate the n-th derivative of the interpolating function.
+        r"""Evaluate the :math:`n`\th derivative of the interpolating function.
 
         Parameters
         ----------
         x : float or array_like
-            1-d array of x coordinates to evaluate.
+            1-d array of :math:`x` coordinates to evaluate.
         n : int
             The order of the derivative to take.
 
         Returns
         -------
         result : float or numpy.ndarray
-            Interpolated derivative values having the same form as `x`.
+            Interpolated derivative values having the same form as ``x``.
 
         Raises
         ------
         ValueError
-            If n is not a positive integer.
+            If ``n`` is not a positive integer.
 
         """
         if not isinstance(n, int) and n <= 0:

@@ -82,7 +82,7 @@ class Optimizer(abc.ABC):
         objective : :class:`~relentless.optimize.objective.ObjectiveFunction`
             The objective function to be optimized.
         directory : :class:`~relentless.data.Directory`
-            Directory for writing output during optimization. Default of `None`
+            Directory for writing output during optimization. Default of ``None``
             requests no output is written.
 
         """
@@ -168,7 +168,7 @@ class LineSearch:
         end : :class:`~relentless.optimize.objective.ObjectiveFunctionResult`
             The objective function evaluated at the end of the search interval.
         directory : :class:`~relentless.data.Directory`
-            Directory for writing output during search. Default of `None`
+            Directory for writing output during search. Default of ``None``
             requests no output is written.
 
         Raises

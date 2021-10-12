@@ -326,7 +326,7 @@ class DependentVariable(Variable):
 
     Dependencies are typically other :class:`Variable` objects, but they can also
     be set to scalar values. In these case, the scalar is converted to an
-    :class:`IndepedentVariable` first.
+    :class:`IndependentVariable` first.
 
     Parameters
     ----------
@@ -364,7 +364,7 @@ class DependentVariable(Variable):
 
         Yields
         ------
-        str
+        :class:`str`
             The name of the attribute.
         :class:`Variable`
             The parameter variable object.
@@ -562,7 +562,7 @@ class BinaryOperator(DependentVariable):
 class ArithmeticMean(BinaryOperator):
     r"""Arithmetic mean of two values.
 
-    The arithmetic mean *v* of two values *a* and *b* is:
+    The arithmetic mean :math:`v` of two values :math:`a` and :math:`b` is:
 
     .. math::
 
@@ -593,7 +593,7 @@ class ArithmeticMean(BinaryOperator):
 class GeometricMean(BinaryOperator):
     r"""Geometric mean of two values.
 
-    The geometric mean *v* of two values *a* and *b* is:
+    The geometric mean :math:`v` of two values :math:`a` and :math:`b` is:
 
     .. math::
 
