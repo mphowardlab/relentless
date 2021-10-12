@@ -13,7 +13,7 @@ The optimization method is a fixed-step descent with a line search, which should
 converges with a small number of iterations.
 
 """
-import numpy as np
+import numpy
 import relentless
 
 # lj potential with epsilon as a design variable
@@ -24,9 +24,9 @@ lj.coeff['1','1'].update({'epsilon': epsilon, 'sigma': 1.0, 'rmax': 3.0, 'shift'
 # target ensemble
 target = relentless.ensemble.Ensemble(T=1.5, V=relentless.volume.Cube(L=10.), N={'1':50})
 dr = 0.05
-rs = np.arange(0.5*dr,5.0,dr)
+rs = numpy.arange(0.5*dr,5.0,dr)
 for pair in target.pairs:
-    gs = np.exp(-target.beta*lj.energy(pair,rs))
+    gs = numpy.exp(-target.beta*lj.energy(pair,rs))
     target.rdf[pair] = relentless.ensemble.RDF(rs,gs)
 
 # relative entropy optimization in dilute molecular simulation
