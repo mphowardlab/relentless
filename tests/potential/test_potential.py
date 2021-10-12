@@ -3,7 +3,7 @@ import json
 import tempfile
 import unittest
 
-import numpy as np
+import numpy
 
 import relentless
 
@@ -302,42 +302,42 @@ class test_Potential(unittest.TestCase):
         #test with scalar r
         r = 0.5
         r_copy, u, s = p._zeros(r)
-        np.testing.assert_allclose(r_copy, np.array([r]))
-        np.testing.assert_allclose(u, np.zeros(1))
+        numpy.testing.assert_allclose(r_copy, numpy.array([r]))
+        numpy.testing.assert_allclose(u, numpy.zeros(1))
         self.assertEqual(s, True)
 
-        u_copy = np.zeros(2)
+        u_copy = numpy.zeros(2)
         #test with list r
         r = [0.2, 0.3]
         r_copy, u, s = p._zeros(r)
-        np.testing.assert_allclose(r_copy, r)
-        np.testing.assert_allclose(u, u_copy)
+        numpy.testing.assert_allclose(r_copy, r)
+        numpy.testing.assert_allclose(u, u_copy)
         self.assertEqual(s, False)
 
         #test with tuple r
         r = (0.2, 0.3)
         r_copy, u, s = p._zeros(r)
-        np.testing.assert_allclose(r_copy, r)
-        np.testing.assert_allclose(u, u_copy)
+        numpy.testing.assert_allclose(r_copy, r)
+        numpy.testing.assert_allclose(u, u_copy)
         self.assertEqual(s, False)
 
         #test with numpy array r
-        r = np.array([0.2, 0.3])
+        r = numpy.array([0.2, 0.3])
         r_copy, u, s = p._zeros(r)
-        np.testing.assert_allclose(r_copy, r)
-        np.testing.assert_allclose(u, u_copy)
+        numpy.testing.assert_allclose(r_copy, r)
+        numpy.testing.assert_allclose(u, u_copy)
         self.assertEqual(s, False)
 
         #test with 1-element array
         r = [0.2]
         r_copy, u, s = p._zeros(r)
-        u_copy = np.zeros(1)
-        np.testing.assert_allclose(r, r_copy)
-        np.testing.assert_allclose(u, u_copy)
+        u_copy = numpy.zeros(1)
+        numpy.testing.assert_allclose(r, r_copy)
+        numpy.testing.assert_allclose(u, u_copy)
         self.assertEqual(s, False)
 
         #test with non 1-d array r
-        r = np.array([[1, 2], [0.2, 0.3]])
+        r = numpy.array([[1, 2], [0.2, 0.3]])
         with self.assertRaises(TypeError):
             r_copy, u, s = p._zeros(r)
 

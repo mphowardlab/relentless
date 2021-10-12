@@ -25,7 +25,7 @@ if a suitable one does not already exist.
 import abc
 import json
 
-import numpy as np
+import numpy
 
 from relentless import _collections
 from relentless import variable
@@ -107,7 +107,7 @@ class Parameters:
             # evaluate the variable
             if isinstance(v, variable.Variable):
                 params[p] = v.value
-            elif np.isscalar(v):
+            elif numpy.isscalar(v):
                 params[p] = v
             else:
                 raise TypeError('Parameter type unrecognized')
@@ -295,11 +295,11 @@ class Potential(abc.ABC):
             If x is not a 1-dimensional array
 
         """
-        s = np.isscalar(x)
-        x = np.array(x, dtype=np.float64, ndmin=1)
+        s = numpy.isscalar(x)
+        x = numpy.array(x, dtype=numpy.float64, ndmin=1)
         if len(x.shape) != 1:
             raise TypeError('Potential coordinate must be 1D array.')
-        return x,np.zeros_like(x),s
+        return x,numpy.zeros_like(x),s
 
     def save(self, filename):
         """Save the coefficient matrix to file as JSON data.
