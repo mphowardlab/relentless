@@ -63,8 +63,8 @@ or :class:`BinaryOperator`) and define the required properties and methods.
 import abc
 from enum import Enum
 
-import networkx as nx
-import numpy as np
+import networkx
+import numpy
 
 class Variable(abc.ABC):
     """Abstract base class for a variable.
@@ -399,7 +399,7 @@ class DependentVariable(Variable):
 
         """
         # discover all variables (nodes) by quasi-depth first search
-        g = nx.DiGraph()
+        g = networkx.DiGraph()
         stack = [self]
         visited = set()
         while stack:
@@ -452,13 +452,13 @@ class DependentVariable(Variable):
 
         # add sum of parameter derivatives to edges between objects
         for a,b,params in g.edges.data('params'):
-            g.edges[a,b]['deriv'] = np.sum([a._derivative(p) for p in params])
+            g.edges[a,b]['deriv'] = numpy.sum([a._derivative(p) for p in params])
 
         # compute chain rule along all paths to the variable
         deriv = 0.
-        paths = nx.all_simple_paths(g, source=self, target=var)
-        for path in map(nx.utils.pairwise, paths):
-            deriv += np.prod([g.edges[edge]['deriv'] for edge in path])
+        paths = networkx.all_simple_paths(g, source=self, target=var)
+        for path in map(networkx.utils.pairwise, paths):
+            deriv += numpy.prod([g.edges[edge]['deriv'] for edge in path])
         return deriv
 
     @abc.abstractmethod
@@ -480,7 +480,7 @@ class DependentVariable(Variable):
     @classmethod
     def _make_variable(cls, v):
         # cast a scalar into an independent variable
-        if np.isscalar(v):
+        if numpy.isscalar(v):
             v = IndependentVariable(value=v)
         if not isinstance(v, Variable):
             raise TypeError('Dependent variables can only depend on scalars or other variables.')
@@ -489,7 +489,7 @@ class DependentVariable(Variable):
     @classmethod
     def _assert_acyclic(cls, g):
         # confirm dependency graph is free of cycles
-        if not nx.is_directed_acyclic_graph(g):
+        if not networkx.is_directed_acyclic_graph(g):
             raise RuntimeError('DependentVariable has circular dependencies.')
         return g
 
@@ -611,18 +611,18 @@ class GeometricMean(BinaryOperator):
     """
     @property
     def value(self):
-        return np.sqrt(self.a.value*self.b.value)
+        return numpy.sqrt(self.a.value*self.b.value)
 
     def _derivative(self, param):
         if param == 'a':
             try:
-                return 0.5*np.sqrt(self.b.value/self.a.value)
+                return 0.5*numpy.sqrt(self.b.value/self.a.value)
             except ZeroDivisionError:
-                return np.inf
+                return numpy.inf
         elif param == 'b':
             try:
-                return 0.5*np.sqrt(self.a.value/self.b.value)
+                return 0.5*numpy.sqrt(self.a.value/self.b.value)
             except ZeroDivisionError:
-                return np.inf
+                return numpy.inf
         else:
             raise ValueError('Unknown parameter')

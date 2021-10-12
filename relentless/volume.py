@@ -1,7 +1,7 @@
 import abc
 from enum import Enum
 
-import numpy as np
+import numpy
 
 class Volume(abc.ABC):
     r"""Abstract base class defining a region of space.
@@ -73,9 +73,9 @@ class Parallelepiped(Volume):
 
     """
     def __init__(self, a, b, c):
-        self.a = np.asarray(a,dtype=np.float64)
-        self.b = np.asarray(b,dtype=np.float64)
-        self.c = np.asarray(c,dtype=np.float64)
+        self.a = numpy.asarray(a,dtype=numpy.float64)
+        self.b = numpy.asarray(b,dtype=numpy.float64)
+        self.c = numpy.asarray(c,dtype=numpy.float64)
         if not (self.a.shape==(3,) and self.b.shape==(3,) and self.c.shape==(3,)):
             raise TypeError('a, b, and c must be 3-element vectors.')
         if self.volume <= 0:
@@ -83,7 +83,7 @@ class Parallelepiped(Volume):
 
     @property
     def volume(self):
-        return np.dot(np.cross(self.a,self.b),self.c)
+        return numpy.dot(numpy.cross(self.a,self.b),self.c)
 
     def to_json(self):
         r"""Serialize as a dictionary.

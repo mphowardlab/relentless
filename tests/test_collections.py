@@ -1,7 +1,7 @@
 """Unit tests for _collections module."""
 import unittest
 
-import numpy as np
+import numpy
 
 import relentless
 
@@ -367,8 +367,8 @@ class test_KeyedArray(unittest.TestCase):
         k3.update({'A':3.0, 'B':4.0, 'C':5.0})
 
         #norm
-        self.assertAlmostEqual(k1.norm(), np.sqrt(5))
-        self.assertAlmostEqual(k3.norm(), np.sqrt(50))
+        self.assertAlmostEqual(k1.norm(), numpy.sqrt(5))
+        self.assertAlmostEqual(k3.norm(), numpy.sqrt(50))
 
         #dot product
         self.assertAlmostEqual(k1.dot(k2), 8.0)
