@@ -15,10 +15,16 @@ relentless
     :caption: API
 
     api/index
+    api/data
     api/mpi
+    api/collections
+    api/math
+    api/ensemble
     api/potential/index
+    api/simulate/index
     api/optimize/index
     api/variable
+    api/volume
 
 .. toctree::
     :maxdepth: 1

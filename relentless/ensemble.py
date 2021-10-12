@@ -1,3 +1,27 @@
+"""
+Ensemble
+========
+
+The behavior and properties of a simulated system can be described with a statistical
+mechanical ensemble. Even though the system contains an extremely large number
+of particles and distribution of possible states, the ensemble can be parametrized
+by just a few quantities. Then, the real thermodynamic properties of the system
+can be determined using the ensemble average of the appropriate quantity. In addition,
+for each pair in the ensemble, the radial distribution function (RDF) is also defined
+using an Akima spline.
+
+.. autosummary::
+    :nosignatures:
+
+    Ensemble
+    RDF
+
+.. autoclass:: Ensemble
+    :members:
+.. autoclass:: RDF
+    :members:
+
+"""
 import copy
 import json
 
@@ -10,15 +34,15 @@ from . import volume
 class RDF(Interpolator):
     r"""Radial distribution function.
 
-    Represents the pair distribution function :math:`g(r)` as an ``(N,2)``
+    Represents the pair distribution function :math:`g(r)` as a ``(N,2)``
     table that can also be smoothly interpolated.
 
     Parameters
     ----------
     r : array_like
-        1-d array of r values (continually increasing).
+        1-d array of :math:`r` values (continually increasing).
     g : array_like
-        1-d array of g values.
+        1-d array of :math:`g(r)` values.
 
     """
     def __init__(self, r, g):
@@ -29,6 +53,7 @@ class Ensemble:
     r"""Thermodynamic ensemble.
 
     An ensemble is defined by:
+
         - The temperature ``T``.
         - The number ``N`` for each particle type. The particle types are
           strings determined from the keys of ``N``.
@@ -40,19 +65,19 @@ class Ensemble:
         Temperature of the system.
     N : dict
         The number of particles for each specified type.
-    V : :class:`Volume`
-        Volume of the system (defaults to None).
+    V : :class:`~relentless.volume.Volume`
+        Volume of the system (defaults to ``None``).
     P : float
-        Pressure of the system (defaults to None).
+        Pressure of the system (defaults to ``None``).
     kB : float
-        Boltzmann constant (defaults to 1.0).
+        Boltzmann constant (defaults to ``1.0``).
 
     Raises
     ------
     TypeError
         If the types in ``N`` are not all strings.
     TypeError
-        If all values of ``N`` are not integers or None.
+        If all values of ``N`` are not integers or ``None``.
 
     """
     def __init__(self, T, N, V=None, P=None, kB=1.0):
@@ -99,7 +124,7 @@ class Ensemble:
 
     @property
     def V(self):
-        r""":class:`Volume`: The volume of the system."""
+        r""":class:`~relentless.volume.Volume`: The volume of the system."""
         return self._V
 
     @V.setter
@@ -119,7 +144,7 @@ class Ensemble:
 
     @property
     def N(self):
-        r""":class:`FixedKeyDict`: Number of particles of each type."""
+        r""":class:`~relentless._collections.FixedKeyDict`: Number of particles of each type."""
         return self._N
 
     @property
@@ -134,7 +159,7 @@ class Ensemble:
 
     @property
     def rdf(self):
-        r""":class:`PairMatrix`: Radial distribution function per pair."""
+        r""":class:`~relentless._collections.PairMatrix`: Radial distribution function per pair."""
         return self._rdf
 
     def copy(self):

@@ -1,3 +1,56 @@
+"""
+Volumes
+=======
+A :class:`Volume` represents a 3D region of space with a fixed, scalar volume. It corresponds
+to the "box" used in simulations. The following box types have been implemented:
+
+.. autosummary::
+    :nosignatures:
+
+    Parallelepiped
+    TriclinicBox
+    Cuboid
+    Cube
+
+The :class:`TriclinicBox` can be constructed using both the LAMMPS and HOOMD-blue
+:class:`TriclinicBox.Convention`\s for applying tilt factors.
+
+Examples
+--------
+Construct a simulation box with defined basis vectors and volume::
+
+    v = relentless.volume.Cube(L=3)
+    >>> print(v.a)
+    [3.0 0.0 0.0]
+    >>> print(v.b)
+    [0.0 3.0 0.0]
+    >>> print(v.c)
+    [0.0 0.0 3.0]
+    >>> print(v.volume)
+    27.0
+
+.. rubric:: Developer notes
+
+To implement your own simulation box, create a class that derives from :class:`Volume`
+and define the required methods.
+
+.. autosummary::
+    :nosignatures:
+
+    Volume
+
+.. autoclass:: Volume
+    :members:
+.. autoclass:: Parallelepiped
+    :members:
+.. autoclass:: TriclinicBox
+    :members:
+.. autoclass:: Cuboid
+    :members:
+.. autoclass:: Cube
+    :members:
+
+"""
 import abc
 from enum import Enum
 
@@ -39,7 +92,7 @@ class Volume(abc.ABC):
 
         Returns
         -------
-        Volume
+        :class:`Volume`
             The object reconstructed from the ``data``.
 
         """
@@ -48,12 +101,12 @@ class Volume(abc.ABC):
 class Parallelepiped(Volume):
     r"""Parallelepiped box defined by three vectors.
 
-    The three vectors **a**, **b**, and **c** must form a right-hand basis
-    so that the box volume *V* is positive:
+    The three vectors :math:`\mathbf{a}`, :math:`\mathbf{b}`, and :math:`\mathbf{c}`
+    must form a right-hand basis so that the box volume :math:`V` is positive:
 
     .. math::
 
-        V = (\mathbf{a} \cross \mathbf{b}) \cdot \mathbf{c} > 0
+        V = (\mathbf{a} \times \mathbf{b}) \cdot \mathbf{c} > 0
 
     Parameters
     ----------
@@ -67,7 +120,7 @@ class Parallelepiped(Volume):
     Raises
     ------
     TypeError
-        If a, b, and c are not all 3-element vectors.
+        If ``a``, ``b``, and ``c`` are not all 3-element vectors.
     ValueError
         If the volume is not positive.
 
@@ -88,8 +141,7 @@ class Parallelepiped(Volume):
     def to_json(self):
         r"""Serialize as a dictionary.
 
-        The dictionary contains the three box vectors **a**, **b**, and **c**
-        as tuples.
+        The dictionary contains the three box vectors ``a``, ``b``, and ``c`` as tuples.
 
         Returns
         -------
@@ -126,38 +178,23 @@ class TriclinicBox(Parallelepiped):
 
     A TriclinicBox is a special type of :class:`Parallelepiped`. The box is
     defined by an orthorhombic box oriented along the Cartesian axes and having
-    three vectors of length ``Lx``, ``Ly``, and ``Lz``, respectively. The box is
-    then tilted by factors ``xy``, ``xy``, and ``xz``, which are upper off-diagonal
-    elements of the matrix of box vectors. As a result, the **a** vector is
-    always aligned along the *x*-axis, while the other two vectors may be tilted.
+    three vectors of length :math:`L_x`, :math:`L_y`, and :math:`L_z`, respectively.
+    The box is then tilted by factors :math:`xy`, :math:`xz`, and :math:`yz`, which
+    are upper off-diagonal elements of the matrix of box vectors. As a result,
+    the :math:`\mathbf{a}` vector is always aligned along the :math:`x` axis, while
+    the other two vectors may be tilted.
 
-    The tilt factors can be defined using one of two :class:`TriclinicBox.Convention`.
-    In the `LAMMPS <https://lammps.sandia.gov/doc/Howto_triclinic.html>`_
-    simulation convention, specified using ``TriclinicBox.Convention.LAMMPS``,
-
-    .. math::
-
-        \mathbf{a} = (L_x,0,0)
-        \mathbf{b} = (xy,L_y,0)
-        \mathbf{c} = (xz,yz,L_z)
-
-    In the `HOOMD-blue <https://hoomd-blue.readthedocs.io/en/stable/box.html>`_
-    simulation convention, specified using ``TriclinicBox.Convention.HOOMD``,
-
-    .. math::
-
-        \mathbf{a} = (L_x,0,0)
-        \mathbf{b} = (xy*L_y,L_y,0)
-        \mathbf{c} = (xz*L_z,yz*L_z,L_z)
+    The tilt factors can be defined using one of two :class:`TriclinicBox.Convention`\s.
+    By default, the LAMMPS convention is applied to calculate the basis vectors.
 
     Parameters
     ----------
     Lx : float
-        Length along the *x* axis.
+        Length along the :math:`x` axis.
     Ly : float
-        Length along the *y* axis.
+        Length along the :math:`y` axis.
     Lz : float
-        Length along the *z* axis.
+        Length along the :math:`z` axis.
     xy : float
         First tilt factor.
     xz : float
@@ -168,31 +205,35 @@ class TriclinicBox(Parallelepiped):
     Raises
     ------
     ValueError
-        If *Lx*, *Ly*, *Lz* are not all positive.
+        If ``Lx``, ``Ly``, and ``Lz`` are not all positive.
     ValueError
-        If the convention is not `TriclinicBox.Convention.LAMMPS` or
-        `TriclinicBox.Convention.HOOMD`.
+        If the convention is not ``TriclinicBox.Convention.LAMMPS`` or
+        ``TriclinicBox.Convention.HOOMD``.
 
     """
 
     class Convention(Enum):
         r"""Convention by which the tilt factors are applied to the basis vectors.
 
-        Calculation of the basis vectors by the `LAMMPS convention <https://lammps.sandia.gov/doc/Howto_triclinic.html>`_:
+        In the `LAMMPS <https://lammps.sandia.gov/doc/Howto_triclinic.html>`_
+        simulation convention, specified using ``TriclinicBox.Convention.LAMMPS``,
+        the basis vectors are
 
         .. math::
 
             \mathbf{a} = (L_x,0,0)
-            \mathbf{b} = (xy,L_y,0)
-            \mathbf{c} = (xz,yz,L_z)
+            \quad \mathbf{b} = (xy,L_y,0)
+            \quad \mathbf{c} = (xz,yz,L_z)
 
-        Calculation of the basis vectors by the `HOOMD convention <https://hoomd-blue.readthedocs.io/en/stable/box.html>`_:
+        In the `HOOMD-blue <https://hoomd-blue.readthedocs.io/en/stable/box.html>`_
+        simulation convention, specified using ``TriclinicBox.Convention.HOOMD``,
+        the basis vectors are
 
         .. math::
 
             \mathbf{a} = (L_x,0,0)
-            \mathbf{b} = (xy*L_y,L_y,0)
-            \mathbf{c} = (xz*L_z,yz*L_z,L_z)
+            \quad \mathbf{b} = (xy \cdot L_y,L_y,0)
+            \quad \mathbf{c} = (xz \cdot L_z,yz \cdot L_z,L_z)
 
         Attributes
         ----------
@@ -276,7 +317,7 @@ class TriclinicBox(Parallelepiped):
         Raises
         ------
         ValueError
-            If the convention specified is not LAMMPS or HOOMD.
+            If the convention specified is not ``'LAMMPS'`` or ``'HOOMD'``.
 
         """
         data_ = dict(data)
@@ -292,18 +333,18 @@ class Cuboid(TriclinicBox):
     r"""Orthorhombic box.
 
     A Cuboid is a special type of :class:`TriclinicBox`. The three box vectors
-    point along the *x*, *y*, and *z* axes, so they are all orthogonal (i.e. the
-    tilt factors ``xy``, ``xz``, and ``yz`` are all 0). Each vector can have a
-    different length, *Lx*, *Ly*, and *Lz*.
+    point along the :math:`x`, :math:`y`, and :math:`z` axes, so they are all
+    orthogonal (i.e. :math:`xy=xz=yz=0`). Each vector can have a different length,
+    :math:`L_x`, :math:`L_y`, and :math:`L_z`.
 
     Parameters
     ----------
     Lx : float
-        Length along the *x* axis.
+        Length along the :math:`x` axis.
     Ly : float
-        Length along the *y* axis.
+        Length along the :math:`y` axis.
     Lz : float
-        Length along the *z* axis.
+        Length along the :math:`z` axis.
 
     """
     def __init__(self, Lx, Ly, Lz):
@@ -348,7 +389,7 @@ class Cube(Cuboid):
     r"""Cubic box.
 
     A Cube is a special type of :class:`Cuboid` where all vectors have the
-    same length *L*.
+    same length :math:`L`.
 
     Parameters
     ----------
