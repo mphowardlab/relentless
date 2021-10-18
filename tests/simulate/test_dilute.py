@@ -34,6 +34,11 @@ class test_Dilute(unittest.TestCase):
         ens_ = analyzer.extract_ensemble(sim)
         self.assertAlmostEqual(ens_.P, -207.5228556)
 
+    def test_inf_potential(self):
+        """Test potential with infinite value."""
+        analyzer = relentless.simulate.dilute.AddEnsembleAnalyzer()
+        ens = relentless.ensemble.Ensemble(T=1.0, V=relentless.volume.Cube(L=2.0), N={'A':2,'B':3})
+
         #test with potential that has infinite potential at low r
         pot = relentless.potential.LennardJones(types=('A','B'))
         for pair in pot.coeff:
