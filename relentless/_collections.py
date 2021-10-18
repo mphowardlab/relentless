@@ -26,7 +26,7 @@ potentials and performing computations during the optimization workflow.
 """
 import collections
 
-import numpy as np
+import numpy
 
 class FixedKeyDict:
     """Dictionary with fixed keys.
@@ -375,7 +375,7 @@ class KeyedArray(FixedKeyDict):
         if isinstance(val, KeyedArray):
             self._assert_same_keys(val)
             k.update({x: self[x] + val[x] for x in self})
-        elif np.isscalar(val):
+        elif numpy.isscalar(val):
             k.update({x: self[x] + val for x in self})
         else:
             raise TypeError('A KeyedArray can only add a scalar or a KeyedArray.')
@@ -384,7 +384,7 @@ class KeyedArray(FixedKeyDict):
     def __radd__(self, val):
         """Element-wise addition of a scalar and an array."""
         k = KeyedArray(keys=self.keys)
-        if np.isscalar(val):
+        if numpy.isscalar(val):
             k.update({x: val + self[x] for x in self})
         else:
             raise TypeError('A KeyedArray can only add a scalar or a KeyedArray.')
@@ -396,7 +396,7 @@ class KeyedArray(FixedKeyDict):
             self._assert_same_keys(val)
             for x in self:
                 self[x] += val[x]
-        elif np.isscalar(val):
+        elif numpy.isscalar(val):
             for x in self:
                 self[x] += val
         else:
@@ -409,7 +409,7 @@ class KeyedArray(FixedKeyDict):
         if isinstance(val, KeyedArray):
             self._assert_same_keys(val)
             k.update({x: self[x] - val[x] for x in self})
-        elif np.isscalar(val):
+        elif numpy.isscalar(val):
             k.update({x: self[x] - val for x in self})
         else:
             raise TypeError('A KeyedArray can only subtract a scalar or a KeyedArray.')
@@ -418,7 +418,7 @@ class KeyedArray(FixedKeyDict):
     def __rsub__(self, val):
         """Element-wise subtraction of a scalar and an array."""
         k = KeyedArray(keys=self.keys)
-        if np.isscalar(val):
+        if numpy.isscalar(val):
             k.update({x: val - self[x] for x in self})
         else:
             raise TypeError('A KeyedArray can only subtract a scalar or a KeyedArray.')
@@ -430,7 +430,7 @@ class KeyedArray(FixedKeyDict):
             self._assert_same_keys(val)
             for x in self:
                 self[x] -= val[x]
-        elif np.isscalar(val):
+        elif numpy.isscalar(val):
             for x in self:
                 self[x] -= val
         else:
@@ -443,7 +443,7 @@ class KeyedArray(FixedKeyDict):
         if isinstance(val, KeyedArray):
             self._assert_same_keys(val)
             k.update({x: self[x]*val[x] for x in self})
-        elif np.isscalar(val):
+        elif numpy.isscalar(val):
             k.update({x: self[x]*val for x in self})
         else:
             raise TypeError('A KeyedArray can only multiply a scalar or a KeyedArray.')
@@ -452,7 +452,7 @@ class KeyedArray(FixedKeyDict):
     def __rmul__(self, val):
         """Element-wise multiplication of a scalar by an array."""
         k = KeyedArray(keys=self.keys)
-        if np.isscalar(val):
+        if numpy.isscalar(val):
             k.update({x: val*self[x] for x in self})
         else:
             raise TypeError('A KeyedArray can only multiply a scalar or a KeyedArray.')
@@ -464,7 +464,7 @@ class KeyedArray(FixedKeyDict):
             self._assert_same_keys(val)
             for x in self:
                 self[x] *= val[x]
-        elif np.isscalar(val):
+        elif numpy.isscalar(val):
             for x in self:
                 self[x] *= val
         else:
@@ -477,7 +477,7 @@ class KeyedArray(FixedKeyDict):
         if isinstance(val, KeyedArray):
             self._assert_same_keys(val)
             k.update({x: self[x]/val[x] for x in self})
-        elif np.isscalar(val):
+        elif numpy.isscalar(val):
             k.update({x: self[x]/val for x in self})
         else:
             raise TypeError('A KeyedArray can only divide a scalar or a KeyedArray.')
@@ -486,7 +486,7 @@ class KeyedArray(FixedKeyDict):
     def __rtruediv__(self, val):
         """Element-wise division of a scalar by an array."""
         k = KeyedArray(keys=self.keys)
-        if np.isscalar(val):
+        if numpy.isscalar(val):
             k.update({x: val/self[x] for x in self})
         else:
             raise TypeError('A KeyedArray can only divide a scalar or a KeyedArray.')
@@ -498,7 +498,7 @@ class KeyedArray(FixedKeyDict):
             self._assert_same_keys(val)
             for x in self:
                 self[x] /= val[x]
-        elif np.isscalar(val):
+        elif numpy.isscalar(val):
             for x in self:
                 self[x] /= val
         else:
@@ -511,7 +511,7 @@ class KeyedArray(FixedKeyDict):
         if isinstance(val, KeyedArray):
             self._assert_same_keys(val)
             k.update({x: self[x]**val[x] for x in self})
-        elif np.isscalar(val):
+        elif numpy.isscalar(val):
             k.update({x: self[x]**val for x in self})
         else:
             raise TypeError('A KeyedArray can only be exponentiated by a scalar or by a KeyedArray.')
@@ -539,7 +539,7 @@ class KeyedArray(FixedKeyDict):
             The vector norm.
 
         """
-        return np.linalg.norm(list(self.todict().values()))
+        return numpy.linalg.norm(list(self.todict().values()))
 
     def dot(self, val):
         r"""Vector dot product.
@@ -564,7 +564,7 @@ class KeyedArray(FixedKeyDict):
 
         """
         self._assert_same_keys(val)
-        return np.sum([self[x]*val[x] for x in self])
+        return numpy.sum([self[x]*val[x] for x in self])
 
 class DefaultDict(collections.abc.MutableMapping):
     """Dictionary which supports a default value.

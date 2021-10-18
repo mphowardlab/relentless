@@ -86,7 +86,7 @@ called by the user into an operation associated with a valid :class:`~relentless
 import importlib
 import inspect
 
-import numpy as np
+import numpy
 
 from . import simulate
 

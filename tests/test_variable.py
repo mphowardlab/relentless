@@ -1,7 +1,7 @@
 """Unit tests for core.variable module."""
 import unittest
 
-import numpy as np
+import numpy
 
 import relentless
 
@@ -232,7 +232,7 @@ class DepVar(relentless.variable.DependentVariable):
 
     @property
     def value(self):
-        return np.sum([v.value for p,v in self.depends])
+        return numpy.sum([v.value for p,v in self.depends])
 
     def _derivative(self, param):
         #Note: this method doesn't calculate the actual derivatives;
@@ -625,7 +625,7 @@ class test_GeometricMean(unittest.TestCase):
 
         #test variable dependent on 2 DependentVariables
         y = relentless.variable.GeometricMean(w,x)
-        self.assertAlmostEqual(y.value, np.sqrt(32.0))
+        self.assertAlmostEqual(y.value, numpy.sqrt(32.0))
         self.assertCountEqual(y.params, ('a','b'))
         self.assertDictEqual({p:v for p,v in y.depends}, {'a':w,'b':x})
 
@@ -652,25 +652,25 @@ class test_GeometricMean(unittest.TestCase):
 
         self.assertEqual(u.value, 2.0)
         self.assertEqual(v.value, 1.0)
-        self.assertAlmostEqual(w.value, np.sqrt(2.0))
-        self.assertAlmostEqual(x.value, np.sqrt(np.sqrt(2.0)))
-        self.assertAlmostEqual(y.value, np.sqrt(np.sqrt(np.sqrt(2.0))*np.sqrt(2.0)))
+        self.assertAlmostEqual(w.value, numpy.sqrt(2.0))
+        self.assertAlmostEqual(x.value, numpy.sqrt(numpy.sqrt(2.0)))
+        self.assertAlmostEqual(y.value, numpy.sqrt(numpy.sqrt(numpy.sqrt(2.0))*numpy.sqrt(2.0)))
 
         #change value of u
         u.value = 2.6
         self.assertEqual(u.value, 2.5)
         self.assertEqual(v.value, 1.0)
-        self.assertAlmostEqual(w.value, np.sqrt(2.5))
-        self.assertAlmostEqual(x.value, np.sqrt(np.sqrt(2.5)))
-        self.assertAlmostEqual(y.value, np.sqrt(np.sqrt(np.sqrt(2.5))*np.sqrt(2.5)))
+        self.assertAlmostEqual(w.value, numpy.sqrt(2.5))
+        self.assertAlmostEqual(x.value, numpy.sqrt(numpy.sqrt(2.5)))
+        self.assertAlmostEqual(y.value, numpy.sqrt(numpy.sqrt(numpy.sqrt(2.5))*numpy.sqrt(2.5)))
 
         #change value of v
         v.value = 0.4
         self.assertEqual(u.value, 2.5)
         self.assertEqual(v.value, 0.5)
-        self.assertAlmostEqual(w.value, np.sqrt(1.25))
-        self.assertAlmostEqual(x.value, np.sqrt(0.5*np.sqrt(1.25)))
-        self.assertAlmostEqual(y.value, np.sqrt(np.sqrt(0.5*np.sqrt(1.25))*np.sqrt(1.25)))
+        self.assertAlmostEqual(w.value, numpy.sqrt(1.25))
+        self.assertAlmostEqual(x.value, numpy.sqrt(0.5*numpy.sqrt(1.25)))
+        self.assertAlmostEqual(y.value, numpy.sqrt(numpy.sqrt(0.5*numpy.sqrt(1.25))*numpy.sqrt(1.25)))
 
     def test_derivative(self):
         """Test _derivative method."""
@@ -680,11 +680,11 @@ class test_GeometricMean(unittest.TestCase):
 
         #test w.r.t. a
         dw = w._derivative('a')
-        self.assertAlmostEqual(dw, 0.5*np.sqrt(2.0))
+        self.assertAlmostEqual(dw, 0.5*numpy.sqrt(2.0))
 
         #test w.r.t. b
         dw = w._derivative('b')
-        self.assertAlmostEqual(dw, 0.5*np.sqrt(0.5))
+        self.assertAlmostEqual(dw, 0.5*numpy.sqrt(0.5))
 
         #test w.r.t. ~a,~b
         with self.assertRaises(ValueError):
@@ -693,11 +693,11 @@ class test_GeometricMean(unittest.TestCase):
         #test with 0 denominator
         u.value = 0.0
         dw = w._derivative('a')
-        self.assertEqual(dw, np.inf)
+        self.assertEqual(dw, numpy.inf)
 
         v.value = 0.0
         dw = w._derivative('b')
-        self.assertEqual(dw, np.inf)
+        self.assertEqual(dw, numpy.inf)
 
 if __name__ == '__main__':
     unittest.main()

@@ -38,7 +38,7 @@ see its documentation for more details.
 
 """
 import os
-import numpy as np
+import numpy
 try:
     from mpi4py import MPI
     _has_mpi4py = True
@@ -214,7 +214,7 @@ class Communicator:
 
             comm = relentless.mpi.Communicator()
             if comm.rank == comm.root:
-                x = np.array([1,2,3],dtype=np.int32)
+                x = numpy.array([1,2,3], dtype=numpy.int32)
             else:
                 x = None
             x = comm.bcast_numpy(x)
@@ -225,9 +225,9 @@ class Communicator:
 
             comm = relentless.mpi.Communicator()
             if comm.rank == comm.root:
-                x = np.array([1,2,3],dtype=np.int32)
+                x = numpy.array([1,2,3], dtype=numpy.int32)
             else:
-                x = np.empty(3, dtype=np.int32)
+                x = numpy.empty(3, dtype=numpy.int32)
             x = comm.bcast_numpy(x)
 
         """
@@ -254,7 +254,7 @@ class Communicator:
             except AttributeError:
                 alloc = True
             if alloc:
-                data = np.empty(shape,dtype=dtype)
+                data = numpy.empty(shape,dtype=dtype)
 
         # broadcast from the root rank
         self.comm.Bcast(data,root)
@@ -299,7 +299,7 @@ class Communicator:
 
         # load on root rank and broadcast
         if self.rank == root:
-            dat = np.loadtxt(filename, **kwargs)
+            dat = numpy.loadtxt(filename, **kwargs)
         else:
             dat = None
         dat = self.bcast_numpy(dat,root)

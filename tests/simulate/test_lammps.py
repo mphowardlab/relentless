@@ -6,7 +6,7 @@ try:
     import lammps
 except ImportError:
     pass
-import numpy as np
+import numpy
 
 import relentless
 from ..potential.test_pair import LinPot

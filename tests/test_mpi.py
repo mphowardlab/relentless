@@ -3,11 +3,11 @@ import unittest
 
 import os
 import tempfile
-import numpy as np
+import numpy
 
 import relentless
 try:
-    import mpi4py.MPI as MPI
+    from mpi4py import MPI
 except ImportError:
     pass
 
@@ -61,51 +61,51 @@ class test_Communicator(unittest.TestCase):
     def test_bcast_numpy(self):
         # float array
         if self.comm.rank == self.comm.root:
-            x = np.array([1.,2.],dtype=np.float64)
+            x = numpy.array([1.,2.],dtype=numpy.float64)
         else:
             x = None
         x = self.comm.bcast_numpy(x)
         self.assertEqual(x.shape,(2,))
-        self.assertEqual(x.dtype,np.float64)
-        np.testing.assert_allclose(x,[1.,2.])
+        self.assertEqual(x.dtype,numpy.float64)
+        numpy.testing.assert_allclose(x,[1.,2.])
 
         # float array from specified root
         if self.comm.size >= 2:
             root = 1
             if self.comm.rank == root:
-                x = np.array([3.,4.],dtype=np.float64)
+                x = numpy.array([3.,4.],dtype=numpy.float64)
             else:
                 x = None
             x = self.comm.bcast_numpy(x,root=root)
             self.assertEqual(x.shape,(2,))
-            self.assertEqual(x.dtype,np.float64)
-            np.testing.assert_allclose(x,[3.,4.])
+            self.assertEqual(x.dtype,numpy.float64)
+            numpy.testing.assert_allclose(x,[3.,4.])
 
         # prealloc'd float array
         if self.comm.rank == self.comm.root:
-            x = np.array([5.,6.],dtype=np.float64)
+            x = numpy.array([5.,6.],dtype=numpy.float64)
         else:
-            x = np.zeros((2,),dtype=np.float64)
+            x = numpy.zeros((2,),dtype=numpy.float64)
         y = self.comm.bcast_numpy(x)
         self.assertTrue(y is x)
         self.assertEqual(y.shape,(2,))
-        self.assertEqual(y.dtype,np.float64)
-        np.testing.assert_allclose(y,[5.,6.])
+        self.assertEqual(y.dtype,numpy.float64)
+        numpy.testing.assert_allclose(y,[5.,6.])
 
         # incorrectly alloc'd float array
         print('')
         if self.comm.rank == self.comm.root:
-            x = np.array([5.,6.],dtype=np.float64)
+            x = numpy.array([5.,6.],dtype=numpy.float64)
         else:
-            x = np.zeros((2,),dtype=np.int32)
+            x = numpy.zeros((2,),dtype=numpy.int32)
         y = self.comm.bcast_numpy(x)
         if self.comm.rank == self.comm.root:
             self.assertTrue(y is x)
         else:
             self.assertTrue(y is not x)
         self.assertEqual(y.shape,(2,))
-        self.assertEqual(y.dtype,np.float64)
-        np.testing.assert_allclose(y,[5.,6.])
+        self.assertEqual(y.dtype,numpy.float64)
+        numpy.testing.assert_allclose(y,[5.,6.])
 
     def test_loadtxt(self):
         # create file
@@ -125,7 +125,7 @@ class test_Communicator(unittest.TestCase):
         if self.comm.rank == self.comm.root:
             os.unlink(tmp.name)
 
-        np.testing.assert_allclose(dat, [[1.,2.],[3.,4.]])
+        numpy.testing.assert_allclose(dat, [[1.,2.],[3.,4.]])
 
 if __name__ == '__main__':
     unittest.main()

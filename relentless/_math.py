@@ -13,7 +13,7 @@ This module implements some convenience objects for mathematical operations.
     :members:
 
 """
-import numpy as np
+import numpy
 import scipy.interpolate
 
 class Interpolator:
@@ -69,15 +69,15 @@ class Interpolator:
 
     """
     def __init__(self, x, y):
-        x = np.atleast_1d(x)
-        y = np.atleast_1d(y)
+        x = numpy.atleast_1d(x)
+        y = numpy.atleast_1d(y)
         if x.shape[0] == 1:
             raise ValueError('x cannot be a scalar')
         if x.ndim > 1:
             raise ValueError('x must be 1-dimensional')
         if x.shape != y.shape:
             raise ValueError('x and y must be the same shape')
-        if not np.all(x[1:] > x[:-1]):
+        if not numpy.all(x[1:] > x[:-1]):
             raise ValueError('x must be strictly increasing')
         self._domain = (x[0],x[-1])
         if x.shape[0] > 2:
@@ -99,9 +99,9 @@ class Interpolator:
             Interpolated values having the same form as ``x``.
 
         """
-        scalar_x = np.isscalar(x)
-        x = np.atleast_1d(x)
-        result = np.zeros(len(x))
+        scalar_x = numpy.isscalar(x)
+        x = numpy.atleast_1d(x)
+        result = numpy.zeros(len(x))
 
         # clamp lo
         lo = x < self.domain[0]
@@ -112,7 +112,7 @@ class Interpolator:
         result[hi] = self._spline(self.domain[1])
 
         # evaluate in between
-        flags = np.logical_and(~lo,~hi)
+        flags = numpy.logical_and(~lo,~hi)
         result[flags] = self._spline(x[flags])
 
         if scalar_x:
@@ -143,9 +143,9 @@ class Interpolator:
         """
         if not isinstance(n, int) and n <= 0:
             raise ValueError('n must be a positive integer')
-        scalar_x = np.isscalar(x)
-        x = np.atleast_1d(x)
-        result = np.zeros(len(x))
+        scalar_x = numpy.isscalar(x)
+        x = numpy.atleast_1d(x)
+        result = numpy.zeros(len(x))
 
         # clamp lo
         lo = x < self.domain[0]
@@ -156,7 +156,7 @@ class Interpolator:
         result[hi] = 0
 
         # evaluate in between
-        flags = np.logical_and(~lo,~hi)
+        flags = numpy.logical_and(~lo,~hi)
         result[flags] = self._spline.derivative(n)(x[flags])
 
         if scalar_x:
@@ -168,4 +168,3 @@ class Interpolator:
     def domain(self):
         """tuple: The valid domain for interpolation."""
         return self._domain
-

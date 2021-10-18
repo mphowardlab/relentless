@@ -3,7 +3,7 @@ import json
 import tempfile
 import unittest
 
-import numpy as np
+import numpy
 
 import relentless
 
@@ -251,35 +251,35 @@ class test_PairPotential(unittest.TestCase):
         u = p.energy(pair=('1','1'), r=0.5)
         self.assertAlmostEqual(u, 1.0)
         u = p.energy(pair=('1','1'), r=[0.25,0.75])
-        np.testing.assert_allclose(u, [0.5,1.5])
+        numpy.testing.assert_allclose(u, [0.5,1.5])
 
         #test with rmin set
         p.coeff['1','1']['rmin'] = 0.5
         u = p.energy(pair=('1','1'), r=0.6)
         self.assertAlmostEqual(u, 1.2)
         u = p.energy(pair=('1','1'), r=[0.25,0.75])
-        np.testing.assert_allclose(u, [1.0,1.5])
+        numpy.testing.assert_allclose(u, [1.0,1.5])
 
         #test with rmax set
         p.coeff['1','1'].update(rmin=False, rmax=1.5)
         u = p.energy(pair=('1','1'), r=1.0)
         self.assertAlmostEqual(u, 2.0)
         u = p.energy(pair=('1','1'), r=[0.25,1.75])
-        np.testing.assert_allclose(u, [0.5,3.0])
+        numpy.testing.assert_allclose(u, [0.5,3.0])
 
         #test with rmin and rmax set
         p.coeff['1','1']['rmin'] = 0.5
         u = p.energy(pair=('1','1'), r=0.75)
         self.assertAlmostEqual(u, 1.5)
         u = p.energy(pair=('1','1'), r=[0.25,0.5,1.5,1.75])
-        np.testing.assert_allclose(u, [1.0,1.0,3.0,3.0])
+        numpy.testing.assert_allclose(u, [1.0,1.0,3.0,3.0])
 
         #test with shift set
         p.coeff['1','1'].update(shift=True)
         u = p.energy(pair=('1','1'), r=0.5)
         self.assertAlmostEqual(u, -2.0)
         u = p.energy(pair=('1','1'), r=[0.25,0.75,1.0,1.5])
-        np.testing.assert_allclose(u, [-2.0,-1.5,-1.0,0.0])
+        numpy.testing.assert_allclose(u, [-2.0,-1.5,-1.0,0.0])
 
         #test with shift set without rmax
         p.coeff['1','1'].update(rmax=False)
@@ -295,35 +295,35 @@ class test_PairPotential(unittest.TestCase):
         f = p.force(pair=('1','1'), r=0.5)
         self.assertAlmostEqual(f, -2.0)
         f = p.force(pair=('1','1'), r=[0.25,0.75])
-        np.testing.assert_allclose(f, [-2.0,-2.0])
+        numpy.testing.assert_allclose(f, [-2.0,-2.0])
 
         #test with rmin set
         p.coeff['1','1']['rmin'] = 0.5
         f = p.force(pair=('1','1'), r=0.6)
         self.assertAlmostEqual(f, -2.0)
         f = p.force(pair=('1','1'), r=[0.25,0.75])
-        np.testing.assert_allclose(f, [0.0,-2.0])
+        numpy.testing.assert_allclose(f, [0.0,-2.0])
 
         #test with rmax set
         p.coeff['1','1'].update(rmin=False, rmax=1.5)
         f = p.force(pair=('1','1'), r=1.0)
         self.assertAlmostEqual(f, -2.0)
         f = p.force(pair=('1','1'), r=[0.25,1.75])
-        np.testing.assert_allclose(f, [-2.0,0.0])
+        numpy.testing.assert_allclose(f, [-2.0,0.0])
 
         #test with rmin and rmax set
         p.coeff['1','1']['rmin'] = 0.5
         f = p.force(pair=('1','1'), r=0.75)
         self.assertAlmostEqual(f, -2.0)
         f = p.force(pair=('1','1'), r=[0.25,0.5,1.5,1.75])
-        np.testing.assert_allclose(f, [0.0,-2.0,-2.0,0.0])
+        numpy.testing.assert_allclose(f, [0.0,-2.0,-2.0,0.0])
 
         #test with shift set
         p.coeff['1','1'].update(shift=True)
         f = p.force(pair=('1','1'), r=0.5)
         self.assertAlmostEqual(f, -2.0)
         f = p.force(pair=('1','1'), r=[1.0,1.5])
-        np.testing.assert_allclose(f, [-2.0,-2.0])
+        numpy.testing.assert_allclose(f, [-2.0,-2.0])
 
     def test_derivative_values(self):
         """Test derivative method with different param values"""
@@ -335,7 +335,7 @@ class test_PairPotential(unittest.TestCase):
         d = p.derivative(pair=('1','1'), var=x, r=0.5)
         self.assertAlmostEqual(d, 0.5)
         d = p.derivative(pair=('1','1'), var=x, r=[0.25,0.75])
-        np.testing.assert_allclose(d, [0.25,0.75])
+        numpy.testing.assert_allclose(d, [0.25,0.75])
 
         #test with rmin set
         rmin = relentless.variable.DesignVariable(value=0.5)
@@ -343,7 +343,7 @@ class test_PairPotential(unittest.TestCase):
         d = p.derivative(pair=('1','1'), var=x, r=0.6)
         self.assertAlmostEqual(d, 0.6)
         d = p.derivative(pair=('1','1'), var=x, r=[0.25,0.75])
-        np.testing.assert_allclose(d, [0.5,0.75])
+        numpy.testing.assert_allclose(d, [0.5,0.75])
 
         #test with rmax set
         rmax = relentless.variable.DesignVariable(value=1.5)
@@ -351,33 +351,33 @@ class test_PairPotential(unittest.TestCase):
         d = p.derivative(pair=('1','1'), var=x, r=1.0)
         self.assertAlmostEqual(d, 1.0)
         d = p.derivative(pair=('1','1'), var=x, r=[0.25,1.75])
-        np.testing.assert_allclose(d, [0.25,1.5])
+        numpy.testing.assert_allclose(d, [0.25,1.5])
 
         #test with rmin and rmax set
         p.coeff['1','1']['rmin'] = rmin
         d = p.derivative(pair=('1','1'), var=x, r=0.75)
         self.assertAlmostEqual(d, 0.75)
         d = p.derivative(pair=('1','1'), var=x, r=[0.25,0.5,1.5,1.75])
-        np.testing.assert_allclose(d, [0.5,0.5,1.5,1.5])
+        numpy.testing.assert_allclose(d, [0.5,0.5,1.5,1.5])
 
         #test w.r.t. rmin and rmax
         d = p.derivative(pair=('1','1'), var=rmin, r=[0.25,1.0,2.0])
-        np.testing.assert_allclose(d, [2.0,0.0,0.0])
+        numpy.testing.assert_allclose(d, [2.0,0.0,0.0])
         d = p.derivative(pair=('1','1'), var=rmax, r=[0.25,1.0,2.0])
-        np.testing.assert_allclose(d, [0.0,0.0,2.0])
+        numpy.testing.assert_allclose(d, [0.0,0.0,2.0])
 
         #test parameter derivative with shift set
         p.coeff['1','1'].update(shift=True)
         d = p.derivative(pair=('1','1'), var=x, r=0.5)
         self.assertAlmostEqual(d, -1.0)
         d = p.derivative(pair=('1','1'), var=x, r=[0.25,1.0,1.5,1.75])
-        np.testing.assert_allclose(d, [-1.0,-0.5,0.0,0.0])
+        numpy.testing.assert_allclose(d, [-1.0,-0.5,0.0,0.0])
 
         #test w.r.t. rmin and rmax, shift set
         d = p.derivative(pair=('1','1'), var=rmin, r=[0.25,1.0,2.0])
-        np.testing.assert_allclose(d, [2.0,0.0,0.0])
+        numpy.testing.assert_allclose(d, [2.0,0.0,0.0])
         d = p.derivative(pair=('1','1'), var=rmax, r=[0.25,1.0,2.0])
-        np.testing.assert_allclose(d, [-2.0,-2.0,0.0])
+        numpy.testing.assert_allclose(d, [-2.0,-2.0,0.0])
 
     def test_derivative_types(self):
         """Test derivative method with different param types."""
@@ -474,10 +474,10 @@ class test_LennardJones(unittest.TestCase):
         self.assertAlmostEqual(u, u_actual)
 
         #test array r
-        r_input = np.array([0,1,1.5])
-        u_actual = np.array([np.inf,-0.061523438,-0.0054794417])
+        r_input = numpy.array([0,1,1.5])
+        u_actual = numpy.array([numpy.inf,-0.061523438,-0.0054794417])
         u = lj._energy(r=r_input, epsilon=1.0, sigma=0.5)
-        np.testing.assert_allclose(u, u_actual)
+        numpy.testing.assert_allclose(u, u_actual)
 
         #test negative sigma
         with self.assertRaises(ValueError):
@@ -494,10 +494,10 @@ class test_LennardJones(unittest.TestCase):
         self.assertAlmostEqual(f, f_actual)
 
         #test array r
-        r_input = np.array([0,1,1.5])
-        f_actual = np.array([np.inf,-0.36328125,-0.02188766])
+        r_input = numpy.array([0,1,1.5])
+        f_actual = numpy.array([numpy.inf,-0.36328125,-0.02188766])
         f = lj._force(r=r_input, epsilon=1.0, sigma=0.5)
-        np.testing.assert_allclose(f, f_actual)
+        numpy.testing.assert_allclose(f, f_actual)
 
         #test negative sigma
         with self.assertRaises(ValueError):
@@ -515,10 +515,10 @@ class test_LennardJones(unittest.TestCase):
         self.assertAlmostEqual(d, d_actual)
 
         #test array r
-        r_input = np.array([0,1,1.5])
-        d_actual = np.array([np.inf,-0.061523438,-0.0054794417])
+        r_input = numpy.array([0,1,1.5])
+        d_actual = numpy.array([numpy.inf,-0.061523438,-0.0054794417])
         d = lj._derivative(param='epsilon', r=r_input, epsilon=1.0, sigma=0.5)
-        np.testing.assert_allclose(d, d_actual)
+        numpy.testing.assert_allclose(d, d_actual)
 
         #w.r.t. sigma
         #test scalar r
@@ -528,10 +528,10 @@ class test_LennardJones(unittest.TestCase):
         self.assertAlmostEqual(d, d_actual)
 
         #test array r
-        r_input = np.array([0,1,1.5])
-        d_actual = np.array([np.inf,-0.7265625,-0.06566298])
+        r_input = numpy.array([0,1,1.5])
+        d_actual = numpy.array([numpy.inf,-0.7265625,-0.06566298])
         d = lj._derivative(param='sigma', r=r_input, epsilon=1.0, sigma=0.5)
-        np.testing.assert_allclose(d, d_actual)
+        numpy.testing.assert_allclose(d, d_actual)
 
         #test negative sigma
         with self.assertRaises(ValueError):
@@ -622,16 +622,16 @@ class test_PairSpline(unittest.TestCase):
         #test diff mode
         s = relentless.potential.PairSpline(types=('1',), num_knots=3)
         s.from_array(pair=('1','1'), r=r_arr, u=u_arr)
-        u_actual = np.array([6.25,2.25,1])
+        u_actual = numpy.array([6.25,2.25,1])
         u = s.energy(pair=('1','1'), r=[1.5,2.5,3.5])
-        np.testing.assert_allclose(u, u_actual)
+        numpy.testing.assert_allclose(u, u_actual)
 
         #test value mode
         s = relentless.potential.PairSpline(types=('1',), num_knots=3, mode='value')
         s.from_array(pair=('1','1'), r=r_arr, u=u_arr)
-        u_actual = np.array([6.25,2.25,1])
+        u_actual = numpy.array([6.25,2.25,1])
         u = s.energy(pair=('1','1'), r=[1.5,2.5,3.5])
-        np.testing.assert_allclose(u, u_actual)
+        numpy.testing.assert_allclose(u, u_actual)
 
         #test PairSpline with 2 knots
         s = relentless.potential.PairSpline(types=('1',), num_knots=2, mode='value')
@@ -647,16 +647,16 @@ class test_PairSpline(unittest.TestCase):
         #test diff mode
         s = relentless.potential.PairSpline(types=('1',), num_knots=3)
         s.from_array(pair=('1','1'), r=r_arr, u=u_arr)
-        f_actual = np.array([5,3,0])
+        f_actual = numpy.array([5,3,0])
         f = s.force(pair=('1','1'), r=[1.5,2.5,3.5])
-        np.testing.assert_allclose(f, f_actual)
+        numpy.testing.assert_allclose(f, f_actual)
 
         #test value mode
         s = relentless.potential.PairSpline(types=('1',), num_knots=3, mode='value')
         s.from_array(pair=('1','1'), r=r_arr, u=u_arr)
-        f_actual = np.array([5,3,0])
+        f_actual = numpy.array([5,3,0])
         f = s.force(pair=('1','1'), r=[1.5,2.5,3.5])
-        np.testing.assert_allclose(f, f_actual)
+        numpy.testing.assert_allclose(f, f_actual)
 
         #test PairSpline with 2 knots
         s = relentless.potential.PairSpline(types=('1',), num_knots=2, mode='value')
@@ -672,18 +672,18 @@ class test_PairSpline(unittest.TestCase):
         #test diff mode
         s = relentless.potential.PairSpline(types=('1',), num_knots=3)
         s.from_array(pair=('1','1'), r=r_arr, u=u_arr)
-        d_actual = np.array([1.125,0.625,0])
+        d_actual = numpy.array([1.125,0.625,0])
         param = list(s.knots(('1','1')))[1][1]
         d = s.derivative(pair=('1','1'), var=param, r=[1.5,2.5,3.5])
-        np.testing.assert_allclose(d, d_actual)
+        numpy.testing.assert_allclose(d, d_actual)
 
         #test value mode
         s = relentless.potential.PairSpline(types=('1',), num_knots=3, mode='value')
         s.from_array(pair=('1','1'), r=r_arr, u=u_arr)
-        d_actual = np.array([0.75,0.75,0])
+        d_actual = numpy.array([0.75,0.75,0])
         param = list(s.knots(('1','1')))[1][1]
         d = s.derivative(pair=('1','1'), var=param, r=[1.5,2.5,3.5])
-        np.testing.assert_allclose(d, d_actual)
+        numpy.testing.assert_allclose(d, d_actual)
 
 class test_Yukawa(unittest.TestCase):
     """Unit tests for relentless.potential.Yukawa"""
@@ -710,10 +710,10 @@ class test_Yukawa(unittest.TestCase):
         self.assertAlmostEqual(u, u_actual)
 
         #test array r
-        r_input = np.array([0,1,1.5])
-        u_actual = np.array([np.inf,0.60653066,0.31491104])
+        r_input = numpy.array([0,1,1.5])
+        u_actual = numpy.array([numpy.inf,0.60653066,0.31491104])
         u = y._energy(r=r_input, epsilon=1.0, kappa=0.5)
-        np.testing.assert_allclose(u, u_actual)
+        numpy.testing.assert_allclose(u, u_actual)
 
         #test negative kappa
         with self.assertRaises(ValueError):
@@ -730,10 +730,10 @@ class test_Yukawa(unittest.TestCase):
         self.assertAlmostEqual(f, f_actual)
 
         #test array r
-        r_input = np.array([0,1,1.5])
-        f_actual = np.array([np.inf,0.90979599,0.36739621])
+        r_input = numpy.array([0,1,1.5])
+        f_actual = numpy.array([numpy.inf,0.90979599,0.36739621])
         f = y._force(r=r_input, epsilon=1.0, kappa=0.5)
-        np.testing.assert_allclose(f, f_actual)
+        numpy.testing.assert_allclose(f, f_actual)
 
         #test negative kappa
         with self.assertRaises(ValueError):
@@ -751,10 +751,10 @@ class test_Yukawa(unittest.TestCase):
         self.assertAlmostEqual(d, d_actual)
 
         #test array r
-        r_input = np.array([0,1,1.5])
-        d_actual = np.array([np.inf,0.60653066,0.31491104])
+        r_input = numpy.array([0,1,1.5])
+        d_actual = numpy.array([numpy.inf,0.60653066,0.31491104])
         d = y._derivative(param='epsilon', r=r_input, epsilon=1.0, kappa=0.5)
-        np.testing.assert_allclose(d, d_actual)
+        numpy.testing.assert_allclose(d, d_actual)
 
         #w.r.t. kappa
         #test scalar r
@@ -764,10 +764,10 @@ class test_Yukawa(unittest.TestCase):
         self.assertAlmostEqual(d, d_actual)
 
         #test array r
-        r_input = np.array([0,1,1.5])
-        d_actual = np.array([-1,-0.60653066,-0.47236655])
+        r_input = numpy.array([0,1,1.5])
+        d_actual = numpy.array([-1,-0.60653066,-0.47236655])
         d = y._derivative(param='kappa', r=r_input, epsilon=1.0, kappa=0.5)
-        np.testing.assert_allclose(d, d_actual)
+        numpy.testing.assert_allclose(d, d_actual)
 
         #test negative kappa
         with self.assertRaises(ValueError):
@@ -852,10 +852,10 @@ class test_Depletion(unittest.TestCase):
         self.assertAlmostEqual(u, u_actual)
 
         #test array r
-        r_input = np.array([1.75,4.25])
-        u_actual = np.array([-16.59621119,0])
+        r_input = numpy.array([1.75,4.25])
+        u_actual = numpy.array([-16.59621119,0])
         u = dp._energy(r=r_input, P=1, sigma_i=1.5, sigma_j=2, sigma_d=2.5)
-        np.testing.assert_allclose(u, u_actual)
+        numpy.testing.assert_allclose(u, u_actual)
 
         #test negative sigma
         with self.assertRaises(ValueError):
@@ -867,10 +867,10 @@ class test_Depletion(unittest.TestCase):
 
         #test energy outside of low/high bounds
         dp.coeff['1','1'].update(P=1, sigma_i=1.5, sigma_j=2, sigma_d=2.5)
-        r_input = np.array([1,5])
-        u_actual = np.array([-25.7514468,0])
+        r_input = numpy.array([1,5])
+        u_actual = numpy.array([-25.7514468,0])
         u = dp.energy(pair=('1','1'), r=r_input)
-        np.testing.assert_allclose(u, u_actual)
+        numpy.testing.assert_allclose(u, u_actual)
         self.assertAlmostEqual(dp.coeff['1','1']['rmax'].value, 4.25)
 
     def test_force(self):
@@ -884,10 +884,10 @@ class test_Depletion(unittest.TestCase):
         self.assertAlmostEqual(f, f_actual)
 
         #test array r
-        r_input = np.array([1.75,4.25])
-        f_actual = np.array([-11.54054444,0])
+        r_input = numpy.array([1.75,4.25])
+        f_actual = numpy.array([-11.54054444,0])
         f = dp._force(r=r_input, P=1, sigma_i=1.5, sigma_j=2, sigma_d=2.5)
-        np.testing.assert_allclose(f, f_actual)
+        numpy.testing.assert_allclose(f, f_actual)
 
         #test negative sigma
         with self.assertRaises(ValueError):
@@ -899,10 +899,10 @@ class test_Depletion(unittest.TestCase):
 
         #test force outside of low/high bounds
         dp.coeff['1','1'].update(P=1, sigma_i=1.5, sigma_j=2, sigma_d=2.5)
-        r_input = np.array([1,5])
-        f_actual = np.array([-12.5633027,0])
+        r_input = numpy.array([1,5])
+        f_actual = numpy.array([-12.5633027,0])
         f = dp.force(pair=('1','1'), r=r_input)
-        np.testing.assert_allclose(f, f_actual)
+        numpy.testing.assert_allclose(f, f_actual)
         self.assertAlmostEqual(dp.coeff['1','1']['rmax'].value, 4.25)
 
     def test_derivative(self):
@@ -917,10 +917,10 @@ class test_Depletion(unittest.TestCase):
         self.assertAlmostEqual(d, d_actual)
 
         #test array r
-        r_input = np.array([1.75,4.25])
-        d_actual = np.array([-16.59621119,0])
+        r_input = numpy.array([1.75,4.25])
+        d_actual = numpy.array([-16.59621119,0])
         d = dp._derivative(param='P', r=r_input, P=1, sigma_i=1.5, sigma_j=2, sigma_d=2.5)
-        np.testing.assert_allclose(d, d_actual)
+        numpy.testing.assert_allclose(d, d_actual)
 
         #w.r.t. sigma_i
         #test scalar r
@@ -930,10 +930,10 @@ class test_Depletion(unittest.TestCase):
         self.assertAlmostEqual(d, d_actual)
 
         #test array r
-        r_input = np.array([1.75,4.25])
-        d_actual = np.array([-8.975979,0])
+        r_input = numpy.array([1.75,4.25])
+        d_actual = numpy.array([-8.975979,0])
         d = dp._derivative(param='sigma_i', r=r_input, P=1, sigma_i=1.5, sigma_j=2, sigma_d=2.5)
-        np.testing.assert_allclose(d, d_actual)
+        numpy.testing.assert_allclose(d, d_actual)
 
         #w.r.t. sigma_j
         #test scalar r
@@ -943,10 +943,10 @@ class test_Depletion(unittest.TestCase):
         self.assertAlmostEqual(d, d_actual)
 
         #test array r
-        r_input = np.array([1.75,4.25])
-        d_actual = np.array([-7.573482,0])
+        r_input = numpy.array([1.75,4.25])
+        d_actual = numpy.array([-7.573482,0])
         d = dp._derivative(param='sigma_j', r=r_input, P=1, sigma_i=1.5, sigma_j=2, sigma_d=2.5)
-        np.testing.assert_allclose(d, d_actual)
+        numpy.testing.assert_allclose(d, d_actual)
 
         #w.r.t. sigma_d
         #test scalar r
@@ -956,10 +956,10 @@ class test_Depletion(unittest.TestCase):
         self.assertAlmostEqual(d, d_actual)
 
         #test array r
-        r_input = np.array([1.75,4.25])
-        d_actual = np.array([-16.549461,0])
+        r_input = numpy.array([1.75,4.25])
+        d_actual = numpy.array([-16.549461,0])
         d = dp._derivative(param='sigma_d', r=r_input, P=1, sigma_i=1.5, sigma_j=2, sigma_d=2.5)
-        np.testing.assert_allclose(d, d_actual)
+        numpy.testing.assert_allclose(d, d_actual)
 
         #test negative sigma
         with self.assertRaises(ValueError):
@@ -976,10 +976,10 @@ class test_Depletion(unittest.TestCase):
         #test derivative outside of low/high bounds
         P_var = relentless.variable.DesignVariable(value=1.0)
         dp.coeff['1','1'].update(P=P_var, sigma_i=1.5, sigma_j=2, sigma_d=2.5)
-        r_input = np.array([1,5])
-        d_actual = np.array([-25.7514468,0])
+        r_input = numpy.array([1,5])
+        d_actual = numpy.array([-25.7514468,0])
         d = dp.derivative(pair=('1','1'), var=P_var, r=r_input)
-        np.testing.assert_allclose(d, d_actual)
+        numpy.testing.assert_allclose(d, d_actual)
         self.assertAlmostEqual(dp.coeff['1','1']['rmax'].value, 4.25)
 
 if __name__ == '__main__':

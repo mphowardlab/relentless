@@ -52,7 +52,7 @@ To implement your own pair potential, create a class that derives from
 """
 import abc
 
-import numpy as np
+import numpy
 
 from relentless import _collections
 from relentless import _math
@@ -308,7 +308,7 @@ class PairPotential(potential.Potential):
             raise ValueError('r cannot be negative')
 
         # evaluate at points below rmax (if set) first, including rmin cutoff (if set)
-        flags = np.ones(r.shape[0], dtype=bool)
+        flags = numpy.ones(r.shape[0], dtype=bool)
         if params['rmin'] is not False:
             range_ = r < params['rmin']
             flags[range_] = False
@@ -364,7 +364,7 @@ class PairPotential(potential.Potential):
             raise ValueError('r cannot be negative')
 
         # only evaluate at points inside [rmin,rmax], if specified
-        flags = np.ones(r.shape[0], dtype=bool)
+        flags = numpy.ones(r.shape[0], dtype=bool)
         if params['rmin'] is not False:
             flags[r < params['rmin']] = False
         if params['rmax'] is not False:
@@ -420,7 +420,7 @@ class PairPotential(potential.Potential):
         if not isinstance(var, variable.Variable):
             raise TypeError('Parameter with respect to which to take the derivative must be a Variable.')
 
-        flags = np.ones(r.shape[0], dtype=bool)
+        flags = numpy.ones(r.shape[0], dtype=bool)
 
         for p in self.coeff.params:
             # skip shift parameter
@@ -455,17 +455,17 @@ class PairPotential(potential.Potential):
                     deriv[flags] += -self._force(params['rmax'], **params)*dp_dvar
             else:
                 # regular parameter derivative
-                below = np.zeros(r.shape[0], dtype=bool)
+                below = numpy.zeros(r.shape[0], dtype=bool)
                 if params['rmin'] is not False:
                     below = r < params['rmin']
                     deriv[below] += self._derivative(p, params['rmin'], **params)*dp_dvar
-                above = np.zeros(r.shape[0], dtype=bool)
+                above = numpy.zeros(r.shape[0], dtype=bool)
                 if params['rmax'] is not False:
                     above = r > params['rmax']
                     deriv[above] += self._derivative(p, params['rmax'], **params)*dp_dvar
                 elif params['shift']:
                     raise ValueError('Cannot shift without setting rmax.')
-                flags = np.logical_and(~below, ~above)
+                flags = numpy.logical_and(~below, ~above)
                 deriv[flags] += self._derivative(p, r[flags], **params)*dp_dvar
                 if params['shift']:
                     deriv -= self._derivative(p, params['rmax'], **params)*dp_dvar
@@ -670,7 +670,7 @@ class Depletion(PairPotential):
 
         p1 = (0.5*(sigma_i + sigma_j) + sigma_d - r)**2
         p2 = r**2 + r*(sigma_i + sigma_j + 2.*sigma_d) - 0.75*(sigma_i - sigma_j)**2
-        u = -(np.pi*P*p1*p2)/(12.*r)
+        u = -(numpy.pi*P*p1*p2)/(12.*r)
 
         if s:
             u = u.item()
@@ -691,7 +691,7 @@ class Depletion(PairPotential):
 
         p1 = r**2 - 0.25*(sigma_i - sigma_j)**2
         p2 = (0.5*(sigma_i + sigma_j) + sigma_d)**2 - r**2
-        f = -(np.pi*P*p1*p2)/(4.*r**2)
+        f = -(numpy.pi*P*p1*p2)/(4.*r**2)
 
         if s:
             f = f.item()
@@ -713,22 +713,22 @@ class Depletion(PairPotential):
         if param == 'P':
             p1 = (0.5*(sigma_i + sigma_j) + sigma_d - r)**2
             p2 = r**2 + r*(sigma_i + sigma_j + 2.*sigma_d) - 0.75*(sigma_i - sigma_j)**2
-            d = -(np.pi*p1*p2)/(12.*r)
+            d = -(numpy.pi*p1*p2)/(12.*r)
         elif param == 'sigma_i':
             p1 = ((0.5*(sigma_i + sigma_j) + sigma_d - r)
                  *(r**2 + r*(sigma_i + sigma_j + 2.*sigma_d) - 0.75*(sigma_i - sigma_j)**2))
             p2 = (r + 1.5*(sigma_j - sigma_i))*(0.5*(sigma_i + sigma_j) + sigma_d - r)**2
-            d = -(np.pi*P*(p1 + p2))/(12.*r)
+            d = -(numpy.pi*P*(p1 + p2))/(12.*r)
         elif param == 'sigma_j':
             p1 = ((0.5*(sigma_i + sigma_j) + sigma_d - r)
                  *(r**2 + r*(sigma_i + sigma_j + 2.*sigma_d) - 0.75*(sigma_i - sigma_j)**2))
             p2 = (r + 1.5*(sigma_i - sigma_j))*(0.5*(sigma_i + sigma_j) + sigma_d - r)**2
-            d = -(np.pi*P*(p1 + p2))/(12.*r)
+            d = -(numpy.pi*P*(p1 + p2))/(12.*r)
         elif param == 'sigma_d':
             p1 = ((sigma_i + sigma_j + 2.*sigma_d - 2.*r)
                  *(r**2 + r*(sigma_i + sigma_j + 2.*sigma_d) - 0.75*(sigma_i - sigma_j)**2))
             p2 = 2.*r*(0.5*(sigma_i + sigma_j) + sigma_d - r)**2
-            d = -(np.pi*P*(p1 + p2))/(12.*r)
+            d = -(numpy.pi*P*(p1 + p2))/(12.*r)
         else:
             raise ValueError('The depletion parameters are P, sigma_i, sigma_j, and sigma_d.')
 
@@ -801,12 +801,12 @@ class LennardJones(PairPotential):
         if sigma < 0:
             raise ValueError('sigma must be positive')
         r,u,s = self._zeros(r)
-        flags = ~np.isclose(r,0)
+        flags = ~numpy.isclose(r,0)
 
         # evaluate potential
-        r6_inv = np.power(sigma/r[flags], 6)
+        r6_inv = numpy.power(sigma/r[flags], 6)
         u[flags] = 4.*epsilon*(r6_inv**2 - r6_inv)
-        u[~flags] = np.inf
+        u[~flags] = numpy.inf
 
         if s:
             u = u.item()
@@ -816,13 +816,13 @@ class LennardJones(PairPotential):
         if sigma < 0:
             raise ValueError('sigma must be positive')
         r,f,s = self._zeros(r)
-        flags = ~np.isclose(r,0)
+        flags = ~numpy.isclose(r,0)
 
         # evaluate force
         rinv = 1./r[flags]
-        r6_inv = np.power(sigma*rinv, 6)
+        r6_inv = numpy.power(sigma*rinv, 6)
         f[flags] = (48.*epsilon*rinv)*(r6_inv**2-0.5*r6_inv)
-        f[~flags] = np.inf
+        f[~flags] = numpy.inf
 
         if s:
             f = f.item()
@@ -832,17 +832,17 @@ class LennardJones(PairPotential):
         if sigma < 0:
             raise ValueError('sigma must be positive')
         r,d,s = self._zeros(r)
-        flags = ~np.isclose(r,0)
+        flags = ~numpy.isclose(r,0)
 
         # evaluate derivative
-        r6_inv = np.power(sigma/r[flags], 6)
+        r6_inv = numpy.power(sigma/r[flags], 6)
         if param == 'epsilon':
             d[flags] = 4*(r6_inv**2 - r6_inv)
         elif param == 'sigma':
             d[flags] = (48.*epsilon/sigma)*(r6_inv**2 - 0.5*r6_inv)
         else:
             raise ValueError('The Lennard-Jones parameters are sigma and epsilon.')
-        d[~flags] = np.inf
+        d[~flags] = numpy.inf
 
         if s:
             d = d.item()
@@ -938,8 +938,8 @@ class PairSpline(PairPotential):
             raise ValueError('u must have the same length as the number of knots')
 
         # convert to r,knot form given the mode
-        rs = np.asarray(r, dtype=np.float64)
-        ks = np.asarray(u, dtype=np.float64)
+        rs = numpy.asarray(r, dtype=numpy.float64)
+        ks = numpy.asarray(u, dtype=numpy.float64)
         if self.mode == 'diff':
             # difference is next knot minus my knot, with last knot fixed at its current value
             ks[:-1] -= ks[1:]
@@ -1038,15 +1038,15 @@ class PairSpline(PairPotential):
             The interpolated spline potential.
 
         """
-        r = np.zeros(self.num_knots)
-        u = np.zeros(self.num_knots)
+        r = numpy.zeros(self.num_knots)
+        u = numpy.zeros(self.num_knots)
         for i in range(self.num_knots):
             ri,ki = self._knot_params(i)
             r[i] = params[ri]
             u[i] = params[ki]
         # reconstruct the energies from differences, starting from the end of the potential
         if self.mode == 'diff':
-            u = np.flip(np.cumsum(np.flip(u)))
+            u = numpy.flip(numpy.cumsum(numpy.flip(u)))
         return _math.Interpolator(x=r, y=u)
 
     @property
@@ -1140,11 +1140,11 @@ class Yukawa(PairPotential):
         if kappa < 0:
             raise ValueError('kappa must be positive')
         r,u,s = self._zeros(r)
-        flags = ~np.isclose(r,0)
+        flags = ~numpy.isclose(r,0)
 
         # evaluate potential
-        u[flags] = epsilon*np.exp(-kappa*r[flags])/r[flags]
-        u[~flags] = np.inf
+        u[flags] = epsilon*numpy.exp(-kappa*r[flags])/r[flags]
+        u[~flags] = numpy.inf
 
         if s:
             u = u.item()
@@ -1154,11 +1154,11 @@ class Yukawa(PairPotential):
         if kappa < 0:
             raise ValueError('kappa must be positive')
         r,f,s = self._zeros(r)
-        flags = ~np.isclose(r,0)
+        flags = ~numpy.isclose(r,0)
 
         # evaluate force
-        f[flags] = epsilon*np.exp(-kappa*r[flags])*(1.+kappa*r[flags])/r[flags]**2
-        f[~flags] = np.inf
+        f[flags] = epsilon*numpy.exp(-kappa*r[flags])*(1.+kappa*r[flags])/r[flags]**2
+        f[~flags] = numpy.inf
 
         if s:
             f = f.item()
@@ -1168,14 +1168,14 @@ class Yukawa(PairPotential):
         if kappa < 0:
             raise ValueError('kappa must be positive')
         r,d,s = self._zeros(r)
-        flags = ~np.isclose(r,0)
+        flags = ~numpy.isclose(r,0)
 
         # evaluate derivative
         if param == 'epsilon':
-            d[flags] = np.exp(-kappa*r[flags])/r[flags]
-            d[~flags] = np.inf
+            d[flags] = numpy.exp(-kappa*r[flags])/r[flags]
+            d[~flags] = numpy.inf
         elif param == 'kappa':
-            d = -epsilon*np.exp(-kappa*r)
+            d = -epsilon*numpy.exp(-kappa*r)
         else:
             raise ValueError('The Yukawa parameters are kappa and epsilon.')
 
