@@ -136,6 +136,17 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
                 u = sim.potentials.pair.energy((a,b))
                 f = sim.potentials.pair.force((a,b))
                 gr = ens.rdf[a,b].table[:,1]
+
+                # only count continuous range of finite values
+                flags = numpy.isinf(u)
+                first_finite = 0
+                while flags[first_finite] and first_finite < len(r):
+                    first_finite += 1
+                r = r[first_finite:]
+                u = u[first_finite:]
+                f = f[first_finite:]
+                gr = gr[first_finite:]
+
                 ens.P += (2.*numpy.pi/3.)*rho_a*rho_b*numpy.trapz(y=f*gr*r**3,x=r)
 
         sim[self].ensemble = ens

@@ -34,6 +34,30 @@ class test_Dilute(unittest.TestCase):
         ens_ = analyzer.extract_ensemble(sim)
         self.assertAlmostEqual(ens_.P, -207.5228556)
 
+    def test_inf_potential(self):
+        """Test potential with infinite value."""
+        analyzer = relentless.simulate.dilute.AddEnsembleAnalyzer()
+        ens = relentless.ensemble.Ensemble(T=1.0, V=relentless.volume.Cube(L=2.0), N={'A':2,'B':3})
+
+        #test with potential that has infinite potential at low r
+        pot = relentless.potential.LennardJones(types=('A','B'))
+        for pair in pot.coeff:
+            pot.coeff[pair].update({'epsilon':1.0, 'sigma':1.0, 'rmax':3.0, 'shift':True})
+        pots = relentless.simulate.Potentials()
+        pots.pair.potentials.append(pot)
+        pots.pair.rmax = 3.0
+        pots.pair.num = 100
+
+        d = relentless.simulate.dilute.Dilute(operations=analyzer)
+        warned = False
+        try:
+            sim = d.run(ensemble=ens, potentials=pots, directory=self.directory)
+        except RuntimeWarning:
+            warned = True
+        self.assertFalse(warned)   #no warning should be raised
+        ens_ = analyzer.extract_ensemble(sim)
+        self.assertAlmostEqual(ens_.P, -1.1987890)
+
     def tearDown(self):
         self._tmp.cleanup()
 
