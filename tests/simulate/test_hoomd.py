@@ -11,7 +11,7 @@ try:
     _found_gsd = True
 except ImportError:
     _found_gsd = False
-import numpy as np
+import numpy
 
 import relentless
 from ..potential.test_pair import LinPot
@@ -50,7 +50,7 @@ class test_HOOMD(unittest.TestCase):
             s.particles.N = 5
             s.particles.types = ['A','B']
             s.particles.typeid = [0,0,1,1,1]
-            s.particles.position = np.random.uniform(low=-5.0,high=5.0,size=(5,3))
+            s.particles.position = numpy.random.uniform(low=-5.0,high=5.0,size=(5,3))
             s.configuration.box = [20,20,20,0,0,0]
             f.append(s)
         return f

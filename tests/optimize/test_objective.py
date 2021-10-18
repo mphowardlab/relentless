@@ -3,7 +3,7 @@ import json
 import tempfile
 import unittest
 
-import numpy as np
+import numpy
 import scipy.integrate
 
 import relentless
@@ -95,26 +95,26 @@ class test_RelativeEntropy(unittest.TestCase):
 
         v_obj = relentless.volume.Cube(L=10.)
         self.target = relentless.ensemble.Ensemble(T=1.5, V=v_obj, N={'1':50})
-        rs = np.arange(0.05,5.0,0.1)
-        gs = np.exp(-lj.energy(('1','1'),rs))
+        rs = numpy.arange(0.05,5.0,0.1)
+        gs = numpy.exp(-lj.energy(('1','1'),rs))
         self.target.rdf['1','1'] = relentless.ensemble.RDF(r=rs, g=gs)
 
         self.thermo = relentless.simulate.dilute.AddEnsembleAnalyzer()
         self.simulation = relentless.simulate.dilute.Dilute(operations=[self.thermo])
 
     def relent_grad(self, var, ext=False):
-        rs = np.linspace(0,3.6,1001)[1:]
-        r6_inv = np.power(0.9/rs, 6)
-        gs = np.exp(-(1/1.5)*4.*1.0*(r6_inv**2 - r6_inv))
+        rs = numpy.linspace(0,3.6,1001)[1:]
+        r6_inv = numpy.power(0.9/rs, 6)
+        gs = numpy.exp(-(1/1.5)*4.*1.0*(r6_inv**2 - r6_inv))
         sim_rdf = relentless._math.Interpolator(rs,gs)
 
-        rs = np.arange(0.05,5.0,0.1)
-        r6_inv = np.power(0.9/rs, 6)
-        gs = np.exp(-4.*1.0*(r6_inv**2 - r6_inv))
+        rs = numpy.arange(0.05,5.0,0.1)
+        r6_inv = numpy.power(0.9/rs, 6)
+        gs = numpy.exp(-4.*1.0*(r6_inv**2 - r6_inv))
         tgt_rdf = relentless._math.Interpolator(rs,gs)
 
-        rs = np.linspace(0,3.6,1001)[1:]
-        r6_inv = np.power(0.9/rs, 6)
+        rs = numpy.linspace(0,3.6,1001)[1:]
+        r6_inv = numpy.power(0.9/rs, 6)
         if var is self.epsilon:
             dus = 4*(r6_inv**2 - r6_inv)
         elif var is self.sigma:
@@ -128,8 +128,8 @@ class test_RelativeEntropy(unittest.TestCase):
         sim_factor = 50**2*(1/1.5)/(1000*norm_factor)
         tgt_factor = 50**2*(1/1.5)/(1000*norm_factor)
 
-        r = np.linspace(0.05, 3.55, 1001)
-        y = -2*np.pi*r**2*(sim_factor*sim_rdf(r)-tgt_factor*tgt_rdf(r))*dudvar(r)
+        r = numpy.linspace(0.05, 3.55, 1001)
+        y = -2*numpy.pi*r**2*(sim_factor*sim_rdf(r)-tgt_factor*tgt_rdf(r))*dudvar(r)
         return scipy.integrate.trapz(x=r, y=y)
 
     def test_init(self):
@@ -167,8 +167,8 @@ class test_RelativeEntropy(unittest.TestCase):
         self.assertIsNone(res.value)
         grad_eps = self.relent_grad(self.epsilon)
         grad_sig = self.relent_grad(self.sigma)
-        np.testing.assert_allclose(res.gradient[self.epsilon], grad_eps, atol=1e-4)
-        np.testing.assert_allclose(res.gradient[self.sigma], grad_sig, atol=1e-4)
+        numpy.testing.assert_allclose(res.gradient[self.epsilon], grad_eps, atol=1e-4)
+        numpy.testing.assert_allclose(res.gradient[self.sigma], grad_sig, atol=1e-4)
         self.assertCountEqual(res.design_variables, (self.epsilon,self.sigma))
 
         #test extensive option
@@ -182,8 +182,8 @@ class test_RelativeEntropy(unittest.TestCase):
         self.assertIsNone(res.value)
         grad_eps = self.relent_grad(self.epsilon, ext=True)
         grad_sig = self.relent_grad(self.sigma, ext=True)
-        np.testing.assert_allclose(res.gradient[self.epsilon], grad_eps, atol=1e-1)
-        np.testing.assert_allclose(res.gradient[self.sigma], grad_sig, atol=1e-1)
+        numpy.testing.assert_allclose(res.gradient[self.epsilon], grad_eps, atol=1e-1)
+        numpy.testing.assert_allclose(res.gradient[self.sigma], grad_sig, atol=1e-1)
         self.assertCountEqual(res.design_variables, (self.epsilon,self.sigma))
 
     def test_design_variables(self):

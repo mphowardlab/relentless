@@ -2,7 +2,7 @@
 import tempfile
 import unittest
 
-import numpy as np
+import numpy
 
 import relentless
 
@@ -15,12 +15,12 @@ class test_RDF(unittest.TestCase):
         r = [1,2,3]
         g = [2,9,5]
         rdf = relentless.ensemble.RDF(r=r, g=g)
-        np.testing.assert_allclose(rdf.table, np.array([[1,2],
-                                                        [2,9],
-                                                        [3,5]]))
+        numpy.testing.assert_allclose(rdf.table, numpy.array([[1,2],
+                                                              [2,9],
+                                                              [3,5]]))
 
         #test interpolation
-        np.testing.assert_allclose(rdf([2.5,3.5]), [8.375,5.0])
+        numpy.testing.assert_allclose(rdf([2.5,3.5]), [8.375,5.0])
 
         #test invalid construction with r and g having different lengths
         r = [1,2,3,4]
@@ -91,15 +91,15 @@ class test_Ensemble(unittest.TestCase):
         ens.rdf['A','B'] = relentless.ensemble.RDF(r=r, g=[2,9,5])
         ens.rdf['A','A'] = relentless.ensemble.RDF(r=r, g=[3,7,4])
         ens.rdf['B','B'] = relentless.ensemble.RDF(r=r, g=[1,9,3])
-        np.testing.assert_allclose(ens.rdf['A','B'].table, np.array([[1,2],
-                                                                     [2,9],
-                                                                     [3,5]]))
-        np.testing.assert_allclose(ens.rdf['A','A'].table, np.array([[1,3],
-                                                                     [2,7],
-                                                                     [3,4]]))
-        np.testing.assert_allclose(ens.rdf['B','B'].table, np.array([[1,1],
-                                                                     [2,9],
-                                                                     [3,3]]))
+        numpy.testing.assert_allclose(ens.rdf['A','B'].table, numpy.array([[1,2],
+                                                                           [2,9],
+                                                                           [3,5]]))
+        numpy.testing.assert_allclose(ens.rdf['A','A'].table, numpy.array([[1,3],
+                                                                           [2,7],
+                                                                           [3,4]]))
+        numpy.testing.assert_allclose(ens.rdf['B','B'].table, numpy.array([[1,1],
+                                                                           [2,9],
+                                                                           [3,3]]))
 
         #test setting N as a float
         with self.assertRaises(TypeError):
@@ -161,9 +161,9 @@ class test_Ensemble(unittest.TestCase):
         ens_ = ens.copy()
         self.assertIsNot(ens_, ens)
         self.assertIsNot(ens_.rdf, ens.rdf)
-        np.testing.assert_allclose(ens.rdf['A','B'].table, ens_.rdf['A','B'].table)
-        np.testing.assert_allclose(ens.rdf['A','A'].table, ens_.rdf['A','A'].table)
-        np.testing.assert_allclose(ens.rdf['B','B'].table, ens_.rdf['B','B'].table)
+        numpy.testing.assert_allclose(ens.rdf['A','B'].table, ens_.rdf['A','B'].table)
+        numpy.testing.assert_allclose(ens.rdf['A','A'].table, ens_.rdf['A','A'].table)
+        numpy.testing.assert_allclose(ens.rdf['B','B'].table, ens_.rdf['B','B'].table)
 
     def test_save_from_file(self):
         """Test save and from_file methods"""
@@ -191,8 +191,8 @@ class test_Ensemble(unittest.TestCase):
         ens_ = relentless.ensemble.Ensemble.from_file(temp.name)
         self.assertIsNot(ens_, ens)
         self.assertIsNot(ens_.rdf, ens.rdf)
-        np.testing.assert_allclose(ens.rdf['A','B'].table, ens_.rdf['A','B'].table)
-        np.testing.assert_allclose(ens.rdf['A','A'].table, ens_.rdf['A','A'].table)
+        numpy.testing.assert_allclose(ens.rdf['A','B'].table, ens_.rdf['A','B'].table)
+        numpy.testing.assert_allclose(ens.rdf['A','A'].table, ens_.rdf['A','A'].table)
         self.assertEqual(ens.rdf['B','B'], ens_.rdf['B','B'])
 
         temp.close()

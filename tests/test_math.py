@@ -1,7 +1,7 @@
 """Unit tests for core.math module."""
 import unittest
 
-import numpy as np
+import numpy
 
 import relentless
 
@@ -19,8 +19,8 @@ class test_Interpolator(unittest.TestCase):
         self.assertEqual(f.domain, (-1,1))
 
         #test construction with numpy array input
-        f = relentless._math.Interpolator(x=np.array([-1,0,1]),
-                                         y=np.array([-2,0,2]))
+        f = relentless._math.Interpolator(x=numpy.array([-1,0,1]),
+                                          y=numpy.array([-2,0,2]))
         self.assertEqual(f.domain, (-1,1))
 
         #test construction with mixed input
@@ -33,8 +33,8 @@ class test_Interpolator(unittest.TestCase):
 
         #test construction with 2d-array input
         with self.assertRaises(ValueError):
-            f = relentless._math.Interpolator(x=np.array([[-1,0,1], [-2,2,4]]),
-                                             y=np.array([[-1,0,1], [-2,2,4]]))
+            f = relentless._math.Interpolator(x=numpy.array([[-1,0,1], [-2,2,4]]),
+                                              y=numpy.array([[-1,0,1], [-2,2,4]]))
 
         #test construction with x and y having different lengths
         with self.assertRaises(ValueError):
@@ -53,7 +53,7 @@ class test_Interpolator(unittest.TestCase):
         self.assertAlmostEqual(f(0.5), 1.0)
 
         #test array call
-        np.testing.assert_allclose(f([-0.5,0.5]), [-1.0,1.0])
+        numpy.testing.assert_allclose(f([-0.5,0.5]), [-1.0,1.0])
 
     def test_derivative(self):
         """Test derivative function, both scalar and array."""
@@ -64,8 +64,8 @@ class test_Interpolator(unittest.TestCase):
         self.assertAlmostEqual(d, 3.0)
 
         #test array call
-        d = f.derivative(x=np.array([-3.0,-0.5,0.5,3.0]), n=1)
-        np.testing.assert_allclose(d, np.array([0.0,-1.0,1.0,0.0]))
+        d = f.derivative(x=numpy.array([-3.0,-0.5,0.5,3.0]), n=1)
+        numpy.testing.assert_allclose(d, numpy.array([0.0,-1.0,1.0,0.0]))
 
     def test_extrap(self):
         """Test extrapolation calls."""
@@ -78,10 +78,10 @@ class test_Interpolator(unittest.TestCase):
         self.assertAlmostEqual(f(2), 2.0)
 
         #test extrap below low and above hi
-        np.testing.assert_allclose(f([-2,2]), [-2.0,2.0])
+        numpy.testing.assert_allclose(f([-2,2]), [-2.0,2.0])
 
         #test combined extrapolation and interpolation
-        np.testing.assert_allclose(f([-2,0.5,2]), [-2.0,1.0,2.0])
+        numpy.testing.assert_allclose(f([-2,0.5,2]), [-2.0,1.0,2.0])
 
 if __name__ == '__main__':
     unittest.main()

@@ -209,43 +209,5 @@ class test_Directory(unittest.TestCase):
         self.real_f = None
         del self.f
 
-class test_Project(unittest.TestCase):
-    def setUp(self):
-        self.f = tempfile.TemporaryDirectory()
-        self.real_f = os.path.realpath(self.f.name)
-
-    """Unit tests for core.data.Project."""
-    def test_init(self):
-        """Test basic creation of Project."""
-        with relentless.data.Directory(self.f.name):
-            #unspecified workspace and scratch
-            p = relentless.data.Project()
-            self.assertIsInstance(p.workspace, relentless.data.Directory)
-            self.assertEqual(p.workspace.path, os.path.join(self.real_f,'workspace'))
-            self.assertEqual(p.scratch.path, os.path.join(self.real_f,'workspace','scratch'))
-
-            #specified workspace, unspecified scratch
-            p = relentless.data.Project(workspace=relentless.data.Directory(self.f.name))
-            self.assertIsInstance(p.workspace, relentless.data.Directory)
-            self.assertEqual(p.workspace.path, self.real_f)
-            self.assertEqual(p.scratch.path, os.path.join(self.real_f,'scratch'))
-
-            #unspecified workspace, specified scratch
-            p = relentless.data.Project(scratch=relentless.data.Directory(self.f.name))
-            self.assertIsInstance(p.workspace, relentless.data.Directory)
-            self.assertEqual(p.workspace.path, os.path.join(self.real_f,'workspace'))
-            self.assertEqual(p.scratch.path, self.real_f)
-
-            #specified workspace and scratch (as strings)
-            p = relentless.data.Project(workspace='wrksp',scratch='scr')
-            self.assertIsInstance(p.workspace, relentless.data.Directory)
-            self.assertEqual(p.workspace.path, os.path.join(self.real_f,'wrksp'))
-            self.assertEqual(p.scratch.path, os.path.join(self.real_f,'scr'))
-
-    def tearDown(self):
-        self.f.cleanup()
-        self.real_f = None
-        del self.f
-
 if __name__ == '__main__':
     unittest.main()

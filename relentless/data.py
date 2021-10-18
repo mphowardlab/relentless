@@ -3,20 +3,14 @@ Data management
 ===============
 The :class:`Directory` class provides an interface for creating hierarchical
 filesystem directories and files within those directories using either an absolute
-or relative path. Additionally, project simulation and optimization data
-can be stored using a :class:`Project`, which includes options for ``workspace``
-and ``scratch`` directories.
+or relative path.
 
 .. autosummary::
     :nosignatures:
 
     Directory
-    Project
 
 .. autoclass:: Directory
-    :members:
-
-.. autoclass:: Project
     :members:
 
 """
@@ -210,65 +204,3 @@ class Directory:
                 shutil.copy2(entry.path, dest.path)
             elif entry.is_dir():
                 shutil.copytree(entry.path, os.path.join(dest.path,entry.name))
-
-class Project:
-    r"""Project data.
-
-    The project data will be saved primarily in two directories. The first is
-    ``workspace``, which is for results that should be saved. This data includes
-    things like parameter values at a given iteration or the error in the optimization.
-    The second is ``scratch``, which is meant to be used for temporary data such
-    as simulation trajectories or program output that does not need to be preserved.
-
-    The names of these spaces are meant to suggest the filesystem structure of
-    many high-performance computers (e.g., GPFS, Lustre), where the ``work``
-    disks are usually shared and persistent while the ``scratch`` disks are
-    possibly node-local and temporary (or scrubbed periodically). ``scratch``
-    disks are usually faster for I/O intensive processes, so it is recommended
-    to specify this directory if you have access to it. Otherwise, a
-    pseudo-``scratch`` directory will be created in the ``workspace``, but it
-    will not be any more performant than the ``workspace``.
-
-    The :class:`Project` does not specify a data schema. The schema must
-    be created by consumers of the :class:`Project`. A :class:`Project`
-    also does not guarantee that the ``scratch`` space will actually be
-    cleared. It is up to the user (or the system) to remove this data.
-
-    Parameters
-    ----------
-    workspace : str or :class:`Directory`
-        Directory for persistent project data.
-        Defaults to ``./workspace`` (using UNIX filesystem notation).
-    scratch : str or :class:`Directory`
-        Directory for temporary (scratch) project data.
-        Defaults to ``./workspace/scratch`` (using UNIX filesystem notation).
-
-    """
-    def __init__(self, workspace=None, scratch=None):
-        # use specified workspace, otherwise use the current directory
-        if workspace is not None:
-            if isinstance(workspace, Directory):
-                self._work = workspace
-            else:
-                self._work = Directory(workspace)
-        else:
-            self._work = Directory(os.path.join(os.getcwd(),'workspace'))
-
-        # use system scratch if specified, otherwise make one
-        if scratch is not None:
-            if isinstance(scratch, Directory):
-                self._scratch = scratch
-            else:
-                self._scratch = Directory(scratch)
-        else:
-            self._scratch = self.workspace.directory('scratch')
-
-    @property
-    def workspace(self):
-        r""":class:`Directory` Work space."""
-        return self._work
-
-    @property
-    def scratch(self):
-        r""":class:`Directory` Scratch space."""
-        return self._scratch

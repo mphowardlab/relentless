@@ -103,7 +103,7 @@ define the required methods.
 import os
 from packaging import version
 
-import numpy as np
+import numpy
 
 from relentless._collections import PairMatrix
 from relentless.ensemble import RDF
@@ -214,7 +214,7 @@ class Initialize(simulate.SimulationOperation):
         xz = V.c[0]/Lz
         yz = V.c[1]/Lz
 
-        return np.array([Lx,Ly,Lz,xy,xz,yz])
+        return numpy.array([Lx,Ly,Lz,xy,xz,yz])
 
     def make_snapshot(self, sim):
         """Creates a particle snapshot and box for the simulation context.
@@ -335,14 +335,14 @@ class InitializeFromFile(Initialize):
             # check that the boxes are consistent in constant volume sims.
             if sim.ensemble.V is not None:
                 system_box = sim.system.box
-                box_from_file = np.array([system_box.Lx,
+                box_from_file = numpy.array([system_box.Lx,
                                           system_box.Ly,
                                           system_box.Lz,
                                           system_box.xy,
                                           system_box.xy,
                                           system_box.yz])
                 box_from_ensemble = self.extract_box_params(sim)
-                if not np.all(np.isclose(box_from_file,box_from_ensemble)):
+                if not numpy.all(numpy.isclose(box_from_file,box_from_ensemble)):
                     raise ValueError('Box from file is is inconsistent with ensemble volume.')
 
         self.attach_potentials(sim)
@@ -376,8 +376,8 @@ class InitializeRandomly(Initialize):
         """
         # if setting seed, preserve the current RNG state
         if self.seed is not None:
-            old_state = np.random.get_state()
-            np.random.seed(self.seed)
+            old_state = numpy.random.get_state()
+            numpy.random.seed(self.seed)
         else:
             old_state = None
 
@@ -388,24 +388,24 @@ class InitializeRandomly(Initialize):
 
                 # randomly place particles in fractional coordinates
                 if sim.communicator.rank == 0:
-                    rs = np.random.uniform(size=(snap.particles.N,3))
+                    rs = numpy.random.uniform(size=(snap.particles.N,3))
                     snap.particles.position[:] = box.make_absolute(rs)
 
                     # set types of each
-                    snap.particles.typeid[:] = np.repeat(np.arange(len(sim.ensemble.types)),
-                                                        [sim.ensemble.N[t] for t in sim.ensemble.types])
+                    snap.particles.typeid[:] = numpy.repeat(numpy.arange(len(sim.ensemble.types)),
+                                                            [sim.ensemble.N[t] for t in sim.ensemble.types])
 
                     # assume unit mass and thermalize to Maxwell-Boltzmann distribution
                     snap.particles.mass[:] = 1.0
-                    vel = np.random.normal(scale=np.sqrt(sim.ensemble.kT),size=(snap.particles.N,3))
-                    snap.particles.velocity[:] = vel-np.mean(vel,axis=0)
+                    vel = numpy.random.normal(scale=numpy.sqrt(sim.ensemble.kT),size=(snap.particles.N,3))
+                    snap.particles.velocity[:] = vel-numpy.mean(vel,axis=0)
 
                 # read snapshot
                 sim.system = hoomd.init.read_snapshot(snap)
         finally:
             # always restore old state if it exists
             if old_state is not None:
-                np.random.set_state(old_state)
+                numpy.random.set_state(old_state)
 
         self.attach_potentials(sim)
 
@@ -918,7 +918,7 @@ class RDFCallback:
         rdf = PairMatrix(self._rdf.types)
         for pair in rdf:
             if self.communicator.rank == 0:
-                gr = np.column_stack((self._rdf[pair].bin_centers,self._rdf[pair].rdf))
+                gr = numpy.column_stack((self._rdf[pair].bin_centers,self._rdf[pair].rdf))
             else:
                 gr = None
             gr = self.communicator.bcast_numpy(gr,root=0)
@@ -971,7 +971,7 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
             # pair distribution function
             rdf_params = PairMatrix(sim.ensemble.types)
             rmax = sim.potentials.pair.r[-1]
-            bins = np.round(rmax/self.rdf_dr).astype(int)
+            bins = numpy.round(rmax/self.rdf_dr).astype(int)
             for pair in rdf_params:
                 rdf_params[pair] = {'bins': bins, 'rmax': rmax}
             sim[self].rdf_callback = RDFCallback(sim.system,rdf_params,sim.communicator)
