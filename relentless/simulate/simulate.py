@@ -194,7 +194,7 @@ class Potentials:
 
     """
     def __init__(self, pair_potentials=None):
-        self._pair = PairPotentialTabulator(rmax=None,num=None,potentials=pair_potentials)
+        self._pair = PairPotentialTabulator(rmax=None,num=None,neighbor_buffer=0.0,potentials=pair_potentials)
 
     @property
     def pair(self):
@@ -366,6 +366,8 @@ class PairPotentialTabulator(PotentialTabulator):
         The maximum value of ``r`` at which to tabulate.
     num : int
         The number of points (value of ``r``) at which to tabulate and evaluate the potential.
+    neighbor_buffer : float
+        Buffer radius used in computing the neighbor list.
     potentials : :class:`~relentless.potential.pair.PairPotential` or array_like
         The pair potential(s) to be tabulated. If array_like, all elements must
         be :class:`~relentless.potential.pair.PairPotential`\s. (Defaults to ``None``).
@@ -373,8 +375,9 @@ class PairPotentialTabulator(PotentialTabulator):
         The maximum value of force at which to allow evaluation.
 
     """
-    def __init__(self, rmax, num, potentials=None, fmax=None):
+    def __init__(self, rmax, num, neighbor_buffer, potentials=None, fmax=None):
         super().__init__(0,rmax,num,potentials)
+        self.neighbor_buffer = neighbor_buffer
         self.fmax = fmax
 
     @property
@@ -390,6 +393,19 @@ class PairPotentialTabulator(PotentialTabulator):
     @rmax.setter
     def rmax(self, val):
         self.stop = val
+
+    @property
+    def neighbor_buffer(self):
+        """float: The amount to be added to ``rmax`` to search for particles while
+        computing the neighbor list."""
+        return self._neighbor_buffer
+
+    @neighbor_buffer.setter
+    def neighbor_buffer(self, val):
+        if val is not None:
+            self._neighbor_buffer = val
+        else:
+            self._neighbor_buffer = None
 
     @property
     def fmax(self):

@@ -20,8 +20,9 @@ class test_Generic(unittest.TestCase):
         self.potentials.pair.potentials.append(pot)
         self.potentials.pair.rmax = 3.0
         self.potentials.pair.num = 4
+        self.potentials.pair.neighbor_buffer = 0.4
 
-        self.ops = [relentless.simulate.InitializeRandomly(seed=2,neighbor_buffer=0.4),
+        self.ops = [relentless.simulate.InitializeRandomly(seed=2),
                     relentless.simulate.AddNVTIntegrator(dt=0.1, tau_T=1.0)]
 
     def test_basic(self):
@@ -54,7 +55,7 @@ class test_Generic(unittest.TestCase):
     @unittest.skipIf(not relentless.simulate.lammps._lammps_found,
                      "LAMMPS not installed")
     def test_notimplemented(self):
-        ops = [relentless.simulate.InitializeRandomly(seed=1,neighbor_buffer=0.4),
+        ops = [relentless.simulate.InitializeRandomly(seed=1),
                relentless.simulate.AddBrownianIntegrator(dt=0.1,friction=0.5,seed=2)]
         lammps = relentless.simulate.lammps.LAMMPS(ops)
         with self.assertRaises(TypeError):
