@@ -402,10 +402,7 @@ class PairPotentialTabulator(PotentialTabulator):
 
     @neighbor_buffer.setter
     def neighbor_buffer(self, val):
-        if val is not None:
-            self._neighbor_buffer = val
-        else:
-            self._neighbor_buffer = None
+        self._neighbor_buffer = val
 
     @property
     def fmax(self):
