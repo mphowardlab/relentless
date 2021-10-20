@@ -192,16 +192,13 @@ class Initialize(LAMMPSOperation):
 
     Parameters
     ----------
-    neighbor_buffer : float
-        Buffer width.
     units : str
         The LAMMPS style of units used in the simulation (defaults to ``lj``).
     atom_style : str
         The LAMMPS style of atoms used in a simulation (defaults to ``atomic``).
 
     """
-    def __init__(self, neighbor_buffer, units='lj', atom_style='atomic'):
-        self.neighbor_buffer = neighbor_buffer
+    def __init__(self, units='lj', atom_style='atomic'):
         self.units = units
         self.atom_style = atom_style
 
@@ -320,7 +317,7 @@ class Initialize(LAMMPSOperation):
                         fw.write('{idx} {r} {u} {f}\n'.format(idx=idx+1,r=r[idx],u=u[idx],f=f[idx]))
 
         # process all lammps commands
-        cmds = ['neighbor {skin} multi'.format(skin=self.neighbor_buffer)]
+        cmds = ['neighbor {skin} multi'.format(skin=sim.potentials.pair.neighbor_buffer)]
         cmds += ['pair_style table linear {N}'.format(N=Nr)]
         for i,j in sim.ensemble.pairs:
             # get lammps type indexes, lowest type first
@@ -336,16 +333,14 @@ class InitializeFromFile(Initialize):
     ----------
     filename : str
         The file from which to read the system data.
-    neighbor_buffer : float
-        Buffer width.
     units : str
         The LAMMPS style of units used in the simulation (defaults to ``lj``).
     atom_style : str
         The LAMMPS style of atoms used in a simulation (defaults to ``atomic``).
 
     """
-    def __init__(self, filename, neighbor_buffer, units='lj', atom_style='atomic'):
-        super().__init__(neighbor_buffer, units, atom_style)
+    def __init__(self, filename, units='lj', atom_style='atomic'):
+        super().__init__(units, atom_style)
         self.filename = filename
 
     def to_commands(self, sim):
@@ -364,16 +359,14 @@ class InitializeRandomly(Initialize):
     ----------
     seed : int
         The seed to randomly initialize the particle locations.
-    neighbor_buffer : float
-        Buffer width.
     units : str
         The LAMMPS style of units used in the simulation (defaults to ``lj``).
     atom_style : str
         The LAMMPS style of atoms used in a simulation (defaults to ``atomic``).
 
     """
-    def __init__(self, seed, neighbor_buffer, units='lj', atom_style='atomic'):
-        super().__init__(neighbor_buffer, units, atom_style)
+    def __init__(self, seed, units='lj', atom_style='atomic'):
+        super().__init__(units, atom_style)
         self.seed = seed
 
     def to_commands(self, sim):

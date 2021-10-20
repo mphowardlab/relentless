@@ -92,6 +92,7 @@ class test_RelativeEntropy(unittest.TestCase):
         self.potentials.pair.rmax = 3.6
         self.potentials.pair.num = 1000
         self.potentials.pair.fmax = 100.
+        self.potentials.pair.neighbor_buffer = 0.4
 
         v_obj = relentless.volume.Cube(L=10.)
         self.target = relentless.ensemble.Ensemble(T=1.5, V=v_obj, N={'1':50})

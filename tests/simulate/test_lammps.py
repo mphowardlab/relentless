@@ -66,14 +66,14 @@ class test_LAMMPS(unittest.TestCase):
         #InitializeFromFile
         ens,pot = self.ens_pot()
         file_ = self.create_file()
-        op = relentless.simulate.lammps.InitializeFromFile(filename=file_, neighbor_buffer=0.4)
+        op = relentless.simulate.lammps.InitializeFromFile(filename=file_)
         l = relentless.simulate.lammps.LAMMPS(operations=op, quiet=False)
         sim = l.run(ensemble=ens, potentials=pot, directory=self.directory)
         pl = lammps.PyLammps(ptr=sim.lammps)
         self.assertIsNotNone(pl.system)
 
         #InitializeRandomly
-        op = relentless.simulate.lammps.InitializeRandomly(seed=1, neighbor_buffer=0.4)
+        op = relentless.simulate.lammps.InitializeRandomly(seed=1)
         l = relentless.simulate.lammps.LAMMPS(operations=op, quiet=False)
         sim = l.run(ensemble=ens, potentials=pot, directory=self.directory)
         pl = lammps.PyLammps(ptr=sim.lammps)
@@ -84,7 +84,7 @@ class test_LAMMPS(unittest.TestCase):
         #MinimizeEnergy
         ens,pot = self.ens_pot()
         file_ = self.create_file()
-        op = [relentless.simulate.lammps.InitializeFromFile(filename=file_, neighbor_buffer=0.4),
+        op = [relentless.simulate.lammps.InitializeFromFile(filename=file_),
               relentless.simulate.lammps.MinimizeEnergy(energy_tolerance=1e-7,
                                                         force_tolerance=1e-7,
                                                         max_iterations=1000,
@@ -97,7 +97,7 @@ class test_LAMMPS(unittest.TestCase):
         """Test adding and removing integrator operations."""
         default_fixes = [{'name':''}]
 
-        init = relentless.simulate.lammps.InitializeRandomly(seed=1, neighbor_buffer=0.4)
+        init = relentless.simulate.lammps.InitializeRandomly(seed=1)
         l = relentless.simulate.lammps.LAMMPS(operations=init, quiet=False)
 
         #LangevinIntegrator
@@ -178,7 +178,7 @@ class test_LAMMPS(unittest.TestCase):
 
     def test_run(self):
         """Test run simulation operations."""
-        init = relentless.simulate.lammps.InitializeRandomly(seed=1, neighbor_buffer=0.4)
+        init = relentless.simulate.lammps.InitializeRandomly(seed=1)
         l = relentless.simulate.lammps.LAMMPS(operations=init, quiet=False)
 
         #Run
@@ -195,7 +195,7 @@ class test_LAMMPS(unittest.TestCase):
     def test_analyzer(self):
         """Test ensemble analyzer simulation operation."""
         ens,pot = self.ens_pot()
-        init = relentless.simulate.lammps.InitializeRandomly(seed=1, neighbor_buffer=0.4)
+        init = relentless.simulate.lammps.InitializeRandomly(seed=1)
         analyzer = relentless.simulate.lammps.AddEnsembleAnalyzer(check_thermo_every=5,
                                                                   check_rdf_every=5,
                                                                   rdf_dr=1.0)

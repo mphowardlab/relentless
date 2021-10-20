@@ -182,14 +182,12 @@ class InitializeFromFile(GenericOperation):
     ----------
     filename : str
         The file from which to read the system data.
-    neighbor_buffer : float
-        Buffer width for neighbor list.
     options : kwargs
         Options for file reading.
 
     """
-    def __init__(self, filename, neighbor_buffer, **options):
-        super().__init__(filename, neighbor_buffer, **options)
+    def __init__(self, filename, **options):
+        super().__init__(filename, **options)
 
 class InitializeRandomly(GenericOperation):
     """Initializes a randomly generated simulation box and pair potentials.
@@ -198,14 +196,12 @@ class InitializeRandomly(GenericOperation):
     ----------
     seed : int
         The seed to randomly initialize the particle locations.
-    neighbor_buffer : float
-        Buffer width for neighbor list.
     options : kwargs
         Options for random initialization.
 
     """
-    def __init__(self, seed, neighbor_buffer, **options):
-        super().__init__(seed, neighbor_buffer, **options)
+    def __init__(self, seed, **options):
+        super().__init__(seed, **options)
 
 ## integrators
 class MinimizeEnergy(GenericOperation):

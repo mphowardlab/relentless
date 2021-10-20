@@ -33,6 +33,7 @@ for pair in target.pairs:
 potentials = relentless.simulate.Potentials(lj)
 potentials.pair.rmax = 3.0
 potentials.pair.num = 1000
+potentials.pair.neighbor_buffer = 0.4
 thermo = relentless.simulate.AddEnsembleAnalyzer(check_thermo_every=1, check_rdf_every=1, rdf_dr=dr)
 simulation = relentless.simulate.Dilute([thermo])
 relent = relentless.optimize.RelativeEntropy(target, simulation, potentials, thermo)

@@ -16,7 +16,7 @@ Implement a sequence of simulation operations through a reproducible workflow th
 can be directly translated between all of the supported simulation packages::
 
     # generic simulation operations
-    ops = [relentless.simulate.InitializeRandomly(seed=1, neighbor_buffer=0.4),
+    ops = [relentless.simulate.InitializeRandomly(seed=1),
            relentless.simulate.AddNVTIntegrator(dt=0.1, tau_T=1.0),
            relentless.simulate.Run(steps=1e3),
            relentless.simulate.AddEnsembleAnalyzer(check_thermo_every=5,
