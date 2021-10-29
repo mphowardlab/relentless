@@ -1,0 +1,36 @@
+name: Run unit tests
+
+on:
+  pull_request:
+
+  push:
+    branches:
+      - main
+
+    workflow_dispatch:
+
+jobs:
+  test:
+    name: Unit tests with Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        fail-fast: false
+        python-version: [3.6, 3.7, 3.8, 3.9]
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Setup Python ${{ matrix.python-version }}
+        uses: conda-incubator/setup-miniconda@v2
+        with:
+          auto-update-conda: true
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        shell: bash -l {0}
+        run: |
+          conda install -y -c conda-forge -c defaults --file requirements.txt --file tests/requirements.txt
+
+      - name: Run tests
+        run: |
+        python -m unittest discover -v
