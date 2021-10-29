@@ -32,7 +32,12 @@ jobs:
 
       - name: Install dependencies
         run: |
-          conda install -y -c conda-forge -c defaults --file requirements.txt --file tests/requirements.txt
+          conda install -y -c conda-forge --file tests/requirements.txt
+
+      - name: Build
+        run: |
+          python -m pip install .
+          python -c "import relentless; print(relentless.__file__)"
 
       - name: Run tests
         run: |
