@@ -19,7 +19,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: [3.6, 3.7, 3.8]
+        python-version: [3.6, 3.7, 3.8, 3.9]
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -31,8 +31,13 @@ jobs:
 
       - name: Install dependencies
         run: |
-          conda install -y -c conda-forge --file requirements.txt --file tests/requirements.txt
+          conda install -y -c conda-forge --file tests/requirements.txt
+
+      - name: Build
+        run: |
+          python -m pip install .
 
       - name: Run tests
         run: |
+          cd tests
           python -m unittest discover -v
