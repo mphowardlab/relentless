@@ -58,6 +58,6 @@ but you can build it from source yourself:
     cd doc
     make html
 
-You will need `sphinx <https://www.sphinx-doc.org>_` (4.2.0) and the `Read
+You will need `sphinx <https://www.sphinx-doc.org>`_ (4.2.0) and the `Read
 the Docs sphinx theme <https://sphinx-rtd-theme.readthedocs.io/en/stable>`_
 (1.0.0), which can be installed using ``doc/requirements.txt``.
