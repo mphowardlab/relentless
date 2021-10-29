@@ -15,7 +15,7 @@ on:
 
 jobs:
   test:
-    name: unittest [python-${{ matrix.python-version }}]
+    name: unit test [python-${{ matrix.python-version }}]
     runs-on: ubuntu-latest
     defaults:
       run:
