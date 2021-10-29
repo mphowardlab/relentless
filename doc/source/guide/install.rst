@@ -20,7 +20,7 @@ If you want to install from source, you can also use pip (recommended)
 
 .. code:: bash
 
-    pip install relentless
+    pip install .
 
 or ``setuptools``
 
@@ -30,12 +30,12 @@ or ``setuptools``
 
 The required dependencies are pretty minimal:
 
-- Python (>= 3.6)
-- NumPy
-- SciPy
-- networkx (>= 2.4)
+- `Python <https://www.python.org>`_ (>= 3.6)
+- `NumPy <https://numpy.org>`_
+- `SciPy <https://www.scipy.org>`_
+- `networkx <https://networkx.org>`_ (>= 2.4)
 
-and can be installed using ``requirements.txt``.
+and can be installed from ``requirements.txt``.
 
 Testing
 -------
@@ -58,5 +58,6 @@ but you can build it from source yourself:
     cd doc
     make html
 
-You will need a compatible sphinx and the Read the Docs sphinx theme, which can
-be installed from ``doc/requirements.txt``.
+You will need `sphinx <https://www.sphinx-doc.org>_` (4.2.0) and the `Read
+the Docs sphinx theme <https://sphinx-rtd-theme.readthedocs.io/en/stable>`_
+(1.0.0), which can be installed using ``doc/requirements.txt``.
