@@ -31,10 +31,8 @@ The following generic simulation operations have been implemented:
     RemoveBrownianIntegrator
     AddLangevinIntegrator
     RemoveLangevinIntegrator
-    AddNPTIntegrator
-    RemoveNPTIntegrator
-    AddNVTIntegrator
-    RemoveNVTIntegrator
+    AddVerletIntegrator
+    RemoveVerletIntegrator
     Run
     RunUpTo
     AddEnsembleAnalyzer
@@ -67,13 +65,9 @@ called by the user into an operation associated with a valid :class:`~relentless
     :members:
 .. autoclass:: RemoveLangevinIntegrator
     :members:
-.. autoclass:: AddNPTIntegrator
+.. autoclass:: AddVerletIntegrator
     :members:
-.. autoclass:: RemoveNPTIntegrator
-    :members:
-.. autoclass:: AddNVTIntegrator
-    :members:
-.. autoclass:: RemoveNVTIntegrator
+.. autoclass:: RemoveVerletIntegrator
     :members:
 .. autoclass:: Run
     :members:
@@ -282,66 +276,11 @@ class RemoveLangevinIntegrator(GenericOperation):
     def __init__(self, add_op):
         super().__init__(add_op)
 
-class AddNPTIntegrator(GenericOperation):
-    """NPT integration via MTK barostat-thermostat.
+class AddVerletIntegrator(GenericOperation):
+    def __init__(self, dt, thermostat=None, barostat=None, **options):
+        super().__init__(dt, thermostat, barostat, **options)
 
-    Parameters
-    ----------
-    dt : float
-        Time step size for each simulation iteration
-    tau_T : float
-        Coupling constant for the thermostat.
-    tau_P : float
-        Coupling constant for the barostat.
-    options : kwargs
-        Options used in integrator function.
-
-    """
-    def __init__(self, dt, tau_T, tau_P, **options):
-        super().__init__(dt, tau_T, tau_P, **options)
-
-class RemoveNPTIntegrator(GenericOperation):
-    """Removes the NPT integrator operation.
-
-    Parameters
-    ----------
-    add_op : :class:`AddNPTIntegrator`
-        The integrator addition operation to be removed.
-
-    """
-    def __init__(self, add_op):
-        super().__init__(add_op)
-
-class AddNVTIntegrator(GenericOperation):
-    r"""NVT integration via Nosé-Hoover thermostat.
-
-    Parameters
-    ----------
-    add_op : :class:`AddNVTIntegrator`
-        The integrator addition operation to be removed.
-
-    Parameters
-    ----------
-    dt : float
-        Time step size for each simulation iteration
-    tau_T : float
-        Coupling constant for the thermostat.
-    options : kwargs
-        Options used in integrator function.
-
-    """
-    def __init__(self, dt, tau_T, **options):
-        super().__init__(dt, tau_T, **options)
-
-class RemoveNVTIntegrator(GenericOperation):
-    """Removes the NVT integrator operation.
-
-    Parameters
-    ----------
-    add_op : :class:`AddNVTIntegrator`
-        The integrator addition operation to be removed.
-
-    """
+class RemoveVerletIntegrator(GenericOperation):
     def __init__(self, add_op):
         super().__init__(add_op)
 

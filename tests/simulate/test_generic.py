@@ -23,7 +23,7 @@ class test_Generic(unittest.TestCase):
         self.potentials.pair.neighbor_buffer = 0.4
 
         self.ops = [relentless.simulate.InitializeRandomly(seed=2),
-                    relentless.simulate.AddNVTIntegrator(dt=0.1, tau_T=1.0)]
+                    relentless.simulate.AddLangevinIntegrator(dt=0.1, friction=0.8, seed=2)]
 
     def test_basic(self):
         #Dilute

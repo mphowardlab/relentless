@@ -17,10 +17,8 @@ The following LAMMPS operations have been implemented.
     MinimizeEnergy
     AddLangevinIntegrator
     RemoveLangevinIntegrator
-    AddNPTIntegrator
-    RemoveNPTIntegrator
-    AddNVTIntegrator
-    RemoveNVTIntegrator
+    AddVerletIntegrator
+    RemoveVerletIntegrator
     Run
     RunUpTo
     AddEnsembleAnalyzer
@@ -53,13 +51,9 @@ that derives from :class:`LAMMPSOperation` and define the required methods.
     :members:
 .. autoclass:: RemoveLangevinIntegrator
     :members:
-.. autoclass:: AddNPTIntegrator
+.. autoclass:: AddVerletIntegrator
     :members:
-.. autoclass:: RemoveNPTIntegrator
-    :members:
-.. autoclass:: AddNVTIntegrator
-    :members:
-.. autoclass:: RemoveNVTIntegrator
+.. autoclass:: RemoveVerletIntegrator
     :members:
 .. autoclass:: Run
     :members:
@@ -512,107 +506,87 @@ class RemoveLangevinIntegrator(LAMMPSOperation):
 
         return cmds
 
-class AddNPTIntegrator(LAMMPSOperation):
-    r"""NPT integration via Nos\'e-Hoover thermostat/barostat.
+class Thermostat:
+    def __init__(self, T):
+        self.T = T
 
-    Parameters
-    ----------
-    dt : float
-        Time step size for each simulation iteration.
-    tau_T : float
-        Coupling constant for the thermostat.
-    tau_P : float
-        Coupling constant for the barostat.
+class BerendsenThermostat(Thermostat):
+    def __init__(self, T, tau):
+        super().__init__(T)
+        self.tau = tau
 
-    """
-    def __init__(self, dt, tau_T, tau_P):
-        self.tau_T = tau_T
-        self.tau_P = tau_P
+class NoseHooverThermostat(Thermostat):
+    def __init__(self, T, tau):
+        super().__init__(T)
+        self.tau = tau
+
+class MTKThermostat(Thermostat):
+    def __init__(self, T, tau):
+        super().__init__(T)
+        self.tau = tau
+
+class Barostat:
+    def __init__(self, P):
+        self.P = P
+
+class MTKBarostat(Barostat):
+    def __init__(self, P, tau):
+        super().__init__(P)
+        self.tau = tau
+
+class AddVerletIntegrator(LAMMPSOperation):
+    def __init__(self, dt, thermostat=None, barostat=None):
+        self.thermostat = thermostat
+        self.barostat = barostat
 
         self._fix = super().new_fix_id()
+        self._fix_berendsen = -1
 
     def to_commands(self, sim):
-        cmds = ['fix {idx} {group_idx} npt temp {Tstart} {Tstop} {Tdamp} iso {Pstart} {Pstop} {Pdamp}'.format(idx=self._fix,
-                                                                                                              group_idx='all',
-                                                                                                              Tstart=sim.ensemble.T,
-                                                                                                              Tstop=sim.ensemble.T,
-                                                                                                              Tdamp=self.tau_T,
-                                                                                                              Pstart=sim.ensemble.P,
-                                                                                                              Pstop=sim.ensemble.P,
-                                                                                                              Pdamp=self.tau_P)]
+        if self.thermostat is None and self.barostat is None:
+            cmds = ['fix {idx} {group_idx} nve'.format(idx=self._fix, group_idx='all')]
+        elif isinstance(self.thermostat, BerendsenThermostat):
+            self._fix_berendsen = super().new_fix_id()
+            cmds = ['fix {idx} {group_idx} nve'.format(idx=self._fix, group_idx='all'),
+                    'fix {idx} {group_idx} temp/berendsen {Tstart} {Tstop} {Tdamp}'.format(idx=self._fix_berendsen,
+                                                                                           group_idx='all',
+                                                                                           Tstart=self.thermostat.T,
+                                                                                           Tstop=self.thermostat.T,
+                                                                                           Tdamp=self.thermostat.tau)]
+        elif isinstance(self.thermostat, NoseHooverThermostat):
+            cmds = ['fix {idx} {group_idx} nvt temp {Tstart} {Tstop} {Tdamp}'.format(idx=self._fix,
+                                                                                     group_idx='all',
+                                                                                     Tstart=self.thermostat.T,
+                                                                                     Tstop=self.thermostat.T,
+                                                                                     Tdamp=self.thermostat.tau)]
+        elif self.thermostat is None and isinstance(self.barostat, MTKBarostat):
+            cmds = ['fix {idx} {group_idx} nph iso {Pstart} {Pstop} {Pdamp}'.format(idx=self._fix,
+                                                                                    group_idx='all',
+                                                                                    Pstart=self.barostat.P,
+                                                                                    Pstop=self.barostat.P,
+                                                                                    Pdamp=self.barostat.tau)]
+        elif isinstance(self.thermostat, MTKThermostat) and isinstance(self.barostat, MTKBarostat):
+            cmds = ['fix {idx} {group_idx} npt temp {Tstart} {Tstop} {Tdamp} iso {Pstart} {Pstop} {Pdamp}'.format(idx=self._fix,
+                                                                                                                  group_idx='all',
+                                                                                                                  Tstart=self.thermostat.T,
+                                                                                                                  Tstop=self.thermostat.T,
+                                                                                                                  Tdamp=self.thermostat.tau,
+                                                                                                                  Pstart=self.barostat.P,
+                                                                                                                  Pstop=self.barostat.P,
+                                                                                                                  Pdamp=self.barostat.tau)]
 
         return cmds
 
-class RemoveNPTIntegrator(LAMMPSOperation):
-    """Removes the NPT integrator operation.
-
-    Parameters
-    ----------
-    add_op : :class:`AddNPTIntegrator`
-        The integrator addition operation to be removed.
-
-    Raises
-    ------
-    TypeError
-        If the specified addition operation is not a NPT integrator.
-
-    """
+class RemoveVerletIntegrator(LAMMPSOperation):
     def __init__(self, add_op):
-        if not isinstance(add_op, AddNPTIntegrator):
-            raise TypeError('Addition operation is not AddNPTIntegrator.')
+        if not isinstance(add_op, AddVerletIntegrator):
+            raise TypeError('Addition operation is not AddVerletIntegrator.')
         self.add_op = add_op
 
     def to_commands(self, sim):
         cmds = ['unfix {idx}'.format(idx=self.add_op._fix)]
-
-        return cmds
-
-class AddNVTIntegrator(LAMMPSOperation):
-    r"""NVT integration via Nosé-Hoover thermostat.
-
-    Parameters
-    ----------
-    dt : float
-        Time step size for each simulation iteration.
-    tau_T : float
-        Coupling constant for the thermostat.
-
-    """
-    def __init__(self, dt, tau_T):
-        self.tau_T = tau_T
-
-        self._fix = super().new_fix_id()
-
-    def to_commands(self, sim):
-        cmds = ['fix {idx} {group_idx} nvt temp {Tstart} {Tstop} {Tdamp}'.format(idx=self._fix,
-                                                                                 group_idx='all',
-                                                                                 Tstart=sim.ensemble.T,
-                                                                                 Tstop=sim.ensemble.T,
-                                                                                 Tdamp=self.tau_T)]
-
-        return cmds
-
-class RemoveNVTIntegrator(LAMMPSOperation):
-    """Removes the NVT integrator operation.
-
-    Parameters
-    ----------
-    add_op : :class:`AddNVTIntegrator`
-        The integrator addition operation to be removed.
-
-    Raises
-    ------
-    TypeError
-        If the specified addition operation is not a NVT integrator.
-
-    """
-    def __init__(self, add_op):
-        if not isinstance(add_op, AddNVTIntegrator):
-            raise TypeError('Addition operation is not AddNVTIntegrator.')
-        self.add_op = add_op
-
-    def to_commands(self, sim):
-        cmds = ['unfix {idx}'.format(idx=self.add_op._fix)]
+        if self.add_op._fix_berendsen >= 0:
+            cmds += ['unfix {idx}'.format(idx=self.add_op._fix_berendsen)]
 
         return cmds
 
