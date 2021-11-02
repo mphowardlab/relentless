@@ -1,4 +1,5 @@
 """Unit tests for relentless.simulate.lammps."""
+import sys
 import tempfile
 import unittest
 
@@ -11,7 +12,9 @@ import numpy
 import relentless
 from ..potential.test_pair import LinPot
 
-@unittest.skipIf(not relentless.simulate.lammps._lammps_found, "LAMMPS not installed")
+@unittest.skipIf(not relentless.simulate.lammps._lammps_found or
+                 sys.version_info[:2] == (3,8),
+                 "Compatible LAMMPS not installed")
 class test_LAMMPS(unittest.TestCase):
     """Unit tests for relentless.LAMMPS"""
 
