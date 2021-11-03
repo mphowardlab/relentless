@@ -225,6 +225,71 @@ class test_DesignVariable(unittest.TestCase):
         with self.assertRaises(ValueError):
             v.high = -1.6
 
+    def test_operations(self):
+        """Test arithmetic operations on variables."""
+        #create dependent variables
+        v = relentless.variable.DesignVariable(value=2.0, low=1.0, high=3.0)
+        w = relentless.variable.DesignVariable(value=4.0, low=0.0, high=8.0)
+
+        #addition
+        x = v+w
+        self.assertAlmostEqual(x.value, 6.0)
+        x = v+2.0
+        self.assertAlmostEqual(x.value, 4.0)
+        x = 2.0+w
+        self.assertAlmostEqual(x.value, 6.0)
+        v += 2.0
+        self.assertAlmostEqual(v.value, 3.0)
+        with self.assertRaises(TypeError):
+            v += w
+
+        #subtraction
+        x = v-w
+        self.assertAlmostEqual(x.value, -1.0)
+        x = v-1.0
+        self.assertAlmostEqual(x.value, 2.0)
+        x = 1.0-w
+        self.assertAlmostEqual(x.value, -3.0)
+        w -= 2.0
+        self.assertAlmostEqual(w.value, 2.0)
+        with self.assertRaises(TypeError):
+            v -= w
+
+        #multiplication
+        x = v*w
+        self.assertAlmostEqual(x.value, 6.0)
+        x = v*1.5
+        self.assertAlmostEqual(x.value, 4.5)
+        x = 1.5*w
+        self.assertAlmostEqual(x.value, 3.0)
+        w *= 3.0
+        self.assertAlmostEqual(w.value, 6.0)
+        with self.assertRaises(TypeError):
+            v *= w
+
+        #division
+        x = w/v
+        self.assertAlmostEqual(x.value, 2.0)
+        x = v/2.0
+        self.assertAlmostEqual(x.value, 1.5)
+        x = 3.0/w
+        self.assertAlmostEqual(x.value, 0.5)
+        v /= 4.0
+        self.assertAlmostEqual(v.value, 1.0)
+        with self.assertRaises(TypeError):
+            v /= w
+
+        #exponentiation
+        v += 1.0
+        x = w**v
+        self.assertAlmostEqual(x.value, 36.0)
+        x = v**4.0
+        self.assertAlmostEqual(x.value, 16.0)
+
+        #negation
+        x = -w
+        self.assertAlmostEqual(x.value, -6.0)
+
 class DepVar(relentless.variable.DependentVariable):
     """Mock dependent variable to test relentless.variable.DependentVariable"""
     def __init__(self, *a, **b):

@@ -305,6 +305,65 @@ class DesignVariable(IndependentVariable):
         """
         return self.state is self.State.HIGH
 
+    def __add__(self, val):
+        v = val if isinstance(val, Variable) else DesignVariable(val)
+        return Sum(self, val)
+
+    def __radd__(self, val):
+        return Sum(DesignVariable(val), self)
+
+    def __iadd__(self, val):
+        if isinstance(val, Variable):
+            raise TypeError('Only a Variable is allowed to operate in-place on another Variable')
+        self.value += val
+        return self
+
+    def __sub__(self, val):
+        v = val if isinstance(val, Variable) else DesignVariable(val)
+        return Difference(self, val)
+
+    def __rsub__(self, val):
+        return Difference(DesignVariable(val), self)
+
+    def __isub__(self, val):
+        if isinstance(val, Variable):
+            raise TypeError('Only a Variable is allowed to operate in-place on another Variable')
+        self.value -= val
+        return self
+
+    def __mul__(self, val):
+        v = val if isinstance(val, Variable) else DesignVariable(val)
+        return Product(self, val)
+
+    def __rmul__(self, val):
+        return Product(DesignVariable(val), self)
+
+    def __imul__(self, val):
+        if isinstance(val, Variable):
+            raise TypeError('Only a Variable is allowed to operate in-place on another Variable')
+        self.value *= val
+        return self
+
+    def __truediv__(self, val):
+        v = val if isinstance(val, Variable) else DesignVariable(val)
+        return Quotient(self, val)
+
+    def __rtruediv__(self, val):
+        return Quotient(DesignVariable(val), self)
+
+    def __itruediv__(self, val):
+        if isinstance(val, Variable):
+            raise TypeError('Only a Variable is allowed to operate in-place on another Variable')
+        self.value /= val
+        return self
+
+    def __pow__(self, val):
+        v = val if isinstance(val, Variable) else DesignVariable(val)
+        return Power(self, val)
+
+    def __neg__(self):
+        return Negation(self)
+
 class DependentVariable(Variable):
     """Abstract base class for a variable that depends on other values.
 
@@ -540,6 +599,17 @@ class SameAs(UnaryOperator):
         else:
             raise ValueError('Unknown parameter')
 
+class Negation(UnaryOperator):
+    @property
+    def value(self):
+        return -self.a.value
+
+    def _derivative(self, param):
+        if param == 'a':
+            return -1.0
+        else:
+            raise ValueError('Unknown parameter')
+
 class BinaryOperator(DependentVariable):
     """Abstract base class for a value that depends on two variables.
 
@@ -624,5 +694,83 @@ class GeometricMean(BinaryOperator):
                 return 0.5*numpy.sqrt(self.a.value/self.b.value)
             except ZeroDivisionError:
                 return numpy.inf
+        else:
+            raise ValueError('Unknown parameter')
+
+class Sum(BinaryOperator):
+    @property
+    def value(self):
+        return self.a.value+self.b.value
+
+    def _derivative(self, param):
+        if param == 'a':
+            return 1.0
+        elif param == 'b':
+            return 1.0
+        else:
+            raise ValueError('Unknown parameter')
+
+class Difference(BinaryOperator):
+    @property
+    def value(self):
+        return self.a.value-self.b.value
+
+    def _derivative(self, param):
+        if param == 'a':
+            return 1.0
+        elif param == 'b':
+            return -1.0
+        else:
+            raise ValueError('Unknown parameter')
+
+class Product(BinaryOperator):
+    @property
+    def value(self):
+        return self.a.value*self.b.value
+
+    def _derivative(self, param):
+        if param == 'a':
+            return self.b.value
+        elif param == 'b':
+            return self.a.value
+        else:
+            raise ValueError('Unknown parameter')
+
+class Quotient(BinaryOperator):
+    @property
+    def value(self):
+        try:
+            return self.a.value/self.b.value
+        except ZeroDivisionError:
+            return numpy.inf
+
+    def _derivative(self, param):
+        if param == 'a':
+            try:
+                return 1.0/self.b.value
+            except ZeroDivisionError:
+                return numpy.inf
+        elif param == 'b':
+            try:
+                return -self.a.value/self.b.value**2.0
+            except ZeroDivisionError:
+                return numpy.inf
+        else:
+            raise ValueError('Unknown parameter')
+
+class Power(BinaryOperator):
+    @property
+    def value(self):
+        return self.a.value**self.b.value
+
+    def _derivative(self, param):
+        if param == 'a':
+            return self.b.value*self.a.value**(self.b.value-1.0)
+        elif param == 'b':
+            with numpy.errstate(all='raise'):
+                try:
+                    return numpy.log(self.a.value)*self.a.value**self.b.value
+                except FloatingPointError:
+                    return numpy.inf
         else:
             raise ValueError('Unknown parameter')
