@@ -637,6 +637,35 @@ class RemoveLangevinIntegrator(RemoveMDIntegrator):
         super().__init__(add_op)
 
 class AddVerletIntegrator(AddMDIntegrator):
+    """Family of Verlet integration modes.
+
+    This method supports :
+
+    - NVE integration with optional Berendsen thermostat
+    - NVT integration with Nosé-Hoover thermostat
+    - NPH integration with MTK barostat
+    - NPT integration with Nosé-Hoover thermostat and MTK barostat
+
+    Parameters
+    ----------
+    dt : float
+        Time step size for each simulation iteration.
+    thermostat : :class:`~relentless.simulate.simulate.Thermostat`
+        Thermostat used for integration (defaults to ``None``).
+    barostat : :class:`~relentless.simulate.simulate.Barostat`
+        Barostat used for integration (defaults to ``None``).
+    options : kwargs
+        Options used in :class:`hoomd.md.integrate.nve`,
+        :class:`hoomd.md.integrate.berendsen`, :class:`hoomd.md.integrate.nvt`,
+        :class:`hoomd.md.integrate.nph`, or :class:`hoomd.md.integrate.npt`, as
+        appropriate.
+
+    Raises
+    ------
+    TypeError
+        If an appropriate combination of thermostat and barostat is not set.
+
+    """
     def __init__(self, dt, thermostat=None, barostat=None, **options):
         super().__init__(dt)
         self.thermostat = thermostat
@@ -675,6 +704,19 @@ class AddVerletIntegrator(AddMDIntegrator):
 
 
 class RemoveVerletIntegrator(RemoveMDIntegrator):
+    """Removes the Verlet integrator operation.
+
+    Parameters
+    ----------
+    add_op : :class:`AddVerletIntegrator`
+        The integrator addition operation to be removed.
+
+    Raises
+    ------
+    TypeError
+        If the specified addition operation is not a Verlet integrator.
+
+    """
     def __init__(self, add_op):
         if not isinstance(add_op, AddVerletIntegrator):
             raise TypeError('Addition operation is not AddVerletIntegrator.')

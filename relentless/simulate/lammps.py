@@ -507,6 +507,30 @@ class RemoveLangevinIntegrator(LAMMPSOperation):
         return cmds
 
 class AddVerletIntegrator(LAMMPSOperation):
+    """Family of Verlet integration modes.
+
+    This method supports :
+
+    - NVE integration with optional Berendsen thermostat and optional Berendsen barostat
+    - NVT integration with Nosé-Hoover thermostat and optional Berendsen barostat
+    - NPH integration with MTK barostat and optional Berendsen thermostat
+    - NPT integration with Nosé-Hoover thermostat and MTK barostat
+
+    Parameters
+    ----------
+    dt : float
+        Time step size for each simulation iteration.
+    thermostat : :class:`~relentless.simulate.simulate.Thermostat`
+        Thermostat used for integration (defaults to ``None``).
+    barostat : :class:`~relentless.simulate.simulate.Barostat`
+        Barostat used for integration (defaults to ``None``).
+
+    Raises
+    ------
+    TypeError
+        If an appropriate combination of thermostat and barostat is not set.
+
+    """
     def __init__(self, dt, thermostat=None, barostat=None):
         self.thermostat = thermostat
         self.barostat = barostat
@@ -572,6 +596,19 @@ class AddVerletIntegrator(LAMMPSOperation):
         return cmds
 
 class RemoveVerletIntegrator(LAMMPSOperation):
+    """Removes the Verlet integrator operation.
+
+    Parameters
+    ----------
+    add_op : :class:`AddVerletIntegrator`
+        The integrator addition operation to be removed.
+
+    Raises
+    ------
+    TypeError
+        If the specified addition operation is not a Verlet integrator.
+
+    """
     def __init__(self, add_op):
         if not isinstance(add_op, AddVerletIntegrator):
             raise TypeError('Addition operation is not AddVerletIntegrator.')

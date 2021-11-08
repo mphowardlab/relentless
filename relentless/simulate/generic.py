@@ -7,7 +7,7 @@ interfaces (HOOMD-blue, LAMMPS, dilute system) is provided. This grants the user
 immense ease of use as a single command can be used to achieve the same function
 using multiple simulation packages. The supported generic operations are initialization
 of a system from file or randomly, energy minimization, simulation run, and a number
-of integrators (Langevin, NPT, NVT, Brownian (LAMMPS only)), as well as an
+of integrators (Langevin, Verlet, Brownian (LAMMPS only)), as well as an
 operation to extract the model ensemble and RDF at given timestep intervals.
 
 The generic simulation operations are compatible with the following simulation packages:
@@ -277,10 +277,32 @@ class RemoveLangevinIntegrator(GenericOperation):
         super().__init__(add_op)
 
 class AddVerletIntegrator(GenericOperation):
+    """Family of Verlet integration modes.
+
+    Parameters
+    ----------
+    dt : float
+        Time step size for each simulation iteration.
+    thermostat : :class:`~relentless.simulate.simulate.Thermostat`
+        Thermostat used for integration (defaults to ``None``).
+    barostat : :class:`~relentless.simulate.simulate.Barostat`
+        Barostat used for integration (defaults to ``None``).
+    options : kwargs
+        Options used in appropriate integrator function.
+
+    """
     def __init__(self, dt, thermostat=None, barostat=None, **options):
         super().__init__(dt, thermostat, barostat, **options)
 
 class RemoveVerletIntegrator(GenericOperation):
+    """Removes the Verlet integrator operation.
+
+    Parameters
+    ----------
+    add_op : :class:`AddVerletIntegrator`
+        The integrator addition operation to be removed.
+
+    """
     def __init__(self, add_op):
         super().__init__(add_op)
 
