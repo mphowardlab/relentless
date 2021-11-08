@@ -639,7 +639,7 @@ class RemoveLangevinIntegrator(RemoveMDIntegrator):
 class AddVerletIntegrator(AddMDIntegrator):
     """Family of Verlet integration modes.
 
-    This method supports :
+    This method supports:
 
     - NVE integration with optional Berendsen thermostat
     - NVT integration with Nosé-Hoover thermostat
@@ -660,11 +660,6 @@ class AddVerletIntegrator(AddMDIntegrator):
         :class:`hoomd.md.integrate.nph`, or :class:`hoomd.md.integrate.npt`, as
         appropriate.
 
-    Raises
-    ------
-    TypeError
-        If an appropriate combination of thermostat and barostat is not set.
-
     """
     def __init__(self, dt, thermostat=None, barostat=None, **options):
         super().__init__(dt)
@@ -673,6 +668,19 @@ class AddVerletIntegrator(AddMDIntegrator):
         self.options = options
 
     def __call__(self, sim):
+        """Adds the Verlet integrator to the simulation.
+
+        Parameters
+        ----------
+        sim : :class:`~relentless.simulate.simulate.Simulation`
+            The simulation object.
+
+        Raises
+        ------
+        TypeError
+            If an appropriate combination of thermostat and barostat is not set.
+
+        """
         self.attach_integrator(sim)
         with sim.context:
             all_ = hoomd.group.all()
