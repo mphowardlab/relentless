@@ -214,7 +214,7 @@ class test_LAMMPS(unittest.TestCase):
         self.assertCountEqual(pl.fixes, default_fixes)
 
         #VerletIntegrator - NPH
-        bm = relentless.simulate.lammps.MTKBarostat(P=1, tau=0.5)
+        bm = relentless.simulate.MTKBarostat(P=1, tau=0.5)
         vrl = relentless.simulate.lammps.AddVerletIntegrator(dt=0.5, barostat=bm)
         vrl_r = relentless.simulate.lammps.RemoveVerletIntegrator(add_op=vrl)
         l.operations = [init, vrl]
