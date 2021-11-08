@@ -632,7 +632,7 @@ class AddVerletIntegrator(LAMMPSOperation):
         fix_berendsen_pres = False
 
         if ((self.thermostat is None or isinstance(self.thermostat, simulate.BerendsenThermostat)) and
-            (self.thermostat is None or isinstance(self.barostat, simulate.BerendsenBarostat))):
+            (self.barostat is None or isinstance(self.barostat, simulate.BerendsenBarostat))):
             cmds = ['fix {idx} {group_idx} nve'.format(idx=self._fix,
                                                        group_idx='all')]
             if isinstance(self.thermostat, simulate.BerendsenThermostat):
