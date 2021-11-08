@@ -23,6 +23,12 @@ The following independent and dependent variables have been implemented:
 
     DesignVariable
     SameAs
+    Negation
+    Sum
+    Difference
+    Product
+    Quotient
+    Power
     ArithmeticMean
     GeometricMean
 
@@ -44,6 +50,12 @@ or :class:`BinaryOperator`) and define the required properties and methods.
 .. autoclass:: DesignVariable
     :members:
 .. autoclass:: SameAs
+.. autoclass:: Negation
+.. autoclass:: Sum
+.. autoclass:: Difference
+.. autoclass:: Product
+.. autoclass:: Quotient
+.. autoclass:: Power
 .. autoclass:: ArithmeticMean
 .. autoclass:: GeometricMean
 
@@ -74,6 +86,27 @@ class Variable(abc.ABC):
     not inherit from this variable directly but should make use of the more
     flexible :class:`IndependentVariable` or :class:`DependentVariable` types.
 
+    Examples
+    --------
+    Create variables with specified value::
+
+        x = relentless.variable.IndependentVariable(value=2.0)
+
+    If the value is numerical, arithmetic operations are available::
+
+        >>> print(x+2.0)
+        4.0
+        >>> print(5.0-x)
+        1.0
+        >>> print(2.0*x)
+        2.0
+        >>> print(x/4.0)
+        0.5
+        >>> print(x^2.0)
+        0.25
+        >>> print(-x)
+        -0.25
+
     """
     @property
     @abc.abstractmethod
@@ -82,38 +115,48 @@ class Variable(abc.ABC):
         pass
 
     def __add__(self, val):
+        """Addition of two variables, or of a variable and a scalar."""
         v = val if isinstance(val, Variable) else IndependentVariable(val)
         return Sum(self, val)
 
     def __radd__(self, val):
+        """Addition of a scalar and a variable."""
         return Sum(IndependentVariable(val), self)
 
     def __sub__(self, val):
+        """Subtraction of two variables, or of a variable and a scalar."""
         v = val if isinstance(val, Variable) else IndependentVariable(val)
         return Difference(self, val)
 
     def __rsub__(self, val):
+        """Subtraction of a scalar and a variable."""
         return Difference(IndependentVariable(val), self)
 
     def __mul__(self, val):
+        """Multiplication of two variables, or of a variable and a scalar."""
         v = val if isinstance(val, Variable) else IndependentVariable(val)
         return Product(self, val)
 
     def __rmul__(self, val):
+        """Multiplication of a scalar and a variable."""
         return Product(IndependentVariable(val), self)
 
     def __truediv__(self, val):
+        """Division of two variables, or of a variable by a scalar."""
         v = val if isinstance(val, Variable) else IndependentVariable(val)
         return Quotient(self, val)
 
     def __rtruediv__(self, val):
+        """Division of a scalar by a variable."""
         return Quotient(IndependentVariable(val), self)
 
     def __pow__(self, val):
+        """Exponentiation of two variables, or of a variable with a scalar."""
         v = val if isinstance(val, Variable) else IndependentVariable(val)
         return Power(self, val)
 
     def __neg__(self):
+        """Negation of a variable."""
         return Negation(self)
 
 class IndependentVariable(Variable):
@@ -138,6 +181,21 @@ class IndependentVariable(Variable):
         >>> print(x.value)
         -1.0
 
+    Perform in-place arithmetic operations::
+
+        >>> x += 4.0
+        >>> print(x.value)
+        3.0
+        >>> x -= 1.0
+        >>> print(x.value)
+        2.0
+        >>> x *= 0.5
+        >>> print(x.value)
+        1.0
+        >>> x /= 2.0
+        >>> print(x.value)
+        0.5
+
     """
     def __init__(self, value):
         self._value = value
@@ -151,24 +209,28 @@ class IndependentVariable(Variable):
         self._value = value
 
     def __iadd__(self, val):
+        """In-place addition of a variable with a scalar."""
         if isinstance(val, Variable):
             raise TypeError('Variables are not allowed to operate in-place on another Variable')
         self.value += val
         return self
 
     def __isub__(self, val):
+        """In-place subtraction of a variable with a scalar."""
         if isinstance(val, Variable):
             raise TypeError('Variables are not allowed to operate in-place on another Variable')
         self.value -= val
         return self
 
     def __imul__(self, val):
+        """In-place multiplication of a variable by a scalar."""
         if isinstance(val, Variable):
             raise TypeError('Variables are not allowed to operate in-place on another Variable')
         self.value *= val
         return self
 
     def __itruediv__(self, val):
+        """In-place division of a variable by a scalar."""
         if isinstance(val, Variable):
             raise TypeError('Variables are not allowed to operate in-place on another Variable')
         self.value /= val
@@ -601,6 +663,16 @@ class SameAs(UnaryOperator):
             raise ValueError('Unknown parameter')
 
 class Negation(UnaryOperator):
+    r"""Takes the additive inverse of a value.
+
+    Given a value :math:`a`, this returns :math:`-a`
+
+    Parameters
+    ----------
+    a : :class:`Variable`
+        The value.
+
+    """
     @property
     def value(self):
         return -self.a.value
@@ -631,6 +703,18 @@ class BinaryOperator(DependentVariable):
         super().__init__(a=a, b=b)
 
 class Sum(BinaryOperator):
+    r"""Sum of two values.
+
+    Given two values :math:`a` and :math:`b`, this returns :math:`a+b`
+
+    Parameters
+    ----------
+    a : :class:`Variable`
+        First value.
+    b : :class:`Variable`
+        Second value.
+
+    """
     @property
     def value(self):
         return self.a.value+self.b.value
@@ -644,6 +728,18 @@ class Sum(BinaryOperator):
             raise ValueError('Unknown parameter')
 
 class Difference(BinaryOperator):
+    r"""Difference of two values.
+
+    Given two values :math:`a` and :math:`b`, this returns :math:`a-b`
+
+    Parameters
+    ----------
+    a : :class:`Variable`
+        First value.
+    b : :class:`Variable`
+        Second value.
+
+    """
     @property
     def value(self):
         return self.a.value-self.b.value
@@ -657,6 +753,18 @@ class Difference(BinaryOperator):
             raise ValueError('Unknown parameter')
 
 class Product(BinaryOperator):
+    r"""Product of two values.
+
+    Given two values :math:`a` and :math:`b`, this returns :math:`ab`
+
+    Parameters
+    ----------
+    a : :class:`Variable`
+        First value.
+    b : :class:`Variable`
+        Second value.
+
+    """
     @property
     def value(self):
         return self.a.value*self.b.value
@@ -670,6 +778,18 @@ class Product(BinaryOperator):
             raise ValueError('Unknown parameter')
 
 class Quotient(BinaryOperator):
+    r"""Quotient of two values.
+
+    Given two values :math:`a` and :math:`b`, this returns :math:`\frac{a}{b}`
+
+    Parameters
+    ----------
+    a : :class:`Variable`
+        First value.
+    b : :class:`Variable`
+        Second value.
+
+    """
     @property
     def value(self):
         try:
@@ -692,6 +812,18 @@ class Quotient(BinaryOperator):
             raise ValueError('Unknown parameter')
 
 class Power(BinaryOperator):
+    r"""Takes a value to a power.
+
+    Given two values :math:`a` and :math:`b`, this returns :math:`a^b`
+
+    Parameters
+    ----------
+    a : :class:`Variable`
+        First value.
+    b : :class:`Variable`
+        Second value.
+
+    """
     @property
     def value(self):
         return self.a.value**self.b.value
