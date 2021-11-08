@@ -680,11 +680,11 @@ class AddVerletIntegrator(LAMMPSOperation):
         if fix_berendsen_pres:
             _fix_berendsen_p = super().new_fix_id()
             self._extra_fixes.append(_fix_berendsen_p)
-            cmds += ['fix {idx} {group_idx} press/berendsen {Pstart} {Pstop} {Pdamp}'.format(idx=_fix_berendsen_p,
-                                                                                             group_idx='all',
-                                                                                             Pstart=self.barostat.P,
-                                                                                             Pstop=self.barostat.P,
-                                                                                             Pdamp=self.barostat.tau)]
+            cmds += ['fix {idx} {group_idx} press/berendsen iso {Pstart} {Pstop} {Pdamp}'.format(idx=_fix_berendsen_p,
+                                                                                                 group_idx='all',
+                                                                                                 Pstart=self.barostat.P,
+                                                                                                 Pstop=self.barostat.P,
+                                                                                                 Pdamp=self.barostat.tau)]
 
         return cmds
 
