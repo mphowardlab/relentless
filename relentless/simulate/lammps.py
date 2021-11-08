@@ -672,7 +672,7 @@ class AddVerletIntegrator(LAMMPSOperation):
         if fix_berendsen_temp:
             _fix_berendsen_t = super().new_fix_id()
             self._extra_fixes.append(_fix_berendsen_t)
-            cmds += ['fix {idx} {group_idx} temp/berendsen {Tstart} {Tstop} {Tdamp}'.format(idx=self._fix_berendsen_t,
+            cmds += ['fix {idx} {group_idx} temp/berendsen {Tstart} {Tstop} {Tdamp}'.format(idx=_fix_berendsen_t,
                                                                                             group_idx='all',
                                                                                             Tstart=self.thermostat.T,
                                                                                             Tstop=self.thermostat.T,
@@ -680,11 +680,11 @@ class AddVerletIntegrator(LAMMPSOperation):
         if fix_berendsen_pres:
             _fix_berendsen_p = super().new_fix_id()
             self._extra_fixes.append(_fix_berendsen_p)
-            cmds += ['fix {idx} {group_idx} press/berendsen {Pstart} {Pstop} {Pdamp}'.format(idx=self._fix_berendsen_p,
+            cmds += ['fix {idx} {group_idx} press/berendsen {Pstart} {Pstop} {Pdamp}'.format(idx=_fix_berendsen_p,
                                                                                              group_idx='all',
                                                                                              Pstart=self.barostat.P,
-                                                                                             Pstop=self.baroostat.P,
-                                                                                             Pdamp=self.baroostat.tau)]
+                                                                                             Pstop=self.barostat.P,
+                                                                                             Pdamp=self.barostat.tau)]
 
         return cmds
 
