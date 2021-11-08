@@ -5,6 +5,57 @@ import numpy
 
 import relentless
 
+class test_Variable(unittest.TestCase):
+    """Unit tests for relentless.variable.Variable."""
+
+    def test_operations(self):
+        """Test arithmetic operations on variables."""
+        #create dependent variables
+        v = relentless.variable.IndependentVariable(value=2.0)
+        w = relentless.variable.IndependentVariable(value=4.0)
+
+        #addition
+        x = v+w
+        self.assertAlmostEqual(x.value, 6.0)
+        x = v+2.0
+        self.assertAlmostEqual(x.value, 4.0)
+        x = 2.0+w
+        self.assertAlmostEqual(x.value, 6.0)
+
+        #subtraction
+        x = v-w
+        self.assertAlmostEqual(x.value, -2.0)
+        x = v-1.0
+        self.assertAlmostEqual(x.value, 1.0)
+        x = 1.0-w
+        self.assertAlmostEqual(x.value, -3.0)
+
+        #multiplication
+        x = v*w
+        self.assertAlmostEqual(x.value, 8.0)
+        x = v*1.5
+        self.assertAlmostEqual(x.value, 3.0)
+        x = 1.5*w
+        self.assertAlmostEqual(x.value, 6.0)
+
+        #division
+        x = w/v
+        self.assertAlmostEqual(x.value, 2.0)
+        x = v/2.0
+        self.assertAlmostEqual(x.value, 1.0)
+        x = 3.0/w
+        self.assertAlmostEqual(x.value, 0.75)
+
+        #exponentiation
+        x = w**v
+        self.assertAlmostEqual(x.value, 16.0)
+        x = v**3.0
+        self.assertAlmostEqual(x.value, 8.0)
+
+        #negation
+        x = -w
+        self.assertAlmostEqual(x.value, -4.0)
+
 class test_IndependentVariable(unittest.TestCase):
     """Unit tests for relentless.variable.IndependentVariable."""
 
@@ -63,6 +114,36 @@ class test_IndependentVariable(unittest.TestCase):
 
         v.value = set([1,2])
         self.assertEqual(v.value, set([1,2]))
+
+    def test_ioperations(self):
+        """Test in-place arithmetic operations on variables."""
+        #create dependent variables
+        v = relentless.variable.IndependentVariable(value=2.0)
+        w = relentless.variable.IndependentVariable(value=4.0)
+
+        #addition
+        v += 2.0
+        self.assertAlmostEqual(v.value, 4.0)
+        with self.assertRaises(TypeError):
+            v += w
+
+        #subtraction
+        w -= 2.0
+        self.assertAlmostEqual(w.value, 2.0)
+        with self.assertRaises(TypeError):
+            v -= w
+
+        #multiplication
+        w *= 3.0
+        self.assertAlmostEqual(w.value, 6.0)
+        with self.assertRaises(TypeError):
+            v *= w
+
+        #division
+        v /= 4.0
+        self.assertAlmostEqual(v.value, 1.0)
+        with self.assertRaises(TypeError):
+            v /= w
 
 class test_DesignVariable(unittest.TestCase):
     """Unit tests for relentless.variable.DesignVariable."""
@@ -224,71 +305,6 @@ class test_DesignVariable(unittest.TestCase):
             v.low = 0.2
         with self.assertRaises(ValueError):
             v.high = -1.6
-
-    def test_operations(self):
-        """Test arithmetic operations on variables."""
-        #create dependent variables
-        v = relentless.variable.DesignVariable(value=2.0, low=1.0, high=3.0)
-        w = relentless.variable.DesignVariable(value=4.0, low=0.0, high=8.0)
-
-        #addition
-        x = v+w
-        self.assertAlmostEqual(x.value, 6.0)
-        x = v+2.0
-        self.assertAlmostEqual(x.value, 4.0)
-        x = 2.0+w
-        self.assertAlmostEqual(x.value, 6.0)
-        v += 2.0
-        self.assertAlmostEqual(v.value, 3.0)
-        with self.assertRaises(TypeError):
-            v += w
-
-        #subtraction
-        x = v-w
-        self.assertAlmostEqual(x.value, -1.0)
-        x = v-1.0
-        self.assertAlmostEqual(x.value, 2.0)
-        x = 1.0-w
-        self.assertAlmostEqual(x.value, -3.0)
-        w -= 2.0
-        self.assertAlmostEqual(w.value, 2.0)
-        with self.assertRaises(TypeError):
-            v -= w
-
-        #multiplication
-        x = v*w
-        self.assertAlmostEqual(x.value, 6.0)
-        x = v*1.5
-        self.assertAlmostEqual(x.value, 4.5)
-        x = 1.5*w
-        self.assertAlmostEqual(x.value, 3.0)
-        w *= 3.0
-        self.assertAlmostEqual(w.value, 6.0)
-        with self.assertRaises(TypeError):
-            v *= w
-
-        #division
-        x = w/v
-        self.assertAlmostEqual(x.value, 2.0)
-        x = v/2.0
-        self.assertAlmostEqual(x.value, 1.5)
-        x = 3.0/w
-        self.assertAlmostEqual(x.value, 0.5)
-        v /= 4.0
-        self.assertAlmostEqual(v.value, 1.0)
-        with self.assertRaises(TypeError):
-            v /= w
-
-        #exponentiation
-        v += 1.0
-        x = w**v
-        self.assertAlmostEqual(x.value, 36.0)
-        x = v**4.0
-        self.assertAlmostEqual(x.value, 16.0)
-
-        #negation
-        x = -w
-        self.assertAlmostEqual(x.value, -6.0)
 
 class DepVar(relentless.variable.DependentVariable):
     """Mock dependent variable to test relentless.variable.DependentVariable"""
@@ -576,6 +592,530 @@ class test_SameAs(unittest.TestCase):
         v.value = 3.0
         dw = w._derivative('a')
         self.assertEqual(dw, 1.0)
+
+class test_Negation(unittest.TestCase):
+    """Unit tests for relentless.variable.Negation"""
+
+    def test_init(self):
+        """Test creation with data."""
+        #test variable dependent on DesignVariable
+        v = relentless.variable.DesignVariable(value=1.0)
+        w = relentless.variable.Negation(v)
+        self.assertEqual(w.value, -1.0)
+        self.assertCountEqual(w.params, ('a',))
+        self.assertDictEqual({p:v for p,v in w.depends}, {'a':v})
+
+        #test variable dependent on DependentVariable
+        u = relentless.variable.Negation(w)
+        self.assertEqual(u.value, 1.0)
+        self.assertCountEqual(u.params, ('a',))
+        self.assertDictEqual({p:v for p,v in u.depends}, {'a':w})
+
+        #test scalar dependency
+        z = relentless.variable.Negation(2.0)
+        self.assertAlmostEqual(z.value, -2.0)
+        self.assertCountEqual(z.params, ('a',))
+        self.assertDictEqual({p:v.value for p,v in z.depends}, {'a':2.0})
+
+    def test_value(self):
+        """Test setting values."""
+        #create "chained" dependent variables
+        v = relentless.variable.DesignVariable(value=1.0, low=0.5, high=1.5)
+        w = relentless.variable.Negation(v)
+        x = relentless.variable.Negation(w)
+
+        self.assertEqual(v.value, 1.0)
+        self.assertEqual(w.value, -1.0)
+        self.assertEqual(x.value, 1.0)
+
+        #change value of v
+        v.value = 0.4
+        self.assertEqual(v.value, 0.5)
+        self.assertEqual(w.value, -0.5)
+        self.assertEqual(x.value, 0.5)
+
+    def test_derivative(self):
+        """Test _derivative method."""
+        v = relentless.variable.DesignVariable(value=2.0)
+        w = relentless.variable.Negation(v)
+
+        #test w.r.t. a
+        dw = w._derivative('a')
+        self.assertEqual(dw, -1.0)
+
+        #test w.r.t. ~a
+        with self.assertRaises(ValueError):
+            w._derivative('x')
+
+        #change value and retest derivative
+        v.value = 3.0
+        dw = w._derivative('a')
+        self.assertEqual(dw, -1.0)
+
+class test_Sum(unittest.TestCase):
+    """Unit tests for relentless.variable.Sum"""
+
+    def test_init(self):
+        """Test creation with data."""
+        #test variable dependent on 2 DesignVariables
+        u = relentless.variable.DesignVariable(value=1.0)
+        v = relentless.variable.DesignVariable(value=2.0)
+        w = relentless.variable.Sum(u, v)
+        self.assertAlmostEqual(w.value, 3.0)
+        self.assertCountEqual(w.params, ('a','b'))
+        self.assertDictEqual({p:v for p,v in w.depends}, {'a':u,'b':v})
+
+        #test variable dependent on 1 DesignVar, 1 DependentVar
+        x = relentless.variable.Sum(v,w)
+        self.assertAlmostEqual(x.value, 5.0)
+        self.assertCountEqual(x.params, ('a','b'))
+        self.assertDictEqual({p:v for p,v in x.depends}, {'a':v,'b':w})
+
+        #test variable dependent on 2 DependentVariables
+        y = relentless.variable.Sum(w,x)
+        self.assertAlmostEqual(y.value, 8.0)
+        self.assertCountEqual(y.params, ('a','b'))
+        self.assertDictEqual({p:v for p,v in y.depends}, {'a':w,'b':x})
+
+        #test same-object dependencies
+        w = relentless.variable.Sum(u, u)
+        self.assertAlmostEqual(w.value, 2.0)
+        self.assertCountEqual(w.params, ('a','b'))
+        self.assertDictEqual({p:v for p,v in w.depends}, {'a':u,'b':u})
+
+        #test scalar dependencies
+        z = relentless.variable.Sum(2.0, 1.0)
+        self.assertAlmostEqual(z.value, 3.0)
+        self.assertCountEqual(z.params, ('a','b'))
+        self.assertDictEqual({p:v.value for p,v in z.depends}, {'a':2.0,'b':1.0})
+
+    def test_value(self):
+        """Test setting values."""
+        #create "chained" dependent variables
+        u = relentless.variable.DesignVariable(value=2.0, low=1.5, high=2.5)
+        v = relentless.variable.DesignVariable(value=1.0, low=0.5, high=1.5)
+        w = relentless.variable.Sum(u, v)
+        x = relentless.variable.Sum(v, w)
+        y = relentless.variable.Sum(w, x)
+
+        self.assertEqual(u.value, 2.0)
+        self.assertEqual(v.value, 1.0)
+        self.assertAlmostEqual(w.value, 3.0)
+        self.assertAlmostEqual(x.value, 4.0)
+        self.assertAlmostEqual(y.value, 7.0)
+
+        #change value of u
+        u.value = 2.6
+        self.assertEqual(u.value, 2.5)
+        self.assertEqual(v.value, 1.0)
+        self.assertAlmostEqual(w.value, 3.5)
+        self.assertAlmostEqual(x.value, 4.5)
+        self.assertAlmostEqual(y.value, 8.0)
+
+        #change value of v
+        v.value = 0.4
+        self.assertEqual(u.value, 2.5)
+        self.assertEqual(v.value, 0.5)
+        self.assertAlmostEqual(w.value, 3.0)
+        self.assertAlmostEqual(x.value, 3.5)
+        self.assertAlmostEqual(y.value, 6.5)
+
+    def test_derivative(self):
+        """Test _derivative method."""
+        u = relentless.variable.DesignVariable(value=1.0)
+        v = relentless.variable.DesignVariable(value=2.0)
+        w = relentless.variable.Sum(u, v)
+
+        #test w.r.t. a
+        dw = w._derivative('a')
+        self.assertEqual(dw, 1.0)
+
+        #test w.r.t. b
+        dw = w._derivative('b')
+        self.assertEqual(dw, 1.0)
+
+        #test w.r.t. ~a,~b
+        with self.assertRaises(ValueError):
+            w._derivative('c')
+
+        #change values and retest derivative
+        u.value = 1.5
+        v.value = 2.5
+        dw = w._derivative('b')
+        self.assertEqual(dw, 1.0)
+
+class test_Difference(unittest.TestCase):
+    """Unit tests for relentless.variable.Difference"""
+
+    def test_init(self):
+        """Test creation with data."""
+        #test variable dependent on 2 DesignVariables
+        u = relentless.variable.DesignVariable(value=1.0)
+        v = relentless.variable.DesignVariable(value=2.0)
+        w = relentless.variable.Difference(u, v)
+        self.assertAlmostEqual(w.value, -1.0)
+        self.assertCountEqual(w.params, ('a','b'))
+        self.assertDictEqual({p:v for p,v in w.depends}, {'a':u,'b':v})
+
+        #test variable dependent on 1 DesignVar, 1 DependentVar
+        x = relentless.variable.Difference(v,w)
+        self.assertAlmostEqual(x.value, 3.0)
+        self.assertCountEqual(x.params, ('a','b'))
+        self.assertDictEqual({p:v for p,v in x.depends}, {'a':v,'b':w})
+
+        #test variable dependent on 2 DependentVariables
+        y = relentless.variable.Difference(w,x)
+        self.assertAlmostEqual(y.value, -4.0)
+        self.assertCountEqual(y.params, ('a','b'))
+        self.assertDictEqual({p:v for p,v in y.depends}, {'a':w,'b':x})
+
+        #test same-object dependencies
+        w = relentless.variable.Difference(u, u)
+        self.assertAlmostEqual(w.value, 0.0)
+        self.assertCountEqual(w.params, ('a','b'))
+        self.assertDictEqual({p:v for p,v in w.depends}, {'a':u,'b':u})
+
+        #test scalar dependencies
+        z = relentless.variable.Difference(2.0, 1.0)
+        self.assertAlmostEqual(z.value, 1.0)
+        self.assertCountEqual(z.params, ('a','b'))
+        self.assertDictEqual({p:v.value for p,v in z.depends}, {'a':2.0,'b':1.0})
+
+    def test_value(self):
+        """Test setting values."""
+        #create "chained" dependent variables
+        u = relentless.variable.DesignVariable(value=2.0, low=1.5, high=2.5)
+        v = relentless.variable.DesignVariable(value=1.0, low=0.5, high=1.5)
+        w = relentless.variable.Difference(u, v)
+        x = relentless.variable.Difference(v, w)
+        y = relentless.variable.Difference(w, x)
+
+        self.assertEqual(u.value, 2.0)
+        self.assertEqual(v.value, 1.0)
+        self.assertAlmostEqual(w.value, 1.0)
+        self.assertAlmostEqual(x.value, 0.0)
+        self.assertAlmostEqual(y.value, 1.0)
+
+        #change value of u
+        u.value = 2.6
+        self.assertEqual(u.value, 2.5)
+        self.assertEqual(v.value, 1.0)
+        self.assertAlmostEqual(w.value, 1.5)
+        self.assertAlmostEqual(x.value, -0.5)
+        self.assertAlmostEqual(y.value, 2.0)
+
+        #change value of v
+        v.value = 0.4
+        self.assertEqual(u.value, 2.5)
+        self.assertEqual(v.value, 0.5)
+        self.assertAlmostEqual(w.value, 2.0)
+        self.assertAlmostEqual(x.value, -1.5)
+        self.assertAlmostEqual(y.value, 3.5)
+
+    def test_derivative(self):
+        """Test _derivative method."""
+        u = relentless.variable.DesignVariable(value=1.0)
+        v = relentless.variable.DesignVariable(value=2.0)
+        w = relentless.variable.Difference(u, v)
+
+        #test w.r.t. a
+        dw = w._derivative('a')
+        self.assertEqual(dw, 1.0)
+
+        #test w.r.t. b
+        dw = w._derivative('b')
+        self.assertEqual(dw, -1.0)
+
+        #test w.r.t. ~a,~b
+        with self.assertRaises(ValueError):
+            w._derivative('c')
+
+        #change values and retest derivative
+        u.value = 1.5
+        v.value = 2.5
+        dw = w._derivative('b')
+        self.assertEqual(dw, -1.0)
+
+class test_Product(unittest.TestCase):
+    """Unit tests for relentless.variable.Product"""
+
+    def test_init(self):
+        """Test creation with data."""
+        #test variable dependent on 2 DesignVariables
+        u = relentless.variable.DesignVariable(value=2.0)
+        v = relentless.variable.DesignVariable(value=3.0)
+        w = relentless.variable.Product(u, v)
+        self.assertAlmostEqual(w.value, 6.0)
+        self.assertCountEqual(w.params, ('a','b'))
+        self.assertDictEqual({p:v for p,v in w.depends}, {'a':u,'b':v})
+
+        #test variable dependent on 1 DesignVar, 1 DependentVar
+        x = relentless.variable.Product(v,w)
+        self.assertAlmostEqual(x.value, 18.0)
+        self.assertCountEqual(x.params, ('a','b'))
+        self.assertDictEqual({p:v for p,v in x.depends}, {'a':v,'b':w})
+
+        #test variable dependent on 2 DependentVariables
+        y = relentless.variable.Product(w,x)
+        self.assertAlmostEqual(y.value, 108.0)
+        self.assertCountEqual(y.params, ('a','b'))
+        self.assertDictEqual({p:v for p,v in y.depends}, {'a':w,'b':x})
+
+        #test same-object dependencies
+        w = relentless.variable.Product(u, u)
+        self.assertAlmostEqual(w.value, 4.0)
+        self.assertCountEqual(w.params, ('a','b'))
+        self.assertDictEqual({p:v for p,v in w.depends}, {'a':u,'b':u})
+
+        #test scalar dependencies
+        z = relentless.variable.Product(2.0, 1.5)
+        self.assertAlmostEqual(z.value, 3.0)
+        self.assertCountEqual(z.params, ('a','b'))
+        self.assertDictEqual({p:v.value for p,v in z.depends}, {'a':2.0,'b':1.5})
+
+    def test_value(self):
+        """Test setting values."""
+        #create "chained" dependent variables
+        u = relentless.variable.DesignVariable(value=2.0, low=1.5, high=2.5)
+        v = relentless.variable.DesignVariable(value=1.5, low=0.5, high=1.5)
+        w = relentless.variable.Product(u, v)
+        x = relentless.variable.Product(v, w)
+        y = relentless.variable.Product(w, x)
+
+        self.assertEqual(u.value, 2.0)
+        self.assertEqual(v.value, 1.5)
+        self.assertAlmostEqual(w.value, 3.0)
+        self.assertAlmostEqual(x.value, 4.5)
+        self.assertAlmostEqual(y.value, 13.5)
+
+        #change value of u
+        u.value = 2.6
+        self.assertEqual(u.value, 2.5)
+        self.assertEqual(v.value, 1.5)
+        self.assertAlmostEqual(w.value, 3.75)
+        self.assertAlmostEqual(x.value, 5.625)
+        self.assertAlmostEqual(y.value, 21.09375)
+
+        #change value of v
+        v.value = 0.4
+        self.assertEqual(u.value, 2.5)
+        self.assertEqual(v.value, 0.5)
+        self.assertAlmostEqual(w.value, 1.25)
+        self.assertAlmostEqual(x.value, 0.625)
+        self.assertAlmostEqual(y.value, 0.78125)
+
+    def test_derivative(self):
+        """Test _derivative method."""
+        u = relentless.variable.DesignVariable(value=1.5)
+        v = relentless.variable.DesignVariable(value=2.0)
+        w = relentless.variable.Product(u,v)
+
+        #test w.r.t. a
+        dw = w._derivative('a')
+        self.assertAlmostEqual(dw, 2.0)
+
+        #test w.r.t. b
+        dw = w._derivative('b')
+        self.assertAlmostEqual(dw, 1.5)
+
+        #test w.r.t. ~a,~b
+        with self.assertRaises(ValueError):
+            w._derivative('c')
+
+        #change values and retest derivative
+        u.value = 1.5
+        v.value = 2.5
+        dw = w._derivative('a')
+        self.assertAlmostEqual(dw, 2.5)
+
+class test_Quotient(unittest.TestCase):
+    """Unit tests for relentless.variable.Quotient"""
+
+    def test_init(self):
+        """Test creation with data."""
+        #test variable dependent on 2 DesignVariables
+        u = relentless.variable.DesignVariable(value=6.0)
+        v = relentless.variable.DesignVariable(value=3.0)
+        w = relentless.variable.Quotient(u, v)
+        self.assertAlmostEqual(w.value, 2.0)
+        self.assertCountEqual(w.params, ('a','b'))
+        self.assertDictEqual({p:v for p,v in w.depends}, {'a':u,'b':v})
+
+        #test variable dependent on 1 DesignVar, 1 DependentVar
+        x = relentless.variable.Quotient(v,w)
+        self.assertAlmostEqual(x.value, 1.5)
+        self.assertCountEqual(x.params, ('a','b'))
+        self.assertDictEqual({p:v for p,v in x.depends}, {'a':v,'b':w})
+
+        #test variable dependent on 2 DependentVariables
+        y = relentless.variable.Quotient(w,x)
+        self.assertAlmostEqual(y.value, 1.333333333)
+        self.assertCountEqual(y.params, ('a','b'))
+        self.assertDictEqual({p:v for p,v in y.depends}, {'a':w,'b':x})
+
+        #test same-object dependencies
+        w = relentless.variable.Quotient(u, u)
+        self.assertAlmostEqual(w.value, 1.0)
+        self.assertCountEqual(w.params, ('a','b'))
+        self.assertDictEqual({p:v for p,v in w.depends}, {'a':u,'b':u})
+
+        #test scalar dependencies
+        z = relentless.variable.Quotient(3.0, 1.5)
+        self.assertAlmostEqual(z.value, 2.0)
+        self.assertCountEqual(z.params, ('a','b'))
+        self.assertDictEqual({p:v.value for p,v in z.depends}, {'a':3.0,'b':1.5})
+
+        #test with 0 denominator
+        a = relentless.variable.Quotient(1.0, 0.0)
+        self.assertEqual(a.value, numpy.inf)
+
+    def test_value(self):
+        """Test setting values."""
+        #create "chained" dependent variables
+        u = relentless.variable.DesignVariable(value=2.0, low=1.5, high=2.5)
+        v = relentless.variable.DesignVariable(value=1.25, low=0.5, high=1.5)
+        w = relentless.variable.Quotient(u, v)
+        x = relentless.variable.Quotient(v, w)
+        y = relentless.variable.Quotient(w, x)
+
+        self.assertEqual(u.value, 2.0)
+        self.assertEqual(v.value, 1.25)
+        self.assertAlmostEqual(w.value, 1.6)
+        self.assertAlmostEqual(x.value, 0.78125)
+        self.assertAlmostEqual(y.value, 2.048)
+
+        #change value of u
+        u.value = 2.6
+        self.assertEqual(u.value, 2.5)
+        self.assertEqual(v.value, 1.25)
+        self.assertAlmostEqual(w.value, 2.0)
+        self.assertAlmostEqual(x.value, 0.625)
+        self.assertAlmostEqual(y.value, 3.2)
+
+        #change value of v
+        v.value = 0.4
+        self.assertEqual(u.value, 2.5)
+        self.assertEqual(v.value, 0.5)
+        self.assertAlmostEqual(w.value, 5.0)
+        self.assertAlmostEqual(x.value, 0.1)
+        self.assertAlmostEqual(y.value, 50.0)
+
+    def test_derivative(self):
+        """Test _derivative method."""
+        u = relentless.variable.DesignVariable(value=1.5)
+        v = relentless.variable.DesignVariable(value=2.0)
+        w = relentless.variable.Quotient(u,v)
+
+        #test w.r.t. a
+        dw = w._derivative('a')
+        self.assertAlmostEqual(dw, 0.5)
+
+        #test w.r.t. b
+        dw = w._derivative('b')
+        self.assertAlmostEqual(dw, -0.375)
+
+        #test w.r.t. ~a,~b
+        with self.assertRaises(ValueError):
+            w._derivative('c')
+
+        #test with 0 denominator
+        v.value = 0.0
+        dw = w._derivative('a')
+        self.assertEqual(dw, numpy.inf)
+        dw = w._derivative('b')
+        self.assertEqual(dw, numpy.inf)
+
+class test_Power(unittest.TestCase):
+    """Unit tests for relentless.variable.Power"""
+
+    def test_init(self):
+        """Test creation with data."""
+        #test variable dependent on 2 DesignVariables
+        u = relentless.variable.DesignVariable(value=2.0)
+        v = relentless.variable.DesignVariable(value=2.0)
+        w = relentless.variable.Power(u, v)
+        self.assertAlmostEqual(w.value, 4.0)
+        self.assertCountEqual(w.params, ('a','b'))
+        self.assertDictEqual({p:v for p,v in w.depends}, {'a':u,'b':v})
+
+        #test variable dependent on 1 DesignVar, 1 DependentVar
+        x = relentless.variable.Power(v,w)
+        self.assertAlmostEqual(x.value, 16.0)
+        self.assertCountEqual(x.params, ('a','b'))
+        self.assertDictEqual({p:v for p,v in x.depends}, {'a':v,'b':w})
+
+        #test variable dependent on 2 DependentVariables
+        y = relentless.variable.Power(w,x)
+        self.assertAlmostEqual(y.value, 4294967296.0)
+        self.assertCountEqual(y.params, ('a','b'))
+        self.assertDictEqual({p:v for p,v in y.depends}, {'a':w,'b':x})
+
+        #test same-object dependencies
+        w = relentless.variable.Power(u, u)
+        self.assertAlmostEqual(w.value, 4.0)
+        self.assertCountEqual(w.params, ('a','b'))
+        self.assertDictEqual({p:v for p,v in w.depends}, {'a':u,'b':u})
+
+        #test scalar dependencies
+        z = relentless.variable.Power(2.0, 3.0)
+        self.assertAlmostEqual(z.value, 8.0)
+        self.assertCountEqual(z.params, ('a','b'))
+        self.assertDictEqual({p:v.value for p,v in z.depends}, {'a':2.0,'b':3.0})
+
+    def test_value(self):
+        """Test setting values."""
+        #create "chained" dependent variables
+        u = relentless.variable.DesignVariable(value=2.0, low=1.5, high=2.5)
+        v = relentless.variable.DesignVariable(value=1.5, low=0.5, high=1.5)
+        w = relentless.variable.Power(u, v)
+        x = relentless.variable.Power(v, w)
+        y = relentless.variable.Power(w, x)
+
+        self.assertEqual(u.value, 2.0)
+        self.assertEqual(v.value, 1.5)
+        self.assertAlmostEqual(w.value, 2.828427125)
+        self.assertAlmostEqual(x.value, 3.148192599)
+        self.assertAlmostEqual(y.value, 26.39675894)
+
+        #change value of u
+        u.value = 2.6
+        self.assertEqual(u.value, 2.5)
+        self.assertEqual(v.value, 1.5)
+        self.assertAlmostEqual(w.value, 3.952847075)
+        self.assertAlmostEqual(x.value, 4.966630124)
+        self.assertAlmostEqual(y.value, 921.7884284)
+
+        #change value of v
+        v.value = 0.4
+        self.assertEqual(u.value, 2.5)
+        self.assertEqual(v.value, 0.5)
+        self.assertAlmostEqual(w.value, 1.58113883)
+        self.assertAlmostEqual(x.value, 0.3342179606)
+        self.assertAlmostEqual(y.value, 1.165465304)
+
+    def test_derivative(self):
+        """Test _derivative method."""
+        u = relentless.variable.DesignVariable(value=2.0)
+        v = relentless.variable.DesignVariable(value=3.0)
+        w = relentless.variable.Power(u,v)
+
+        #test w.r.t. a
+        dw = w._derivative('a')
+        self.assertAlmostEqual(dw, 12.0)
+
+        #test w.r.t. b
+        dw = w._derivative('b')
+        self.assertAlmostEqual(dw, 5.545177444)
+
+        #test w.r.t. ~a,~b
+        with self.assertRaises(ValueError):
+            w._derivative('c')
+
+        #test with negative a
+        u.value = -2.0
+        v.value = 2.5
+        dw = w._derivative('b')
+        self.assertEqual(dw, numpy.inf)
 
 class test_ArithmeticMean(unittest.TestCase):
     """Unit tests for relentless.variable.ArithmeticMean"""

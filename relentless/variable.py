@@ -81,6 +81,41 @@ class Variable(abc.ABC):
         """float: Value of the variable."""
         pass
 
+    def __add__(self, val):
+        v = val if isinstance(val, Variable) else IndependentVariable(val)
+        return Sum(self, val)
+
+    def __radd__(self, val):
+        return Sum(IndependentVariable(val), self)
+
+    def __sub__(self, val):
+        v = val if isinstance(val, Variable) else IndependentVariable(val)
+        return Difference(self, val)
+
+    def __rsub__(self, val):
+        return Difference(IndependentVariable(val), self)
+
+    def __mul__(self, val):
+        v = val if isinstance(val, Variable) else IndependentVariable(val)
+        return Product(self, val)
+
+    def __rmul__(self, val):
+        return Product(IndependentVariable(val), self)
+
+    def __truediv__(self, val):
+        v = val if isinstance(val, Variable) else IndependentVariable(val)
+        return Quotient(self, val)
+
+    def __rtruediv__(self, val):
+        return Quotient(IndependentVariable(val), self)
+
+    def __pow__(self, val):
+        v = val if isinstance(val, Variable) else IndependentVariable(val)
+        return Power(self, val)
+
+    def __neg__(self):
+        return Negation(self)
+
 class IndependentVariable(Variable):
     """Independent quantity.
 
@@ -114,6 +149,31 @@ class IndependentVariable(Variable):
     @value.setter
     def value(self, value):
         self._value = value
+
+    def __iadd__(self, val):
+        if isinstance(val, Variable):
+            raise TypeError('Variables are not allowed to operate in-place on another Variable')
+        self.value += val
+        return self
+
+    def __isub__(self, val):
+        if isinstance(val, Variable):
+            raise TypeError('Variables are not allowed to operate in-place on another Variable')
+        self.value -= val
+        return self
+
+    def __imul__(self, val):
+        if isinstance(val, Variable):
+            raise TypeError('Variables are not allowed to operate in-place on another Variable')
+        self.value *= val
+        return self
+
+    def __itruediv__(self, val):
+        if isinstance(val, Variable):
+            raise TypeError('Variables are not allowed to operate in-place on another Variable')
+        self.value /= val
+        return self
+
 
 class DesignVariable(IndependentVariable):
     """Constrained independent variable.
@@ -304,65 +364,6 @@ class DesignVariable(IndependentVariable):
 
         """
         return self.state is self.State.HIGH
-
-    def __add__(self, val):
-        v = val if isinstance(val, Variable) else DesignVariable(val)
-        return Sum(self, val)
-
-    def __radd__(self, val):
-        return Sum(DesignVariable(val), self)
-
-    def __iadd__(self, val):
-        if isinstance(val, Variable):
-            raise TypeError('Only a Variable is allowed to operate in-place on another Variable')
-        self.value += val
-        return self
-
-    def __sub__(self, val):
-        v = val if isinstance(val, Variable) else DesignVariable(val)
-        return Difference(self, val)
-
-    def __rsub__(self, val):
-        return Difference(DesignVariable(val), self)
-
-    def __isub__(self, val):
-        if isinstance(val, Variable):
-            raise TypeError('Only a Variable is allowed to operate in-place on another Variable')
-        self.value -= val
-        return self
-
-    def __mul__(self, val):
-        v = val if isinstance(val, Variable) else DesignVariable(val)
-        return Product(self, val)
-
-    def __rmul__(self, val):
-        return Product(DesignVariable(val), self)
-
-    def __imul__(self, val):
-        if isinstance(val, Variable):
-            raise TypeError('Only a Variable is allowed to operate in-place on another Variable')
-        self.value *= val
-        return self
-
-    def __truediv__(self, val):
-        v = val if isinstance(val, Variable) else DesignVariable(val)
-        return Quotient(self, val)
-
-    def __rtruediv__(self, val):
-        return Quotient(DesignVariable(val), self)
-
-    def __itruediv__(self, val):
-        if isinstance(val, Variable):
-            raise TypeError('Only a Variable is allowed to operate in-place on another Variable')
-        self.value /= val
-        return self
-
-    def __pow__(self, val):
-        v = val if isinstance(val, Variable) else DesignVariable(val)
-        return Power(self, val)
-
-    def __neg__(self):
-        return Negation(self)
 
 class DependentVariable(Variable):
     """Abstract base class for a variable that depends on other values.
@@ -629,74 +630,6 @@ class BinaryOperator(DependentVariable):
     def __init__(self, a, b):
         super().__init__(a=a, b=b)
 
-class ArithmeticMean(BinaryOperator):
-    r"""Arithmetic mean of two values.
-
-    The arithmetic mean :math:`v` of two values :math:`a` and :math:`b` is:
-
-    .. math::
-
-        v = \frac{a+b}{2}
-
-    This variable may be useful for implementing mixing rules.
-
-    Parameters
-    ----------
-    a : :class:`Variable`
-        First value.
-    b : :class:`Variable`
-        Second value.
-
-    """
-    @property
-    def value(self):
-        return 0.5*(self.a.value+self.b.value)
-
-    def _derivative(self, param):
-        if param == 'a':
-            return 0.5
-        elif param == 'b':
-            return 0.5
-        else:
-            raise ValueError('Unknown parameter')
-
-class GeometricMean(BinaryOperator):
-    r"""Geometric mean of two values.
-
-    The geometric mean :math:`v` of two values :math:`a` and :math:`b` is:
-
-    .. math::
-
-        v = \sqrt{a b}
-
-    This variable may be useful for implementing mixing rules.
-
-    Parameters
-    ----------
-    a : :class:`Variable`
-        First value.
-    b : :class:`Variable`
-        Second value.
-
-    """
-    @property
-    def value(self):
-        return numpy.sqrt(self.a.value*self.b.value)
-
-    def _derivative(self, param):
-        if param == 'a':
-            try:
-                return 0.5*numpy.sqrt(self.b.value/self.a.value)
-            except ZeroDivisionError:
-                return numpy.inf
-        elif param == 'b':
-            try:
-                return 0.5*numpy.sqrt(self.a.value/self.b.value)
-            except ZeroDivisionError:
-                return numpy.inf
-        else:
-            raise ValueError('Unknown parameter')
-
 class Sum(BinaryOperator):
     @property
     def value(self):
@@ -772,5 +705,73 @@ class Power(BinaryOperator):
                     return numpy.log(self.a.value)*self.a.value**self.b.value
                 except FloatingPointError:
                     return numpy.inf
+        else:
+            raise ValueError('Unknown parameter')
+
+class ArithmeticMean(BinaryOperator):
+    r"""Arithmetic mean of two values.
+
+    The arithmetic mean :math:`v` of two values :math:`a` and :math:`b` is:
+
+    .. math::
+
+        v = \frac{a+b}{2}
+
+    This variable may be useful for implementing mixing rules.
+
+    Parameters
+    ----------
+    a : :class:`Variable`
+        First value.
+    b : :class:`Variable`
+        Second value.
+
+    """
+    @property
+    def value(self):
+        return 0.5*(self.a.value+self.b.value)
+
+    def _derivative(self, param):
+        if param == 'a':
+            return 0.5
+        elif param == 'b':
+            return 0.5
+        else:
+            raise ValueError('Unknown parameter')
+
+class GeometricMean(BinaryOperator):
+    r"""Geometric mean of two values.
+
+    The geometric mean :math:`v` of two values :math:`a` and :math:`b` is:
+
+    .. math::
+
+        v = \sqrt{a b}
+
+    This variable may be useful for implementing mixing rules.
+
+    Parameters
+    ----------
+    a : :class:`Variable`
+        First value.
+    b : :class:`Variable`
+        Second value.
+
+    """
+    @property
+    def value(self):
+        return numpy.sqrt(self.a.value*self.b.value)
+
+    def _derivative(self, param):
+        if param == 'a':
+            try:
+                return 0.5*numpy.sqrt(self.b.value/self.a.value)
+            except ZeroDivisionError:
+                return numpy.inf
+        elif param == 'b':
+            try:
+                return 0.5*numpy.sqrt(self.a.value/self.b.value)
+            except ZeroDivisionError:
+                return numpy.inf
         else:
             raise ValueError('Unknown parameter')
