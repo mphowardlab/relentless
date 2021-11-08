@@ -506,66 +506,41 @@ class RemoveLangevinIntegrator(LAMMPSOperation):
 
         return cmds
 
-class Thermostat:
-    def __init__(self, T):
-        self.T = T
-
-class BerendsenThermostat(Thermostat):
-    def __init__(self, T, tau):
-        super().__init__(T)
-        self.tau = tau
-
-class NoseHooverThermostat(Thermostat):
-    def __init__(self, T, tau):
-        super().__init__(T)
-        self.tau = tau
-
-class MTKThermostat(Thermostat):
-    def __init__(self, T, tau):
-        super().__init__(T)
-        self.tau = tau
-
-class Barostat:
-    def __init__(self, P):
-        self.P = P
-
-class MTKBarostat(Barostat):
-    def __init__(self, P, tau):
-        super().__init__(P)
-        self.tau = tau
-
 class AddVerletIntegrator(LAMMPSOperation):
     def __init__(self, dt, thermostat=None, barostat=None):
         self.thermostat = thermostat
         self.barostat = barostat
 
         self._fix = super().new_fix_id()
-        self._fix_berendsen = -1
+        self._extra_fixes = []
 
     def to_commands(self, sim):
-        if self.thermostat is None and self.barostat is None:
+        fix_berendsen_temp = False
+        fix_berendsen_pres = False
+
+        if isinstance(self.thermostat, (simulate.BerendsenThermostat,NoneType)) and isinstance(self.barostat, (simulate.BerendsenBarostat,NoneType)):
             cmds = ['fix {idx} {group_idx} nve'.format(idx=self._fix, group_idx='all')]
-        elif isinstance(self.thermostat, BerendsenThermostat):
-            self._fix_berendsen = super().new_fix_id()
-            cmds = ['fix {idx} {group_idx} nve'.format(idx=self._fix, group_idx='all'),
-                    'fix {idx} {group_idx} temp/berendsen {Tstart} {Tstop} {Tdamp}'.format(idx=self._fix_berendsen,
-                                                                                           group_idx='all',
-                                                                                           Tstart=self.thermostat.T,
-                                                                                           Tstop=self.thermostat.T,
-                                                                                           Tdamp=self.thermostat.tau)]
-        elif isinstance(self.thermostat, NoseHooverThermostat):
+            if isinstance(self.thermostat, simulate.BerendsenThermostat):
+                fix_berendsen_temp = True
+            if isinstance(self.barostat, simulate.BerendsenBarostat):
+                fix_berendsen_pres = True
+        elif isinstance(self.thermostat, simulate.NoseHooverThermostat) and isinstance(self.barostat, (simulate.BerendsenBarostat,NoneType)):
             cmds = ['fix {idx} {group_idx} nvt temp {Tstart} {Tstop} {Tdamp}'.format(idx=self._fix,
                                                                                      group_idx='all',
                                                                                      Tstart=self.thermostat.T,
                                                                                      Tstop=self.thermostat.T,
                                                                                      Tdamp=self.thermostat.tau)]
-        elif self.thermostat is None and isinstance(self.barostat, MTKBarostat):
+            if isinstance(self.barostat, simulate.BerendsenBarostat):
+                fix_berendsen_pres = True
+        elif isinstance(self.thermostat, (simulate.BerendsenThermostat,NoneType)) and isinstance(self.barostat, simulate.MTKBarostat):
             cmds = ['fix {idx} {group_idx} nph iso {Pstart} {Pstop} {Pdamp}'.format(idx=self._fix,
                                                                                     group_idx='all',
                                                                                     Pstart=self.barostat.P,
                                                                                     Pstop=self.barostat.P,
                                                                                     Pdamp=self.barostat.tau)]
-        elif isinstance(self.thermostat, MTKThermostat) and isinstance(self.barostat, MTKBarostat):
+            if isinstance(self.thermostat, simulate.BerendsenThermostat):
+                fix_berendsen_temp = True
+        elif isinstance(self.thermostat, simulate.NoseHooverThermostat) and isinstance(self.barostat, simulate.MTKBarostat):
             cmds = ['fix {idx} {group_idx} npt temp {Tstart} {Tstop} {Tdamp} iso {Pstart} {Pstop} {Pdamp}'.format(idx=self._fix,
                                                                                                                   group_idx='all',
                                                                                                                   Tstart=self.thermostat.T,
@@ -574,6 +549,25 @@ class AddVerletIntegrator(LAMMPSOperation):
                                                                                                                   Pstart=self.barostat.P,
                                                                                                                   Pstop=self.barostat.P,
                                                                                                                   Pdamp=self.barostat.tau)]
+        else:
+            raise TypeError('An appropriate combination of thermostat and barostat must be set.')
+
+        if fix_berendsen_temp:
+            _fix_berendsen_t = super().new_fix_id()
+            self._extra_fixes.append(_fix_berendsen_t)
+            cmds += ['fix {idx} {group_idx} temp/berendsen {Tstart} {Tstop} {Tdamp}'.format(idx=self._fix_berendsen_t,
+                                                                                            group_idx='all',
+                                                                                            Tstart=self.thermostat.T,
+                                                                                            Tstop=self.thermostat.T,
+                                                                                            Tdamp=self.thermostat.tau)]
+        if fix_berendsen_pres:
+            _fix_berendsen_p = super().new_fix_id()
+            self._extra_fixes.append(_fix_berendsen_p)
+            cmds += ['fix {idx} {group_idx} press/berendsen {Pstart} {Pstop} {Pdamp}'.format(idx=self._fix_berendsen_p,
+                                                                                             group_idx='all',
+                                                                                             Pstart=self.barostat.P,
+                                                                                             Pstop=self.baroostat.P,
+                                                                                             Pdamp=self.baroostat.tau)]
 
         return cmds
 
@@ -585,8 +579,8 @@ class RemoveVerletIntegrator(LAMMPSOperation):
 
     def to_commands(self, sim):
         cmds = ['unfix {idx}'.format(idx=self.add_op._fix)]
-        if self.add_op._fix_berendsen >= 0:
-            cmds += ['unfix {idx}'.format(idx=self.add_op._fix_berendsen)]
+        for _extra_fix in self.add_op._extra_fixes:
+            cmds += ['unfix {idx}'.format(idx=_extra_fix)]
 
         return cmds
 

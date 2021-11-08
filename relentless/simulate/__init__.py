@@ -38,7 +38,13 @@ from .simulate import (Simulation,
                        SimulationOperation,
                        Potentials,
                        PotentialTabulator,
-                       PairPotentialTabulator)
+                       PairPotentialTabulator,
+                       Thermostat,
+                       BerendsenThermostat,
+                       NoseHooverThermostat,
+                       Barostat,
+                       BerendsenBarostat,
+                       MTKBarostat)
 
 from . import dilute
 from .dilute import Dilute

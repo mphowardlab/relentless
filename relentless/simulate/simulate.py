@@ -479,3 +479,31 @@ class PairPotentialTabulator(PotentialTabulator):
         d = super().derivative(pair, var)
         d -= d[-1]
         return d
+
+class Thermostat:
+    def __init__(self, T):
+        self.T = T
+
+class BerendsenThermostat(Thermostat):
+    def __init__(self, T, tau):
+        super().__init__(T)
+        self.tau = tau
+
+class NoseHooverThermostat(Thermostat):
+    def __init__(self, T, tau):
+        super().__init__(T)
+        self.tau = tau
+
+class Barostat:
+    def __init__(self, P):
+        self.P = P
+
+class BerendsenBarostat(Barostat):
+    def __init__(self, P, tau):
+        super().__init__(P)
+        self.tau = tau
+
+class MTKBarostat(Barostat):
+    def __init__(self, P, tau):
+        super().__init__(P)
+        self.tau = tau

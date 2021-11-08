@@ -138,8 +138,8 @@ class test_HOOMD(unittest.TestCase):
         self.assertIsNone(sim[vrl].integrator)
 
         #VerletIntegrator - NVE (Berendsen)
-        th = relentless.simulate.hoomd.BerendsenThermostat(T=1, tau=0.5)
-        vrl = relentless.simulate.hoomd.AddVerletIntegrator(dt=0.5, thermostat=th)
+        tb = relentless.simulate.BerendsenThermostat(T=1, tau=0.5)
+        vrl = relentless.simulate.hoomd.AddVerletIntegrator(dt=0.5, thermostat=tb)
         vrl_r = relentless.simulate.hoomd.RemoveVerletIntegrator(add_op=vrl)
         h.operations = [init, vrl]
         sim = h.run(ensemble=ens, potentials=pot, directory=self.directory)
@@ -148,8 +148,8 @@ class test_HOOMD(unittest.TestCase):
         self.assertIsNone(sim[vrl].integrator)
 
         #VerletIntegrator - NVT
-        th = relentless.simulate.hoomd.NoseHooverThermostat(T=1, tau=0.5)
-        vrl = relentless.simulate.hoomd.AddVerletIntegrator(dt=0.5, thermostat=th)
+        tn = relentless.simulate.NoseHooverThermostat(T=1, tau=0.5)
+        vrl = relentless.simulate.hoomd.AddVerletIntegrator(dt=0.5, thermostat=tn)
         vrl_r = relentless.simulate.hoomd.RemoveVerletIntegrator(add_op=vrl)
         h.operations = [init, vrl]
         sim = h.run(ensemble=ens, potentials=pot, directory=self.directory)
@@ -158,8 +158,8 @@ class test_HOOMD(unittest.TestCase):
         self.assertIsNone(sim[vrl].integrator)
 
         #VerletIntegrator - NPH
-        ba = relentless.simulate.hoomd.MTKBarostat(P=1, tau=0.5)
-        vrl = relentless.simulate.hoomd.AddVerletIntegrator(dt=0.5, barostat=ba)
+        bm = relentless.simulate.MTKBarostat(P=1, tau=0.5)
+        vrl = relentless.simulate.hoomd.AddVerletIntegrator(dt=0.5, barostat=bm)
         vrl_r = relentless.simulate.hoomd.RemoveVerletIntegrator(add_op=vrl)
         h.operations = [init, vrl]
         sim = h.run(ensemble=ens, potentials=pot, directory=self.directory)
@@ -168,14 +168,19 @@ class test_HOOMD(unittest.TestCase):
         self.assertIsNone(sim[vrl].integrator)
 
         #VerletIntegrator - NPT
-        th = relentless.simulate.hoomd.MTKThermostat(T=1, tau=0.5)
-        vrl = relentless.simulate.hoomd.AddVerletIntegrator(dt=0.5, thermostat=th, barostat=ba)
+        vrl = relentless.simulate.hoomd.AddVerletIntegrator(dt=0.5, thermostat=tn, barostat=bm)
         vrl_r = relentless.simulate.hoomd.RemoveVerletIntegrator(add_op=vrl)
         h.operations = [init, vrl]
         sim = h.run(ensemble=ens, potentials=pot, directory=self.directory)
         self.assertTrue(sim[vrl].integrator.enabled)
         vrl_r(sim)
         self.assertIsNone(sim[vrl].integrator)
+
+        #VerletIntegrator - incorrect
+        with self.assertRaises(TypeError):
+            vrl = relentless.simulate.hoomd.AddVerletIntegrator(dt=0.5, thermostat=tb, barostat=bm)
+            h.operations = [init, vrl]
+            sim = h.run(ensemble=ens, potentials=pot, directory=self.directory)
 
     def test_run(self):
         """Test run simulation operations."""

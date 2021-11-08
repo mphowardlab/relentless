@@ -636,34 +636,6 @@ class RemoveLangevinIntegrator(RemoveMDIntegrator):
             raise TypeError('Addition operation is not AddLangevinIntegrator.')
         super().__init__(add_op)
 
-class Thermostat:
-    def __init__(self, T):
-        self.T = T
-
-class BerendsenThermostat(Thermostat):
-    def __init__(self, T, tau):
-        super().__init__(T)
-        self.tau = tau
-
-class NoseHooverThermostat(Thermostat):
-    def __init__(self, T, tau):
-        super().__init__(T)
-        self.tau = tau
-
-class MTKThermostat(Thermostat):
-    def __init__(self, T, tau):
-        super().__init__(T)
-        self.tau = tau
-
-class Barostat:
-    def __init__(self, P):
-        self.P = P
-
-class MTKBarostat(Barostat):
-    def __init__(self, P, tau):
-        super().__init__(P)
-        self.tau = tau
-
 class AddVerletIntegrator(AddMDIntegrator):
     def __init__(self, dt, thermostat=None, barostat=None, **options):
         super().__init__(dt)
@@ -678,20 +650,20 @@ class AddVerletIntegrator(AddMDIntegrator):
             if self.thermostat is None and self.barostat is None:
                 sim[self].integrator = hoomd.md.integrate.nve(group=all_,
                                                               **self.options)
-            elif isinstance(self.thermostat, BerendsenThermostat):
+            elif isinstance(self.thermostat, simulate.BerendsenThermostat) and self.barostat is None:
                 sim[self].integrator = hoomd.md.integrate.berendsen(group=all_,
                                                                     kT=self.thermostat.T,
                                                                     tau=self.thermostat.tau)
-            elif isinstance(self.thermostat, NoseHooverThermostat):
+            elif isinstance(self.thermostat, simulate.NoseHooverThermostat) and self.barostat is None:
                 sim[self].integrator = hoomd.md.integrate.nvt(group=all_,
                                                               kT=self.thermostat.T,
                                                               tau=self.thermostat.tau)
-            elif self.thermostat is None and isinstance(self.barostat, MTKBarostat):
+            elif self.thermostat is None and isinstance(self.barostat, simulate.MTKBarostat):
                 sim[self].integrator = hoomd.md.integrate.nph(group=all_,
                                                               P=self.barostat.P,
                                                               tauP=self.barostat.tau,
                                                               **self.options)
-            elif isinstance(self.thermostat, MTKThermostat) and isinstance(self.barostat, MTKBarostat):
+            elif isinstance(self.thermostat, simulate.NoseHooverThermostat) and isinstance(self.barostat, simulate.MTKBarostat):
                 sim[self].integrator = hoomd.md.integrate.npt(group=all_,
                                                               kT=self.thermostat.T,
                                                               tau=self.thermostat.tau,
@@ -699,7 +671,7 @@ class AddVerletIntegrator(AddMDIntegrator):
                                                               tauP=self.barostat.tau,
                                                               **self.options)
             else:
-                raise TypeError('Appropriate thermostat/barostat combination not set.')
+                raise TypeError('An appropriate combination of thermostat and barostat must be set.')
 
 
 class RemoveVerletIntegrator(RemoveMDIntegrator):
