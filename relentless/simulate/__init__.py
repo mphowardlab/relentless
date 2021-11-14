@@ -68,7 +68,8 @@ from .generic import (InitializeFromFile,
                       RemoveVerletIntegrator,
                       Run,
                       RunUpTo,
-                      AddEnsembleAnalyzer)
+                      AddEnsembleAnalyzer,
+                      )
 generic.GenericOperation.add_backend(Dilute)
 generic.GenericOperation.add_backend(HOOMD)
 generic.GenericOperation.add_backend(LAMMPS)

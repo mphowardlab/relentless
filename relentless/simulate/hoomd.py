@@ -641,8 +641,8 @@ class AddVerletIntegrator(AddMDIntegrator):
 
     This method supports:
 
-    - NVE integration with optional Berendsen thermostat
-    - NVT integration with Nosé-Hoover thermostat
+    - NVE integration
+    - NVT integration with Nosé-Hoover or Berendsen thermostat
     - NPH integration with MTK barostat
     - NPT integration with Nosé-Hoover thermostat and MTK barostat
 
@@ -689,11 +689,11 @@ class AddVerletIntegrator(AddMDIntegrator):
                                                               **self.options)
             elif isinstance(self.thermostat, simulate.BerendsenThermostat) and self.barostat is None:
                 sim[self].integrator = hoomd.md.integrate.berendsen(group=all_,
-                                                                    kT=self.thermostat.T,
+                                                                    kT=sim.ensemble.kB*self.thermostat.T,
                                                                     tau=self.thermostat.tau)
             elif isinstance(self.thermostat, simulate.NoseHooverThermostat) and self.barostat is None:
                 sim[self].integrator = hoomd.md.integrate.nvt(group=all_,
-                                                              kT=self.thermostat.T,
+                                                              kT=sim.ensemble.kB*self.thermostat.T,
                                                               tau=self.thermostat.tau)
             elif self.thermostat is None and isinstance(self.barostat, simulate.MTKBarostat):
                 sim[self].integrator = hoomd.md.integrate.nph(group=all_,
@@ -702,7 +702,7 @@ class AddVerletIntegrator(AddMDIntegrator):
                                                               **self.options)
             elif isinstance(self.thermostat, simulate.NoseHooverThermostat) and isinstance(self.barostat, simulate.MTKBarostat):
                 sim[self].integrator = hoomd.md.integrate.npt(group=all_,
-                                                              kT=self.thermostat.T,
+                                                              kT=sim.ensemble.kB*self.thermostat.T,
                                                               tau=self.thermostat.tau,
                                                               P=self.barostat.P,
                                                               tauP=self.barostat.tau,

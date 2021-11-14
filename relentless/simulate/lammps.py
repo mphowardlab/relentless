@@ -390,8 +390,8 @@ class InitializeRandomly(Initialize):
     def to_commands(self, sim):
         """Performs the random initialization operation.
 
-        Places particles in random coordinates, ets particle types, gives the particles
-        unit mass and thermalizes to the Maxwell-Boltzmann distribution.
+        Places particles in random coordinates, sets particle types, gives the
+        particles unit mass and thermalizes to the Maxwell-Boltzmann distribution.
 
         Parameters
         ----------
@@ -587,10 +587,10 @@ class AddVerletIntegrator(LAMMPSOperation):
 
     This method supports:
 
-    - NVE integration with optional Berendsen thermostat and optional Berendsen barostat
-    - NVT integration with Nosé-Hoover thermostat and optional Berendsen barostat
-    - NPH integration with MTK barostat and optional Berendsen thermostat
-    - NPT integration with Nosé-Hoover thermostat and MTK barostat
+    - NVE integration
+    - NVT integration with Nosé-Hoover or Berendsen thermostat
+    - NPH integration with MTK or Berendsen barostat
+    - NPT integration with Nosé-Hoover or Berendsen thermostat and MTK or Berendsen barostat
 
     Parameters
     ----------
@@ -606,7 +606,7 @@ class AddVerletIntegrator(LAMMPSOperation):
         self.thermostat = thermostat
         self.barostat = barostat
 
-        self._fix = super().new_fix_id()
+        self._fix = self.new_fix_id()
         self._extra_fixes = []
 
     def to_commands(self, sim):
@@ -670,7 +670,7 @@ class AddVerletIntegrator(LAMMPSOperation):
             raise TypeError('An appropriate combination of thermostat and barostat must be set.')
 
         if fix_berendsen_temp:
-            _fix_berendsen_t = super().new_fix_id()
+            _fix_berendsen_t = self.new_fix_id()
             self._extra_fixes.append(_fix_berendsen_t)
             cmds += ['fix {idx} {group_idx} temp/berendsen {Tstart} {Tstop} {Tdamp}'.format(idx=_fix_berendsen_t,
                                                                                             group_idx='all',
@@ -678,7 +678,7 @@ class AddVerletIntegrator(LAMMPSOperation):
                                                                                             Tstop=self.thermostat.T,
                                                                                             Tdamp=self.thermostat.tau)]
         if fix_berendsen_pres:
-            _fix_berendsen_p = super().new_fix_id()
+            _fix_berendsen_p = self.new_fix_id()
             self._extra_fixes.append(_fix_berendsen_p)
             cmds += ['fix {idx} {group_idx} press/berendsen iso {Pstart} {Pstop} {Pdamp}'.format(idx=_fix_berendsen_p,
                                                                                                  group_idx='all',

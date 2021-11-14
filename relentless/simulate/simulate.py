@@ -24,10 +24,8 @@ control of the temperature and pressure of the simulation.
     Potentials
     PotentialTabulator
     PairPotentialTabulator
-    Thermostat
     BerendsenThermostat
     NoseHooverThermostat
-    Barostat
     BerendsenBarostat
     MTKBarostat
 
@@ -36,10 +34,15 @@ control of the temperature and pressure of the simulation.
 To implement your own simulation operation, create a class that derives from
 :class:`SimulationOperation` and define the required methods.
 
+To implement your own thermostat or barostat, create a class that derives from
+:class:`Thermostat` or :class:`Barostat` and define the required methods.
+
 .. autosummary::
     :nosignatures:
 
     SimulationOperation
+    Thermostat
+    Barostat
 
 .. autoclass:: Simulation
     :members:
