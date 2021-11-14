@@ -56,6 +56,9 @@ class test_Variable(unittest.TestCase):
         x = -w
         self.assertAlmostEqual(x.value, -4.0)
 
+        #string conversion
+        self.assertEqual(str(x), str(x.value))
+
 class test_IndependentVariable(unittest.TestCase):
     """Unit tests for relentless.variable.IndependentVariable."""
 
@@ -1102,10 +1105,18 @@ class test_Power(unittest.TestCase):
         #test w.r.t. a
         dw = w._derivative('a')
         self.assertAlmostEqual(dw, 12.0)
+        v.value = 0.0
+        dw = w._derivative('a')
+        self.assertAlmostEqual(dw, 0.0)
+        v.value = 3.0
 
         #test w.r.t. b
         dw = w._derivative('b')
         self.assertAlmostEqual(dw, 5.545177444)
+        u.value = 0.0
+        dw = w._derivative('b')
+        self.assertAlmostEqual(dw, 0.0)
+        u.value = 2.0
 
         #test w.r.t. ~a,~b
         with self.assertRaises(ValueError):

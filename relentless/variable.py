@@ -102,7 +102,7 @@ class Variable(abc.ABC):
         2.0
         >>> print(x/4.0)
         0.5
-        >>> print(x^2.0)
+        >>> print(x**2)
         0.25
         >>> print(-x)
         -0.25
@@ -117,7 +117,7 @@ class Variable(abc.ABC):
     def __add__(self, val):
         """Addition of two variables, or of a variable and a scalar."""
         v = val if isinstance(val, Variable) else IndependentVariable(val)
-        return Sum(self, val)
+        return Sum(self, v)
 
     def __radd__(self, val):
         """Addition of a scalar and a variable."""
@@ -126,7 +126,7 @@ class Variable(abc.ABC):
     def __sub__(self, val):
         """Subtraction of two variables, or of a variable and a scalar."""
         v = val if isinstance(val, Variable) else IndependentVariable(val)
-        return Difference(self, val)
+        return Difference(self, v)
 
     def __rsub__(self, val):
         """Subtraction of a scalar and a variable."""
@@ -135,7 +135,7 @@ class Variable(abc.ABC):
     def __mul__(self, val):
         """Multiplication of two variables, or of a variable and a scalar."""
         v = val if isinstance(val, Variable) else IndependentVariable(val)
-        return Product(self, val)
+        return Product(self, v)
 
     def __rmul__(self, val):
         """Multiplication of a scalar and a variable."""
@@ -144,7 +144,7 @@ class Variable(abc.ABC):
     def __truediv__(self, val):
         """Division of two variables, or of a variable by a scalar."""
         v = val if isinstance(val, Variable) else IndependentVariable(val)
-        return Quotient(self, val)
+        return Quotient(self, v)
 
     def __rtruediv__(self, val):
         """Division of a scalar by a variable."""
@@ -153,11 +153,14 @@ class Variable(abc.ABC):
     def __pow__(self, val):
         """Exponentiation of two variables, or of a variable with a scalar."""
         v = val if isinstance(val, Variable) else IndependentVariable(val)
-        return Power(self, val)
+        return Power(self, v)
 
     def __neg__(self):
         """Negation of a variable."""
         return Negation(self)
+
+    def __str__(self):
+        return str(self.value)
 
 class IndependentVariable(Variable):
     """Independent quantity.
@@ -172,28 +175,28 @@ class IndependentVariable(Variable):
     Create an independent variable::
 
         >>> x = relentless.variable.IndependentVariable(3.0)
-        >>> print(x.value)
+        >>> print(x)
         3.0
 
     The value of an independent variable can be changed::
 
         >>> x.value = -1.0
-        >>> print(x.value)
+        >>> print(x)
         -1.0
 
     Perform in-place arithmetic operations::
 
         >>> x += 4.0
-        >>> print(x.value)
+        >>> print(x)
         3.0
         >>> x -= 1.0
-        >>> print(x.value)
+        >>> print(x)
         2.0
         >>> x *= 0.5
-        >>> print(x.value)
+        >>> print(x)
         1.0
         >>> x /= 2.0
-        >>> print(x.value)
+        >>> print(x)
         0.5
 
     """
@@ -804,10 +807,11 @@ class Quotient(BinaryOperator):
             except ZeroDivisionError:
                 return numpy.inf
         elif param == 'b':
-            try:
-                return -self.a.value/self.b.value**2.0
-            except ZeroDivisionError:
-                return numpy.inf
+            with numpy.errstate(all='raise'):
+                try:
+                    return -self.a.value/numpy.power(self.b.value,2)
+                except FloatingPointError:
+                    return numpy.inf
         else:
             raise ValueError('Unknown parameter')
 
@@ -826,15 +830,19 @@ class Power(BinaryOperator):
     """
     @property
     def value(self):
-        return self.a.value**self.b.value
+        return numpy.power(self.a.value,self.b.value)
 
     def _derivative(self, param):
         if param == 'a':
-            return self.b.value*self.a.value**(self.b.value-1.0)
+            if self.b.value == 0.0:
+                return 0.0
+            return self.b.value*numpy.power(self.a.value,self.b.value-1)
         elif param == 'b':
+            if self.a.value == 0.0:
+                return 0.0
             with numpy.errstate(all='raise'):
                 try:
-                    return numpy.log(self.a.value)*self.a.value**self.b.value
+                    return numpy.log(self.a.value)*numpy.power(self.a.value,self.b.value)
                 except FloatingPointError:
                     return numpy.inf
         else:
