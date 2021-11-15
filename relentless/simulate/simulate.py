@@ -13,6 +13,9 @@ The simulations can use a combination of multiple :class:`~relentless.potential.
 which is given here using :class:`Potentials` and the tabulators :class:`PotentialTabulator`
 and :class:`PairPotentialTabulator`.
 
+A number of :class:`Thermostat`\s and :class:`Barostat`\s are also provided to enable
+control of the temperature and pressure of the simulation.
+
 .. autosummary::
     :nosignatures:
 
@@ -21,16 +24,25 @@ and :class:`PairPotentialTabulator`.
     Potentials
     PotentialTabulator
     PairPotentialTabulator
+    BerendsenThermostat
+    NoseHooverThermostat
+    BerendsenBarostat
+    MTKBarostat
 
 .. rubric:: Developer notes
 
 To implement your own simulation operation, create a class that derives from
 :class:`SimulationOperation` and define the required methods.
 
+To implement your own thermostat or barostat, create a class that derives from
+:class:`Thermostat` or :class:`Barostat` and define the required methods.
+
 .. autosummary::
     :nosignatures:
 
     SimulationOperation
+    Thermostat
+    Barostat
 
 .. autoclass:: Simulation
     :members:
@@ -43,6 +55,18 @@ To implement your own simulation operation, create a class that derives from
 .. autoclass:: PotentialTabulator
     :members:
 .. autoclass:: PairPotentialTabulator
+    :members:
+.. autoclass:: Thermostat
+    :members:
+.. autoclass:: BerendsenThermostat
+    :members:
+.. autoclass:: NoseHooverThermostat
+    :members:
+.. autoclass:: Barostat
+    :members:
+.. autoclass:: BerendsenBarostat
+    :members:
+.. autoclass:: MTKBarostat
     :members:
 
 """
@@ -479,3 +503,93 @@ class PairPotentialTabulator(PotentialTabulator):
         d = super().derivative(pair, var)
         d -= d[-1]
         return d
+
+class Thermostat:
+    """Generic thermostat.
+
+    Controls the temperature of particles in the simulation by attempting to
+    equilibrate the system to the specified temperature.
+
+    Parameters
+    ----------
+    T : float
+        Thermostat target temperature.
+
+    """
+    def __init__(self, T):
+        self.T = T
+
+class BerendsenThermostat(Thermostat):
+    """Berendsen thermostat.
+
+    Parameters
+    ----------
+    T : float
+        Thermostat target temperature.
+    tau : float
+        Thermostat coupling constant.
+
+    """
+    def __init__(self, T, tau):
+        super().__init__(T)
+        self.tau = tau
+
+class NoseHooverThermostat(Thermostat):
+    """Nosé-Hoover thermostat.
+
+    Parameters
+    ----------
+    T : float
+        Thermostat target temperature.
+    tau : float
+        Thermostat coupling constant.
+
+    """
+    def __init__(self, T, tau):
+        super().__init__(T)
+        self.tau = tau
+
+class Barostat:
+    """Generic barostat.
+
+    Controls the pressure of particles in the simulation by attempting to
+    equilibrate the system to the specified pressure.
+
+    Parameters
+    ----------
+    P : float
+        Barostat target pressure.
+
+    """
+    def __init__(self, P):
+        self.P = P
+
+class BerendsenBarostat(Barostat):
+    """Berendsen barostat.
+
+    Parameters
+    ----------
+    P : float
+        Barostat target pressure.
+    tau : float
+        Barostat coupling constant.
+
+    """
+    def __init__(self, P, tau):
+        super().__init__(P)
+        self.tau = tau
+
+class MTKBarostat(Barostat):
+    """MTK barostat.
+
+    Parameters
+    ----------
+    P : float
+        Barostat target pressure.
+    tau : float
+        Barostat coupling constant.
+
+    """
+    def __init__(self, P, tau):
+        super().__init__(P)
+        self.tau = tau

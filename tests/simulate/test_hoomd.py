@@ -127,30 +127,60 @@ class test_HOOMD(unittest.TestCase):
         lgv_r(sim)
         self.assertIsNone(sim[lgv].integrator)
 
-        #NPTIntegrator
-        ens_npt = relentless.ensemble.Ensemble(T=100.0, P=5.5, N={'A':2,'B':3})
-        _,pot = self.ens_pot()
-        ens_npt.V = relentless.volume.Cube(L=10.0)
-        npt = relentless.simulate.hoomd.AddNPTIntegrator(dt=0.5,
-                                                         tau_T=1.0,
-                                                         tau_P=1.5)
-        npt_r = relentless.simulate.hoomd.RemoveNPTIntegrator(add_op=npt)
-        h.operations = [init,npt]
-        sim = h.run(ensemble=ens_npt, potentials=pot, directory=self.directory)
-        self.assertTrue(sim[npt].integrator.enabled)
-        npt_r(sim)
-        self.assertIsNone(sim[npt].integrator)
-
-        #NVTIntegrator
+        #VerletIntegrator - NVE
         ens,pot = self.ens_pot()
-        nvt = relentless.simulate.hoomd.AddNVTIntegrator(dt=0.5,
-                                                         tau_T=1.0)
-        nvt_r = relentless.simulate.hoomd.RemoveNVTIntegrator(add_op=nvt)
-        h.operations = [init,nvt]
+        vrl = relentless.simulate.hoomd.AddVerletIntegrator(dt=0.5)
+        vrl_r = relentless.simulate.hoomd.RemoveVerletIntegrator(add_op=vrl)
+        h.operations = [init, vrl]
         sim = h.run(ensemble=ens, potentials=pot, directory=self.directory)
-        self.assertTrue(sim[nvt].integrator.enabled)
-        nvt_r(sim)
-        self.assertIsNone(sim[nvt].integrator)
+        self.assertTrue(sim[vrl].integrator.enabled)
+        vrl_r(sim)
+        self.assertIsNone(sim[vrl].integrator)
+
+        #VerletIntegrator - NVE (Berendsen)
+        tb = relentless.simulate.BerendsenThermostat(T=1, tau=0.5)
+        vrl = relentless.simulate.hoomd.AddVerletIntegrator(dt=0.5, thermostat=tb)
+        vrl_r = relentless.simulate.hoomd.RemoveVerletIntegrator(add_op=vrl)
+        h.operations = [init, vrl]
+        sim = h.run(ensemble=ens, potentials=pot, directory=self.directory)
+        self.assertTrue(sim[vrl].integrator.enabled)
+        vrl_r(sim)
+        self.assertIsNone(sim[vrl].integrator)
+
+        #VerletIntegrator - NVT
+        tn = relentless.simulate.NoseHooverThermostat(T=1, tau=0.5)
+        vrl = relentless.simulate.hoomd.AddVerletIntegrator(dt=0.5, thermostat=tn)
+        vrl_r = relentless.simulate.hoomd.RemoveVerletIntegrator(add_op=vrl)
+        h.operations = [init, vrl]
+        sim = h.run(ensemble=ens, potentials=pot, directory=self.directory)
+        self.assertTrue(sim[vrl].integrator.enabled)
+        vrl_r(sim)
+        self.assertIsNone(sim[vrl].integrator)
+
+        #VerletIntegrator - NPH
+        bm = relentless.simulate.MTKBarostat(P=1, tau=0.5)
+        vrl = relentless.simulate.hoomd.AddVerletIntegrator(dt=0.5, barostat=bm)
+        vrl_r = relentless.simulate.hoomd.RemoveVerletIntegrator(add_op=vrl)
+        h.operations = [init, vrl]
+        sim = h.run(ensemble=ens, potentials=pot, directory=self.directory)
+        self.assertTrue(sim[vrl].integrator.enabled)
+        vrl_r(sim)
+        self.assertIsNone(sim[vrl].integrator)
+
+        #VerletIntegrator - NPT
+        vrl = relentless.simulate.hoomd.AddVerletIntegrator(dt=0.5, thermostat=tn, barostat=bm)
+        vrl_r = relentless.simulate.hoomd.RemoveVerletIntegrator(add_op=vrl)
+        h.operations = [init, vrl]
+        sim = h.run(ensemble=ens, potentials=pot, directory=self.directory)
+        self.assertTrue(sim[vrl].integrator.enabled)
+        vrl_r(sim)
+        self.assertIsNone(sim[vrl].integrator)
+
+        #VerletIntegrator - incorrect
+        with self.assertRaises(TypeError):
+            vrl = relentless.simulate.hoomd.AddVerletIntegrator(dt=0.5, thermostat=tb, barostat=bm)
+            h.operations = [init, vrl]
+            sim = h.run(ensemble=ens, potentials=pot, directory=self.directory)
 
     def test_run(self):
         """Test run simulation operations."""
@@ -177,9 +207,10 @@ class test_HOOMD(unittest.TestCase):
                                                                  check_rdf_every=5,
                                                                  rdf_dr=1.0)
         run = relentless.simulate.hoomd.Run(steps=500)
-        nvt = relentless.simulate.hoomd.AddNVTIntegrator(dt=0.1,
-                                                         tau_T=1.0)
-        op = [init,nvt,analyzer,run]
+        lgv = relentless.simulate.hoomd.AddLangevinIntegrator(dt=0.1,
+                                                              friction=0.9,
+                                                              seed=2)
+        op = [init,lgv,analyzer,run]
         h = relentless.simulate.hoomd.HOOMD(operations=op)
         sim = h.run(ensemble=ens, potentials=pot, directory=self.directory)
         thermo = sim[analyzer].thermo_callback

@@ -17,10 +17,8 @@ The following LAMMPS operations have been implemented.
     MinimizeEnergy
     AddLangevinIntegrator
     RemoveLangevinIntegrator
-    AddNPTIntegrator
-    RemoveNPTIntegrator
-    AddNVTIntegrator
-    RemoveNVTIntegrator
+    AddVerletIntegrator
+    RemoveVerletIntegrator
     Run
     RunUpTo
     AddEnsembleAnalyzer
@@ -53,13 +51,9 @@ that derives from :class:`LAMMPSOperation` and define the required methods.
     :members:
 .. autoclass:: RemoveLangevinIntegrator
     :members:
-.. autoclass:: AddNPTIntegrator
+.. autoclass:: AddVerletIntegrator
     :members:
-.. autoclass:: RemoveNPTIntegrator
-    :members:
-.. autoclass:: AddNVTIntegrator
-    :members:
-.. autoclass:: RemoveNVTIntegrator
+.. autoclass:: RemoveVerletIntegrator
     :members:
 .. autoclass:: Run
     :members:
@@ -203,6 +197,19 @@ class Initialize(LAMMPSOperation):
         self.atom_style = atom_style
 
     def to_commands(self, sim):
+        """Sets up basic parameters for the initialization operation.
+
+        Parameters
+        ----------
+        sim : :class:`~relentless.simulate.simulate.Simulation`
+            The simulation object.
+
+        Returns
+        -------
+        array_like
+            The LAMMPS commands for this operation.
+
+        """
         cmds = ['units {style}'.format(style=self.units),
                 'boundary p p p',
                 'atom_style {style}'.format(style=self.atom_style)]
@@ -344,6 +351,19 @@ class InitializeFromFile(Initialize):
         self.filename = filename
 
     def to_commands(self, sim):
+        """Performs the from-file initialization operation.
+
+        Parameters
+        ----------
+        sim : :class:`~relentless.simulate.simulate.Simulation`
+            The simulation object.
+
+        Returns
+        -------
+        array_like
+            The LAMMPS commands for this operation.
+
+        """
         cmds = super().to_commands(sim)
         cmds += ['read_data {filename}'.format(filename=self.filename)]
         cmds += self.attach_potentials(sim)
@@ -352,8 +372,6 @@ class InitializeFromFile(Initialize):
 
 class InitializeRandomly(Initialize):
     """Initializes a randomly generated simulation box and pair potentials.
-
-    The number of particles must be set for all types.
 
     Parameters
     ----------
@@ -370,6 +388,27 @@ class InitializeRandomly(Initialize):
         self.seed = seed
 
     def to_commands(self, sim):
+        """Performs the random initialization operation.
+
+        Places particles in random coordinates, sets particle types, gives the
+        particles unit mass and thermalizes to the Maxwell-Boltzmann distribution.
+
+        Parameters
+        ----------
+        sim : :class:`~relentless.simulate.simulate.Simulation`
+            The simulation object.
+
+        Returns
+        -------
+        array_like
+            The LAMMPS commands for this operation.
+
+        Raises
+        ------
+        ValueError
+            If the number of particles is not set for all types.
+
+        """
         cmds = super().to_commands(sim)
 
         # make box from ensemble
@@ -417,6 +456,19 @@ class MinimizeEnergy(LAMMPSOperation):
         self.max_iterations = max_iterations
 
     def to_commands(self, sim):
+        """Performs the energy minimization operation.
+
+        Parameters
+        ----------
+        sim : :class:`~relentless.simulate.simulate.Simulation`
+            The simulation object.
+
+        Returns
+        -------
+        array_like
+            The LAMMPS commands for this operation.
+
+        """
         cmds = ['minimize {etol} {ftol} {maxiter} {maxeval}'.format(etol=self.energy_tolerance,
                                                                     ftol=self.force_tolerance,
                                                                     maxiter=self.max_iterations,
@@ -426,9 +478,6 @@ class MinimizeEnergy(LAMMPSOperation):
 
 class AddLangevinIntegrator(LAMMPSOperation):
     """Langevin dynamics for a NVE ensemble.
-
-    The simulation ensemble must have all per-type particle masses set.
-    The friction factor can be a single value or defined per-type for all types.
 
     Parameters
     ----------
@@ -448,6 +497,27 @@ class AddLangevinIntegrator(LAMMPSOperation):
         self._fix_nve = self.new_fix_id()
 
     def to_commands(self, sim):
+        """Adds the Langevin integrator to the simulation.
+
+        Parameters
+        ----------
+        sim : :class:`~relentless.simulate.simulate.Simulation`
+            The simulation object.
+
+        Returns
+        -------
+        array_like
+            The LAMMPS commands for this operation.
+
+        Raises
+        ------
+        ValueError
+            If particle masses are not set for all types.
+        ValueError
+            If the friction factor is not set as a single value or per-type
+            for all types.
+
+        """
         # obtain per-type mass (arrays 1-indexed using lammps convention)
         Ntypes = len(sim.ensemble.types)
         mass = sim.lammps.numpy.extract_atom('mass')
@@ -512,107 +582,135 @@ class RemoveLangevinIntegrator(LAMMPSOperation):
 
         return cmds
 
-class AddNPTIntegrator(LAMMPSOperation):
-    r"""NPT integration via Nos\'e-Hoover thermostat/barostat.
+class AddVerletIntegrator(LAMMPSOperation):
+    """Family of Verlet integration modes.
+
+    This method supports:
+
+    - NVE integration
+    - NVT integration with Nosé-Hoover or Berendsen thermostat
+    - NPH integration with MTK or Berendsen barostat
+    - NPT integration with Nosé-Hoover or Berendsen thermostat and MTK or Berendsen barostat
 
     Parameters
     ----------
     dt : float
         Time step size for each simulation iteration.
-    tau_T : float
-        Coupling constant for the thermostat.
-    tau_P : float
-        Coupling constant for the barostat.
+    thermostat : :class:`~relentless.simulate.simulate.Thermostat`
+        Thermostat used for integration (defaults to ``None``).
+    barostat : :class:`~relentless.simulate.simulate.Barostat`
+        Barostat used for integration (defaults to ``None``).
 
     """
-    def __init__(self, dt, tau_T, tau_P):
-        self.tau_T = tau_T
-        self.tau_P = tau_P
+    def __init__(self, dt, thermostat=None, barostat=None):
+        self.thermostat = thermostat
+        self.barostat = barostat
 
-        self._fix = super().new_fix_id()
+        self._fix = self.new_fix_id()
+        self._extra_fixes = []
 
     def to_commands(self, sim):
-        cmds = ['fix {idx} {group_idx} npt temp {Tstart} {Tstop} {Tdamp} iso {Pstart} {Pstop} {Pdamp}'.format(idx=self._fix,
-                                                                                                              group_idx='all',
-                                                                                                              Tstart=sim.ensemble.T,
-                                                                                                              Tstop=sim.ensemble.T,
-                                                                                                              Tdamp=self.tau_T,
-                                                                                                              Pstart=sim.ensemble.P,
-                                                                                                              Pstop=sim.ensemble.P,
-                                                                                                              Pdamp=self.tau_P)]
+        """Adds the Verlet integrator to the simulation.
+
+        Parameters
+        ----------
+        sim : :class:`~relentless.simulate.simulate.Simulation`
+            The simulation object.
+
+        Returns
+        -------
+        array_like
+            The LAMMPS commands for this operation.
+
+        Raises
+        ------
+        TypeError
+            If an appropriate combination of thermostat and barostat is not set.
+
+        """
+        fix_berendsen_temp = False
+        fix_berendsen_pres = False
+
+        if ((self.thermostat is None or isinstance(self.thermostat, simulate.BerendsenThermostat)) and
+            (self.barostat is None or isinstance(self.barostat, simulate.BerendsenBarostat))):
+            cmds = ['fix {idx} {group_idx} nve'.format(idx=self._fix,
+                                                       group_idx='all')]
+            if isinstance(self.thermostat, simulate.BerendsenThermostat):
+                fix_berendsen_temp = True
+            if isinstance(self.barostat, simulate.BerendsenBarostat):
+                fix_berendsen_pres = True
+        elif (isinstance(self.thermostat, simulate.NoseHooverThermostat) and
+             (self.barostat is None or isinstance(self.barostat, simulate.BerendsenBarostat))):
+            cmds = ['fix {idx} {group_idx} nvt temp {Tstart} {Tstop} {Tdamp}'.format(idx=self._fix,
+                                                                                     group_idx='all',
+                                                                                     Tstart=self.thermostat.T,
+                                                                                     Tstop=self.thermostat.T,
+                                                                                     Tdamp=self.thermostat.tau)]
+            if isinstance(self.barostat, simulate.BerendsenBarostat):
+                fix_berendsen_pres = True
+        elif ((self.thermostat is None or isinstance(self.thermostat, simulate.BerendsenThermostat)) and
+              isinstance(self.barostat, simulate.MTKBarostat)):
+            cmds = ['fix {idx} {group_idx} nph iso {Pstart} {Pstop} {Pdamp}'.format(idx=self._fix,
+                                                                                    group_idx='all',
+                                                                                    Pstart=self.barostat.P,
+                                                                                    Pstop=self.barostat.P,
+                                                                                    Pdamp=self.barostat.tau)]
+            if isinstance(self.thermostat, simulate.BerendsenThermostat):
+                fix_berendsen_temp = True
+        elif isinstance(self.thermostat, simulate.NoseHooverThermostat) and isinstance(self.barostat, simulate.MTKBarostat):
+            cmds = ['fix {idx} {group_idx} npt temp {Tstart} {Tstop} {Tdamp} iso {Pstart} {Pstop} {Pdamp}'.format(idx=self._fix,
+                                                                                                                  group_idx='all',
+                                                                                                                  Tstart=self.thermostat.T,
+                                                                                                                  Tstop=self.thermostat.T,
+                                                                                                                  Tdamp=self.thermostat.tau,
+                                                                                                                  Pstart=self.barostat.P,
+                                                                                                                  Pstop=self.barostat.P,
+                                                                                                                  Pdamp=self.barostat.tau)]
+        else:
+            raise TypeError('An appropriate combination of thermostat and barostat must be set.')
+
+        if fix_berendsen_temp:
+            _fix_berendsen_t = self.new_fix_id()
+            self._extra_fixes.append(_fix_berendsen_t)
+            cmds += ['fix {idx} {group_idx} temp/berendsen {Tstart} {Tstop} {Tdamp}'.format(idx=_fix_berendsen_t,
+                                                                                            group_idx='all',
+                                                                                            Tstart=self.thermostat.T,
+                                                                                            Tstop=self.thermostat.T,
+                                                                                            Tdamp=self.thermostat.tau)]
+        if fix_berendsen_pres:
+            _fix_berendsen_p = self.new_fix_id()
+            self._extra_fixes.append(_fix_berendsen_p)
+            cmds += ['fix {idx} {group_idx} press/berendsen iso {Pstart} {Pstop} {Pdamp}'.format(idx=_fix_berendsen_p,
+                                                                                                 group_idx='all',
+                                                                                                 Pstart=self.barostat.P,
+                                                                                                 Pstop=self.barostat.P,
+                                                                                                 Pdamp=self.barostat.tau)]
 
         return cmds
 
-class RemoveNPTIntegrator(LAMMPSOperation):
-    """Removes the NPT integrator operation.
+class RemoveVerletIntegrator(LAMMPSOperation):
+    """Removes the Verlet integrator operation.
 
     Parameters
     ----------
-    add_op : :class:`AddNPTIntegrator`
+    add_op : :class:`AddVerletIntegrator`
         The integrator addition operation to be removed.
 
     Raises
     ------
     TypeError
-        If the specified addition operation is not a NPT integrator.
+        If the specified addition operation is not a Verlet integrator.
 
     """
     def __init__(self, add_op):
-        if not isinstance(add_op, AddNPTIntegrator):
-            raise TypeError('Addition operation is not AddNPTIntegrator.')
+        if not isinstance(add_op, AddVerletIntegrator):
+            raise TypeError('Addition operation is not AddVerletIntegrator.')
         self.add_op = add_op
 
     def to_commands(self, sim):
         cmds = ['unfix {idx}'.format(idx=self.add_op._fix)]
-
-        return cmds
-
-class AddNVTIntegrator(LAMMPSOperation):
-    r"""NVT integration via Nosé-Hoover thermostat.
-
-    Parameters
-    ----------
-    dt : float
-        Time step size for each simulation iteration.
-    tau_T : float
-        Coupling constant for the thermostat.
-
-    """
-    def __init__(self, dt, tau_T):
-        self.tau_T = tau_T
-
-        self._fix = super().new_fix_id()
-
-    def to_commands(self, sim):
-        cmds = ['fix {idx} {group_idx} nvt temp {Tstart} {Tstop} {Tdamp}'.format(idx=self._fix,
-                                                                                 group_idx='all',
-                                                                                 Tstart=sim.ensemble.T,
-                                                                                 Tstop=sim.ensemble.T,
-                                                                                 Tdamp=self.tau_T)]
-
-        return cmds
-
-class RemoveNVTIntegrator(LAMMPSOperation):
-    """Removes the NVT integrator operation.
-
-    Parameters
-    ----------
-    add_op : :class:`AddNVTIntegrator`
-        The integrator addition operation to be removed.
-
-    Raises
-    ------
-    TypeError
-        If the specified addition operation is not a NVT integrator.
-
-    """
-    def __init__(self, add_op):
-        if not isinstance(add_op, AddNVTIntegrator):
-            raise TypeError('Addition operation is not AddNVTIntegrator.')
-        self.add_op = add_op
-
-    def to_commands(self, sim):
-        cmds = ['unfix {idx}'.format(idx=self.add_op._fix)]
+        for _extra_fix in self.add_op._extra_fixes:
+            cmds += ['unfix {idx}'.format(idx=_extra_fix)]
 
         return cmds
 
@@ -653,9 +751,6 @@ class RunUpTo(LAMMPSOperation):
 class AddEnsembleAnalyzer(LAMMPSOperation):
     """Analyzes the simulation ensemble and rdf at specified timestep intervals.
 
-    The simulation ensemble must have constant ``N``, and only one LAMMPS
-    :class:`AddEnsembleAnalyzer` can be initialized at a time.
-
     Parameters
     ----------
     check_thermo_every : int
@@ -672,6 +767,25 @@ class AddEnsembleAnalyzer(LAMMPSOperation):
         self.rdf_dr = rdf_dr
 
     def to_commands(self, sim):
+        """Adds the ensemble analyzer to the simulation.
+
+        Parameters
+        ----------
+        sim : :class:`~relentless.simulate.simulate.Simulation`
+            The simulation object.
+
+        Returns
+        -------
+        array_like
+            The LAMMPS commands for this operation.
+
+        Raises
+        ------
+        RuntimeError
+            If more than one LAMMPS :class:`AddEnsembleAnalyzer` is initialized
+            at the same time.
+
+        """
         # check that IDs reserved for analysis do not yet exist
         reserved_ids = (('fix','thermo_avg'),
                         ('compute','rdf'),
