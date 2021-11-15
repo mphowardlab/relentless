@@ -57,7 +57,7 @@ class test_Variable(unittest.TestCase):
         self.assertAlmostEqual(x.value, -4.0)
 
         #string conversion
-        self.assertEqual(str(x), str(x.value))
+        self.assertEqual(str(x), "4.0")
 
 class test_IndependentVariable(unittest.TestCase):
     """Unit tests for relentless.variable.IndependentVariable."""
