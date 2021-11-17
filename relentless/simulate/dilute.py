@@ -80,11 +80,9 @@ class AddLangevinIntegrator(AddMDIntegrator):
     pass
 class RemoveLangevinIntegrator(RemoveMDIntegrator):
     pass
-# NPT integrators are not supported (only NVT)
-# skipping AddNPTIntegrator / RemoveNPTIntegrator
-class AddNVTIntegrator(AddMDIntegrator):
+class AddVerletIntegrator(AddMDIntegrator):
     pass
-class RemoveNVTIntegrator(RemoveMDIntegrator):
+class RemoveVerletIntegrator(RemoveMDIntegrator):
     pass
 class Run(_NullOperation):
     pass

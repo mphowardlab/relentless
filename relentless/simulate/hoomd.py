@@ -21,10 +21,8 @@ The following HOOMD operations have been implemented.
     RemoveBrownianIntegrator
     AddLangevinIntegrator
     RemoveLangevinIntegrator
-    AddNPTIntegrator
-    RemoveNPTIntegrator
-    AddNVTIntegrator
-    RemoveNVTIntegrator
+    AddVerletIntegrator
+    RemoveVerletIntegrator
     Run
     RunUpTo
     ThermodynamicsCallback
@@ -74,13 +72,9 @@ define the required methods.
     :members: __call__
 .. autoclass:: RemoveLangevinIntegrator
     :members:
-.. autoclass:: AddNPTIntegrator
+.. autoclass:: AddVerletIntegrator
     :members: __call__
-.. autoclass:: RemoveNPTIntegrator
-    :members:
-.. autoclass:: AddNVTIntegrator
-    :members: __call__
-.. autoclass:: RemoveNVTIntegrator
+.. autoclass:: RemoveVerletIntegrator
     :members:
 .. autoclass:: Run
     :members: __call__
@@ -642,117 +636,98 @@ class RemoveLangevinIntegrator(RemoveMDIntegrator):
             raise TypeError('Addition operation is not AddLangevinIntegrator.')
         super().__init__(add_op)
 
-class AddNPTIntegrator(AddMDIntegrator):
-    """NPT integration via MTK barostat-thermostat.
+class AddVerletIntegrator(AddMDIntegrator):
+    """Family of Verlet integration modes.
+
+    This method supports:
+
+    - NVE integration
+    - NVT integration with Nosé-Hoover or Berendsen thermostat
+    - NPH integration with MTK barostat
+    - NPT integration with Nosé-Hoover thermostat and MTK barostat
 
     Parameters
     ----------
     dt : float
         Time step size for each simulation iteration.
-    tau_T : float
-        Coupling constant for the thermostat.
-    tau_P : float
-        Coupling constant for the barostat.
+    thermostat : :class:`~relentless.simulate.simulate.Thermostat`
+        Thermostat used for integration (defaults to ``None``).
+    barostat : :class:`~relentless.simulate.simulate.Barostat`
+        Barostat used for integration (defaults to ``None``).
     options : kwargs
-        Options used in :class:`hoomd.md.integrate.npt`.
+        Options used in :class:`hoomd.md.integrate.nve`,
+        :class:`hoomd.md.integrate.berendsen`, :class:`hoomd.md.integrate.nvt`,
+        :class:`hoomd.md.integrate.nph`, or :class:`hoomd.md.integrate.npt`, as
+        appropriate.
 
     """
-    def __init__(self, dt, tau_T, tau_P, **options):
+    def __init__(self, dt, thermostat=None, barostat=None, **options):
         super().__init__(dt)
-        self.tau_T = tau_T
-        self.tau_P = tau_P
+        self.thermostat = thermostat
+        self.barostat = barostat
         self.options = options
 
     def __call__(self, sim):
-        """Adds the NPT integrator to the simulation.
+        """Adds the Verlet integrator to the simulation.
 
         Parameters
         ----------
         sim : :class:`~relentless.simulate.simulate.Simulation`
             The simulation object.
 
-        """
-        self.attach_integrator(sim)
-        with sim.context:
-            all_ = hoomd.group.all()
-            sim[self].integrator = hoomd.md.integrate.npt(group=all_,
-                                                          kT=sim.ensemble.kT,
-                                                          tau=self.tau_T,
-                                                          P=sim.ensemble.P,
-                                                          tauP=self.tau_P,
-                                                          **self.options)
-
-class RemoveNPTIntegrator(RemoveMDIntegrator):
-    """Removes the NPT integrator operation.
-
-    Parameters
-    ----------
-    add_op : :class:`AddNPTIntegrator`
-        The integrator addition operation to be removed.
-
-    Raises
-    ------
-    TypeError
-        If the specified addition operation is not a NPT integrator.
-
-    """
-    def __init__(self, add_op):
-        if not isinstance(add_op, AddNPTIntegrator):
-            raise TypeError('Addition operation is not AddNPTIntegrator.')
-        super().__init__(add_op)
-
-class AddNVTIntegrator(AddMDIntegrator):
-    r"""NVT integration via Nosé-Hoover thermostat.
-
-    Parameters
-    ----------
-    dt : float
-        Time step size for each simulation iteration.
-    tau_T : float
-        Coupling constant for the thermostat.
-    options : kwargs
-        Options used in :class:`hoomd.md.integrate.nvt`.
-
-    """
-    def __init__(self, dt, tau_T, **options):
-        super().__init__(dt)
-        self.tau_T = tau_T
-        self.options = options
-
-    def __call__(self, sim):
-        """Adds the NVT integrator to the simulation.
-
-        Parameters
-        ----------
-        sim : :class:`~relentless.simulate.simulate.Simulation`
-            The simulation object.
+        Raises
+        ------
+        TypeError
+            If an appropriate combination of thermostat and barostat is not set.
 
         """
         self.attach_integrator(sim)
         with sim.context:
             all_ = hoomd.group.all()
-            sim[self].integrator = hoomd.md.integrate.nvt(group=all_,
-                                                          kT=sim.ensemble.kT,
-                                                          tau=self.tau_T,
-                                                          **self.options)
+            if self.thermostat is None and self.barostat is None:
+                sim[self].integrator = hoomd.md.integrate.nve(group=all_,
+                                                              **self.options)
+            elif isinstance(self.thermostat, simulate.BerendsenThermostat) and self.barostat is None:
+                sim[self].integrator = hoomd.md.integrate.berendsen(group=all_,
+                                                                    kT=sim.ensemble.kB*self.thermostat.T,
+                                                                    tau=self.thermostat.tau)
+            elif isinstance(self.thermostat, simulate.NoseHooverThermostat) and self.barostat is None:
+                sim[self].integrator = hoomd.md.integrate.nvt(group=all_,
+                                                              kT=sim.ensemble.kB*self.thermostat.T,
+                                                              tau=self.thermostat.tau)
+            elif self.thermostat is None and isinstance(self.barostat, simulate.MTKBarostat):
+                sim[self].integrator = hoomd.md.integrate.nph(group=all_,
+                                                              P=self.barostat.P,
+                                                              tauP=self.barostat.tau,
+                                                              **self.options)
+            elif isinstance(self.thermostat, simulate.NoseHooverThermostat) and isinstance(self.barostat, simulate.MTKBarostat):
+                sim[self].integrator = hoomd.md.integrate.npt(group=all_,
+                                                              kT=sim.ensemble.kB*self.thermostat.T,
+                                                              tau=self.thermostat.tau,
+                                                              P=self.barostat.P,
+                                                              tauP=self.barostat.tau,
+                                                              **self.options)
+            else:
+                raise TypeError('An appropriate combination of thermostat and barostat must be set.')
 
-class RemoveNVTIntegrator(RemoveMDIntegrator):
-    """Removes the NVT integrator operation.
+
+class RemoveVerletIntegrator(RemoveMDIntegrator):
+    """Removes the Verlet integrator operation.
 
     Parameters
     ----------
-    add_op : :class:`AddNVTIntegrator`
+    add_op : :class:`AddVerletIntegrator`
         The integrator addition operation to be removed.
 
     Raises
     ------
     TypeError
-        If the specified addition operation is not a NVT integrator.
+        If the specified addition operation is not a Verlet integrator.
 
     """
     def __init__(self, add_op):
-        if not isinstance(add_op, AddNVTIntegrator):
-            raise TypeError('Addition operation is not AddNVTIntegrator.')
+        if not isinstance(add_op, AddVerletIntegrator):
+            raise TypeError('Addition operation is not AddVerletIntegrator.')
         super().__init__(add_op)
 
 class Run(simulate.SimulationOperation):

@@ -17,7 +17,7 @@ can be directly translated between all of the supported simulation packages::
 
     # generic simulation operations
     ops = [relentless.simulate.InitializeRandomly(seed=1),
-           relentless.simulate.AddNVTIntegrator(dt=0.1, tau_T=1.0),
+           relentless.simulate.AddLangevinIntegrator(dt=0.1, friction=0.8, seed=2),
            relentless.simulate.Run(steps=1e3),
            relentless.simulate.AddEnsembleAnalyzer(check_thermo_every=5,
                                                    check_rdf_every=5,
@@ -38,7 +38,13 @@ from .simulate import (Simulation,
                        SimulationOperation,
                        Potentials,
                        PotentialTabulator,
-                       PairPotentialTabulator)
+                       PairPotentialTabulator,
+                       Thermostat,
+                       BerendsenThermostat,
+                       NoseHooverThermostat,
+                       Barostat,
+                       BerendsenBarostat,
+                       MTKBarostat)
 
 from . import dilute
 from .dilute import Dilute
@@ -58,10 +64,8 @@ from .generic import (InitializeFromFile,
                       RemoveBrownianIntegrator,
                       AddLangevinIntegrator,
                       RemoveLangevinIntegrator,
-                      AddNPTIntegrator,
-                      RemoveNPTIntegrator,
-                      AddNVTIntegrator,
-                      RemoveNVTIntegrator,
+                      AddVerletIntegrator,
+                      RemoveVerletIntegrator,
                       Run,
                       RunUpTo,
                       AddEnsembleAnalyzer,
