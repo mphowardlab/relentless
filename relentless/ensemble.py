@@ -27,8 +27,8 @@ import json
 
 import numpy
 
-from ._collections import FixedKeyDict,PairMatrix
-from ._math import Interpolator
+from .collections import FixedKeyDict,PairMatrix
+from .math import Interpolator
 from . import volume
 
 class RDF(Interpolator):

@@ -53,7 +53,7 @@ import abc
 
 import numpy
 
-from relentless import _collections
+from relentless import math
 from .criteria import ConvergenceTest,Tolerance
 from .objective import ObjectiveFunction
 
@@ -342,7 +342,7 @@ class SteepestDescent(Optimizer):
             The descent amount, keyed on the objective function design variables.
 
         """
-        k = _collections.KeyedArray(keys=gradient.keys)
+        k = math.KeyedArray(keys=gradient.keys)
         for i in k:
             k[i] = self.step_size
         return k
@@ -382,7 +382,7 @@ class SteepestDescent(Optimizer):
             return None
 
         #fix scaling parameters
-        scale = _collections.KeyedArray(keys=dvars)
+        scale = math.KeyedArray(keys=dvars)
         for x in dvars:
             if numpy.isscalar(self.scale):
                 scale[x] = self.scale
@@ -542,7 +542,7 @@ class FixedStepDescent(SteepestDescent):
             The descent amount, keyed on the objective function design variables.
 
         """
-        k = _collections.KeyedArray(keys=gradient.keys)
+        k = math.KeyedArray(keys=gradient.keys)
         for i in k:
             k[i] = self.step_size
         return k/gradient.norm()

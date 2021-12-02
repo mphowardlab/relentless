@@ -19,6 +19,8 @@ This module implements some convenience objects for mathematical operations.
 import numpy
 import scipy.interpolate
 
+from .collections import FixedKeyDict
+
 class Interpolator:
     r"""Interpolating function.
 

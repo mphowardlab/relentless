@@ -75,7 +75,7 @@ import abc
 
 import numpy
 
-from relentless import _collections
+from relentless import collections
 
 class ConvergenceTest(abc.ABC):
     r"""Abstract base class for optimization convergence tests.
@@ -131,8 +131,8 @@ class Tolerance:
 
     """
     def __init__(self, absolute, relative):
-        self._absolute = _collections.DefaultDict(absolute)
-        self._relative = _collections.DefaultDict(relative)
+        self._absolute = collections.DefaultDict(absolute)
+        self._relative = collections.DefaultDict(relative)
 
     @property
     def absolute(self):

@@ -52,7 +52,7 @@ class test_Simulation(unittest.TestCase):
     def test_run(self):
         """Test run method."""
         ens = relentless.ensemble.Ensemble(T=1.0, P=4.0, N={'A':2})
-        pot = relentless._collections.PairMatrix(types=ens.types)
+        pot = relentless.collections.PairMatrix(types=ens.types)
         for pair in pot:
             pot[pair]['r'] = numpy.array([1.,2.,3.])
             pot[pair]['u'] = numpy.array([2.,3.,4.])

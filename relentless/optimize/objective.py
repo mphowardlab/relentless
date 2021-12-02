@@ -60,8 +60,8 @@ import abc
 import numpy
 import scipy.integrate
 
-from relentless import _collections
-from relentless import _math
+from relentless import collections
+from relentless import math
 from relentless import data
 
 class ObjectiveFunction(abc.ABC):
@@ -143,13 +143,13 @@ class ObjectiveFunctionResult:
     """
     def __init__(self, objective, value, gradient, directory):
         dvars = objective.design_variables()
-        self._design_variables = _collections.KeyedArray(keys=dvars)
+        self._design_variables = math.KeyedArray(keys=dvars)
         variable_values = {x: x.value for x in dvars}
         self._design_variables.update(variable_values)
 
         self._value = value
 
-        self._gradient = _collections.KeyedArray(keys=dvars)
+        self._gradient = math.KeyedArray(keys=dvars)
         self._gradient.update(gradient)
 
         self.directory = directory
@@ -286,7 +286,7 @@ class RelativeEntropy(ObjectiveFunction):
         g_tgt = self.target.rdf
         g_sim = sim_ens.rdf
         dvars = self.design_variables()
-        gradient = _collections.KeyedArray(keys=dvars)
+        gradient = math.KeyedArray(keys=dvars)
 
         for var in dvars:
             update = 0
@@ -306,7 +306,7 @@ class RelativeEntropy(ObjectiveFunction):
                     continue
 
                 #interpolate derivative wrt design variable with r
-                dudvar = _math.Interpolator(rs,dus)
+                dudvar = math.Interpolator(rs,dus)
 
                 # find common domain to compare rdfs
                 r0 = max(g_sim[i,j].domain[0],g_tgt[i,j].domain[0],dudvar.domain[0])

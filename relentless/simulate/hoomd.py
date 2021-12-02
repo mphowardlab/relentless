@@ -99,9 +99,9 @@ from packaging import version
 
 import numpy
 
-from relentless._collections import PairMatrix
+from relentless.collections import PairMatrix
 from relentless.ensemble import RDF
-from relentless._math import Interpolator
+from relentless.math import Interpolator
 from relentless.volume import TriclinicBox
 from . import simulate
 
