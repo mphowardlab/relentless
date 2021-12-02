@@ -14,10 +14,7 @@
     :caption: API
 
     api/index
-    api/data
     api/mpi
-    api/collections
-    api/math
     api/ensemble
     api/potential/index
     api/simulate/index
