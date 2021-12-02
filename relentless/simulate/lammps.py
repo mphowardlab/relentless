@@ -82,7 +82,7 @@ class LAMMPS(simulate.Simulation):
     """:class:`~relentless.simulate.simulate.Simulation` using LAMMPS framework.
 
     LAMMPS must be built with its `Python interface <https://lammps.sandia.gov/doc/Python_head.html>`_
-    and must be version 29 Oct 2020 or newer.
+    and must be version 29 Sep 2021 or newer.
 
     Raises
     ------
@@ -112,8 +112,8 @@ class LAMMPS(simulate.Simulation):
                            '-nocite']
 
         sim.lammps = lammps.lammps(cmdargs=launch_args, comm=sim.communicator.comm)
-        if sim.lammps.version() < 20201029:
-            raise ImportError('Only LAMMPS 29 Oct 2020 or newer is supported.')
+        if sim.lammps.version() < 20210929:
+            raise ImportError('Only LAMMPS 29 Sep 2021 or newer is supported.')
 
         # lammps uses 1-indexed ints for types, so build mapping in both direction
         sim.type_map = {}
