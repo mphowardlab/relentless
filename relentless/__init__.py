@@ -3,9 +3,6 @@
 Developer tools
 ===============
 
-These objects and data structures are used by other functions in the code, but
-may not necessarily be useful to the user.
-
 .. automodule:: relentless.collections
 
 .. automodule:: relentless.data
