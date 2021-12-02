@@ -520,7 +520,7 @@ class AddLangevinIntegrator(LAMMPSOperation):
         """
         # obtain per-type mass (arrays 1-indexed using lammps convention)
         Ntypes = len(sim.ensemble.types)
-        mass = sim.lammps.numpy.extract_atom('mass')
+        mass = sim.lammps.extract_atom('mass')
         if mass is None or mass.shape != (Ntypes+1,1):
             raise ValueError('Per-type masses not set.')
         mass = numpy.squeeze(mass)
