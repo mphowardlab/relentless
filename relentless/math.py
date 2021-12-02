@@ -1,301 +1,176 @@
 """
-Collections
-===========
+Math functions
+==============
 
-This module contains some data structures used in :mod:`relentless` as an
-alternative to Python's general purpose containers, for ease of use in constructing
-potentials and performing computations during the optimization workflow.
+This module implements some convenience objects for mathematical operations.
 
 .. autosummary::
     :nosignatures:
 
-    FixedKeyDict
-    PairMatrix
+    Interpolator
     KeyedArray
-    DefaultDict
 
-.. autoclass:: FixedKeyDict
-    :members:
-.. autoclass:: PairMatrix
+.. autoclass:: Interpolator
     :members:
 .. autoclass:: KeyedArray
     :members:
-.. autoclass:: DefaultDict
-    :members:
 
 """
-import collections
-
 import numpy
+import scipy.interpolate
 
-class FixedKeyDict:
-    """Dictionary with fixed keys.
+class Interpolator:
+    r"""Interpolating function.
 
-    Parameters
-    ----------
-    keys : array_like
-        List of keys to be fixed.
-    default : scalar
-        Initial value to fill in the dictionary, defaults to ``None``.
-
-    Examples
-    --------
-    Create a keyed dictionary::
-
-        d = FixedKeyDict(keys=('A','B'))
-
-    Default values::
-
-        >>> print(d)
-        {'A': None, 'B': None}
-
-    Set default values::
-
-        d = FixedKeyDict(keys=('A','B'), default=0.0)
-        >>> print(d)
-        {'A':0.0, 'B':0.0}
-
-    Iterate as a dictionary::
-
-        for k in d:
-            d[k] = 1.0
-
-    Access by key::
-
-        >>> d['A']
-        1.0
-        >>> d['B']
-        1.0
-
-    Partially reassign/update values::
-
-        d.update({'A':0.5})
-        d.update(A=0.5)  #equivalent statement
-        >>> print(d)
-        {'A':0.5, 'B':1.0}
-
-    Single-key dictionary still needs ``keys`` as a tuple::
-
-        FixedKeyDict(keys=('A',))
-
-    """
-    def __init__(self, keys, default=None):
-        self._keys = tuple(keys)
-        self._data = {}
-        self._default = default
-        self.clear()
-
-    def _check_key(self, key):
-        """Check that a type is in the dictionary.
-
-        Returns
-        -------
-        key
-            The type that is keyed in the dictionary.
-
-        Raises
-        ------
-        KeyError
-            If the key is not in the dictionary.
-
-        """
-        if key not in self.keys:
-            raise KeyError('Key {} is not in dictionary.'.format(key))
-        return key
-
-    def __getitem__(self, key):
-        key = self._check_key(key)
-        return self._data[key]
-
-    def __setitem__(self, key, value):
-        key = self._check_key(key)
-        self._data[key] = value
-
-    def __iter__(self):
-        return iter(self._data)
-
-    def __next__(self):
-        return next(self._data)
-
-    def __str__(self):
-        return str(self._data)
-
-    def clear(self):
-        """Clear entries in the dictionary, resetting to default."""
-        for i in self.keys:
-            self._data[i] = self._default
-
-    def update(self, *data, **values):
-        """Partially reassigns key values.
-
-        If both positional argument (``data``) and keyword arguments (``values``)
-        are given as parameters, any keys in ``values`` will take precedence over ``data``.
-
-        Parameters
-        ----------
-        data : :class:`dict`
-            The keys and values to be updated/over-written, in a dictionary form.
-        values : kwargs
-            The keys and values to be updated/over-written.
-
-        Raises
-        ------
-        TypeError
-            If more than one positional argument is given.
-
-        """
-        if len(data) > 1:
-            raise TypeError('More than one positional argument is given')
-        elif len(data) == 1:
-            for key in data[0]:
-                self[key] = data[0][key]
-        for key in values:
-            self[key] = values[key]
-
-    def todict(self):
-        """Convert the fixed-key dictionary to a standard dictionary.
-
-        Returns
-        -------
-        dict
-            A copy of the data in the dictionary.
-
-        """
-        return dict(self._data)
-
-    @property
-    def keys(self):
-        """tuple: All keys in the dictionary."""
-        return self._keys
-
-class PairMatrix:
-    """Generic matrix of values per-pair.
-
-    Defines a symmetric matrix of parameters corresponding to ``(i,j)`` pairs.
-    The matrix is essentially a dictionary of dictionaries, keyed on ``(i,j)``.
-    There is an equivalent virtual entry for ``(j,i)``. (The pairs that are
-    actually saved have ``j >= i``.) The dictionary associated with each pair
-    can have any number of entries in it, although a common use case is to have
-    the same parameter stored per-pair.
-
-    The pairs in the matrix are frozen from the list of types specified when
-    the object is constructed. It is an error to access pairs that cannot be
-    formed from ``types``.
-
-    The pair matrix emulates a dictionary, and its pairs are iterable.
+    Interpolates through a function :math:`y(x)` on the domain
+    :math:`a \le x \le b` using Akima splines. Outside this domain, `y` is
+    extrapolated as a constant, i.e., :math:`y(x < a) = y(a)` and
+    :math:`y(x > b) = y(b)`\.
 
     Parameters
     ----------
-    types : array_like
-        List of types (A type must be a :class:`str`).
+    x : array_like
+        1D array of x coordinates that must be continually increasing.
+    y : array_like
+        1D array of y coordinates.
 
     Raises
     ------
     ValueError
-        If initialization occurs with empty ``types``.
-    TypeError
-        If ``types`` does not consist of only strings.
+        If ``x`` is a scalar.
+    ValueError
+        If ``x`` is not 1-dimensional.
+    ValueError
+        If ``y`` is not the same shape as ``x``.
+    ValueError
+        If ``x`` is not strictly increasing.
 
     Examples
     --------
-    Create a pair matrix::
+    Interpolating the line :math:`y=2x`::
 
-        m = PairMatrix(types=('A','B'))
+        f = Interpolator(x=(-1,0,1), y=(-2,0,2))
 
-    Set a pair matrix value::
+    Evaluating the function::
 
-        m['A','A']['energy'] = 1.0
-        m['A','B']['energy'] = -1.0
-        m['B','B']['energy'] = 1.0
-
-    Get a pair matrix value::
-
-        >>> m['A','A']['energy']
+        >>> f(0.5)
         1.0
-        >>> m['A','B']['energy']
-        -1.0
-        >>> m['B','A']['energy']
-        -1.0
+        >>> f([-0.5,0.5])
+        (-1.0, 1.0)
 
-    Iterate a pair matrix::
+    Evaluate the :math:`n`\th derivative of the function::
 
-        for pair in m:
-            m[pair]['mass'] = 1.0
+        >>> f.derivative(x=0.5, n=1)
+        2.0
+        >>> f.derivative(x=[-2.5,-0.5,0.5,2.5], n=1)
+        (0.0, 2.0, 2.0, 0.0)
 
-    Multiple parameters are a dictionary::
+    Extrapolation::
 
-        >>> m['A','B']
-        {'energy': -1.0, 'mass': 1.0}
-
-    Single-type matrix still needs ``types`` as a tuple::
-
-        PairMatrix(types=('A',))
+        >>> f(100)
+        2.0
 
     """
-    def __init__(self, types):
-        if len(types) == 0:
-            raise ValueError('Cannot initialize with empty types')
-        if not all(isinstance(t, str) for t in types):
-            raise TypeError('All types must be strings')
-        self.types = tuple(types)
+    def __init__(self, x, y):
+        x = numpy.atleast_1d(x)
+        y = numpy.atleast_1d(y)
+        if x.shape[0] == 1:
+            raise ValueError('x cannot be a scalar')
+        if x.ndim > 1:
+            raise ValueError('x must be 1-dimensional')
+        if x.shape != y.shape:
+            raise ValueError('x and y must be the same shape')
+        if not numpy.all(x[1:] > x[:-1]):
+            raise ValueError('x must be strictly increasing')
+        self._domain = (x[0],x[-1])
+        if x.shape[0] > 2:
+            self._spline = scipy.interpolate.Akima1DInterpolator(x=x, y=y)
+        else:
+            self._spline = scipy.interpolate.InterpolatedUnivariateSpline(x=x, y=y, k=1)
 
-        # flood data with type pairs
-        self._data = {}
-        for i in self.types:
-            for j in self.types:
-                if j >= i:
-                    self._data[i,j] = {}
+    def __call__(self, x):
+        r"""Evaluate the interpolating function.
 
-    def _check_key(self, key):
-        """Check that a pair key is valid.
+        Parameters
+        ----------
+        x : float or array_like
+            1-d array of :math:`x` coordinates to evaluate.
 
         Returns
         -------
-        tuple
-            The `(i,j)` pair that is keyed in the dictionary.
+        result : float or numpy.ndarray
+            Interpolated values having the same form as ``x``.
+
+        """
+        scalar_x = numpy.isscalar(x)
+        x = numpy.atleast_1d(x)
+        result = numpy.zeros(len(x))
+
+        # clamp lo
+        lo = x < self.domain[0]
+        result[lo] = self._spline(self.domain[0])
+
+        # clamp hi
+        hi = x > self.domain[1]
+        result[hi] = self._spline(self.domain[1])
+
+        # evaluate in between
+        flags = numpy.logical_and(~lo,~hi)
+        result[flags] = self._spline(x[flags])
+
+        if scalar_x:
+            result = result.item()
+
+        return result
+
+    def derivative(self, x, n):
+        r"""Evaluate the :math:`n`\th derivative of the interpolating function.
+
+        Parameters
+        ----------
+        x : float or array_like
+            1-d array of :math:`x` coordinates to evaluate.
+        n : int
+            The order of the derivative to take.
+
+        Returns
+        -------
+        result : float or numpy.ndarray
+            Interpolated derivative values having the same form as ``x``.
 
         Raises
         ------
-        KeyError
-            If the key is not the right length or is not in the matrix.
+        ValueError
+            If ``n`` is not a positive integer.
 
         """
-        if len(key) != 2:
-            raise KeyError('Coefficient matrix requires a pair of types.')
+        if not isinstance(n, int) and n <= 0:
+            raise ValueError('n must be a positive integer')
+        scalar_x = numpy.isscalar(x)
+        x = numpy.atleast_1d(x)
+        result = numpy.zeros(len(x))
 
-        if key[0] not in self.types:
-            raise KeyError('Type {} is not in coefficient matrix.'.format(key[0]))
-        elif key[1] not in self.types:
-            raise KeyError('Type {} is not in coefficient matrix.'.format(key[1]))
+        # clamp lo
+        lo = x < self.domain[0]
+        result[lo] = 0
 
-        if key[1] >= key[0]:
-            return key
-        else:
-            return (key[1],key[0])
+        # clamp hi
+        hi = x > self.domain[1]
+        result[hi] = 0
 
-    def __getitem__(self, key):
-        """Get all coefficients for the `(i,j)` pair."""
-        i,j = self._check_key(key)
-        return self._data[i,j]
+        # evaluate in between
+        flags = numpy.logical_and(~lo,~hi)
+        result[flags] = self._spline.derivative(n)(x[flags])
 
-    def __setitem__(self, key, value):
-        """Set coefficients for the `(i,j)` pair."""
-        i,j = self._check_key(key)
-        self._data[i,j] = value
+        if scalar_x:
+            result = result.item()
 
-    def __iter__(self):
-        return iter(self._data)
-
-    def __next__(self):
-        return next(self._data)
-
-    def __str__(self):
-        return str(self._data)
+        return result
 
     @property
-    def pairs(self):
-        """tuple: All unique pairs in the matrix."""
-        return tuple(self._data.keys())
+    def domain(self):
+        """tuple: The valid domain for interpolation."""
+        return self._domain
 
 class KeyedArray(FixedKeyDict):
     """Numerical array with fixed keys.
@@ -565,47 +440,3 @@ class KeyedArray(FixedKeyDict):
         """
         self._assert_same_keys(val)
         return numpy.sum([self[x]*val[x] for x in self])
-
-class DefaultDict(collections.abc.MutableMapping):
-    """Dictionary which supports a default value.
-
-    Parameters
-    ----------
-    default : float
-        The default value.
-
-    """
-    def __init__(self, default):
-        self._data = {}
-        self.default = default
-
-    def __delitem__(self, key):
-        del self._data[key]
-
-    def __getitem__(self, key):
-        """Get keyed item or default value if key is invalid."""
-        try:
-            return self._data[key]
-        except KeyError:
-            return self.default
-
-    def __iter__(self):
-        return iter(self._data)
-
-    def __setitem__(self, key, value):
-        """Set value of keyed item."""
-        if key is None:
-            raise KeyError('A DefaultDict key cannot be None.')
-        self._data[key] = value
-
-    def __len__(self):
-        return len(self._data)
-
-    @property
-    def default(self):
-        """float or dict: The default value."""
-        return self._default
-
-    @default.setter
-    def default(self, value):
-        self._default = value
