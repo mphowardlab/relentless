@@ -1,1 +1,1 @@
-.. automodule:: relentless._collections
+.. automodule:: relentless.collections

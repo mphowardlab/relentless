@@ -136,14 +136,14 @@ class Tolerance:
 
     @property
     def absolute(self):
-        """:class:`~relentless._collections.DefaultDict`: The absolute
-        tolerance(s). Must be non-negative."""
+        """:class:`~relentless.collections.DefaultDict`: The absolute tolerance(s).
+        Must be non-negative."""
         return self._absolute
 
     @property
     def relative(self):
-        """:class:`~relentless._collections.DefaultDict`: The relative
-        tolerance(s). Must be between 0 and 1."""
+        """:class:`~relentless.collections.DefaultDict`: The relative tolerance(s).
+        Must be between 0 and 1."""
         return self._relative
 
     def isclose(self, a, b, key=None):
@@ -234,7 +234,7 @@ class GradientTest(ConvergenceTest):
 
     @property
     def tolerance(self):
-        """:class:`~relentless._collections.DefaultDict`: The absolute tolerance(s)."""
+        """:class:`~relentless.collections.DefaultDict`: The absolute tolerance(s)."""
         return self._tolerance.absolute
 
     def converged(self, result):

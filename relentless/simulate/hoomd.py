@@ -839,7 +839,7 @@ class RDFCallback:
     ----------
     system : :mod:`hoomd.data` system
         Simulation system object.
-    params : :class:`~relentless._collections.PairMatrix`
+    params : :class:`~relentless.collections.PairMatrix`
         Parameters to be used to initialize an instance of :class:`freud.density.RDF`.
     communicator : :class:`~relentless.mpi.Communicator`
         The MPI communicator to use.

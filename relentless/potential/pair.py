@@ -1034,7 +1034,7 @@ class PairSpline(PairPotential):
 
         Returns
         -------
-        :class:`~relentless._math.Interpolator`
+        :class:`~relentless.math.Interpolator`
             The interpolated spline potential.
 
         """

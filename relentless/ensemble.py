@@ -144,7 +144,7 @@ class Ensemble:
 
     @property
     def N(self):
-        r""":class:`~relentless._collections.FixedKeyDict`: Number of particles of each type."""
+        r""":class:`~relentless.collections.FixedKeyDict`: Number of particles of each type."""
         return self._N
 
     @property
@@ -159,7 +159,7 @@ class Ensemble:
 
     @property
     def rdf(self):
-        r""":class:`~relentless._collections.PairMatrix`: Radial distribution function per pair."""
+        r""":class:`~relentless.collections.PairMatrix`: Radial distribution function per pair."""
         return self._rdf
 
     def copy(self):

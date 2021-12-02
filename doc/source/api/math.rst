@@ -1,1 +1,1 @@
-.. automodule:: relentless._math
+.. automodule:: relentless.math

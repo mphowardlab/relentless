@@ -178,7 +178,7 @@ class Parameters:
 
     @property
     def shared(self):
-        """:class:`~relentless._collections.FixedKeyDict`: The shared parameters."""
+        """:class:`~relentless.collections.FixedKeyDict`: The shared parameters."""
         return self._shared
 
 class Potential(abc.ABC):

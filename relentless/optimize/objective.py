@@ -161,7 +161,7 @@ class ObjectiveFunctionResult:
 
     @property
     def gradient(self):
-        """:class:`~relentless._collections.KeyedArray`: The gradient of the
+        """:class:`~relentless.collections.KeyedArray`: The gradient of the
         objective function, keyed on its design variables."""
         return self._gradient
 
@@ -178,7 +178,7 @@ class ObjectiveFunctionResult:
 
     @property
     def design_variables(self):
-        """:class:`~relentless._collections.KeyedArray`: The design variables of
+        """:class:`~relentless.collections.KeyedArray`: The design variables of
         the :class:`ObjectiveFunction` for which the result was constructed, mapped
         to the value of the variables at the time the result was constructed."""
         return self._design_variables
