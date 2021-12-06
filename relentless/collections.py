@@ -2,8 +2,7 @@
 Collections
 ===========
 
-This module contains some data structures used in :mod:`relentless` as an
-alternative to Python's general purpose containers, for ease of use in constructing
+This module contains some customized data structures used for constructing
 potentials and performing computations during the optimization workflow.
 
 .. autosummary::

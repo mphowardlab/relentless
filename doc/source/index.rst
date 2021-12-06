@@ -21,6 +21,7 @@
     api/optimize/index
     api/variable
     api/volume
+    api/devtools
 
 .. toctree::
     :maxdepth: 1
