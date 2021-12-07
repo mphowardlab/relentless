@@ -107,12 +107,12 @@ class test_RelativeEntropy(unittest.TestCase):
         rs = numpy.linspace(0,3.6,1001)[1:]
         r6_inv = numpy.power(0.9/rs, 6)
         gs = numpy.exp(-(1/1.5)*4.*1.0*(r6_inv**2 - r6_inv))
-        sim_rdf = relentless._math.Interpolator(rs,gs)
+        sim_rdf = relentless.math.Interpolator(rs,gs)
 
         rs = numpy.arange(0.05,5.0,0.1)
         r6_inv = numpy.power(0.9/rs, 6)
         gs = numpy.exp(-4.*1.0*(r6_inv**2 - r6_inv))
-        tgt_rdf = relentless._math.Interpolator(rs,gs)
+        tgt_rdf = relentless.math.Interpolator(rs,gs)
 
         rs = numpy.linspace(0,3.6,1001)[1:]
         r6_inv = numpy.power(0.9/rs, 6)
@@ -120,7 +120,7 @@ class test_RelativeEntropy(unittest.TestCase):
             dus = 4*(r6_inv**2 - r6_inv)
         elif var is self.sigma:
             dus = (48.*1.0/0.9)*(r6_inv**2 - 0.5*r6_inv)
-        dudvar = relentless._math.Interpolator(rs,dus)
+        dudvar = relentless.math.Interpolator(rs,dus)
 
         if ext:
             norm_factor = 1.

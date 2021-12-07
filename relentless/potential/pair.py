@@ -54,8 +54,8 @@ import abc
 
 import numpy
 
-from relentless import _collections
-from relentless import _math
+from relentless import collections
+from relentless import math
 from relentless import variable
 from . import potential
 
@@ -148,9 +148,9 @@ class PairParameters(potential.Parameters):
         super().__init__(types, params)
 
         # per-pair params
-        self._per_pair = _collections.PairMatrix(types)
+        self._per_pair = collections.PairMatrix(types)
         for pair in self:
-            self._per_pair[pair] = _collections.FixedKeyDict(keys=self.params)
+            self._per_pair[pair] = collections.FixedKeyDict(keys=self.params)
 
     def __getitem__(self, pair):
         """Get parameters for the (i,j) pair."""
@@ -1034,7 +1034,7 @@ class PairSpline(PairPotential):
 
         Returns
         -------
-        :class:`~relentless._math.Interpolator`
+        :class:`~relentless.math.Interpolator`
             The interpolated spline potential.
 
         """
@@ -1047,7 +1047,7 @@ class PairSpline(PairPotential):
         # reconstruct the energies from differences, starting from the end of the potential
         if self.mode == 'diff':
             u = numpy.flip(numpy.cumsum(numpy.flip(u)))
-        return _math.Interpolator(x=r, y=u)
+        return math.Interpolator(x=r, y=u)
 
     @property
     def num_knots(self):

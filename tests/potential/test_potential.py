@@ -202,8 +202,8 @@ class test_Parameters(unittest.TestCase):
 
         #test evaluation with initialized parameter values as unrecognized types
         m = relentless.potential.Parameters(types=('A','B'), params=('energy','mass'))
-        m.shared['energy'] = relentless._math.Interpolator(x=(-1,0,1), y=(-2,0,2))
-        m.shared['mass'] = relentless._math.Interpolator(x=(-1,0,1), y=(-2,0,2))
+        m.shared['energy'] = relentless.math.Interpolator(x=(-1,0,1), y=(-2,0,2))
+        m.shared['mass'] = relentless.math.Interpolator(x=(-1,0,1), y=(-2,0,2))
         with self.assertRaises(TypeError):
             x = m.evaluate('A')
 

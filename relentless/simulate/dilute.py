@@ -22,7 +22,7 @@ It can be accessed using the corresponding :class:`~relentless.simulate.generic.
 import numpy
 
 from relentless.ensemble import RDF
-from relentless._math import Interpolator
+from relentless.math import Interpolator
 from . import simulate
 
 class Dilute(simulate.Simulation):

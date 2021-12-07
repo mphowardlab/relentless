@@ -27,7 +27,7 @@ import json
 
 import numpy
 
-from relentless import _collections
+from relentless import collections
 from relentless import variable
 
 class Parameters:
@@ -66,12 +66,12 @@ class Parameters:
         self.params = tuple(params)
 
         # shared params
-        self._shared = _collections.FixedKeyDict(keys=self.params)
+        self._shared = collections.FixedKeyDict(keys=self.params)
 
         # per-type params
-        self._per_type = _collections.FixedKeyDict(keys=self.types)
+        self._per_type = collections.FixedKeyDict(keys=self.types)
         for t in self.types:
-            self._per_type[t] = _collections.FixedKeyDict(keys=self.params)
+            self._per_type[t] = collections.FixedKeyDict(keys=self.params)
 
     def evaluate(self, key):
         """Evaluate parameters.
@@ -178,7 +178,7 @@ class Parameters:
 
     @property
     def shared(self):
-        """:class:`~relentless._collections.FixedKeyDict`: The shared parameters."""
+        """:class:`~relentless.collections.FixedKeyDict`: The shared parameters."""
         return self._shared
 
 class Potential(abc.ABC):
