@@ -72,15 +72,13 @@ class test_LAMMPS(unittest.TestCase):
         op = relentless.simulate.lammps.InitializeFromFile(filename=file_)
         l = relentless.simulate.lammps.LAMMPS(operations=op, quiet=False)
         sim = l.run(ensemble=ens, potentials=pot, directory=self.directory)
-        pl = lammps.PyLammps(ptr=sim.lammps)
-        self.assertIsNotNone(pl.system)
+        self.assertNotEqual(sim.lammps.get_natoms(), 0)
 
         #InitializeRandomly
         op = relentless.simulate.lammps.InitializeRandomly(seed=1)
         l = relentless.simulate.lammps.LAMMPS(operations=op, quiet=False)
         sim = l.run(ensemble=ens, potentials=pot, directory=self.directory)
-        pl = lammps.PyLammps(ptr=sim.lammps)
-        self.assertIsNotNone(pl.system)
+        self.assertNotEqual(sim.lammps.get_natoms(), 0)
 
     def test_minimization(self):
         """Test running energy minimization simulation operation."""
@@ -277,7 +275,7 @@ class test_LAMMPS(unittest.TestCase):
                                                                friction=1.0,
                                                                seed=1)
         op = [init,lgv,analyzer,run]
-        h = relentless.simulate.lammps.LAMMPS(operations=op,quiet=False)
+        h = relentless.simulate.lammps.LAMMPS(operations=op, quiet=False)
         sim = h.run(ensemble=ens, potentials=pot, directory=self.directory)
 
         #extract ensemble
