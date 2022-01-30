@@ -111,6 +111,9 @@ class test_LAMMPS(unittest.TestCase):
         l.operations = [init, lgv]
         sim = l.run(ensemble=ens, potentials=pot, directory=self.directory)
         pl = lammps.PyLammps(ptr=sim.lammps)
+        print('!!!!!!!!!')
+        print(pl.fixes)
+        print('!!!!!!!!!')
         self.assertEqual(pl.fixes[1]['style'], 'nve')
         self.assertEqual(pl.fixes[2]['style'], 'langevin')
         lgv_r(sim)
