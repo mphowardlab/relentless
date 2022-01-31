@@ -13,7 +13,7 @@ import relentless
 from ..potential.test_pair import LinPot
 
 @unittest.skipIf(not relentless.simulate.lammps._lammps_found or
-                 sys.version_info[:2] == (3,8),
+                 sys.version_info[:2] == (3,6),
                  "Compatible LAMMPS not installed")
 class test_LAMMPS(unittest.TestCase):
     """Unit tests for relentless.LAMMPS"""
