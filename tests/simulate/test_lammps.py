@@ -108,11 +108,11 @@ class test_LAMMPS(unittest.TestCase):
         lgv_r = relentless.simulate.lammps.RemoveLangevinIntegrator(add_op=lgv)
         l.operations = [init, lgv]
         sim = l.run(ensemble=ens, potentials=pot, directory=self.directory)
-        self.assertIsNotNone(sim.lammps.extract_fix(lgv._fix_nve))
-        self.assertIsNotNone(sim.lammps.extract_fix(lgv._fix_langevin))
+        self.assertIsNotNone(sim.lammps.extract_fix(lgv._fix_nve,0,2))
+        self.assertIsNotNone(sim.lammps.extract_fix(lgv._fix_langevin,0,2))
         lgv_r(sim)
-        self.assertIsNone(sim.lammps.extract_fix(lgv._fix_nve))
-        self.assertIsNone(sim.lammps.extract_fix(lgv._fix_langevin))
+        self.assertIsNone(sim.lammps.extract_fix(lgv._fix_nve,0,2))
+        self.assertIsNone(sim.lammps.extract_fix(lgv._fix_langevin,0,2))
 
         #dictionary friction
         lgv = relentless.simulate.lammps.AddLangevinIntegrator(dt=0.5,
