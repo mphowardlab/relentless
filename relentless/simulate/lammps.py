@@ -820,8 +820,8 @@ class AddEnsembleAnalyzer(LAMMPSOperation):
                  ' v_ensemble_Lx v_ensemble_Ly v_ensemble_Lz'
                  ' v_ensemble_xy v_ensemble_xz v_ensemble_yz'
                  ' mode scalar ave running'
-                 ' file {filename} overwrite format "% .16e"').format(every=self.check_thermo_every,
-                                                                      filename=sim[self].thermo_file)
+                 ' file {filename} overwrite format "% .16e "').format(every=self.check_thermo_every,
+                                                                       filename=sim[self].thermo_file)
                 ]
 
         # pair distribution function
@@ -840,9 +840,9 @@ class AddEnsembleAnalyzer(LAMMPSOperation):
         cmds += ['compute ensemble_rdf all rdf {bins} {pairs}'.format(bins=sim[self].num_bins,pairs=' '.join(_pairs)),
                  ('fix ensemble_rdf_avg all ave/time {every} 1 {every}'
                   ' {computes} mode vector ave running off 1'
-                  ' file {filename} overwrite format " % .16e"').format(every=self.check_rdf_every,
-                                                                        computes=' '.join(_computes),
-                                                                        filename=sim[self].rdf_file)
+                  ' file {filename} overwrite format " % .16e "').format(every=self.check_rdf_every,
+                                                                         computes=' '.join(_computes),
+                                                                         filename=sim[self].rdf_file)
                 ]
 
         return cmds
