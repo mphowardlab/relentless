@@ -870,8 +870,11 @@ class RDFCallback:
                 typei = (snap.particles.typeid == snap.particles.types.index(i))
                 typej = (snap.particles.typeid == snap.particles.types.index(j))
                 aabb = freud.locality.AABBQuery(box,snap.particles.position[typej])
+                query_args = dict(self._rdf[i,j].default_query_args)
+                query_args.update(exclude_ii=(i==j))
                 self._rdf[i,j].compute(aabb,
                                        snap.particles.position[typei],
+                                       neighbors=query_args,
                                        reset=False)
 
     @property
