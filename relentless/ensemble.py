@@ -27,8 +27,8 @@ import json
 
 import numpy
 
-from ._collections import FixedKeyDict,PairMatrix
-from ._math import Interpolator
+from .collections import FixedKeyDict,PairMatrix
+from .math import Interpolator
 from . import volume
 
 class RDF(Interpolator):
@@ -144,7 +144,7 @@ class Ensemble:
 
     @property
     def N(self):
-        r""":class:`~relentless._collections.FixedKeyDict`: Number of particles of each type."""
+        r""":class:`~relentless.collections.FixedKeyDict`: Number of particles of each type."""
         return self._N
 
     @property
@@ -159,7 +159,7 @@ class Ensemble:
 
     @property
     def rdf(self):
-        r""":class:`~relentless._collections.PairMatrix`: Radial distribution function per pair."""
+        r""":class:`~relentless.collections.PairMatrix`: Radial distribution function per pair."""
         return self._rdf
 
     def copy(self):

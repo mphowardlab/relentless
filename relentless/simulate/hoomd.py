@@ -99,9 +99,9 @@ from packaging import version
 
 import numpy
 
-from relentless._collections import PairMatrix
+from relentless.collections import PairMatrix
 from relentless.ensemble import RDF
-from relentless._math import Interpolator
+from relentless.math import Interpolator
 from relentless.volume import TriclinicBox
 from . import simulate
 
@@ -839,7 +839,7 @@ class RDFCallback:
     ----------
     system : :mod:`hoomd.data` system
         Simulation system object.
-    params : :class:`~relentless._collections.PairMatrix`
+    params : :class:`~relentless.collections.PairMatrix`
         Parameters to be used to initialize an instance of :class:`freud.density.RDF`.
     communicator : :class:`~relentless.mpi.Communicator`
         The MPI communicator to use.
