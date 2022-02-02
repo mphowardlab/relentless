@@ -203,13 +203,13 @@ class test_HOOMD(unittest.TestCase):
         """Test ensemble analyzer simulation operation."""
         ens,pot = self.ens_pot()
         init = relentless.simulate.hoomd.InitializeRandomly(seed=1)
+        lgv = relentless.simulate.hoomd.AddLangevinIntegrator(dt=0.1,
+                                                              friction=0.9,
+                                                              seed=2)
         analyzer = relentless.simulate.hoomd.AddEnsembleAnalyzer(check_thermo_every=5,
                                                                  check_rdf_every=5,
                                                                  rdf_dr=1.0)
         run = relentless.simulate.hoomd.Run(steps=500)
-        lgv = relentless.simulate.hoomd.AddLangevinIntegrator(dt=0.1,
-                                                              friction=0.9,
-                                                              seed=2)
         op = [init,lgv,analyzer,run]
         h = relentless.simulate.hoomd.HOOMD(operations=op)
         sim = h.run(ensemble=ens, potentials=pot, directory=self.directory)
@@ -233,6 +233,33 @@ class test_HOOMD(unittest.TestCase):
         self.assertIsNone(thermo.T)
         self.assertIsNone(thermo.P)
         self.assertIsNone(thermo.V)
+
+    def test_self_interactions(self):
+        """Test if self-interactions are excluded from rdf computation."""
+        with gsd.hoomd.open(name=self.directory.file('mock.gsd'), mode='wb') as f:
+            s = gsd.hoomd.Snapshot()
+            s.particles.N = 4
+            s.particles.types = ['A','B']
+            s.particles.typeid = [0,1,0,1]
+            s.particles.position = [[-1,-1,-1],[1,1,1],[1,-1,1],[-1,1,-1]]
+            s.configuration.box = [8,8,8,0,0,0]
+            f.append(s)
+
+        ens = relentless.ensemble.Ensemble(T=2.0, V=relentless.volume.Cube(L=8.0), N={'A':2,'B':2})
+        _,pot = self.ens_pot()
+        init = relentless.simulate.hoomd.InitializeFromFile(filename=f.file.name)
+        ig = relentless.simulate.hoomd.AddVerletIntegrator(dt=0.0)
+        analyzer = relentless.simulate.hoomd.AddEnsembleAnalyzer(check_thermo_every=1,
+                                                                 check_rdf_every=1,
+                                                                 rdf_dr=0.1)
+        run = relentless.simulate.hoomd.Run(steps=1)
+        op = [init,ig,analyzer,run]
+        h = relentless.simulate.hoomd.HOOMD(operations=op)
+        sim = h.run(ensemble=ens, potentials=pot, directory=self.directory)
+
+        ens_ = analyzer.extract_ensemble(sim)
+        for i,j in ens_.rdf:
+            self.assertEqual(ens_.rdf[i,j].table[0,1], 0.0)
 
     def tearDown(self):
         self._tmp.cleanup()
