@@ -114,7 +114,6 @@ class LAMMPS(simulate.Simulation):
         sim.lammps = lammps.lammps(cmdargs=launch_args, comm=sim.communicator.comm)
         if sim.lammps.version() < 20210929:
             raise ImportError('Only LAMMPS 29 Sep 2021 or newer is supported.')
-
         # lammps uses 1-indexed ints for types, so build mapping in both direction
         sim.type_map = {}
         sim.typeid_map = {}
