@@ -1,4 +1,5 @@
 """Unit tests for generic module."""
+import sys
 import tempfile
 import unittest
 
@@ -51,15 +52,6 @@ class test_Generic(unittest.TestCase):
         with self.assertRaises(TypeError):
             sim = relentless.simulate.Simulation(self.ops)
             sim.run(self.ensemble, self.potentials, self.directory)
-
-    @unittest.skipIf(not relentless.simulate.lammps._lammps_found,
-                     "LAMMPS not installed")
-    def test_notimplemented(self):
-        ops = [relentless.simulate.InitializeRandomly(seed=1),
-               relentless.simulate.AddBrownianIntegrator(dt=0.1,friction=0.5,seed=2)]
-        lammps = relentless.simulate.lammps.LAMMPS(ops)
-        with self.assertRaises(TypeError):
-            lammps.run(self.ensemble, self.potentials, self.directory)
 
     def tearDown(self):
         self._tmp.cleanup()

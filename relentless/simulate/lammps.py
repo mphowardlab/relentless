@@ -82,7 +82,7 @@ class LAMMPS(simulate.Simulation):
     """:class:`~relentless.simulate.simulate.Simulation` using LAMMPS framework.
 
     LAMMPS must be built with its `Python interface <https://lammps.sandia.gov/doc/Python_head.html>`_
-    and must be version 29 Oct 2020 or newer.
+    and must be version 29 Sep 2021 or newer.
 
     Raises
     ------
@@ -112,9 +112,8 @@ class LAMMPS(simulate.Simulation):
                            '-nocite']
 
         sim.lammps = lammps.lammps(cmdargs=launch_args, comm=sim.communicator.comm)
-        if sim.lammps.version() < 20201029:
-            raise ImportError('Only LAMMPS 29 Oct 2020 or newer is supported.')
-
+        if sim.lammps.version() < 20210929:
+            raise ImportError('Only LAMMPS 29 Sep 2021 or newer is supported.')
         # lammps uses 1-indexed ints for types, so build mapping in both direction
         sim.type_map = {}
         sim.typeid_map = {}
@@ -521,7 +520,7 @@ class AddLangevinIntegrator(LAMMPSOperation):
         # obtain per-type mass (arrays 1-indexed using lammps convention)
         Ntypes = len(sim.ensemble.types)
         mass = sim.lammps.numpy.extract_atom('mass')
-        if mass is None or mass.shape != (Ntypes+1,1):
+        if mass is None or mass.shape != (Ntypes+1,):
             raise ValueError('Per-type masses not set.')
         mass = numpy.squeeze(mass)
 
@@ -820,8 +819,8 @@ class AddEnsembleAnalyzer(LAMMPSOperation):
                  ' v_ensemble_Lx v_ensemble_Ly v_ensemble_Lz'
                  ' v_ensemble_xy v_ensemble_xz v_ensemble_yz'
                  ' mode scalar ave running'
-                 ' file {filename} overwrite format "%.16e"').format(every=self.check_thermo_every,
-                                                                     filename=sim[self].thermo_file)
+                 ' file {filename} overwrite format " %.16e"').format(every=self.check_thermo_every,
+                                                                       filename=sim[self].thermo_file)
                 ]
 
         # pair distribution function
@@ -840,9 +839,9 @@ class AddEnsembleAnalyzer(LAMMPSOperation):
         cmds += ['compute ensemble_rdf all rdf {bins} {pairs}'.format(bins=sim[self].num_bins,pairs=' '.join(_pairs)),
                  ('fix ensemble_rdf_avg all ave/time {every} 1 {every}'
                   ' {computes} mode vector ave running off 1'
-                  ' file {filename} overwrite format "%.16e"').format(every=self.check_rdf_every,
-                                                                      computes=' '.join(_computes),
-                                                                      filename=sim[self].rdf_file)
+                  ' file {filename} overwrite format " %.16e"').format(every=self.check_rdf_every,
+                                                                         computes=' '.join(_computes),
+                                                                         filename=sim[self].rdf_file)
                 ]
 
         return cmds
