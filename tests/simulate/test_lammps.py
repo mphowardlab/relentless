@@ -12,8 +12,7 @@ import numpy
 import relentless
 from ..potential.test_pair import LinPot
 
-@unittest.skipIf(not relentless.simulate.lammps._lammps_found or
-                 sys.version_info[:2] == (3,8),
+@unittest.skipIf(not relentless.simulate.lammps._lammps_found,
                  "Compatible LAMMPS not installed")
 class test_LAMMPS(unittest.TestCase):
     """Unit tests for relentless.LAMMPS"""
@@ -72,15 +71,15 @@ class test_LAMMPS(unittest.TestCase):
         op = relentless.simulate.lammps.InitializeFromFile(filename=file_)
         l = relentless.simulate.lammps.LAMMPS(operations=op, quiet=False)
         sim = l.run(ensemble=ens, potentials=pot, directory=self.directory)
-        pl = lammps.PyLammps(ptr=sim.lammps)
-        self.assertIsNotNone(pl.system)
+        self.assertIsInstance(sim.lammps, lammps.lammps)
+        self.assertEqual(sim.lammps.get_natoms(), 5)
 
         #InitializeRandomly
         op = relentless.simulate.lammps.InitializeRandomly(seed=1)
         l = relentless.simulate.lammps.LAMMPS(operations=op, quiet=False)
         sim = l.run(ensemble=ens, potentials=pot, directory=self.directory)
-        pl = lammps.PyLammps(ptr=sim.lammps)
-        self.assertIsNotNone(pl.system)
+        self.assertIsInstance(sim.lammps, lammps.lammps)
+        self.assertEqual(sim.lammps.get_natoms(), 5)
 
     def test_minimization(self):
         """Test running energy minimization simulation operation."""
@@ -98,8 +97,6 @@ class test_LAMMPS(unittest.TestCase):
 
     def test_integrators(self):
         """Test adding and removing integrator operations."""
-        default_fixes = [{'name':''}]
-
         init = relentless.simulate.lammps.InitializeRandomly(seed=1)
         l = relentless.simulate.lammps.LAMMPS(operations=init, quiet=False)
 
@@ -112,11 +109,11 @@ class test_LAMMPS(unittest.TestCase):
         lgv_r = relentless.simulate.lammps.RemoveLangevinIntegrator(add_op=lgv)
         l.operations = [init, lgv]
         sim = l.run(ensemble=ens, potentials=pot, directory=self.directory)
-        pl = lammps.PyLammps(ptr=sim.lammps)
-        self.assertEqual(pl.fixes[1]['style'], 'nve')
-        self.assertEqual(pl.fixes[2]['style'], 'langevin')
+        self.assertTrue(sim.lammps.has_id('fix',str(lgv._fix_nve)))
+        self.assertTrue(sim.lammps.has_id('fix',str(lgv._fix_langevin)))
         lgv_r(sim)
-        self.assertCountEqual(pl.fixes, default_fixes)
+        self.assertFalse(sim.lammps.has_id('fix',str(lgv._fix_nve)))
+        self.assertFalse(sim.lammps.has_id('fix',str(lgv._fix_langevin)))
 
         #dictionary friction
         lgv = relentless.simulate.lammps.AddLangevinIntegrator(dt=0.5,
@@ -125,11 +122,11 @@ class test_LAMMPS(unittest.TestCase):
         lgv_r = relentless.simulate.lammps.RemoveLangevinIntegrator(add_op=lgv)
         l.operations = [init, lgv]
         sim = l.run(ensemble=ens, potentials=pot, directory=self.directory)
-        pl = lammps.PyLammps(ptr=sim.lammps)
-        self.assertEqual(pl.fixes[1]['style'], 'nve')
-        self.assertEqual(pl.fixes[2]['style'], 'langevin')
+        self.assertTrue(sim.lammps.has_id('fix',str(lgv._fix_nve)))
+        self.assertTrue(sim.lammps.has_id('fix',str(lgv._fix_langevin)))
         lgv_r(sim)
-        self.assertCountEqual(pl.fixes, default_fixes)
+        self.assertFalse(sim.lammps.has_id('fix',str(lgv._fix_nve)))
+        self.assertFalse(sim.lammps.has_id('fix',str(lgv._fix_langevin)))
 
         #single-type friction
         ens_1 = relentless.ensemble.Ensemble(T=2.0, V=relentless.volume.Cube(L=10.0), N={'1':2})
@@ -139,11 +136,11 @@ class test_LAMMPS(unittest.TestCase):
         lgv_r = relentless.simulate.lammps.RemoveLangevinIntegrator(add_op=lgv)
         l.operations = [init, lgv]
         sim = l.run(ensemble=ens_1, potentials=pot, directory=self.directory)
-        pl = lammps.PyLammps(ptr=sim.lammps)
-        self.assertEqual(pl.fixes[1]['style'], 'nve')
-        self.assertEqual(pl.fixes[2]['style'], 'langevin')
+        self.assertTrue(sim.lammps.has_id('fix',str(lgv._fix_nve)))
+        self.assertTrue(sim.lammps.has_id('fix',str(lgv._fix_langevin)))
         lgv_r(sim)
-        self.assertCountEqual(pl.fixes, default_fixes)
+        self.assertFalse(sim.lammps.has_id('fix',str(lgv._fix_nve)))
+        self.assertFalse(sim.lammps.has_id('fix',str(lgv._fix_langevin)))
 
         #invalid-type friction
         lgv = relentless.simulate.lammps.AddLangevinIntegrator(dt=0.5,
@@ -159,39 +156,35 @@ class test_LAMMPS(unittest.TestCase):
         vrl_r = relentless.simulate.lammps.RemoveVerletIntegrator(add_op=vrl)
         l.operations = [init, vrl]
         sim = l.run(ensemble=ens, potentials=pot, directory=self.directory)
-        pl = lammps.PyLammps(ptr=sim.lammps)
-        self.assertEqual(pl.fixes[1]['style'], 'nve')
+        self.assertTrue(sim.lammps.has_id('fix',str(vrl._fix)))
         vrl_r(sim)
-        self.assertCountEqual(pl.fixes, default_fixes)
+        self.assertFalse(sim.lammps.has_id('fix',str(vrl._fix)))
 
         tb = relentless.simulate.BerendsenThermostat(T=1, tau=0.5)
         vrl = relentless.simulate.lammps.AddVerletIntegrator(dt=0.5, thermostat=tb)
         vrl_r = relentless.simulate.lammps.RemoveVerletIntegrator(add_op=vrl)
         l.operations = [init, vrl]
         sim = l.run(ensemble=ens, potentials=pot, directory=self.directory)
-        pl = lammps.PyLammps(ptr=sim.lammps)
-        self.assertEqual(pl.fixes[1]['style'], 'nve')
+        self.assertTrue(sim.lammps.has_id('fix',str(vrl._fix)))
         vrl_r(sim)
-        self.assertCountEqual(pl.fixes, default_fixes)
+        self.assertFalse(sim.lammps.has_id('fix',str(vrl._fix)))
 
         bb = relentless.simulate.BerendsenBarostat(P=1, tau=0.5)
         vrl = relentless.simulate.lammps.AddVerletIntegrator(dt=0.5, barostat=bb)
         vrl_r = relentless.simulate.lammps.RemoveVerletIntegrator(add_op=vrl)
         l.operations = [init, vrl]
         sim = l.run(ensemble=ens, potentials=pot, directory=self.directory)
-        pl = lammps.PyLammps(ptr=sim.lammps)
-        self.assertEqual(pl.fixes[1]['style'], 'nve')
+        self.assertTrue(sim.lammps.has_id('fix',str(vrl._fix)))
         vrl_r(sim)
-        self.assertCountEqual(pl.fixes, default_fixes)
+        self.assertFalse(sim.lammps.has_id('fix',str(vrl._fix)))
 
         vrl = relentless.simulate.lammps.AddVerletIntegrator(dt=0.5, thermostat=tb, barostat=bb)
         vrl_r = relentless.simulate.lammps.RemoveVerletIntegrator(add_op=vrl)
         l.operations = [init, vrl]
         sim = l.run(ensemble=ens, potentials=pot, directory=self.directory)
-        pl = lammps.PyLammps(ptr=sim.lammps)
-        self.assertEqual(pl.fixes[1]['style'], 'nve')
+        self.assertTrue(sim.lammps.has_id('fix',str(vrl._fix)))
         vrl_r(sim)
-        self.assertCountEqual(pl.fixes, default_fixes)
+        self.assertFalse(sim.lammps.has_id('fix',str(vrl._fix)))
 
         #VerletIntegrator - NVT
         tn = relentless.simulate.NoseHooverThermostat(T=1, tau=0.5)
@@ -199,19 +192,17 @@ class test_LAMMPS(unittest.TestCase):
         vrl_r = relentless.simulate.lammps.RemoveVerletIntegrator(add_op=vrl)
         l.operations = [init, vrl]
         sim = l.run(ensemble=ens, potentials=pot, directory=self.directory)
-        pl = lammps.PyLammps(ptr=sim.lammps)
-        self.assertEqual(pl.fixes[1]['style'], 'nvt')
+        self.assertTrue(sim.lammps.has_id('fix',str(vrl._fix)))
         vrl_r(sim)
-        self.assertCountEqual(pl.fixes, default_fixes)
+        self.assertFalse(sim.lammps.has_id('fix',str(vrl._fix)))
 
         vrl = relentless.simulate.lammps.AddVerletIntegrator(dt=0.5, thermostat=tn, barostat=bb)
         vrl_r = relentless.simulate.lammps.RemoveVerletIntegrator(add_op=vrl)
         l.operations = [init, vrl]
         sim = l.run(ensemble=ens, potentials=pot, directory=self.directory)
-        pl = lammps.PyLammps(ptr=sim.lammps)
-        self.assertEqual(pl.fixes[1]['style'], 'nvt')
+        self.assertTrue(sim.lammps.has_id('fix',str(vrl._fix)))
         vrl_r(sim)
-        self.assertCountEqual(pl.fixes, default_fixes)
+        self.assertFalse(sim.lammps.has_id('fix',str(vrl._fix)))
 
         #VerletIntegrator - NPH
         bm = relentless.simulate.MTKBarostat(P=1, tau=0.5)
@@ -219,29 +210,26 @@ class test_LAMMPS(unittest.TestCase):
         vrl_r = relentless.simulate.lammps.RemoveVerletIntegrator(add_op=vrl)
         l.operations = [init, vrl]
         sim = l.run(ensemble=ens, potentials=pot, directory=self.directory)
-        pl = lammps.PyLammps(ptr=sim.lammps)
-        self.assertEqual(pl.fixes[1]['style'], 'nph')
+        self.assertTrue(sim.lammps.has_id('fix',str(vrl._fix)))
         vrl_r(sim)
-        self.assertCountEqual(pl.fixes, default_fixes)
+        self.assertFalse(sim.lammps.has_id('fix',str(vrl._fix)))
 
         vrl = relentless.simulate.lammps.AddVerletIntegrator(dt=0.5, thermostat=tb, barostat=bm)
         vrl_r = relentless.simulate.lammps.RemoveVerletIntegrator(add_op=vrl)
         l.operations = [init, vrl]
         sim = l.run(ensemble=ens, potentials=pot, directory=self.directory)
-        pl = lammps.PyLammps(ptr=sim.lammps)
-        self.assertEqual(pl.fixes[1]['style'], 'nph')
+        self.assertTrue(sim.lammps.has_id('fix',str(vrl._fix)))
         vrl_r(sim)
-        self.assertCountEqual(pl.fixes, default_fixes)
+        self.assertFalse(sim.lammps.has_id('fix',str(vrl._fix)))
 
         #VerletIntegrator - NPT
         vrl = relentless.simulate.lammps.AddVerletIntegrator(dt=0.5, thermostat=tn, barostat=bm)
         vrl_r = relentless.simulate.lammps.RemoveVerletIntegrator(add_op=vrl)
         l.operations = [init, vrl]
         sim = l.run(ensemble=ens, potentials=pot, directory=self.directory)
-        pl = lammps.PyLammps(ptr=sim.lammps)
-        self.assertEqual(pl.fixes[1]['style'], 'npt')
+        self.assertTrue(sim.lammps.has_id('fix',str(vrl._fix)))
         vrl_r(sim)
-        self.assertCountEqual(pl.fixes, default_fixes)
+        self.assertFalse(sim.lammps.has_id('fix',str(vrl._fix)))
 
         #VerletIntegrator - incorrect
         with self.assertRaises(TypeError):
@@ -277,7 +265,7 @@ class test_LAMMPS(unittest.TestCase):
                                                                friction=1.0,
                                                                seed=1)
         op = [init,lgv,analyzer,run]
-        h = relentless.simulate.lammps.LAMMPS(operations=op,quiet=False)
+        h = relentless.simulate.lammps.LAMMPS(operations=op, quiet=False)
         sim = h.run(ensemble=ens, potentials=pot, directory=self.directory)
 
         #extract ensemble
