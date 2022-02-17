@@ -445,14 +445,22 @@ class MinimizeEnergy(LAMMPSOperation):
         Force convergence criterion.
     max_iterations : int
         Maximum number of iterations to run the minimization.
-    max_displacement : float (defaults to `None`).
-        The maximum step size is not required by the LAMMPS energy minimizer.
+    options : dict
+        Additional options for energy minimzer.
+
+    Raises
+    ------
+    ValueError
+        If a value for the maximum evaluations is not provided.
 
     """
-    def __init__(self, energy_tolerance, force_tolerance, max_iterations, max_displacement=None):
+    def __init__(self, energy_tolerance, force_tolerance, max_iterations, options):
         self.energy_tolerance = energy_tolerance
         self.force_tolerance = force_tolerance
         self.max_iterations = max_iterations
+        self.options = options
+        if 'max_evaluations' not in self.options:
+            raise ValueError('LAMMPS energy minimizer requires max_evaluations option.')
 
     def to_commands(self, sim):
         """Performs the energy minimization operation.
@@ -471,7 +479,7 @@ class MinimizeEnergy(LAMMPSOperation):
         cmds = ['minimize {etol} {ftol} {maxiter} {maxeval}'.format(etol=self.energy_tolerance,
                                                                     ftol=self.force_tolerance,
                                                                     maxiter=self.max_iterations,
-                                                                    maxeval=100*self.max_iterations)]
+                                                                    maxeval=self.options[max_evaluations])]
 
         return cmds
 

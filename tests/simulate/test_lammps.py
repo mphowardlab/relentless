@@ -89,10 +89,18 @@ class test_LAMMPS(unittest.TestCase):
         op = [relentless.simulate.lammps.InitializeFromFile(filename=file_),
               relentless.simulate.lammps.MinimizeEnergy(energy_tolerance=1e-7,
                                                         force_tolerance=1e-7,
-                                                        max_iterations=1000)
+                                                        max_iterations=1000,
+                                                        options={'max_evaluations':100000)
              ]
         l = relentless.simulate.lammps.LAMMPS(operations=op, quiet=False)
         sim = l.run(ensemble=ens, potentials=pot, directory=self.directory)
+
+        #error check for missing max_evaluations
+        with self.assertRaises(ValueError):
+            emin = relentless.simulate.lammps.MinimizeEnergy(energy_tolerance=1e-7,
+                                                             force_tolerance=1e-7,
+                                                             max_iterations=1000,
+                                                             options={})
 
     def test_integrators(self):
         """Test adding and removing integrator operations."""
