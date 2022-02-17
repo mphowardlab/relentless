@@ -210,7 +210,7 @@ class MinimizeEnergy(GenericOperation):
     max_iterations : int
         Maximum number of iterations to run the minimization.
     options : dict
-        Extra options for energy minimizer.
+        Additional options for energy minimizer (defaults to ``None``).
 
     """
     def __init__(self, energy_tolerance, force_tolerance, max_iterations, options=None):
