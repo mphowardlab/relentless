@@ -479,7 +479,7 @@ class MinimizeEnergy(LAMMPSOperation):
         cmds = ['minimize {etol} {ftol} {maxiter} {maxeval}'.format(etol=self.energy_tolerance,
                                                                     ftol=self.force_tolerance,
                                                                     maxiter=self.max_iterations,
-                                                                    maxeval=self.options[max_evaluations])]
+                                                                    maxeval=self.options['max_evaluations'])]
 
         return cmds
 
