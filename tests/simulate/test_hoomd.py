@@ -82,7 +82,7 @@ class test_HOOMD(unittest.TestCase):
               relentless.simulate.hoomd.MinimizeEnergy(energy_tolerance=1e-7,
                                                        force_tolerance=1e-7,
                                                        max_iterations=1000,
-                                                       dt=0.01)
+                                                       max_displacement=0.01)
              ]
         h = relentless.simulate.hoomd.HOOMD(operations=op)
         sim = h.run(ensemble=ens, potentials=pot, directory=self.directory)

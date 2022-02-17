@@ -445,11 +445,11 @@ class MinimizeEnergy(LAMMPSOperation):
         Force convergence criterion.
     max_iterations : int
         Maximum number of iterations to run the minimization.
-    dt : float
-        Maximum step size.
+    max_displacement : float (defaults to `None`).
+        The maximum step size is not required by the LAMMPS energy minimizer.
 
     """
-    def __init__(self, energy_tolerance, force_tolerance, max_iterations, dt):
+    def __init__(self, energy_tolerance, force_tolerance, max_iterations, max_displacement=None):
         self.energy_tolerance = energy_tolerance
         self.force_tolerance = force_tolerance
         self.max_iterations = max_iterations

@@ -89,8 +89,7 @@ class test_LAMMPS(unittest.TestCase):
         op = [relentless.simulate.lammps.InitializeFromFile(filename=file_),
               relentless.simulate.lammps.MinimizeEnergy(energy_tolerance=1e-7,
                                                         force_tolerance=1e-7,
-                                                        max_iterations=1000,
-                                                        dt=0.01)
+                                                        max_iterations=1000)
              ]
         l = relentless.simulate.lammps.LAMMPS(operations=op, quiet=False)
         sim = l.run(ensemble=ens, potentials=pot, directory=self.directory)

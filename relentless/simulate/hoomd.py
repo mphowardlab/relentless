@@ -401,15 +401,17 @@ class MinimizeEnergy(simulate.SimulationOperation):
         Force convergence criterion.
     max_iterations : int
         Maximum number of iterations to run the minimization.
-    dt : float
+    max_displacement : float
         Maximum step size.
 
     """
-    def __init__(self, energy_tolerance, force_tolerance, max_iterations, dt):
+    def __init__(self, energy_tolerance, force_tolerance, max_iterations, max_displacement):
         self.energy_tolerance = energy_tolerance
         self.force_tolerance = force_tolerance
         self.max_iterations = max_iterations
-        self.dt = dt
+        self.max_displacement = max_displacement
+        if self.max_displacement is None:
+           raise ValueError('The HOOMD energy minimizer requires a value for the maximum displacement (dt).')
 
     def __call__(self, sim):
         """Performs the energy minimization operation.
@@ -428,7 +430,7 @@ class MinimizeEnergy(simulate.SimulationOperation):
         """
         with sim.context:
             # setup FIRE minimization
-            fire = hoomd.md.integrate.mode_minimize_fire(dt=self.dt,
+            fire = hoomd.md.integrate.mode_minimize_fire(dt=self.max_displacement,
                                                          Etol=self.energy_tolerance,
                                                          ftol=self.force_tolerance)
             all_ = hoomd.group.all()
