@@ -91,7 +91,8 @@ class test_HOOMD(unittest.TestCase):
         with self.assertRaises(ValueError):
             emin = relentless.simulate.hoomd.MinimizeEnergy(energy_tolerance=1e-7,
                                                             force_tolerance=1e-7,
-                                                            max_iterations=1000)
+                                                            max_iterations=1000,
+                                                            max_displacement=None)
 
     def test_integrators(self):
         """Test adding and removing integrator operations."""
