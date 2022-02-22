@@ -100,6 +100,9 @@ class test_LAMMPS(unittest.TestCase):
                                                          force_tolerance=1e-7,
                                                          max_iterations=1000,
                                                          options={})
+        self.assertEqual(emin.options['max_evaluations'], None)
+        l = relentless.simulate.lammps.LAMMPS(operations=emin, quiet=False)
+        sim = l.run(ensemble=ens, potentials=pot, directory=self.directory)
         self.assertEqual(emin.options['max_evaluations'], 100*emin.max_iterations)
 
     def test_integrators(self):
