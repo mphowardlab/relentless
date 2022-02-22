@@ -393,6 +393,13 @@ class InitializeRandomly(Initialize):
 class MinimizeEnergy(simulate.SimulationOperation):
     """Runs an energy minimzation until converged.
 
+    Valid ``options`` include:
+
+    - ``max_displacement`` (`float`) - the maximum time step size the minimizer
+    is allowed to use.
+    - ``max_evaluations`` (`int`) - the maximum number of time steps the minimizer
+    is allowed to run per iteration. Defaults to 100.
+
     Parameters
     ----------
     energy_tolerance : float
@@ -406,7 +413,7 @@ class MinimizeEnergy(simulate.SimulationOperation):
 
     Raises
     ------
-    ValueError
+    KeyError
         If a value for the maximum displacement is not provided.
 
     """
@@ -416,7 +423,9 @@ class MinimizeEnergy(simulate.SimulationOperation):
         self.max_iterations = max_iterations
         self.options = options
         if 'max_displacement' not in self.options:
-           raise ValueError('HOOMD energy minimizer requires max_displacement option.')
+           raise KeyError('HOOMD energy minimizer requires max_displacement option.')
+        if 'max_evaluations' not in self.options:
+            self.options['max_evaluations'] = 100
 
     def __call__(self, sim):
         """Performs the energy minimization operation.
@@ -444,7 +453,7 @@ class MinimizeEnergy(simulate.SimulationOperation):
             # run while not yet converged
             it = 0
             while not fire.has_converged() and it < self.max_iterations:
-                hoomd.run(100)
+                hoomd.run(self.options['max_evaluations'])
                 it += 1
             if not fire.has_converged():
                 raise RuntimeError('Energy minimization failed to converge.')

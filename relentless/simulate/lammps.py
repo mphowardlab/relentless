@@ -437,6 +437,11 @@ class InitializeRandomly(Initialize):
 class MinimizeEnergy(LAMMPSOperation):
     """Runs an energy minimization until converged.
 
+    Valid ``options`` include:
+
+    - ``max_evaluations`` (`int`) - the maximum number of time steps the minimizer
+    is allowed to run per iteration. Defaults to 100.
+
     Parameters
     ----------
     energy_tolerance : float
@@ -448,11 +453,6 @@ class MinimizeEnergy(LAMMPSOperation):
     options : dict
         Additional options for energy minimzer.
 
-    Raises
-    ------
-    ValueError
-        If a value for the maximum evaluations is not provided.
-
     """
     def __init__(self, energy_tolerance, force_tolerance, max_iterations, options):
         self.energy_tolerance = energy_tolerance
@@ -460,7 +460,7 @@ class MinimizeEnergy(LAMMPSOperation):
         self.max_iterations = max_iterations
         self.options = options
         if 'max_evaluations' not in self.options:
-            raise ValueError('LAMMPS energy minimizer requires max_evaluations option.')
+            self.options['max_evaluations'] = 100
 
     def to_commands(self, sim):
         """Performs the energy minimization operation.

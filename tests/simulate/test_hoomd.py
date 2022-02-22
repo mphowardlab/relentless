@@ -82,17 +82,25 @@ class test_HOOMD(unittest.TestCase):
               relentless.simulate.hoomd.MinimizeEnergy(energy_tolerance=1e-7,
                                                        force_tolerance=1e-7,
                                                        max_iterations=1000,
-                                                       options={'max_displacement':0.5})
+                                                       options={'max_displacement':0.5,
+                                                                'max_evaluations':50})
              ]
         h = relentless.simulate.hoomd.HOOMD(operations=op)
         sim = h.run(ensemble=ens, potentials=pot, directory=self.directory)
 
         #error check for missing max_displacement
-        with self.assertRaises(ValueError):
+        with self.assertRaises(KeyError):
             emin = relentless.simulate.hoomd.MinimizeEnergy(energy_tolerance=1e-7,
                                                             force_tolerance=1e-7,
                                                             max_iterations=1000,
                                                             options={})
+
+        #check default value for max_evaluations
+        emin = relentless.simulate.hoomd.MinimizeEnergy(energy_tolerance=1e-7,
+                                                        force_tolerance=1e-7,
+                                                        max_iterations=1000,
+                                                        options={'max_displacement':0.5})
+        self.assertEqual(emin.options['max_evaluations'], 100)
 
     def test_integrators(self):
         """Test adding and removing integrator operations."""
