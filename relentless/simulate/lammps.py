@@ -437,9 +437,9 @@ class InitializeRandomly(Initialize):
 class MinimizeEnergy(LAMMPSOperation):
     """Runs an energy minimization until converged.
 
-    Valid ``options`` include:
+    Valid **options** include:
 
-    - ``max_evaluations`` (`int`) - the maximum number of time steps the minimizer
+    - **max_evaluations** (`int`) - the maximum number of time steps the minimizer
       is allowed to run per iteration. Defaults to 100.
 
     Parameters

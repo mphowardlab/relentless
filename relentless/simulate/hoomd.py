@@ -393,11 +393,11 @@ class InitializeRandomly(Initialize):
 class MinimizeEnergy(simulate.SimulationOperation):
     """Runs an energy minimzation until converged.
 
-    Valid ``options`` include:
+    Valid **options** include:
 
-    - ``max_displacement`` (`float`) - the maximum time step size the minimizer
+    - **max_displacement** (`float`) - the maximum time step size the minimizer
       is allowed to use.
-    - ``max_evaluations`` (`int`) - the maximum number of time steps the minimizer
+    - **max_evaluations** (`int`) - the maximum number of time steps the minimizer
       is allowed to run per iteration. Defaults to 100.
 
     Parameters
