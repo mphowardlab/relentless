@@ -460,7 +460,7 @@ class MinimizeEnergy(LAMMPSOperation):
         self.max_iterations = max_iterations
         self.options = options
         if 'max_evaluations' not in self.options:
-            self.options['max_evaluations'] = 100*self.max_iterations
+            self.options['max_evaluations'] = None
 
     def to_commands(self, sim):
         """Performs the energy minimization operation.
@@ -476,6 +476,9 @@ class MinimizeEnergy(LAMMPSOperation):
             The LAMMPS commands for this operation.
 
         """
+        if self.options['max_evaluations'] is None:
+            self.options['max_evaluations'] = 100*self.max_iterations
+
         cmds = ['minimize {etol} {ftol} {maxiter} {maxeval}'.format(etol=self.energy_tolerance,
                                                                     ftol=self.force_tolerance,
                                                                     maxiter=self.max_iterations,
