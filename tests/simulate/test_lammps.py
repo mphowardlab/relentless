@@ -90,7 +90,7 @@ class test_LAMMPS(unittest.TestCase):
               relentless.simulate.lammps.MinimizeEnergy(energy_tolerance=1e-7,
                                                         force_tolerance=1e-7,
                                                         max_iterations=1000,
-                                                        options={'max_evaluations':100000})
+                                                        options={'max_evaluations':10000})
              ]
         l = relentless.simulate.lammps.LAMMPS(operations=op, quiet=False)
         sim = l.run(ensemble=ens, potentials=pot, directory=self.directory)
@@ -100,7 +100,7 @@ class test_LAMMPS(unittest.TestCase):
                                                          force_tolerance=1e-7,
                                                          max_iterations=1000,
                                                          options={})
-        self.assertEqual(emin.options['max_evaluations'], 100)
+        self.assertEqual(emin.options['max_evaluations'], 100*emin.max_iterations)
 
     def test_integrators(self):
         """Test adding and removing integrator operations."""

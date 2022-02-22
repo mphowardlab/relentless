@@ -439,8 +439,8 @@ class MinimizeEnergy(LAMMPSOperation):
 
     Valid **options** include:
 
-    - **max_evaluations** (`int`) - the maximum number of time steps the minimizer
-      is allowed to run per iteration. Defaults to 100.
+    - **max_evaluations** (`int`) - the maximum number of force/energy evaluations.
+      Defaults to ``100*max_iterations``.
 
     Parameters
     ----------
@@ -460,7 +460,7 @@ class MinimizeEnergy(LAMMPSOperation):
         self.max_iterations = max_iterations
         self.options = options
         if 'max_evaluations' not in self.options:
-            self.options['max_evaluations'] = 100
+            self.options['max_evaluations'] = 100*self.max_iterations
 
     def to_commands(self, sim):
         """Performs the energy minimization operation.
