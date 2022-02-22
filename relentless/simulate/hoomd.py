@@ -396,9 +396,9 @@ class MinimizeEnergy(simulate.SimulationOperation):
     Valid ``options`` include:
 
     - ``max_displacement`` (`float`) - the maximum time step size the minimizer
-    is allowed to use.
+      is allowed to use.
     - ``max_evaluations`` (`int`) - the maximum number of time steps the minimizer
-    is allowed to run per iteration. Defaults to 100.
+      is allowed to run per iteration. Defaults to 100.
 
     Parameters
     ----------

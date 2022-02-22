@@ -440,7 +440,7 @@ class MinimizeEnergy(LAMMPSOperation):
     Valid ``options`` include:
 
     - ``max_evaluations`` (`int`) - the maximum number of time steps the minimizer
-    is allowed to run per iteration. Defaults to 100.
+      is allowed to run per iteration. Defaults to 100.
 
     Parameters
     ----------
