@@ -98,7 +98,6 @@ class test_LAMMPS(unittest.TestCase):
         sim = l.run(ensemble=ens, potentials=pot, directory=self.directory)
 
         #check default value of max_evaluations
-        init = relentless.simulate
         emin = relentless.simulate.lammps.MinimizeEnergy(energy_tolerance=1e-7,
                                                          force_tolerance=1e-7,
                                                          max_iterations=1000,
