@@ -83,17 +83,29 @@ class test_LAMMPS(unittest.TestCase):
 
     def test_minimization(self):
         """Test running energy minimization simulation operation."""
-        #MinimizeEnergy
         ens,pot = self.ens_pot()
         file_ = self.create_file()
-        op = [relentless.simulate.lammps.InitializeFromFile(filename=file_),
+        init = relentless.simulate.lammps.InitializeFromFile(filename=file_)
+
+        #MinimizeEnergy
+        op = [init,
               relentless.simulate.lammps.MinimizeEnergy(energy_tolerance=1e-7,
                                                         force_tolerance=1e-7,
                                                         max_iterations=1000,
-                                                        dt=0.01)
+                                                        options={'max_evaluations':10000})
              ]
         l = relentless.simulate.lammps.LAMMPS(operations=op, quiet=False)
         sim = l.run(ensemble=ens, potentials=pot, directory=self.directory)
+
+        #check default value of max_evaluations
+        emin = relentless.simulate.lammps.MinimizeEnergy(energy_tolerance=1e-7,
+                                                         force_tolerance=1e-7,
+                                                         max_iterations=1000,
+                                                         options={})
+        self.assertEqual(emin.options['max_evaluations'], None)
+        l = relentless.simulate.lammps.LAMMPS(operations=[init,emin], quiet=False)
+        sim = l.run(ensemble=ens, potentials=pot, directory=self.directory)
+        self.assertEqual(emin.options['max_evaluations'], 100*emin.max_iterations)
 
     def test_integrators(self):
         """Test adding and removing integrator operations."""

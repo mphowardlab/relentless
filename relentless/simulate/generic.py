@@ -209,12 +209,12 @@ class MinimizeEnergy(GenericOperation):
         Force convergence criterion.
     max_iterations : int
         Maximum number of iterations to run the minimization.
-    options : kwargs
-        Options for energy minimizer.
+    options : dict
+        Additional options for energy minimizer (defaults to ``None``).
 
     """
-    def __init__(self, energy_tolerance, force_tolerance, max_iterations, **options):
-        super().__init__(energy_tolerance, force_tolerance, max_iterations, **options)
+    def __init__(self, energy_tolerance, force_tolerance, max_iterations, options=None):
+        super().__init__(energy_tolerance, force_tolerance, max_iterations, options)
 
 class AddBrownianIntegrator(GenericOperation):
     """Brownian dynamics for a NVT ensemble.

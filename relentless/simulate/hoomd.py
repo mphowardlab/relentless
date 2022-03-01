@@ -393,6 +393,13 @@ class InitializeRandomly(Initialize):
 class MinimizeEnergy(simulate.SimulationOperation):
     """Runs an energy minimzation until converged.
 
+    Valid **options** include:
+
+    - **max_displacement** (`float`) - the maximum time step size the minimizer
+      is allowed to use.
+    - **steps_per_iteration** (`int`) - the number of steps the minimizer runs
+      per iteration. Defaults to 100.
+
     Parameters
     ----------
     energy_tolerance : float
@@ -401,15 +408,24 @@ class MinimizeEnergy(simulate.SimulationOperation):
         Force convergence criterion.
     max_iterations : int
         Maximum number of iterations to run the minimization.
-    dt : float
-        Maximum step size.
+    options : dict
+        Additional options for energy minimizer.
+
+    Raises
+    ------
+    KeyError
+        If a value for the maximum displacement is not provided.
 
     """
-    def __init__(self, energy_tolerance, force_tolerance, max_iterations, dt):
+    def __init__(self, energy_tolerance, force_tolerance, max_iterations, options):
         self.energy_tolerance = energy_tolerance
         self.force_tolerance = force_tolerance
         self.max_iterations = max_iterations
-        self.dt = dt
+        self.options = options
+        if 'max_displacement' not in self.options:
+           raise KeyError('HOOMD energy minimizer requires max_displacement option.')
+        if 'steps_per_iteration' not in self.options:
+            self.options['steps_per_iteration'] = 100
 
     def __call__(self, sim):
         """Performs the energy minimization operation.
@@ -428,7 +444,7 @@ class MinimizeEnergy(simulate.SimulationOperation):
         """
         with sim.context:
             # setup FIRE minimization
-            fire = hoomd.md.integrate.mode_minimize_fire(dt=self.dt,
+            fire = hoomd.md.integrate.mode_minimize_fire(dt=self.options['max_displacement'],
                                                          Etol=self.energy_tolerance,
                                                          ftol=self.force_tolerance)
             all_ = hoomd.group.all()
@@ -437,7 +453,7 @@ class MinimizeEnergy(simulate.SimulationOperation):
             # run while not yet converged
             it = 0
             while not fire.has_converged() and it < self.max_iterations:
-                hoomd.run(100)
+                hoomd.run(self.options['steps_per_iteration'])
                 it += 1
             if not fire.has_converged():
                 raise RuntimeError('Energy minimization failed to converge.')
