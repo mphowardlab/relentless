@@ -397,7 +397,8 @@ class MinimizeEnergy(simulate.SimulationOperation):
 
     - **max_displacement** (`float`) - the maximum time step size the minimizer
       is allowed to use.
-    - **steps_per_iteration** (`int`) - th number o steps the minimizer runs per iteration. Defaults to 100.
+    - **steps_per_iteration** (`int`) - the number of steps the minimizer runs
+      per iteration. Defaults to 100.
 
     Parameters
     ----------
