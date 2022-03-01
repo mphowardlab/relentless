@@ -397,8 +397,7 @@ class MinimizeEnergy(simulate.SimulationOperation):
 
     - **max_displacement** (`float`) - the maximum time step size the minimizer
       is allowed to use.
-    - **max_evaluations** (`int`) - the maximum number of time steps the minimizer
-      is allowed to run per iteration. Defaults to 100.
+    - **steps_per_iteration** (`int`) - th number o steps the minimizer runs per iteration. Defaults to 100.
 
     Parameters
     ----------
@@ -424,8 +423,8 @@ class MinimizeEnergy(simulate.SimulationOperation):
         self.options = options
         if 'max_displacement' not in self.options:
            raise KeyError('HOOMD energy minimizer requires max_displacement option.')
-        if 'max_evaluations' not in self.options:
-            self.options['max_evaluations'] = 100
+        if 'steps_per_iteration' not in self.options:
+            self.options['steps_per_iteration'] = 100
 
     def __call__(self, sim):
         """Performs the energy minimization operation.
@@ -453,7 +452,7 @@ class MinimizeEnergy(simulate.SimulationOperation):
             # run while not yet converged
             it = 0
             while not fire.has_converged() and it < self.max_iterations:
-                hoomd.run(self.options['max_evaluations'])
+                hoomd.run(self.options['steps_per_iteration'])
                 it += 1
             if not fire.has_converged():
                 raise RuntimeError('Energy minimization failed to converge.')
