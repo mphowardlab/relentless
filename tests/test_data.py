@@ -128,18 +128,6 @@ class test_Directory(unittest.TestCase):
         self.assertEqual(d.path, real_foo)
         self.assertTrue(os.path.exists(foo))
 
-        # set path by property
-        bar = os.path.join(self.f.name,'bar')
-        real_bar = os.path.realpath(bar)
-        d.path = bar
-        self.assertEqual(d.path, real_bar)
-        self.assertTrue(os.path.exists(bar))
-
-        # cannot set path in context
-        with d:
-            with self.assertRaises(OSError):
-                d.path = foo
-
     def test_move_contents(self):
         foo = os.path.join(self.f.name,'foo')
         bar = os.path.join(self.f.name,'bar')

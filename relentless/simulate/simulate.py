@@ -74,6 +74,7 @@ import abc
 
 import numpy
 
+from relentless import data
 from relentless import mpi
 
 class Simulation:
@@ -110,8 +111,8 @@ class Simulation:
             these variables fluctuate.
         potentials : :class:`Potentials`
             The interaction potentials.
-        directory : :class:`~relentless.data.Directory`
-            Directory to use for writing data.
+        directory : str or :class:`~relentless.data.Directory`
+            Directory for output.
         communicator: :class:`~relentless.mpi.Communicator`
             The MPI communicator to use. Defaults to ``None``.
 
@@ -169,7 +170,7 @@ class SimulationInstance:
         these variables fluctuate.
     potentials : :class:`Potentials`
         The interaction potentials.
-    directory : :class:`~relentless.data.Directory`
+    directory : str or :class:`~relentless.data.Directory`
         Directory for output.
     communicator: :class:`~relentless.mpi.Communicator`
         The MPI communicator to use.
@@ -181,8 +182,16 @@ class SimulationInstance:
         self.backend = backend
         self.ensemble = ensemble
         self.potentials = potentials
+
+        # configure directory and check communicators match
+        if directory is not None:
+            if not isinstance(directory,data.Directory):
+                directory = data.Directory(directory,communicator)
+            if directory.communicator is not communicator:
+                raise ValueError('Communicator for directory and for simulation must be the same')
         self.directory = directory
         self.communicator = communicator
+
         for opt,val in options.items():
             setattr(self,opt,val)
         self._opdata = {}
