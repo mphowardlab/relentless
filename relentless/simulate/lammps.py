@@ -328,7 +328,10 @@ class Initialize(LAMMPSOperation):
         for i,j in sim.ensemble.pairs:
             # get lammps type indexes, lowest type first
             id_i,id_j = pair_map(sim,(i,j))
-            cmds += ['pair_coeff {id_i} {id_j} {filename} TABLE_{id_i}_{id_j}'.format(id_i=id_i,id_j=id_j,filename=file_)]
+            cmds += ['pair_coeff {id_i} {id_j} {filename} TABLE_{id_i}_{id_j} {r_cut}'.format(id_i=id_i
+                                                                                              id_j=id_j,
+                                                                                              filename=file_,
+                                                                                              r_cut=sim.potentials.pair.rmax)]
 
         return cmds
 
