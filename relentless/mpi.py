@@ -139,6 +139,11 @@ class Communicator:
         """int: Index of the root rank in the MPI communicator."""
         return self._root
 
+    def barrier(self):
+        """Create barrier for all ranks in the MPI communicator."""
+        if self.enabled and self.size > 1:
+            self.comm.barrier()
+
     def bcast(self, data, root=None):
         """Broadcast Python object to all ranks.
 

@@ -17,6 +17,8 @@ or relative path.
 import os
 import shutil
 
+from . import mpi
+
 class Directory:
     """Context for a filesystem directory.
 
@@ -34,6 +36,8 @@ class Directory:
     ----------
     path : str
         Absolute or relative directory path.
+    communicator: :class:`~relentless.mpi.Communicator`
+        The MPI communicator to use. Defaults to ``None``.
 
     Raises
     ------
@@ -52,9 +56,19 @@ class Directory:
             f = open('bar.txt')
 
     """
-    def __init__(self, path):
+    def __init__(self, path, communicator=None):
         self._start = []
-        self.path = path
+        self.communicator = communicator
+
+        # ensure path exists at time directory is created (synchronizing)
+        path = os.path.realpath(path)
+        if self.communicator.rank == self.communicator.root:
+            if not os.path.exists(path):
+                os.makedirs(path)
+        self.communicator.barrier()
+        if not os.path.isdir(path):
+            raise OSError('The specified path is not a valid directory.')
+        self._path = path
 
     def __enter__(self):
         """Enter the directory context.
@@ -94,18 +108,13 @@ class Directory:
         """str: Real path to the directory."""
         return self._path
 
-    @path.setter
-    def path(self, value):
-        if self._in_context():
-            raise OSError('Cannot set path while using as context')
+    @property
+    def communicator(self):
+        return self._communicator
 
-        _path = os.path.realpath(value)
-        if not os.path.exists(_path):
-            os.makedirs(_path)
-        if not os.path.isdir(_path):
-            raise OSError('The specified path is not a valid directory.')
-
-        self._path = _path
+    @communicator.setter
+    def communicator(self, value):
+        self._communicator = value if value is not None else mpi.world
 
     def file(self, name):
         """Get the absolute path to a file in the directory.
@@ -157,7 +166,7 @@ class Directory:
             bar = foo.directory('bar')
 
         """
-        return Directory(os.path.join(self.path, name))
+        return Directory(os.path.join(self.path, name),self.communicator)
 
     def clear_contents(self):
         r"""Clear the contents of a directory.
@@ -166,11 +175,14 @@ class Directory:
         directories), so it should be used carefully!
 
         """
-        for entry in os.scandir(self.path):
-            if entry.is_file():
-                os.remove(entry.path)
-            elif entry.is_dir():
-                shutil.rmtree(entry.path)
+        # delete on root rank and wait
+        if self.communicator.rank == self.communicator.root:
+            for entry in os.scandir(self.path):
+                if entry.is_file():
+                    os.remove(entry.path)
+                elif entry.is_dir():
+                    shutil.rmtree(entry.path)
+        self.communicator.barrier()
 
     def move_contents(self, dest):
         """Move the contents of the directory.
@@ -182,10 +194,13 @@ class Directory:
 
         """
         if not isinstance(dest, Directory):
-            dest = Directory(dest)
+            dest = Directory(dest, self.communicator)
 
-        for entry in os.scandir(self.path):
-            shutil.move(entry.path, dest.path)
+        # move on root rank and wait
+        if self.communicator.rank == self.communicator.root:
+            for entry in os.scandir(self.path):
+                shutil.move(entry.path, dest.path)
+        self.communicator.barrier()
 
     def copy_contents(self, dest):
         """Copy the contents of the directory.
@@ -197,10 +212,13 @@ class Directory:
 
         """
         if not isinstance(dest, Directory):
-            dest = Directory(dest)
+            dest = Directory(dest, self.communicator)
 
-        for entry in os.scandir(self.path):
-            if entry.is_file():
-                shutil.copy2(entry.path, dest.path)
-            elif entry.is_dir():
-                shutil.copytree(entry.path, os.path.join(dest.path,entry.name))
+        # copy using root rank and wait
+        if self.communicator.rank == self.communicator.root:
+            for entry in os.scandir(self.path):
+                if entry.is_file():
+                    shutil.copy2(entry.path, dest.path)
+                elif entry.is_dir():
+                    shutil.copytree(entry.path, os.path.join(dest.path,entry.name))
+        self.communicator.barrier()
