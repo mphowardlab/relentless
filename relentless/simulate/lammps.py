@@ -304,6 +304,7 @@ class Initialize(LAMMPSOperation):
         if sim.communicator.rank == sim.communicator.root:
             with open(file_,'w') as fw:
                 fw.write('# LAMMPS tabulated pair potentials\n')
+                rcut = {}
                 for i,j in sim.ensemble.pairs:
                     id_i,id_j = pair_map(sim,(i,j))
                     fw.write(('# pair ({i},{j})\n'
@@ -321,6 +322,12 @@ class Initialize(LAMMPSOperation):
                     f = sim.potentials.pair.force((i,j))[flags]
                     for idx in range(Nr):
                         fw.write('{idx} {r} {u} {f}\n'.format(idx=idx+1,r=r[idx],u=u[idx],f=f[idx]))
+                        # find the largest r with a nonzero potential
+                        if abs(u[idx])>0.0 and u[idx+1]==0.0:
+                            rcut_val = r[idx]
+
+                    key = '{i},{j}'.format(id_i,id_j)
+                    rcut[key] = rcut_val
 
         # process all lammps commands
         cmds = ['neighbor {skin} multi'.format(skin=sim.potentials.pair.neighbor_buffer)]
@@ -328,10 +335,11 @@ class Initialize(LAMMPSOperation):
         for i,j in sim.ensemble.pairs:
             # get lammps type indexes, lowest type first
             id_i,id_j = pair_map(sim,(i,j))
-            cmds += ['pair_coeff {id_i} {id_j} {filename} TABLE_{id_i}_{id_j} {r_cut}'.format(id_i=id_i,
-                                                                                              id_j=id_j,
-                                                                                              filename=file_,
-                                                                                              r_cut=sim.potentials.pair.rmax)]
+            key = '{i},{j}'.format(id_i,id_j)
+            cmds += ['pair_coeff {id_i} {id_j} {filename} TABLE_{id_i}_{id_j} {rcut}'.format(id_i=id_i,
+                                                                                             id_j=id_j,
+                                                                                             filename=file_,
+                                                                                             rcut=rcut[key])]
 
         return cmds
 
