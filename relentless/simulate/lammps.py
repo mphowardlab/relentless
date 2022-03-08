@@ -326,7 +326,7 @@ class Initialize(LAMMPSOperation):
                         if abs(u[idx])>0.0 and u[idx+1]==0.0:
                             rcut_val = r[idx]
 
-                    key = '{i},{j}'.format(id_i,id_j)
+                    key = '{id_i},{id_j}'.format(id_i=id_i,id_j=id_j)
                     rcut[key] = rcut_val
 
         # process all lammps commands
@@ -335,7 +335,7 @@ class Initialize(LAMMPSOperation):
         for i,j in sim.ensemble.pairs:
             # get lammps type indexes, lowest type first
             id_i,id_j = pair_map(sim,(i,j))
-            key = '{i},{j}'.format(id_i,id_j)
+            key = '{id_i},{id_j}'.format(id_i=id_i,id_j=id_j)
             cmds += ['pair_coeff {id_i} {id_j} {filename} TABLE_{id_i}_{id_j} {rcut}'.format(id_i=id_i,
                                                                                              id_j=id_j,
                                                                                              filename=file_,
