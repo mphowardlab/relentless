@@ -324,7 +324,7 @@ class Initialize(LAMMPSOperation):
                         fw.write('{idx} {r} {u} {f}\n'.format(idx=idx+1,r=r[idx],u=u[idx],f=f[idx]))
 
                     # find r where potential and force are zero
-                    nonzero_r = numpy.flatnonzero(numpy.logical_and(~np.isclose(u,0),~np.isclose(f,0)))
+                    nonzero_r = numpy.flatnonzero(numpy.logical_and(~numpy.isclose(u,0),~numpy.isclose(f,0)))
                     if len(nonzero_r) > 1:
                         # cutoff at last nonzero r (cannot be first r)
                         rcut[(i,j)] = r[nonzero_r[-1]]
