@@ -322,24 +322,32 @@ class Initialize(LAMMPSOperation):
                     f = sim.potentials.pair.force((i,j))[flags]
                     for idx in range(Nr):
                         fw.write('{idx} {r} {u} {f}\n'.format(idx=idx+1,r=r[idx],u=u[idx],f=f[idx]))
-                        # find the largest r with a nonzero potential
-                        if abs(u[idx])>0.0 and u[idx+1]==0.0:
-                            rcut_val = r[idx]
 
-                    key = '{id_i},{id_j}'.format(id_i=id_i,id_j=id_j)
-                    rcut[key] = rcut_val
+                    # find r where potential and force are zero
+                    nonzero_r = numpy.flatnonzero(numpy.logical_and(~np.isclose(u,0),~np.isclose(f,0)))
+                    if len(nonzero_r) > 1:
+                        # cutoff at last nonzero r (cannot be first r)
+                        rcut[(i,j)] = r[nonzero_r[-1]]
+                    else:
+                        # if first or second r is nonzero, cutoff at second
+                        rcut[(i,j)] = r[1]
+        else:
+            rcut = None
+            rcut = sim.communicator.bcast(rcut)
 
         # process all lammps commands
         cmds = ['neighbor {skin} multi'.format(skin=sim.potentials.pair.neighbor_buffer)]
         cmds += ['pair_style table linear {N}'.format(N=Nr)]
+
+        cutoff = {}
         for i,j in sim.ensemble.pairs:
             # get lammps type indexes, lowest type first
             id_i,id_j = pair_map(sim,(i,j))
-            key = '{id_i},{id_j}'.format(id_i=id_i,id_j=id_j)
-            cmds += ['pair_coeff {id_i} {id_j} {filename} TABLE_{id_i}_{id_j} {rcut}'.format(id_i=id_i,
-                                                                                             id_j=id_j,
-                                                                                             filename=file_,
-                                                                                             rcut=rcut[key])]
+            cutoff[(i,j)] = rcut[(i,j)] if rcut is not None else ''
+            cmds += ['pair_coeff {id_i} {id_j} {filename} TABLE_{id_i}_{id_j} {cutoff}'.format(id_i=id_i,
+                                                                                               id_j=id_j,
+                                                                                               filename=file_,
+                                                                                               cutoff=cutoff[(i,j)])]
 
         return cmds
 
