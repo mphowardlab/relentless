@@ -333,21 +333,19 @@ class Initialize(LAMMPSOperation):
                         rcut[(i,j)] = r[1]
         else:
             rcut = None
-            rcut = sim.communicator.bcast(rcut)
+        rcut = sim.communicator.bcast(rcut)
 
         # process all lammps commands
         cmds = ['neighbor {skin} multi'.format(skin=sim.potentials.pair.neighbor_buffer)]
         cmds += ['pair_style table linear {N}'.format(N=Nr)]
 
-        cutoff = {}
         for i,j in sim.ensemble.pairs:
             # get lammps type indexes, lowest type first
             id_i,id_j = pair_map(sim,(i,j))
-            cutoff[(i,j)] = rcut[(i,j)] if rcut is not None else ''
             cmds += ['pair_coeff {id_i} {id_j} {filename} TABLE_{id_i}_{id_j} {cutoff}'.format(id_i=id_i,
                                                                                                id_j=id_j,
                                                                                                filename=file_,
-                                                                                               cutoff=cutoff[(i,j)])]
+                                                                                               cutoff=rcut[(i,j)])]
 
         return cmds
 
