@@ -261,10 +261,11 @@ class RelativeEntropy(ObjectiveFunction):
         Calculating the gradient requires running a simulation, which may be
         computationally expensive.
 
-        Optionally, a directory can be specified both to write the simulation
-        output as defined in :meth:`~relentless.simulate.simulate.Simulation.run()`,
-        and the values of the pair potential design variables, which are written
-        to ``potential.i.json`` for the :math:`i`\th pair potential.
+        Optionally, a directory can be specified to write the simulation output
+        as defined in :meth:`~relentless.simulate.simulate.Simulation.run()`,
+        namely the simulation-generated ensemble, which is written to
+        `ensemble.json`, and the values of the pair potential design variables,
+        which are written to ``potential.i.json`` for the :math:`i`\th pair potential.
 
         Parameters
         ----------
@@ -333,6 +334,7 @@ class RelativeEntropy(ObjectiveFunction):
         if directory is not None and (self.communicator is None or self.communicator.rank == self.communicator.root):
             for n,p in enumerate(self.potentials.pair.potentials):
                 p.save(directory.file('potential.{}.json'.format(n)))
+            sim_ens.save(directory.file('ensemble.json'))
 
         # relative entropy *value* is None
         return self.make_result(None, gradient, directory)

@@ -218,6 +218,17 @@ class test_RelativeEntropy(unittest.TestCase):
         self.assertAlmostEqual(x["('1', '1')"]['sigma'], self.sigma.value)
         self.assertAlmostEqual(x["('1', '1')"]['rmax'], 2.7)
 
+        sim = self.simulation.run(self.target, self.potentials, self.directory.name)
+        sim_ens = self.thermo.extract_ensemble(sim)
+        with open(d.file('ensemble.json')) as g:
+            y = json.load(g)
+        self.assertAlmostEqual(y['T'], 1.5)
+        self.assertAlmostEqual(y['N'], {'1':50})
+        self.assertAlmostEqual(y['V']['data'], {'L':10.})
+        self.assertAlmostEqual(y['P'], sim_ens.P)
+        self.assertAlmostEqual(y['kB'], 1.0)
+        numpy.testing.assert_allclose(y['rdf']["('1', '1')"], sim_ens.rdf['1','1'].table.tolist())
+
     def tearDown(self):
         self.directory.cleanup()
         del self.directory
