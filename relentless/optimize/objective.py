@@ -301,7 +301,7 @@ class RelativeEntropy(ObjectiveFunction):
 
         Parameters
         ----------
-        sim_ens : :class:`~relentless.ensemble.Ensemble`
+        ensemble : :class:`~relentless.ensemble.Ensemble`
             The ensemble for which to evaluate the gradient.
 
         Returns
