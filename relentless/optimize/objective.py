@@ -265,7 +265,7 @@ class RelativeEntropy(ObjectiveFunction):
         Optionally, a directory can be specified to write the simulation output
         as defined in :meth:`~relentless.simulate.simulate.Simulation.run()`,
         namely the simulation-generated ensemble, which is written to
-        `ensemble.json`, and the values of the pair potential design variables,
+        ``ensemble.json``, and the values of the pair potential design variables,
         which are written to ``pair_potential.i.json`` for the :math:`i`\th pair
         potential.
 
