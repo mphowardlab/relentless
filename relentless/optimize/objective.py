@@ -51,7 +51,7 @@ To implement your own objective function, create a class that derives from
 .. autoclass:: RelativeEntropy
     :member-order: bysource
     :members: compute,
-        gradient,
+        compute_gradient,
         design_variables,
         target
 
@@ -266,7 +266,8 @@ class RelativeEntropy(ObjectiveFunction):
         as defined in :meth:`~relentless.simulate.simulate.Simulation.run()`,
         namely the simulation-generated ensemble, which is written to
         `ensemble.json`, and the values of the pair potential design variables,
-        which are written to ``potential.i.json`` for the :math:`i`\th pair potential.
+        which are written to ``pair_potential.i.json`` for the :math:`i`\th pair
+        potential.
 
         Parameters
         ----------
@@ -284,20 +285,19 @@ class RelativeEntropy(ObjectiveFunction):
         # run simulation and use result to compute gradient
         sim = self.simulation.run(self.target, self.potentials, directory, self.communicator)
         sim_ens = self.thermo.extract_ensemble(sim)
-        gradient = self.gradient(sim_ens)
+        gradient = self.compute_gradient(sim_ens)
 
         # optionally write output to directory
         if directory is not None and (self.communicator is None or self.communicator.rank == self.communicator.root):
             for n,p in enumerate(self.potentials.pair.potentials):
-                p.save(directory.file('potential.{}.json'.format(n)))
+                p.save(directory.file('pair_potential.{}.json'.format(n)))
             sim_ens.save(directory.file('ensemble.json'))
 
         # relative entropy *value* is None
         return self.make_result(None, gradient, directory)
 
-    def gradient(self, sim_ens):
-        """Computes the relative entropy gradient from a specified ensemble,
-        relative to the target.
+    def compute_gradient(self, ensemble):
+        """Computes the relative entropy gradient for an ensemble.
 
         Parameters
         ----------
@@ -312,7 +312,7 @@ class RelativeEntropy(ObjectiveFunction):
         """
         # compute the relative entropy gradient by integration
         g_tgt = self.target.rdf
-        g_sim = sim_ens.rdf
+        g_sim = ensemble.rdf
         dvars = self.design_variables()
         gradient = math.KeyedArray(keys=dvars)
 
@@ -349,7 +349,7 @@ class RelativeEntropy(ObjectiveFunction):
                 norm_factor = self.target.V.volume if not self.extensive else 1.
 
                 # take integral by trapezoidal rule
-                sim_factor = sim_ens.N[i]*sim_ens.N[j]*sim_ens.beta/(sim_ens.V.volume*norm_factor)
+                sim_factor = ensemble.N[i]*ensemble.N[j]*ensemble.beta/(ensemble.V.volume*norm_factor)
                 tgt_factor = self.target.N[i]*self.target.N[j]*self.target.beta/(self.target.V.volume*norm_factor)
                 mult = 1 if i == j else 2 # 1 if same, otherwise need i,j and j,i contributions
                 y = -2*mult*numpy.pi*r**2*(sim_factor*g_sim[i,j](r)-tgt_factor*g_tgt[i,j](r))*dudvar(r)
