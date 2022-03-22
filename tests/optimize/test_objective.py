@@ -158,18 +158,26 @@ class test_RelativeEntropy(unittest.TestCase):
             relent.target = relentless.ensemble.Ensemble(T=1.5, P=1, N={'1':50})
 
     def test_compute(self):
-        """Test compute method"""
+        """Test compute and compute_gradient methods"""
         relent = relentless.optimize.RelativeEntropy(self.target,
                                                      self.simulation,
                                                      self.potentials,
                                                      self.thermo)
 
         res = relent.compute()
-        self.assertIsNone(res.value)
+
+        sim = self.simulation.run(self.target, self.potentials, self.directory.name)
+        ensemble = self.thermo.extract_ensemble(sim)
+        res_grad = relent.compute_gradient(ensemble)
+
         grad_eps = self.relent_grad(self.epsilon)
         grad_sig = self.relent_grad(self.sigma)
+
+        self.assertIsNone(res.value)
         numpy.testing.assert_allclose(res.gradient[self.epsilon], grad_eps, atol=1e-4)
         numpy.testing.assert_allclose(res.gradient[self.sigma], grad_sig, atol=1e-4)
+        numpy.testing.assert_allclose(res_grad[self.epsilon], grad_eps, atol=1e-4)
+        numpy.testing.assert_allclose(res_grad[self.sigma], grad_sig, atol=1e-4)
         self.assertCountEqual(res.design_variables, (self.epsilon,self.sigma))
 
         #test extensive option
@@ -180,11 +188,19 @@ class test_RelativeEntropy(unittest.TestCase):
                                                      extensive=True)
 
         res = relent.compute()
-        self.assertIsNone(res.value)
+
+        sim = self.simulation.run(self.target, self.potentials, self.directory.name)
+        ensemble = self.thermo.extract_ensemble(sim)
+        res_grad = relent.compute_gradient(ensemble)
+
         grad_eps = self.relent_grad(self.epsilon, ext=True)
         grad_sig = self.relent_grad(self.sigma, ext=True)
+
+        self.assertIsNone(res.value)
         numpy.testing.assert_allclose(res.gradient[self.epsilon], grad_eps, atol=1e-1)
         numpy.testing.assert_allclose(res.gradient[self.sigma], grad_sig, atol=1e-1)
+        numpy.testing.assert_allclose(res_grad[self.epsilon], grad_eps, atol=1e-1)
+        numpy.testing.assert_allclose(res_grad[self.sigma], grad_sig, atol=1e-1)
         self.assertCountEqual(res.design_variables, (self.epsilon,self.sigma))
 
     def test_design_variables(self):
@@ -212,11 +228,22 @@ class test_RelativeEntropy(unittest.TestCase):
         d = relentless.data.Directory(self.directory.name)
         res = relent.compute(d)
 
-        with open(d.file('potential.0.json')) as f:
+        with open(d.file('pair_potential.0.json')) as f:
             x = json.load(f)
         self.assertAlmostEqual(x["('1', '1')"]['epsilon'], self.epsilon.value)
         self.assertAlmostEqual(x["('1', '1')"]['sigma'], self.sigma.value)
         self.assertAlmostEqual(x["('1', '1')"]['rmax'], 2.7)
+
+        sim = self.simulation.run(self.target, self.potentials, self.directory.name)
+        sim_ens = self.thermo.extract_ensemble(sim)
+        with open(d.file('ensemble.json')) as g:
+            y = json.load(g)
+        self.assertAlmostEqual(y['T'], 1.5)
+        self.assertAlmostEqual(y['N'], {'1':50})
+        self.assertAlmostEqual(y['V']['data'], {'L':10.})
+        self.assertAlmostEqual(y['P'], sim_ens.P)
+        self.assertAlmostEqual(y['kB'], 1.0)
+        numpy.testing.assert_allclose(y['rdf']["('1', '1')"], sim_ens.rdf['1','1'].table.tolist())
 
     def tearDown(self):
         self.directory.cleanup()

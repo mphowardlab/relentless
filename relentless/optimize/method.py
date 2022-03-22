@@ -333,12 +333,12 @@ class SteepestDescent(Optimizer):
 
         Parameters
         ----------
-        gradient : :class:`~relentless.collections.KeyedArray`
+        gradient : :class:`~relentless.math.KeyedArray`
             The scaled gradient of the objective function.
 
         Returns
         -------
-        :class:`~relentless.collections.KeyedArray`
+        :class:`~relentless.math.KeyedArray`
             The descent amount, keyed on the objective function design variables.
 
         """
@@ -533,12 +533,12 @@ class FixedStepDescent(SteepestDescent):
 
         Parameters
         ----------
-        gradient : :class:`~relentless.collections.KeyedArray`
+        gradient : :class:`~relentless.math.KeyedArray`
             The scaled gradient of the objective function.
 
         Returns
         -------
-        :class:`~relentless.collections.KeyedArray`
+        :class:`~relentless.math.KeyedArray`
             The descent amount, keyed on the objective function design variables.
 
         """
