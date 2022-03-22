@@ -51,6 +51,7 @@ To implement your own objective function, create a class that derives from
 .. autoclass:: RelativeEntropy
     :member-order: bysource
     :members: compute,
+        gradient,
         design_variables,
         target
 
@@ -161,8 +162,8 @@ class ObjectiveFunctionResult:
 
     @property
     def gradient(self):
-        """:class:`~relentless.collections.KeyedArray`: The gradient of the
-        objective function, keyed on its design variables."""
+        """:class:`~relentless.math.KeyedArray`: The gradient of the objective
+        function, keyed on its design variables."""
         return self._gradient
 
     @property
@@ -178,8 +179,8 @@ class ObjectiveFunctionResult:
 
     @property
     def design_variables(self):
-        """:class:`~relentless.collections.KeyedArray`: The design variables of
-        the :class:`ObjectiveFunction` for which the result was constructed, mapped
+        """:class:`~relentless.math.KeyedArray`: The design variables of the
+        :class:`ObjectiveFunction` for which the result was constructed, mapped
         to the value of the variables at the time the result was constructed."""
         return self._design_variables
 
@@ -280,9 +281,35 @@ class RelativeEntropy(ObjectiveFunction):
             The result, which has unknown value ``None`` and known gradient.
 
         """
+        # run simulation and use result to compute gradient
         sim = self.simulation.run(self.target, self.potentials, directory, self.communicator)
         sim_ens = self.thermo.extract_ensemble(sim)
+        gradient = self.gradient(sim_ens)
 
+        # optionally write output to directory
+        if directory is not None and (self.communicator is None or self.communicator.rank == self.communicator.root):
+            for n,p in enumerate(self.potentials.pair.potentials):
+                p.save(directory.file('potential.{}.json'.format(n)))
+            sim_ens.save(directory.file('ensemble.json'))
+
+        # relative entropy *value* is None
+        return self.make_result(None, gradient, directory)
+
+    def gradient(self, sim_ens):
+        """Computes the relative entropy gradient from a specified ensemble,
+        relative to the target.
+
+        Parameters
+        ----------
+        sim_ens : :class:`~relentless.ensemble.Ensemble`
+            The ensemble for which to evaluate the gradient.
+
+        Returns
+        -------
+        :class:`~relentless.math.KeyedArray`
+            The gradient, keyed on the :class:`~relentless.variable.DesignVariable`\s.
+
+        """
         # compute the relative entropy gradient by integration
         g_tgt = self.target.rdf
         g_sim = sim_ens.rdf
@@ -330,14 +357,7 @@ class RelativeEntropy(ObjectiveFunction):
 
             gradient[var] = update
 
-        # optionally write output to directory
-        if directory is not None and (self.communicator is None or self.communicator.rank == self.communicator.root):
-            for n,p in enumerate(self.potentials.pair.potentials):
-                p.save(directory.file('potential.{}.json'.format(n)))
-            sim_ens.save(directory.file('ensemble.json'))
-
-        # relative entropy *value* is None
-        return self.make_result(None, gradient, directory)
+        return gradient
 
     def design_variables(self):
         """Return all unique, non-constant :class:`~relentless.variable.DesignVariable`\s
