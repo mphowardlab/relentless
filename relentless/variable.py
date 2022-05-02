@@ -65,7 +65,7 @@ or :class:`BinaryOperator`) and define the required properties and methods.
     :members:
 .. autoclass:: DependentVariable
     :members:
-    :private-members: _derivative
+    :private-members: compute, compute_derivative
 .. autoclass:: UnaryOperator
     :members:
 .. autoclass:: BinaryOperator
@@ -77,6 +77,126 @@ from enum import Enum
 
 import networkx
 import numpy
+
+class VariableGraph:
+    """Construct a directed graph of dependencies.
+
+    The graph nodes are all the :class:`Variable` objects on which this
+    :class:`DependentVariable` is dependent, and the graph edges represent
+    dependencies as connections between variables and carry the name of the
+    parameter as a "weight". The edge weight is a list of named parameters,
+    so an object can depend on the same :class:`Variable` multiple times;
+    these multiple dependencies are represented as one edge with multiple
+    parameters listed.
+
+    The graph is constructed using a quasi depth-first search. In order to
+    perform certain calculations, the directed graph should be acyclic.
+
+    """
+    def __init__(self):
+        self._graph = networkx.MultiDiGraph()
+        self._is_acyclic = None
+        self._constants = {}
+
+    def ensure_variable(self, x):
+        if isinstance(x, (float, int)):
+            if x in self._constants:
+                x_ = self._constants[x]
+            else:
+                x_ = ConstantVariable(x)
+                # cache auto-created constants to reduce number of variables
+                self._constants[x] = x_
+        else:
+            x_ = x
+
+        # confirm x has right type
+        if not isinstance(x_, Variable):
+            raise TypeError('Type cannot be coerced to a variable.')
+
+        return x_
+
+    def add_variable(self, x):
+        x = self.ensure_variable(x)
+        if x not in self._graph.nodes:
+            self._graph.add_node(x)
+            # invalidate acyclic cache value since variables have changed
+            self._is_acyclic = None
+        return x
+
+    def set_dependencies(self, x, depends):
+        if x not in self._graph.nodes:
+            raise ValueError('Variable has not been added to graph')
+        elif not isinstance(x, DependentVariable):
+            raise TypeError('Dependencies can only be set for DependentVariable')
+
+        # remove any old edges
+        self._graph.remove_edges_from(self._graph.edges(x))
+
+        # set new edges
+        for p, y in depends.items():
+            y = self.add_variable(y)
+            self._graph.add_edge(x, y, depend=str(p))
+
+        # invalidate acyclic cache value since edges have changed
+        self._is_acyclic = None
+
+    def update_variable(self, x):
+        if x not in self._graph.nodes:
+            raise ValueError('Variable has not been added to graph')
+        elif isinstance(x, DependentVariable):
+            raise TypeError('Cannot update value of dependent variable directly')
+        for y in networkx.dfs_preorder_nodes(self._graph.reverse(), source=x):
+            if isinstance(y, DependentVariable):
+                y._recompute = True
+
+    def evaluate(self, x):
+        if isinstance(x, DependentVariable):
+            if not self.is_acyclic:
+                raise RuntimeError('Circuluar variable dependency in graph')
+
+            # evaluate the nodes, bottom up
+            for y in networkx.dfs_postorder_nodes(self._graph, source=x):
+                if isinstance(y, DependentVariable):
+                    depends = self._graph.edges(y, data='depend')
+                    # access _value directly to avoid evaluations
+                    y._value = y.compute(**{p: z.value for _,z,p in depends})
+                    y._recompute = False
+
+    def evaluate_derivative(self, f, x):
+        if f is x:
+            return 1.0
+
+        if not self.is_acyclic:
+            raise RuntimeError('Circuluar variable dependency in graph')
+
+        # check that a path exists before searching
+        if not networkx.has_path(self._graph, source=f, target=x):
+            return 0.0
+
+        # ensure graph values are up-to-date for f, x will get updated too
+        self.evaluate(f)
+
+        # compute chain rule along all paths to the variable
+        deriv = 0.
+        for path in networkx.all_simple_edge_paths(self._graph, source=f, target=x):
+            path_deriv = 1.
+            for edge in path:
+                param = self._graph.edges[edge]['depend']
+                depends = self._graph.edges(edge[0], data='depend')
+                path_deriv *= edge[0].compute_derivative(param, **{p: y.value for _,y,p in depends})
+            deriv += path_deriv
+        return deriv
+
+    @property
+    def variables(self):
+        return self._graph.nodes
+
+    @property
+    def is_acyclic(self):
+        if self._is_acyclic is None:
+            self._is_acyclic = networkx.is_directed_acyclic_graph(self._graph)
+        return self._is_acyclic
+graph = VariableGraph()
 
 class Variable(abc.ABC):
     """Abstract base class for a variable.
@@ -108,6 +228,21 @@ class Variable(abc.ABC):
         -0.25
 
     """
+    count = 0
+    names = set()
+
+    def __init__(self, name=None):
+        self.id = Variable.count
+        if name is None:
+            name = 'x[{}]'.format(self.id)
+        if name in self.names:
+            raise ValueError('Variable name already used')
+        else:
+            self.names.add(name)
+            self.name = name
+        Variable.count += 1
+        graph.add_variable(x=self)
+
     @property
     @abc.abstractmethod
     def value(self):
@@ -116,44 +251,39 @@ class Variable(abc.ABC):
 
     def __add__(self, val):
         """Addition of two variables, or of a variable and a scalar."""
-        v = val if isinstance(val, Variable) else IndependentVariable(val)
-        return Sum(self, v)
+        return Sum(self, val)
 
     def __radd__(self, val):
         """Addition of a scalar and a variable."""
-        return Sum(IndependentVariable(val), self)
+        return Sum(val, self)
 
     def __sub__(self, val):
         """Subtraction of two variables, or of a variable and a scalar."""
-        v = val if isinstance(val, Variable) else IndependentVariable(val)
-        return Difference(self, v)
+        return Difference(self, val)
 
     def __rsub__(self, val):
         """Subtraction of a scalar and a variable."""
-        return Difference(IndependentVariable(val), self)
+        return Difference(val, self)
 
     def __mul__(self, val):
         """Multiplication of two variables, or of a variable and a scalar."""
-        v = val if isinstance(val, Variable) else IndependentVariable(val)
-        return Product(self, v)
+        return Product(self, val)
 
     def __rmul__(self, val):
         """Multiplication of a scalar and a variable."""
-        return Product(IndependentVariable(val), self)
+        return Product(val, self)
 
     def __truediv__(self, val):
         """Division of two variables, or of a variable by a scalar."""
-        v = val if isinstance(val, Variable) else IndependentVariable(val)
-        return Quotient(self, v)
+        return Quotient(self, val)
 
     def __rtruediv__(self, val):
         """Division of a scalar by a variable."""
-        return Quotient(IndependentVariable(val), self)
+        return Quotient(val, self)
 
     def __pow__(self, val):
         """Exponentiation of two variables, or of a variable with a scalar."""
-        v = val if isinstance(val, Variable) else IndependentVariable(val)
-        return Power(self, v)
+        return Power(self, val)
 
     def __neg__(self):
         """Negation of a variable."""
@@ -161,6 +291,17 @@ class Variable(abc.ABC):
 
     def __str__(self):
         return str(self.value)
+
+class ConstantVariable(Variable):
+    def __init__(self, value, name=None):
+        if not isinstance(value, (float, int)):
+            raise TypeError('Constant values are only floats or ints')
+        super().__init__(name=name)
+        self._value = value
+
+    @property
+    def value(self):
+        return self._value
 
 class IndependentVariable(Variable):
     """Independent quantity.
@@ -200,7 +341,10 @@ class IndependentVariable(Variable):
         0.5
 
     """
-    def __init__(self, value):
+    def __init__(self, value, name=None):
+        if not isinstance(value, (float, int)):
+            raise TypeError('Independent variables are only float or int')
+        super().__init__(name=name)
         self._value = value
 
     @property
@@ -209,7 +353,10 @@ class IndependentVariable(Variable):
 
     @value.setter
     def value(self, value):
+        if not isinstance(value, (float, int)):
+            raise TypeError('Independent variables are only float or int')
         self._value = value
+        graph.update_variable(self)
 
     def __iadd__(self, val):
         """In-place addition of a variable with a scalar."""
@@ -238,7 +385,6 @@ class IndependentVariable(Variable):
             raise TypeError('Variables are not allowed to operate in-place on another Variable')
         self.value /= val
         return self
-
 
 class DesignVariable(IndependentVariable):
     """Constrained independent variable.
@@ -304,9 +450,10 @@ class DesignVariable(IndependentVariable):
         LOW = 1
         HIGH = 2
 
-    def __init__(self, value, const=False, low=None, high=None):
-        super().__init__(value=value)
-        self.const = const
+    def __init__(self, value, name=None, low=None, high=None):
+        if not isinstance(value, (float, int)):
+            raise TypeError('Design variables are only float or int')
+        super().__init__(name=name, value=value)
         self.low = low
         self.high = high
 
@@ -340,9 +487,10 @@ class DesignVariable(IndependentVariable):
 
     @IndependentVariable.value.setter
     def value(self, value):
-        if not isinstance(value,(float,int)):
-            raise ValueError('DesignVariable must be a float or int')
+        if not isinstance(value, (float, int)):
+            raise TypeError('Design variables are only float or int')
         self._value, self._state = self.clamp(value)
+        graph.update_variable(self)
 
     @property
     def low(self):
@@ -352,7 +500,7 @@ class DesignVariable(IndependentVariable):
     @low.setter
     def low(self, low):
         if low is not None and not isinstance(low, (float,int)):
-            raise ValueError('Low bound must be a float or int')
+            raise TypeError('Low bound must be a float or int')
         try:
             if low is None or self._high is None:
                 self._low = low
@@ -376,7 +524,7 @@ class DesignVariable(IndependentVariable):
     @high.setter
     def high(self, high):
         if high is not None and not isinstance(high, (float,int)):
-            raise ValueError('High bound must be a float or int')
+            raise TypeError('High bound must be a float or int')
         try:
             if high is None or self._high is None:
                 self._high = high
@@ -462,86 +610,29 @@ class DependentVariable(Variable):
 
     """
     def __init__(self, *vardicts, **kwvars):
-        attrs = {}
+        super().__init__()
+
+        # combine list of dependencies
+        depends = {}
         for d in vardicts:
-            attrs.update(d)
-        attrs.update(**kwvars)
+            depends.update(d)
+        depends.update(**kwvars)
+        assert len(depends) != 0
+        self._params = tuple(depends.keys())
 
-        if len(attrs) == 0:
-            raise AttributeError('No attributes specified for DependentVariable.')
-
-        for k,v in attrs.items():
-            super().__setattr__(k,self._make_variable(v))
-        self._params = tuple(attrs.keys())
-
-    def __setattr__(self, name, value):
-        #Sets the value of the variable on which the specified DependentVariable depends.
-        if name != '_params' and name in self.params:
-            value = self._make_variable(value)
-        super().__setattr__(name,value)
+        graph.set_dependencies(x=self, depends=depends)
+        self._value = None
+        self._recompute = True
 
     @property
-    def depends(self):
-        """Dependency generator.
-
-        Generator expression for all the dependent attributes and variables for
-        this object.
-
-        Yields
-        ------
-        :class:`str`
-            The name of the attribute.
-        :class:`Variable`
-            The parameter variable object.
-
-        """
-        for p in self.params:
-            yield p,getattr(self,p)
+    def value(self):
+        if self._recompute:
+            graph.evaluate(self)
+        return self._value
 
     @property
     def params(self):
-        """tuple[str]: Names of all dependencies."""
         return self._params
-
-    def dependency_graph(self):
-        """Construct a directed graph of dependencies.
-
-        The graph nodes are all the :class:`Variable` objects on which this
-        :class:`DependentVariable` is dependent, and the graph edges represent
-        dependencies as connections between variables and carry the name of the
-        parameter as a "weight". The edge weight is a list of named parameters,
-        so an object can depend on the same :class:`Variable` multiple times;
-        these multiple dependencies are represented as one edge with multiple
-        parameters listed.
-
-        The graph is constructed using a quasi depth-first search. In order to
-        perform certain calculations, the directed graph should be acyclic.
-
-        Returns
-        -------
-        :class:`networkx.DiGraph`
-            Directed dependency graph.
-
-        """
-        # discover all variables (nodes) by quasi-depth first search
-        g = networkx.DiGraph()
-        stack = [self]
-        visited = set()
-        while stack:
-            a = stack.pop()
-            if a not in visited:
-                g.add_node(a)
-                visited.add(a)
-                if isinstance(a, DependentVariable):
-                    for p,b in a.depends:
-                        stack.append(b)
-                        # add new edge for p if not already present, otherwise append to params list
-                        if (a,b) not in g.edges:
-                            g.add_edge(a,b,params=[p])
-                        else:
-                            g.edges[a,b]['params'].append(p)
-
-        return g
 
     def derivative(self, var):
         """Calculate derivative with respect to a :class:`Variable`.
@@ -564,30 +655,16 @@ class DependentVariable(Variable):
             If this :class:`DependentVariable` has any circular dependencies.
 
         """
-        # if var is this variable, the derivative is trivially 1.0
-        if var is self:
-            return 1.0
-
-        # get dependency graph
-        g = self._assert_acyclic(self.dependency_graph())
-
-        # if var is not in the graph, then its derivative is trivially 0.0
-        if var not in g:
-            return 0.0
-
-        # add sum of parameter derivatives to edges between objects
-        for a,b,params in g.edges.data('params'):
-            g.edges[a,b]['deriv'] = numpy.sum([a._derivative(p) for p in params])
-
-        # compute chain rule along all paths to the variable
-        deriv = 0.
-        paths = networkx.all_simple_paths(g, source=self, target=var)
-        for path in map(networkx.utils.pairwise, paths):
-            deriv += numpy.prod([g.edges[edge]['deriv'] for edge in path])
-        return deriv
+        if self._recompute:
+            graph.evaluate(self)
+        return graph.evaluate_derivative(f=self, x=var)
 
     @abc.abstractmethod
-    def _derivative(self, param):
+    def compute(self):
+        pass
+
+    @abc.abstractmethod
+    def compute_derivative(self, param):
         """Implementation of the derivative.
 
         This method should implement the partial derivative with respect
@@ -601,22 +678,6 @@ class DependentVariable(Variable):
 
         """
         pass
-
-    @classmethod
-    def _make_variable(cls, v):
-        # cast a scalar into an independent variable
-        if numpy.isscalar(v):
-            v = IndependentVariable(value=v)
-        if not isinstance(v, Variable):
-            raise TypeError('Dependent variables can only depend on scalars or other variables.')
-        return v
-
-    @classmethod
-    def _assert_acyclic(cls, g):
-        # confirm dependency graph is free of cycles
-        if not networkx.is_directed_acyclic_graph(g):
-            raise RuntimeError('DependentVariable has circular dependencies.')
-        return g
 
 class UnaryOperator(DependentVariable):
     """Abstract base class for a value that depends on one variable.
@@ -655,11 +716,10 @@ class SameAs(UnaryOperator):
         Variable to copy.
 
     """
-    @property
-    def value(self):
-        return self.a.value
+    def compute(self, a):
+        return a
 
-    def _derivative(self, param):
+    def compute_derivative(self, param, a):
         if param == 'a':
             return 1.0
         else:
@@ -676,11 +736,10 @@ class Negation(UnaryOperator):
         The value.
 
     """
-    @property
-    def value(self):
-        return -self.a.value
+    def compute(self, a):
+        return -a
 
-    def _derivative(self, param):
+    def compute_derivative(self, param, a):
         if param == 'a':
             return -1.0
         else:
@@ -718,11 +777,10 @@ class Sum(BinaryOperator):
         Second value.
 
     """
-    @property
-    def value(self):
-        return self.a.value+self.b.value
+    def compute(self, a, b):
+        return a+b
 
-    def _derivative(self, param):
+    def compute_derivative(self, param, a, b):
         if param == 'a':
             return 1.0
         elif param == 'b':
@@ -743,11 +801,10 @@ class Difference(BinaryOperator):
         Second value.
 
     """
-    @property
-    def value(self):
-        return self.a.value-self.b.value
+    def compute(self, a, b):
+        return a-b
 
-    def _derivative(self, param):
+    def compute_derivative(self, param, a, b):
         if param == 'a':
             return 1.0
         elif param == 'b':
@@ -768,15 +825,14 @@ class Product(BinaryOperator):
         Second value.
 
     """
-    @property
-    def value(self):
-        return self.a.value*self.b.value
+    def compute(self, a, b):
+        return a*b
 
-    def _derivative(self, param):
+    def compute_derivative(self, param, a, b):
         if param == 'a':
-            return self.b.value
+            return b
         elif param == 'b':
-            return self.a.value
+            return a
         else:
             raise ValueError('Unknown parameter')
 
@@ -793,25 +849,23 @@ class Quotient(BinaryOperator):
         Second value.
 
     """
-    @property
-    def value(self):
-        try:
-            return self.a.value/self.b.value
-        except ZeroDivisionError:
-            return numpy.inf
+    def compute(self, a, b):
+        if b != 0:
+            return a/b
+        else:
+            return numpy.nan
 
-    def _derivative(self, param):
+    def compute_derivative(self, param, a, b):
         if param == 'a':
-            try:
-                return 1.0/self.b.value
-            except ZeroDivisionError:
-                return numpy.inf
+            if b != 0:
+                return 1.0/b
+            else:
+                return numpy.nan
         elif param == 'b':
-            with numpy.errstate(all='raise'):
-                try:
-                    return -self.a.value/numpy.power(self.b.value,2)
-                except FloatingPointError:
-                    return numpy.inf
+            if b != 0:
+                return -a/numpy.power(b, 2)
+            else:
+                return numpy.nan
         else:
             raise ValueError('Unknown parameter')
 
@@ -828,23 +882,19 @@ class Power(BinaryOperator):
         Second value.
 
     """
-    @property
-    def value(self):
-        return numpy.power(self.a.value,self.b.value)
+    def compute(self, a, b):
+        return numpy.power(a, b)
 
-    def _derivative(self, param):
+    def compute_derivative(self, param, a, b):
         if param == 'a':
-            if self.b.value == 0.0:
+            if b == 0:
                 return 0.0
-            return self.b.value*numpy.power(self.a.value,self.b.value-1)
+            return b*numpy.power(a, b-1)
         elif param == 'b':
-            if self.a.value == 0.0:
+            if a == 0:
                 return 0.0
-            with numpy.errstate(all='raise'):
-                try:
-                    return numpy.log(self.a.value)*numpy.power(self.a.value,self.b.value)
-                except FloatingPointError:
-                    return numpy.inf
+            else:
+                return numpy.log(a)*numpy.power(a, b)
         else:
             raise ValueError('Unknown parameter')
 
@@ -867,11 +917,10 @@ class ArithmeticMean(BinaryOperator):
         Second value.
 
     """
-    @property
-    def value(self):
-        return 0.5*(self.a.value+self.b.value)
+    def compute(self, a, b):
+        return 0.5*(a+b)
 
-    def _derivative(self, param):
+    def compute_derivative(self, param, a, b):
         if param == 'a':
             return 0.5
         elif param == 'b':
@@ -898,20 +947,19 @@ class GeometricMean(BinaryOperator):
         Second value.
 
     """
-    @property
-    def value(self):
-        return numpy.sqrt(self.a.value*self.b.value)
+    def compute(self, a, b):
+        return numpy.sqrt(a*b)
 
-    def _derivative(self, param):
+    def compute_derivative(self, param, a, b):
         if param == 'a':
-            try:
-                return 0.5*numpy.sqrt(self.b.value/self.a.value)
-            except ZeroDivisionError:
-                return numpy.inf
+            if a != 0:
+                return 0.5*numpy.sqrt(b/a)
+            else:
+                return numpy.nan
         elif param == 'b':
-            try:
-                return 0.5*numpy.sqrt(self.a.value/self.b.value)
-            except ZeroDivisionError:
-                return numpy.inf
+            if b != 0:
+                return 0.5*numpy.sqrt(a/b)
+            else:
+                return numpy.nan
         else:
             raise ValueError('Unknown parameter')

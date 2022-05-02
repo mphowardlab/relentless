@@ -1,0 +1,8 @@
+{
+    "files.insertFinalNewline": true,
+    "editor.autoIndent": "keep",
+    "editor.detectIndentation": false,
+    "editor.rulers": [
+        80
+    ]
+}
