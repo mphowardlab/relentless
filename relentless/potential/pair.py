@@ -641,11 +641,10 @@ class Depletion(PairPotential):
         def __init__(self, sigma_i, sigma_j, sigma_d):
             super().__init__(sigma_i=sigma_i, sigma_j=sigma_j, sigma_d=sigma_d)
 
-        @property
-        def value(self):
-            return 0.5*(self.sigma_i.value + self.sigma_j.value) + self.sigma_d.value
+        def compute(self, sigma_i, sigma_j, sigma_d):
+            return 0.5*(sigma_i + sigma_j) + sigma_d
 
-        def _derivative(self, param):
+        def compute_derivative(self, param, sigma_i, sigma_j, sigma_d):
             if param == 'sigma_i':
                 return 0.5
             elif param == 'sigma_j':

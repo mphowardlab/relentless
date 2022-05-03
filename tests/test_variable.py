@@ -118,8 +118,9 @@ class test_DesignVariable(unittest.TestCase):
     def test_init(self):
         """Test construction with different bounds."""
         #test with no bounds
-        v = relentless.variable.DesignVariable(value=1.0)
+        v = relentless.variable.DesignVariable(value=1.0, const=True)
         self.assertAlmostEqual(v.value, 1.0)
+        self.assertTrue(v.const)
         self.assertEqual(v.low, None)
         self.assertEqual(v.high, None)
         self.assertEqual(v.isfree(), True)
@@ -129,6 +130,7 @@ class test_DesignVariable(unittest.TestCase):
         #test in between low and high bounds
         v = relentless.variable.DesignVariable(value=1.2, low=0.0, high=2.0)
         self.assertAlmostEqual(v.value, 1.2)
+        self.assertFalse(v.const)
         self.assertAlmostEqual(v.low, 0.0)
         self.assertAlmostEqual(v.high, 2.0)
         self.assertEqual(v.isfree(), True)

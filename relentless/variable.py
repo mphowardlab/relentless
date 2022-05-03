@@ -117,17 +117,17 @@ class VariableGraph:
 
     def add_variable(self, x):
         x = self.ensure_variable(x)
-        if x not in self._graph.nodes:
+        if x not in self._graph:
             self._graph.add_node(x)
             # invalidate acyclic cache value since variables have changed
             self._is_acyclic = None
         return x
 
     def set_dependencies(self, x, depends):
-        if x not in self._graph.nodes:
-            raise ValueError('Variable has not been added to graph')
-        elif not isinstance(x, DependentVariable):
+        if not isinstance(x, DependentVariable):
             raise TypeError('Dependencies can only be set for DependentVariable')
+        if x not in self._graph:
+            raise ValueError('Variable has not been added to graph')
 
         # remove any old edges
         self._graph.remove_edges_from(self._graph.edges(x))
@@ -140,19 +140,34 @@ class VariableGraph:
         # invalidate acyclic cache value since edges have changed
         self._is_acyclic = None
 
-    def update_variable(self, x):
-        if x not in self._graph.nodes:
+    def find_design_variables(self, x):
+        if not isinstance(x, Variable):
+            raise TypeError('Graphs work with Variable objects')
+        if x not in self._graph:
             raise ValueError('Variable has not been added to graph')
-        elif isinstance(x, DependentVariable):
+        self._assert_acyclic()
+
+        # if x is a design variable, yield only itself
+        if isinstance(x, DesignVariable):
+            yield from (x,)
+        else:
+            nodes = networkx.dfs_preorder_nodes(self._graph, source=x)
+            yield from filter(lambda y : isinstance(y, DesignVariable), nodes)
+
+    def update_variable(self, x):
+        if not isinstance(x, Variable):
+            raise TypeError('Graphs work with Variable objects')
+        if isinstance(x, DependentVariable):
             raise TypeError('Cannot update value of dependent variable directly')
+        if x not in self._graph:
+            raise ValueError('Variable has not been added to graph')
         for y in networkx.dfs_preorder_nodes(self._graph.reverse(), source=x):
             if isinstance(y, DependentVariable):
                 y._recompute = True
 
     def evaluate(self, x):
         if isinstance(x, DependentVariable):
-            if not self.is_acyclic:
-                raise RuntimeError('Circuluar variable dependency in graph')
+            self._assert_acyclic()
 
             # evaluate the nodes, bottom up
             for y in networkx.dfs_postorder_nodes(self._graph, source=x):
@@ -162,12 +177,13 @@ class VariableGraph:
                     y._value = y.compute(**{p: z.value for _,z,p in depends})
                     y._recompute = False
 
+        return x.value
+
     def evaluate_derivative(self, f, x):
         if f is x:
             return 1.0
 
-        if not self.is_acyclic:
-            raise RuntimeError('Circuluar variable dependency in graph')
+        self._assert_acyclic()
 
         # check that a path exists before searching
         if not networkx.has_path(self._graph, source=f, target=x):
@@ -185,6 +201,7 @@ class VariableGraph:
                 depends = self._graph.edges(edge[0], data='depend')
                 path_deriv *= edge[0].compute_derivative(param, **{p: y.value for _,y,p in depends})
             deriv += path_deriv
+
         return deriv
 
     @property
@@ -196,6 +213,11 @@ class VariableGraph:
         if self._is_acyclic is None:
             self._is_acyclic = networkx.is_directed_acyclic_graph(self._graph)
         return self._is_acyclic
+
+    def _assert_acyclic(self):
+        if not self.is_acyclic:
+            raise AssertionError('Circular dependency in variable graph')
+
 graph = VariableGraph()
 
 class Variable(abc.ABC):
@@ -450,10 +472,11 @@ class DesignVariable(IndependentVariable):
         LOW = 1
         HIGH = 2
 
-    def __init__(self, value, name=None, low=None, high=None):
+    def __init__(self, value, name=None, const=False, low=None, high=None):
         if not isinstance(value, (float, int)):
             raise TypeError('Design variables are only float or int')
         super().__init__(name=name, value=value)
+        self.const = const
         self.low = low
         self.high = high
 

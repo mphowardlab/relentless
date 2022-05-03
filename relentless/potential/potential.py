@@ -150,14 +150,10 @@ class Parameters:
         d = set()
         for k in self:
             for p in self.params:
-                var = self[k][p]
-                if isinstance(var, variable.DesignVariable):
-                    d.add(var)
-                elif isinstance(var, variable.DependentVariable):
-                    g = var.dependency_graph()
-                    for n in g.nodes:
-                        if isinstance(n, variable.DesignVariable):
-                            d.add(n)
+                x = self[k][p]
+                if isinstance(x, variable.Variable):
+                    for y in variable.graph.find_design_variables(x):
+                        d.add(y)
         return tuple(d)
 
     def __getitem__(self, key):

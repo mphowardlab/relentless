@@ -792,54 +792,31 @@ class test_Depletion(unittest.TestCase):
         """Test creation of Depletion.Cutoff from data"""
         #create object dependent on scalars
         w = relentless.potential.Depletion.Cutoff(sigma_i=1.0, sigma_j=2.0, sigma_d=0.25)
-        self.assertAlmostEqual(w.value, 1.75)
         self.assertCountEqual(w.params, ('sigma_i','sigma_j','sigma_d'))
-        self.assertDictEqual({p:v.value for p,v in w.depends},
-                             {'sigma_i':1.0, 'sigma_j':2.0, 'sigma_d':0.25})
 
-        #change parameter value
-        w.sigma_j.value = 4.0
-        self.assertAlmostEqual(w.value, 2.75)
-        self.assertCountEqual(w.params, ('sigma_i','sigma_j','sigma_d'))
-        self.assertDictEqual({p:v.value for p,v in w.depends},
-                             {'sigma_i':1.0, 'sigma_j':4.0, 'sigma_d':0.25})
-
-        #create object dependent on variables
-        a = relentless.variable.DesignVariable(value=1.0)
-        b = relentless.variable.DesignVariable(value=2.0)
-        c = relentless.variable.DesignVariable(value=0.25)
-        w = relentless.potential.Depletion.Cutoff(sigma_i=a, sigma_j=b, sigma_d=c)
-        self.assertAlmostEqual(w.value, 1.75)
-        self.assertCountEqual(w.params, ('sigma_i','sigma_j','sigma_d'))
-        self.assertDictEqual({p:v for p,v in w.depends},
-                             {'sigma_i':a, 'sigma_j':b, 'sigma_d':c})
-
-        #change parameter value
-        b.value = 4.0
-        self.assertAlmostEqual(w.value, 2.75)
-        self.assertCountEqual(w.params, ('sigma_i','sigma_j','sigma_d'))
-        self.assertDictEqual({p:v for p,v in w.depends},
-                             {'sigma_i':a, 'sigma_j':b, 'sigma_d':c})
+    def test_cutoff_value(self):
+        w = relentless.potential.Depletion.Cutoff(sigma_i=1.0, sigma_j=2.0, sigma_d=0.25)
+        self.assertAlmostEqual(w.compute(sigma_i=1.0, sigma_j=2.0, sigma_d=0.25), 1.75)
 
     def test_cutoff_derivative(self):
         """Test Depletion.Cutoff._derivative method"""
         w = relentless.potential.Depletion.Cutoff(sigma_i=1.0, sigma_j=2.0, sigma_d=0.25)
 
         #calculate w.r.t. sigma_i
-        dw = w._derivative('sigma_i')
+        dw = w.compute_derivative('sigma_i', sigma_i=1.0, sigma_j=2.0, sigma_d=0.25)
         self.assertEqual(dw, 0.5)
 
         #calculate w.r.t. sigma_j
-        dw = w._derivative('sigma_j')
+        dw = w.compute_derivative('sigma_j', sigma_i=1.0, sigma_j=2.0, sigma_d=0.25)
         self.assertEqual(dw, 0.5)
 
         #calculate w.r.t. sigma_d
-        dw = w._derivative('sigma_d')
+        dw = w.compute_derivative('sigma_d', sigma_i=1.0, sigma_j=2.0, sigma_d=0.25)
         self.assertEqual(dw, 1.0)
 
         #invalid parameter calculation
         with self.assertRaises(ValueError):
-            dw = w._derivative('sigma')
+            dw = w.compute_derivative('sigma', sigma_i=1.0, sigma_j=2.0, sigma_d=0.25)
 
     def test_energy(self):
         """Test _energy and energy methods"""
