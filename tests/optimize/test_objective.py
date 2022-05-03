@@ -16,18 +16,19 @@ class QuadraticObjective(relentless.optimize.ObjectiveFunction):
 
     def compute(self, directory=None):
         val = (self.x.value-1)**2
-        grad = {self.x:2*(self.x.value-1)}
+        grad = {}
+        for x in relentless.variable.graph.design_variables:
+            if x is self.x:
+                grad[x] = 2*(self.x.value-1)
+            else:
+                grad[x] = 0.
 
         # optionally write output
         if directory is not None:
             with open(directory.file('x.log'),'w') as f:
                 f.write(str(self.x.value) + '\n')
 
-        res = self.make_result(val, grad, directory)
-        return res
-
-    def design_variables(self):
-        return (self.x,)
+        return relentless.optimize.ObjectiveFunctionResult(val, grad, directory)
 
 class test_ObjectiveFunction(unittest.TestCase):
     """Unit tests for relentless.optimize.ObjectiveFunction"""
@@ -43,26 +44,14 @@ class test_ObjectiveFunction(unittest.TestCase):
         res = q.compute()
         self.assertAlmostEqual(res.value, 9.0)
         self.assertAlmostEqual(res.gradient[x], 6.0)
-        self.assertCountEqual(res.design_variables.todict().keys(), q.design_variables())
+        self.assertAlmostEqual(res.design_variables[x], 4.0)
 
         x.value = 3.0
-        self.assertDictEqual(res.design_variables.todict(), {x: 4.0}) #maintains the value at time of construction
+        self.assertAlmostEqual(res.design_variables[x], 4.0) #maintains the value at time of construction
 
         #test "invalid" variable
         with self.assertRaises(KeyError):
             m = res.gradient[relentless.variable.SameAs(x)]
-
-    def test_design_variables(self):
-        """Test design_variables method"""
-        x = relentless.variable.DesignVariable(value=1.0)
-        q = QuadraticObjective(x=x)
-
-        self.assertEqual(q.x.value, 1.0)
-        self.assertCountEqual((x,), q.design_variables())
-
-        x.value = 3.0
-        self.assertEqual(q.x.value, 3.0)
-        self.assertCountEqual((x,), q.design_variables())
 
     def test_directory(self):
         x = relentless.variable.DesignVariable(value=1.0)
@@ -178,7 +167,6 @@ class test_RelativeEntropy(unittest.TestCase):
         numpy.testing.assert_allclose(res.gradient[self.sigma], grad_sig, atol=1e-4)
         numpy.testing.assert_allclose(res_grad[self.epsilon], grad_eps, atol=1e-4)
         numpy.testing.assert_allclose(res_grad[self.sigma], grad_sig, atol=1e-4)
-        self.assertCountEqual(res.design_variables, (self.epsilon,self.sigma))
 
         #test extensive option
         relent = relentless.optimize.RelativeEntropy(self.target,
@@ -201,23 +189,6 @@ class test_RelativeEntropy(unittest.TestCase):
         numpy.testing.assert_allclose(res.gradient[self.sigma], grad_sig, atol=1e-1)
         numpy.testing.assert_allclose(res_grad[self.epsilon], grad_eps, atol=1e-1)
         numpy.testing.assert_allclose(res_grad[self.sigma], grad_sig, atol=1e-1)
-        self.assertCountEqual(res.design_variables, (self.epsilon,self.sigma))
-
-    def test_design_variables(self):
-        """Test design_variables method"""
-        relent = relentless.optimize.RelativeEntropy(self.target,
-                                                     self.simulation,
-                                                     self.potentials,
-                                                     self.thermo)
-
-        self.assertCountEqual((self.epsilon,self.sigma), relent.design_variables())
-
-        #test constant variable
-        self.epsilon.const = True
-        self.assertCountEqual((self.sigma,), relent.design_variables())
-
-        self.sigma.const = True
-        self.assertCountEqual((), relent.design_variables())
 
     def test_directory(self):
         relent = relentless.optimize.RelativeEntropy(self.target,

@@ -140,20 +140,6 @@ class VariableGraph:
         # invalidate acyclic cache value since edges have changed
         self._is_acyclic = None
 
-    def find_design_variables(self, x):
-        if not isinstance(x, Variable):
-            raise TypeError('Graphs work with Variable objects')
-        if x not in self._graph:
-            raise ValueError('Variable has not been added to graph')
-        self._assert_acyclic()
-
-        # if x is a design variable, yield only itself
-        if isinstance(x, DesignVariable):
-            yield from (x,)
-        else:
-            nodes = networkx.dfs_preorder_nodes(self._graph, source=x)
-            yield from filter(lambda y : isinstance(y, DesignVariable), nodes)
-
     def update_variable(self, x):
         if not isinstance(x, Variable):
             raise TypeError('Graphs work with Variable objects')
@@ -206,7 +192,11 @@ class VariableGraph:
 
     @property
     def variables(self):
-        return self._graph.nodes
+        return tuple(self._graph.nodes)
+
+    @property
+    def design_variables(self):
+        return tuple(x for x in self._graph.nodes if isinstance(x, DesignVariable))
 
     @property
     def is_acyclic(self):

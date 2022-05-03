@@ -134,28 +134,6 @@ class Parameters:
         with open(filename, 'w') as f:
             json.dump(data, f, sort_keys=True, indent=4)
 
-    def design_variables(self):
-        """Get all unique design variables.
-
-        The unique :class:`~relentless.variable.DesignVariable` variables are
-        determined from the parameters of the coefficient matrix and their dependencies.
-
-        Returns
-        -------
-        :class:`tuple`\[:class:`~relentless.variable.DesignVariable`\]
-            The unique :class:`~relentless.variable.DesignVariable` variables on which the
-            parameters depend.
-
-        """
-        d = set()
-        for k in self:
-            for p in self.params:
-                x = self[k][p]
-                if isinstance(x, variable.Variable):
-                    for y in variable.graph.find_design_variables(x):
-                        d.add(y)
-        return tuple(d)
-
     def __getitem__(self, key):
         return self._per_type[key]
 

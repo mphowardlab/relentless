@@ -54,8 +54,8 @@ import abc
 import numpy
 
 from relentless import math
+from relentless import variable
 from .criteria import ConvergenceTest,Tolerance
-from .objective import ObjectiveFunction
 
 class Optimizer(abc.ABC):
     """Abstract base class for optimization algorithm.
@@ -189,7 +189,7 @@ class LineSearch:
             If the relative tolerance is not between 0 and 1.
 
         """
-        ovars = {x: x.value for x in objective.design_variables()}
+        ovars = {x: x.value for x in variable.graph.design_variables}
 
         # compute search direction
         d = end.design_variables - start.design_variables
@@ -377,7 +377,7 @@ class SteepestDescent(Optimizer):
             design variables are specified for the objective function.
 
         """
-        dvars = objective.design_variables()
+        dvars = variable.graph.design_variables
         if len(dvars) == 0:
             return None
 
