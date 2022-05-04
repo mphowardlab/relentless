@@ -78,26 +78,26 @@ class test_GradientTest(unittest.TestCase):
         q = QuadraticObjective(x=x)
 
         t = relentless.optimize.GradientTest(tolerance=1e-8)
-        self.assertFalse(t.converged(result=q.compute()))
+        self.assertFalse(t.converged(result=q.compute(x)))
         x.value = 0.999999999
-        self.assertTrue(t.converged(result=q.compute()))
+        self.assertTrue(t.converged(result=q.compute(x)))
 
         #test at high
         x.value = -2.0
         x.high = 2.0
-        self.assertFalse(t.converged(result=q.compute()))
+        self.assertFalse(t.converged(result=q.compute(x)))
         x.value = 0.0
         x.high = 0.0
-        self.assertTrue(t.converged(result=q.compute()))
+        self.assertTrue(t.converged(result=q.compute(x)))
 
         #test at low
         x.high = None
         x.value = 0.0
         x.low = 0.0
-        self.assertFalse(t.converged(result=q.compute()))
+        self.assertFalse(t.converged(result=q.compute(x)))
         x.value = 2.0
         x.low = 2.0
-        self.assertTrue(t.converged(result=q.compute()))
+        self.assertTrue(t.converged(result=q.compute(x)))
 
 class test_ValueTest(unittest.TestCase):
     """Unit tests for relentless.optimize.ValueTest"""
@@ -132,14 +132,14 @@ class test_ValueTest(unittest.TestCase):
         q = QuadraticObjective(x=x)
 
         t = relentless.optimize.ValueTest(absolute=0.2, relative=0.2, value=1.0)
-        self.assertFalse(t.converged(result=q.compute()))
+        self.assertFalse(t.converged(result=q.compute(x)))
         x.value = 1.999999999
-        self.assertTrue(t.converged(result=q.compute()))
+        self.assertTrue(t.converged(result=q.compute(x)))
 
         t = relentless.optimize.ValueTest(value=9.0)
-        self.assertFalse(t.converged(result=q.compute()))
+        self.assertFalse(t.converged(result=q.compute(x)))
         x.value = 3.9999999999
-        self.assertTrue(t.converged(result=q.compute()))
+        self.assertTrue(t.converged(result=q.compute(x)))
 
 class AnyTest(unittest.TestCase):
     """Unit tests for relentless.optimize.AnyTest"""
@@ -163,13 +163,13 @@ class AnyTest(unittest.TestCase):
         t3 = relentless.optimize.ValueTest(value=0.0)
 
         t = relentless.optimize.AnyTest(t1,t2,t3)
-        self.assertFalse(t.converged(result=q.compute()))
+        self.assertFalse(t.converged(result=q.compute(x)))
 
         x.value = 2.00000001
-        self.assertTrue(t.converged(result=q.compute()))
+        self.assertTrue(t.converged(result=q.compute(x)))
 
         x.value = 1.00000001
-        self.assertTrue(t.converged(result=q.compute()))
+        self.assertTrue(t.converged(result=q.compute(x)))
 
 class AllTest(unittest.TestCase):
     """Unit tests for relentless.optimize.AllTest"""
@@ -193,14 +193,14 @@ class AllTest(unittest.TestCase):
         t3 = relentless.optimize.ValueTest(value=0.0)
 
         t = relentless.optimize.AllTest(t1,t2,t3)
-        self.assertFalse(t.converged(result=q.compute()))
+        self.assertFalse(t.converged(result=q.compute(x)))
 
         x.value = 1.999999999
-        self.assertFalse(t.converged(result=q.compute()))
+        self.assertFalse(t.converged(result=q.compute(x)))
 
         t2.value = 0.0
         x.value = 0.999999999
-        self.assertTrue(t.converged(result=q.compute()))
+        self.assertTrue(t.converged(result=q.compute(x)))
 
 class OrTest(unittest.TestCase):
     """Unit tests for relentless.optimize.OrTest"""
@@ -222,13 +222,13 @@ class OrTest(unittest.TestCase):
         t2 = relentless.optimize.ValueTest(value=1.0)
 
         t = relentless.optimize.OrTest(t1,t2)
-        self.assertFalse(t.converged(result=q.compute()))
+        self.assertFalse(t.converged(result=q.compute(x)))
 
         x.value = 1.9999999999
-        self.assertTrue(t.converged(result=q.compute()))
+        self.assertTrue(t.converged(result=q.compute(x)))
 
         x.value = 0.9999999999
-        self.assertTrue(t.converged(result=q.compute()))
+        self.assertTrue(t.converged(result=q.compute(x)))
 
 class AndTest(unittest.TestCase):
     """Unit tests for relentless.optimize.AndTest"""
@@ -250,14 +250,14 @@ class AndTest(unittest.TestCase):
         t2 = relentless.optimize.ValueTest(value=1.0)
 
         t = relentless.optimize.AndTest(t1,t2)
-        self.assertFalse(t.converged(result=q.compute()))
+        self.assertFalse(t.converged(result=q.compute(x)))
 
         x.value = 1.999999999
-        self.assertFalse(t.converged(result=q.compute()))
+        self.assertFalse(t.converged(result=q.compute(x)))
 
         t2.value = 0.0
         x.value = 0.999999999
-        self.assertTrue(t.converged(result=q.compute()))
+        self.assertTrue(t.converged(result=q.compute(x)))
 
 if __name__ == '__main__':
     unittest.main()

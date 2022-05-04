@@ -198,6 +198,18 @@ class VariableGraph:
     def design_variables(self):
         return tuple(x for x in self._graph.nodes if isinstance(x, DesignVariable))
 
+    def check_design_variables(self, x):
+        try:
+            dvars = tuple(x)
+        except TypeError:
+            dvars = (x,)
+        for y in dvars:
+            if not isinstance(y, DesignVariable):
+                raise TypeError('All design variables must be DesignVariable objects')
+            if y not in self._graph:
+                raise ValueError('Design variable is not in graph')
+        return dvars
+
     @property
     def is_acyclic(self):
         if self._is_acyclic is None:
@@ -413,9 +425,6 @@ class DesignVariable(IndependentVariable):
     ----------
     value : float or int
         Value of the variable.
-    const : bool
-        If ``False``, the variable can be optimized; otherwise, it should be
-        treated as a constant (defaults to ``False``).
     low : float or None
         Lower bound for the variable (``None`` means no lower bound).
     high : float or None
@@ -462,11 +471,10 @@ class DesignVariable(IndependentVariable):
         LOW = 1
         HIGH = 2
 
-    def __init__(self, value, name=None, const=False, low=None, high=None):
+    def __init__(self, value, name=None, low=None, high=None):
         if not isinstance(value, (float, int)):
             raise TypeError('Design variables are only float or int')
         super().__init__(name=name, value=value)
-        self.const = const
         self.low = low
         self.high = high
 

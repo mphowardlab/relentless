@@ -71,7 +71,7 @@ class ObjectiveFunction(abc.ABC):
 
     """
     @abc.abstractmethod
-    def compute(self, directory=None):
+    def compute(self, design_variables, directory=None):
         """Evaluate the value and gradient of the objective function.
 
         This method must call :meth:`make_result()` and return its result.
@@ -100,15 +100,27 @@ class ObjectiveFunctionResult:
         a value of ``None`` indicates no written output.
 
     """
-    def __init__(self, value, gradient, directory):
-        variables = variable.graph.design_variables
-        self._design_variables = math.KeyedArray(keys=variables)
-        self._design_variables.update({x: x.value for x in variables})
+    def __init__(self, design_variables=None, value=None, gradient=None, directory=None):
+        design_variables = variable.graph.check_design_variables(design_variables)
+        if len(design_variables) > 0:
+            self._design_variables = math.KeyedArray(keys=design_variables)
+            self._design_variables.update({x: x.value for x in design_variables})
+        else:
+            self._design_variables = None
 
         self._value = value
 
-        self._gradient = math.KeyedArray(keys=variables)
-        self._gradient.update(gradient)
+        if gradient is not None:
+            if self.design_variables is not None:
+                self._gradient = math.KeyedArray(keys=design_variables)
+                for x in design_variables:
+                    if x not in gradient:
+                        raise KeyError('Keys of gradient must match design variables')
+                    self._gradient[x] = gradient[x]
+            else:
+                raise ValueError('Cannot set gradient without design variables')
+        else:
+            self._gradient = None
 
         self.directory = directory
 
@@ -212,7 +224,7 @@ class RelativeEntropy(ObjectiveFunction):
         self.communicator = communicator
         self.extensive = extensive
 
-    def compute(self, directory=None):
+    def compute(self, design_variables, directory=None):
         r"""Evaluate the value and gradient of the relative entropy function.
 
         The value of the relative entropy is not computed, but the gradient is.
@@ -242,7 +254,7 @@ class RelativeEntropy(ObjectiveFunction):
         # run simulation and use result to compute gradient
         sim = self.simulation.run(self.target, self.potentials, directory, self.communicator)
         sim_ens = self.thermo.extract_ensemble(sim)
-        gradient = self.compute_gradient(sim_ens)
+        gradient = self.compute_gradient(sim_ens, design_variables)
 
         # optionally write output to directory
         if directory is not None and (self.communicator is None or self.communicator.rank == self.communicator.root):
@@ -251,9 +263,9 @@ class RelativeEntropy(ObjectiveFunction):
             sim_ens.save(directory.file('ensemble.json'))
 
         # relative entropy *value* is None
-        return ObjectiveFunctionResult(None, gradient, directory)
+        return ObjectiveFunctionResult(design_variables, None, gradient, directory)
 
-    def compute_gradient(self, ensemble):
+    def compute_gradient(self, ensemble, design_variables):
         """Computes the relative entropy gradient for an ensemble.
 
         Parameters
@@ -270,7 +282,7 @@ class RelativeEntropy(ObjectiveFunction):
         # compute the relative entropy gradient by integration
         g_tgt = self.target.rdf
         g_sim = ensemble.rdf
-        dvars = variable.graph.design_variables
+        dvars = variable.graph.check_design_variables(design_variables)
         gradient = math.KeyedArray(keys=dvars)
 
         for var in dvars:

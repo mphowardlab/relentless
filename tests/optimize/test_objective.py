@@ -14,10 +14,11 @@ class QuadraticObjective(relentless.optimize.ObjectiveFunction):
     def __init__(self, x):
         self.x = x
 
-    def compute(self, directory=None):
+    def compute(self, design_variables, directory=None):
         val = (self.x.value-1)**2
+        design_variables = relentless.variable.graph.check_design_variables(design_variables)
         grad = {}
-        for x in relentless.variable.graph.design_variables:
+        for x in design_variables:
             if x is self.x:
                 grad[x] = 2*(self.x.value-1)
             else:
@@ -28,7 +29,7 @@ class QuadraticObjective(relentless.optimize.ObjectiveFunction):
             with open(directory.file('x.log'),'w') as f:
                 f.write(str(self.x.value) + '\n')
 
-        return relentless.optimize.ObjectiveFunctionResult(val, grad, directory)
+        return relentless.optimize.ObjectiveFunctionResult(design_variables, val, grad, directory)
 
 class test_ObjectiveFunction(unittest.TestCase):
     """Unit tests for relentless.optimize.ObjectiveFunction"""
@@ -41,7 +42,7 @@ class test_ObjectiveFunction(unittest.TestCase):
         x = relentless.variable.DesignVariable(value=4.0)
         q = QuadraticObjective(x=x)
 
-        res = q.compute()
+        res = q.compute(x)
         self.assertAlmostEqual(res.value, 9.0)
         self.assertAlmostEqual(res.gradient[x], 6.0)
         self.assertAlmostEqual(res.design_variables[x], 4.0)
@@ -57,7 +58,7 @@ class test_ObjectiveFunction(unittest.TestCase):
         x = relentless.variable.DesignVariable(value=1.0)
         q = QuadraticObjective(x=x)
         d = relentless.data.Directory(self.directory.name)
-        res = q.compute(d)
+        res = q.compute(x, d)
 
         with open(d.file('x.log')) as f:
             x = float(f.readline())
@@ -153,11 +154,11 @@ class test_RelativeEntropy(unittest.TestCase):
                                                      self.potentials,
                                                      self.thermo)
 
-        res = relent.compute()
+        res = relent.compute((self.epsilon, self.sigma))
 
         sim = self.simulation.run(self.target, self.potentials, self.directory.name)
         ensemble = self.thermo.extract_ensemble(sim)
-        res_grad = relent.compute_gradient(ensemble)
+        res_grad = relent.compute_gradient(ensemble, (self.epsilon, self.sigma))
 
         grad_eps = self.relent_grad(self.epsilon)
         grad_sig = self.relent_grad(self.sigma)
@@ -175,11 +176,11 @@ class test_RelativeEntropy(unittest.TestCase):
                                                      self.thermo,
                                                      extensive=True)
 
-        res = relent.compute()
+        res = relent.compute((self.epsilon,self.sigma))
 
         sim = self.simulation.run(self.target, self.potentials, self.directory.name)
         ensemble = self.thermo.extract_ensemble(sim)
-        res_grad = relent.compute_gradient(ensemble)
+        res_grad = relent.compute_gradient(ensemble, (self.epsilon, self.sigma))
 
         grad_eps = self.relent_grad(self.epsilon, ext=True)
         grad_sig = self.relent_grad(self.sigma, ext=True)
@@ -197,7 +198,7 @@ class test_RelativeEntropy(unittest.TestCase):
                                                      self.thermo)
 
         d = relentless.data.Directory(self.directory.name)
-        res = relent.compute(d)
+        res = relent.compute((self.epsilon,self.sigma),d)
 
         with open(d.file('pair_potential.0.json')) as f:
             x = json.load(f)

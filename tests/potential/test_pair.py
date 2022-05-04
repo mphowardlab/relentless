@@ -585,11 +585,11 @@ class test_PairSpline(unittest.TestCase):
         for i,(r,k) in enumerate(s.knots(pair=('1','1'))):
             self.assertAlmostEqual(r.value, r_arr[i])
             self.assertAlmostEqual(k.value, u_arr_diff[i])
-            self.assertEqual(r.const, True)
+            self.assertIsInstance(r, relentless.variable.IndependentVariable)
             if i == s.num_knots-1:
-                self.assertEqual(k.const, True)
+                self.assertIsInstance(k, relentless.variable.IndependentVariable)
             else:
-                self.assertEqual(k.const, False)
+                self.assertIsInstance(k, relentless.variable.DesignVariable)
 
         #test value mode
         s = relentless.potential.PairSpline(types=('1',), num_knots=3, mode='value')
@@ -598,11 +598,11 @@ class test_PairSpline(unittest.TestCase):
         for i,(r,k) in enumerate(s.knots(pair=('1','1'))):
             self.assertAlmostEqual(r.value, r_arr[i])
             self.assertAlmostEqual(k.value, u_arr[i])
-            self.assertEqual(r.const, True)
+            self.assertIsInstance(r, relentless.variable.IndependentVariable)
             if i == s.num_knots-1:
-                self.assertEqual(k.const, True)
+                self.assertIsInstance(k, relentless.variable.IndependentVariable)
             else:
-                self.assertEqual(k.const, False)
+                self.assertIsInstance(k, relentless.variable.DesignVariable)
 
         #test invalid r and u shapes
         r_arr = [2,3]
