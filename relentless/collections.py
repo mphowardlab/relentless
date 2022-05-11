@@ -22,9 +22,7 @@ potentials and performing computations during the optimization workflow.
 """
 import collections
 
-import numpy
-
-class FixedKeyDict:
+class FixedKeyDict(collections.abc.MutableMapping):
     """Dictionary with fixed keys.
 
     Parameters
@@ -95,7 +93,7 @@ class FixedKeyDict:
             If the key is not in the dictionary.
 
         """
-        if key not in self.keys:
+        if key not in self._keys:
             raise KeyError('Key {} is not in dictionary.'.format(key))
         return key
 
@@ -107,64 +105,22 @@ class FixedKeyDict:
         key = self._check_key(key)
         self._data[key] = value
 
+    def __delitem__(self, key):
+        key = self._check_key(key)
+        self._data[key] = self.default
+
     def __iter__(self):
         return iter(self._data)
 
-    def __next__(self):
-        return next(self._data)
-
-    def __str__(self):
-        return str(self._data)
+    def __len__(self):
+        return len(self._data)
 
     def clear(self):
         """Clear entries in the dictionary, resetting to default."""
-        for i in self.keys:
+        for i in self._keys:
             self._data[i] = self._default
 
-    def update(self, *data, **values):
-        """Partially reassigns key values.
-
-        If both positional argument (``data``) and keyword arguments (``values``)
-        are given as parameters, any keys in ``values`` will take precedence over ``data``.
-
-        Parameters
-        ----------
-        data : :class:`dict`
-            The keys and values to be updated/over-written, in a dictionary form.
-        values : kwargs
-            The keys and values to be updated/over-written.
-
-        Raises
-        ------
-        TypeError
-            If more than one positional argument is given.
-
-        """
-        if len(data) > 1:
-            raise TypeError('More than one positional argument is given')
-        elif len(data) == 1:
-            for key in data[0]:
-                self[key] = data[0][key]
-        for key in values:
-            self[key] = values[key]
-
-    def todict(self):
-        """Convert the fixed-key dictionary to a standard dictionary.
-
-        Returns
-        -------
-        dict
-            A copy of the data in the dictionary.
-
-        """
-        return dict(self._data)
-
-    @property
-    def keys(self):
-        """tuple: All keys in the dictionary."""
-        return self._keys
-
-class PairMatrix:
+class PairMatrix(collections.abc.MutableMapping):
     """Generic matrix of values per-pair.
 
     Defines a symmetric matrix of parameters corresponding to ``(i,j)`` pairs.
@@ -271,22 +227,23 @@ class PairMatrix:
 
     def __getitem__(self, key):
         """Get all coefficients for the `(i,j)` pair."""
-        i,j = self._check_key(key)
-        return self._data[i,j]
+        key = self._check_key(key)
+        return self._data[key]
 
     def __setitem__(self, key, value):
         """Set coefficients for the `(i,j)` pair."""
-        i,j = self._check_key(key)
-        self._data[i,j] = value
+        key = self._check_key(key)
+        self._data[key] = value
+
+    def __delitem__(self, key):
+        key = self._check_key(key)
+        self._data[key] = {}
 
     def __iter__(self):
         return iter(self._data)
 
-    def __next__(self):
-        return next(self._data)
-
-    def __str__(self):
-        return str(self._data)
+    def __len__(self):
+        return len(self._data)
 
     @property
     def pairs(self):

@@ -343,7 +343,7 @@ class SteepestDescent(Optimizer):
             The descent amount, keyed on the objective function design variables.
 
         """
-        k = math.KeyedArray(keys=gradient.keys)
+        k = math.KeyedArray(keys=gradient.keys())
         for i in k:
             k[i] = self.step_size
         return k
@@ -543,7 +543,7 @@ class FixedStepDescent(SteepestDescent):
             The descent amount, keyed on the objective function design variables.
 
         """
-        k = math.KeyedArray(keys=gradient.keys)
+        k = math.KeyedArray(keys=gradient.keys())
         for i in k:
             k[i] = self.step_size
         return k/gradient.norm()

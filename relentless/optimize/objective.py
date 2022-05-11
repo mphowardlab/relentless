@@ -111,10 +111,14 @@ class ObjectiveFunctionResult:
         self._value = value
 
         if gradient is not None:
-            self._gradient = math.KeyedArray(keys=variables)
+            self._gradient = math.KeyedArray(keys=gradient.keys())
             self._gradient.update(gradient)
         else:
             self._gradient = None
+
+        if self._variables is not None and self._gradient is not None:
+            if self._variables.keys() != self._gradient.keys():
+                raise KeyError('Variable and gradient keys do not match!')
 
         self.directory = directory
 

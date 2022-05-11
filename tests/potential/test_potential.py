@@ -324,8 +324,8 @@ class test_Potential(unittest.TestCase):
             p.coeff[t]['rmin'] = 0.0
             p.coeff[t]['rmax'] = 1.0
 
-        self.assertDictEqual(p.coeff['1'].todict(), {'m':2.0, 'rmin':0.0, 'rmax':1.0})
-        self.assertDictEqual(p.coeff['2'].todict(), {'m':2.0, 'rmin':0.0, 'rmax':1.0})
+        self.assertDictEqual(dict(p.coeff['1']), {'m':2.0, 'rmin':0.0, 'rmax':1.0})
+        self.assertDictEqual(dict(p.coeff['2']), {'m':2.0, 'rmin':0.0, 'rmax':1.0})
 
     def test_save(self):
         """Test saving to file"""

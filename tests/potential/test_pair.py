@@ -424,9 +424,9 @@ class test_PairPotential(unittest.TestCase):
             p.coeff[pair]['rmin'] = 0.0
             p.coeff[pair]['rmax'] = 1.0
 
-        self.assertDictEqual(p.coeff['1','1'].todict(), {'m':2.0, 'rmin':0.0, 'rmax':1.0, 'shift':False})
-        self.assertDictEqual(p.coeff['1','2'].todict(), {'m':2.0, 'rmin':0.0, 'rmax':1.0, 'shift':False})
-        self.assertDictEqual(p.coeff['2','2'].todict(), {'m':2.0, 'rmin':0.0, 'rmax':1.0, 'shift':False})
+        self.assertDictEqual(dict(p.coeff['1','1']), {'m':2.0, 'rmin':0.0, 'rmax':1.0, 'shift':False})
+        self.assertDictEqual(dict(p.coeff['1','2']), {'m':2.0, 'rmin':0.0, 'rmax':1.0, 'shift':False})
+        self.assertDictEqual(dict(p.coeff['2','2']), {'m':2.0, 'rmin':0.0, 'rmax':1.0, 'shift':False})
 
     def test_save(self):
         """Test saving to file"""

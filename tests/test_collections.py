@@ -15,24 +15,24 @@ class test_FixedKeyDict(unittest.TestCase):
 
         #test construction with tuple input
         d = relentless.collections.FixedKeyDict(keys=('A','B'))
-        self.assertEqual(d.keys, keys)
-        self.assertEqual([d[k] for k in d.keys], [None, None])
+        self.assertCountEqual(d.keys(), keys)
+        self.assertEqual([d[k] for k in d.keys()], [None, None])
 
         #test construction with list input
         d = relentless.collections.FixedKeyDict(keys=['A','B'])
-        self.assertEqual(d.keys, keys)
-        self.assertEqual([d[k] for k in d.keys], [None, None])
+        self.assertCountEqual(d.keys(), keys)
+        self.assertEqual([d[k] for k in d.keys()], [None, None])
 
         #test construction with defined default input
         d = relentless.collections.FixedKeyDict(keys=('A','B'), default=1.0)
-        self.assertEqual(d.keys, keys)
-        self.assertEqual([d[k] for k in d.keys], [1.0, 1.0])
+        self.assertCountEqual(d.keys(), keys)
+        self.assertEqual([d[k] for k in d.keys()], [1.0, 1.0])
 
         #test construction with single-key tuple input
         keys = ('A',)
         d = relentless.collections.FixedKeyDict(keys=('A',))
-        self.assertEqual(d.keys, keys)
-        self.assertEqual([d[k] for k in d.keys], [None])
+        self.assertCountEqual(d.keys(), keys)
+        self.assertEqual([d[k] for k in d.keys()], [None])
 
     def test_accessors(self):
         """Test get and set methods on keys."""
@@ -40,15 +40,15 @@ class test_FixedKeyDict(unittest.TestCase):
 
         #test setting and getting values
         d['A'] = 1.0
-        self.assertEqual([d[k] for k in d.keys], [1.0, None])
+        self.assertEqual([d[k] for k in d.keys()], [1.0, None])
         d['B'] = 1.0
-        self.assertEqual([d[k] for k in d.keys], [1.0, 1.0])
+        self.assertEqual([d[k] for k in d.keys()], [1.0, 1.0])
 
         #test re-setting and getting values
         d['A'] = 2.0
-        self.assertEqual([d[k] for k in d.keys], [2.0, 1.0])
+        self.assertEqual([d[k] for k in d.keys()], [2.0, 1.0])
         d['B'] = 1.5
-        self.assertEqual([d[k] for k in d.keys], [2.0, 1.5])
+        self.assertEqual([d[k] for k in d.keys()], [2.0, 1.5])
 
         #test getting invalid key
         with self.assertRaises(KeyError):
@@ -58,21 +58,21 @@ class test_FixedKeyDict(unittest.TestCase):
         """Test update method to get and set keys."""
         d = relentless.collections.FixedKeyDict(keys=('A','B'))
 
-        self.assertEqual([d[k] for k in d.keys], [None, None])
+        self.assertEqual([d[k] for k in d.keys()], [None, None])
 
         #test updating both keys
         d.update({'A':1.0, 'B':2.0})  #using dict
-        self.assertEqual([d[k] for k in d.keys], [1.0, 2.0])
+        self.assertEqual([d[k] for k in d.keys()], [1.0, 2.0])
 
         d.update(A=1.5, B=2.5)  #using kwargs
-        self.assertEqual([d[k] for k in d.keys], [1.5, 2.5])
+        self.assertEqual([d[k] for k in d.keys()], [1.5, 2.5])
 
         #test updating only one key at a time
         d.update({'A':1.1})   #using dict
-        self.assertEqual([d[k] for k in d.keys], [1.1, 2.5])
+        self.assertEqual([d[k] for k in d.keys()], [1.1, 2.5])
 
         d.update(B=2.2)   #using kwargs
-        self.assertEqual([d[k] for k in d.keys], [1.1, 2.2])
+        self.assertEqual([d[k] for k in d.keys()], [1.1, 2.2])
 
         #test using *args length > 1
         with self.assertRaises(TypeError):
@@ -80,7 +80,7 @@ class test_FixedKeyDict(unittest.TestCase):
 
         #test using both *args and **kwargs
         d.update({'A':3.0, 'B':2.0}, B=2.2)
-        self.assertEqual([d[k] for k in d.keys], [3.0, 2.2])
+        self.assertEqual([d[k] for k in d.keys()], [3.0, 2.2])
 
         #test using invalid kwarg
         with self.assertRaises(KeyError):
@@ -90,19 +90,19 @@ class test_FixedKeyDict(unittest.TestCase):
         """Test clear method to reset keys to default."""
         #test clear with no default set
         d = relentless.collections.FixedKeyDict(keys=('A','B'))
-        self.assertEqual([d[k] for k in d.keys], [None, None])
+        self.assertEqual([d[k] for k in d.keys()], [None, None])
         d.update(A=2, B=3)
-        self.assertEqual([d[k] for k in d.keys], [2.0, 3.0])
+        self.assertEqual([d[k] for k in d.keys()], [2.0, 3.0])
         d.clear()
-        self.assertEqual([d[k] for k in d.keys], [None, None])
+        self.assertEqual([d[k] for k in d.keys()], [None, None])
 
         #test clear with set default
         d = relentless.collections.FixedKeyDict(keys=('A','B'), default=1.0)
-        self.assertEqual([d[k] for k in d.keys], [1.0, 1.0])
+        self.assertEqual([d[k] for k in d.keys()], [1.0, 1.0])
         d.update(A=2, B=3)
-        self.assertEqual([d[k] for k in d.keys], [2.0, 3.0])
+        self.assertEqual([d[k] for k in d.keys()], [2.0, 3.0])
         d.clear()
-        self.assertEqual([d[k] for k in d.keys], [1.0, 1.0])
+        self.assertEqual([d[k] for k in d.keys()], [1.0, 1.0])
 
     def test_iteration(self):
         """Test iteration on the dictionary."""
@@ -111,18 +111,18 @@ class test_FixedKeyDict(unittest.TestCase):
         #test iteration for setting values
         for k in d:
             d[k] = 1.0
-        self.assertEqual([d[k] for k in d.keys], [1.0, 1.0])
+        self.assertEqual([d[k] for k in d.keys()], [1.0, 1.0])
 
         #test manual re-setting of values
         d['A'] = 2.0
-        self.assertEqual([d[k] for k in d.keys], [2.0, 1.0])
+        self.assertEqual([d[k] for k in d.keys()], [2.0, 1.0])
         d['B'] = 1.5
-        self.assertEqual([d[k] for k in d.keys], [2.0, 1.5])
+        self.assertEqual([d[k] for k in d.keys()], [2.0, 1.5])
 
         #test iteration for re-setting values
         for k in d:
             d[k] = 3.0
-        self.assertEqual([d[k] for k in d.keys], [3.0, 3.0])
+        self.assertEqual([d[k] for k in d.keys()], [3.0, 3.0])
 
     def test_copy(self):
         """Test copying custom dict to standard dict."""
@@ -130,17 +130,17 @@ class test_FixedKeyDict(unittest.TestCase):
 
         #test copying for empty dict
         dict_var = {'A':None, 'B':None}
-        self.assertEqual(d.todict(), dict_var)
+        self.assertDictEqual(dict(d), dict_var)
 
         #test copying for partially filled dict
         dict_var = {'A':None, 'B':1.0}
         d['B'] = 1.0
-        self.assertEqual(d.todict(), dict_var)
+        self.assertDictEqual(dict(d), dict_var)
 
         #test copying for full dict
         dict_var = {'A':1.0, 'B':1.0}
         d['A'] = 1.0
-        self.assertEqual(d.todict(), dict_var)
+        self.assertDictEqual(dict(d), dict_var)
 
 class test_PairMatrix(unittest.TestCase):
     """Unit tests for relentless.collections.PairMatrix."""
