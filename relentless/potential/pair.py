@@ -1073,6 +1073,7 @@ class PairSpline(PairPotential):
 
     @property
     def design_variables(self):
+        """tuple: Designable variables of the spline."""
         dvars = []
         for r,k in self.knots:
             if isinstance(r, variable.DesignVariable):

@@ -82,6 +82,7 @@ class Optimizer(abc.ABC):
         objective : :class:`~relentless.optimize.objective.ObjectiveFunction`
             The objective function to be optimized.
         design_variables: :class:`~relentless.variable.DesignVariable` or tuple
+            Design variable(s) to optimize.
         directory : :class:`~relentless.data.Directory`
             Directory for writing output during optimization. Default of ``None``
             requests no output is written.
@@ -367,6 +368,8 @@ class SteepestDescent(Optimizer):
         ----------
         objective : :class:`~relentless.optimize.objective.ObjectiveFunction`
             The objective function to be optimized.
+        design_variables: :class:`~relentless.variable.DesignVariable` or tuple
+            Design variable(s) to optimize.
         directory : :class:`~relentless.data.Directory`
             Directory for writing output during optimization. Default of `None`
             requests no output is written.

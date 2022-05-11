@@ -228,6 +228,8 @@ class GradientTest(ConvergenceTest):
     ----------
     tolerance : float
         The default absolute tolerance.
+    variables : :class:`~relentless.variable.Variable` or tuple
+        Variable(s) to test convergence for in gradient.
 
     """
     def __init__(self, tolerance, variables):
@@ -251,6 +253,11 @@ class GradientTest(ConvergenceTest):
         -------
         bool
             True if the function is converged.
+
+        Raises
+        ------
+        KeyError
+            If the requested variable is not in the gradient of the result.
 
         """
         converged = True

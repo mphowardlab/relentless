@@ -37,12 +37,12 @@ To implement your own objective function, create a class that derives from
 
 .. autoclass:: ObjectiveFunction
     :member-order: bysource
-    :members: compute,
-        make_result
+    :members: compute
 
 .. autoclass:: ObjectiveFunctionResult
     :member-order: bysource
-    :members: value,
+    :members: variables,
+        value,
         gradient,
         directory
 
@@ -74,12 +74,19 @@ class ObjectiveFunction(abc.ABC):
     def compute(self, variables, directory=None):
         """Evaluate the value and gradient of the objective function.
 
-        This method must call :meth:`make_result()` and return its result.
+        Parameters
+        ----------
+        variables : :class:`~relentless.variable.Variable` or tuple
+            Variables to record in result.
+        directory : :class:`~relentless.data.Directory`
+            The ouptut directory. In addition to simulation output, the pair
+            potential design variables at the time of computation are saved
+            (defaults to ``None``).
 
         Returns
         -------
         :class:`ObjectiveFunctionResult`
-            The result of :meth:`make_result()`.
+            The result of the function.
 
         """
         pass
@@ -89,6 +96,8 @@ class ObjectiveFunctionResult:
 
     Parameters
     ----------
+    variables : :class:`~relentless.variable.Variable` or tuple
+        Variables to stash values
     value : float
         The value of the objective function.
     gradient : dict
@@ -98,6 +107,12 @@ class ObjectiveFunctionResult:
     directory : :class:`~relentless.data.Directory`
         Directory holding written output associated with result. Setting
         a value of ``None`` indicates no written output.
+
+    Raises
+    ------
+    KeyError
+        If both ``variables`` and ``gradient`` are defined but their keys
+        don't match.
 
     """
     def __init__(self, variables=None, value=None, gradient=None, directory=None):
@@ -123,6 +138,12 @@ class ObjectiveFunctionResult:
         self.directory = directory
 
     @property
+    def variables(self):
+        """:class:`~relentless.math.KeyedArray`: Recorded variables of the
+        :class:`ObjectiveFunction`."""
+        return self._variables
+
+    @property
     def value(self):
         """float: The value of the evaluated objective function."""
         return self._value
@@ -143,12 +164,6 @@ class ObjectiveFunctionResult:
         if value is not None and not isinstance(value, data.Directory):
             value = data.Directory(value)
         self._directory = value
-
-    @property
-    def variables(self):
-        """:class:`~relentless.math.KeyedArray`: Recorded variables of the
-        :class:`ObjectiveFunction`."""
-        return self._variables
 
 class RelativeEntropy(ObjectiveFunction):
     r"""Relative entropy.
@@ -237,6 +252,8 @@ class RelativeEntropy(ObjectiveFunction):
 
         Parameters
         ----------
+        variables : :class:`~relentless.variable.Variable` or tuple
+            Variables with respect to which to compute gradient.
         directory : :class:`~relentless.data.Directory`
             The ouptut directory. In addition to simulation output, the pair
             potential design variables at the time of computation are saved
@@ -269,6 +286,8 @@ class RelativeEntropy(ObjectiveFunction):
         ----------
         ensemble : :class:`~relentless.ensemble.Ensemble`
             The ensemble for which to evaluate the gradient.
+        variables : :class:`~relentless.variable.Variable` or tuple
+            Variables with respect to which to compute gradient.
 
         Returns
         -------

@@ -43,6 +43,7 @@ or :class:`BinaryOperator`) and define the required properties and methods.
 
     Variable
     IndependentVariable
+    ConstantVariable
     DependentVariable
     UnaryOperator
     BinaryOperator
@@ -63,12 +64,16 @@ or :class:`BinaryOperator`) and define the required properties and methods.
     :members: value
 .. autoclass:: IndependentVariable
     :members:
+.. autoclass:: ConstantVariable
+    :members:
 .. autoclass:: DependentVariable
     :members:
     :private-members: compute, compute_derivative
 .. autoclass:: UnaryOperator
     :members:
 .. autoclass:: BinaryOperator
+    :members:
+.. autoclass:: VariableGraph
     :members:
 
 """
@@ -82,9 +87,19 @@ class Variable(abc.ABC):
     """Abstract base class for a variable.
 
     A variable represents a single scalar quantity. The :attr:`value` of the
-    variable is an abstract property that must be implemented. Most users should
-    not inherit from this variable directly but should make use of the more
-    flexible :class:`IndependentVariable` or :class:`DependentVariable` types.
+    variable is an abstract property that must be implemented. On creation, the
+    `Variable` will be inserted into the `VariableGraph` for the project.
+    
+    Most users should not inherit from this variable directly but should make
+    use of the more flexible :class:`IndependentVariable` or
+    :class:`DependentVariable` types.
+
+    Parameters
+    ----------
+    name : str
+        Optional name for the variable. The name must be unique. If one is not
+        specified, a mangled name ``__x[id]`` will be automatically created,
+        where `id` is the unique index identifying the variable.
 
     Examples
     --------
@@ -173,6 +188,44 @@ class Variable(abc.ABC):
         return str(self.value)
 
 class ConstantVariable(Variable):
+    """Constant-value variable.
+
+    The value of a constant-value variable cannot be changed after it is
+    initialized. This distinguishes it from the `IndependentVariable`.
+
+    Parameters
+    ----------
+    value : float
+        Constant value of the variable.
+    name : str
+        Optional name for the variable. The name must be unique. If one is not
+        specified, a mangled name ``__x[id]`` will be automatically created,
+        where `id` is the unique index identifying the variable.
+
+    Examples
+    --------
+    Create a constant variable::
+
+        >>> x = ConstantVariable(2.0)
+        >>> print(x.value)
+        2.0
+        >>> print(x.name)
+        '__x[0]'
+
+    Create a constant variable with a name:
+
+        >>> y = ConstantVariable(3.0, name='y')
+        >>> print(y.name)
+        'y'
+
+    Raises
+    ------
+    TypeError
+        If ``value`` is not a `float` or `int`
+    ValueError
+        If ``name`` is already used.
+
+    """
     def __init__(self, value, name=None):
         if not isinstance(value, (float, int)):
             raise TypeError('Constant values are only floats or ints')
@@ -189,7 +242,11 @@ class IndependentVariable(Variable):
     Parameters
     ----------
     value : float
-        Initial value.
+        Value of the variable.
+    name : str
+        Optional name for the variable. The name must be unique. If one is not
+        specified, a mangled name ``__x[id]`` will be automatically created,
+        where `id` is the unique index identifying the variable.
 
     Examples
     --------
@@ -219,6 +276,13 @@ class IndependentVariable(Variable):
         >>> x /= 2.0
         >>> print(x)
         0.5
+
+    Raises
+    ------
+    TypeError
+        If ``value`` is not a `float` or `int`
+    ValueError
+        If ``name`` is already used.
 
     """
     def __init__(self, value, name=None):
@@ -279,8 +343,12 @@ class DesignVariable(IndependentVariable):
 
     Parameters
     ----------
-    value : float or int
+    value : float
         Value of the variable.
+    name : str
+        Optional name for the variable. The name must be unique. If one is not
+        specified, a mangled name ``__x[id]`` will be automatically created,
+        where `id` is the unique index identifying the variable.
     low : float or None
         Lower bound for the variable (``None`` means no lower bound).
     high : float or None
@@ -503,18 +571,26 @@ class DependentVariable(Variable):
 
     @property
     def value(self):
+        """float: Value of the variable.
+        
+        The variable will be evaluated using the `VariableGraph` if it needs to
+        be recomputed.
+
+        """
         if self._recompute:
             graph.evaluate(self)
         return self._value
 
     @property
     def params(self):
+        """tuple: Names of parameters"""
         return self._params
 
     def derivative(self, var):
         """Calculate derivative with respect to a :class:`Variable`.
 
-        The derivative is evaluated using the standard chain rule.
+        The derivative is evaluated using the `VariableGraph`. Any values of the
+        graph that are needed will be updated.
 
         Parameters
         ----------
@@ -526,11 +602,6 @@ class DependentVariable(Variable):
         float
             The calculated derivative.
 
-        Raises
-        ------
-        RuntimeError
-            If this :class:`DependentVariable` has any circular dependencies.
-
         """
         if self._recompute:
             graph.evaluate(self)
@@ -538,6 +609,12 @@ class DependentVariable(Variable):
 
     @abc.abstractmethod
     def compute(self):
+        """Implementation of the value.
+        
+        This method should implement calculation of the variable from the
+        parameter keywords. The parameters will be passed as keyword arguments.
+        
+        """
         pass
 
     @abc.abstractmethod
@@ -546,7 +623,7 @@ class DependentVariable(Variable):
 
         This method should implement the partial derivative with respect
         to the named dependency ``param`` given the current value of this
-        variable.
+        variable. The parameters will be passed as keyword arguments.
 
         Parameters
         ----------
@@ -842,18 +919,18 @@ class GeometricMean(BinaryOperator):
             raise ValueError('Unknown parameter')
 
 class VariableGraph:
-    """Construct a directed graph of dependencies.
+    """Directed graph of variables and dependencies.
 
-    The graph nodes are all the :class:`Variable` objects on which this
-    :class:`DependentVariable` is dependent, and the graph edges represent
-    dependencies as connections between variables and carry the name of the
-    parameter as a "weight". The edge weight is a list of named parameters,
-    so an object can depend on the same :class:`Variable` multiple times;
-    these multiple dependencies are represented as one edge with multiple
-    parameters listed.
+    A graph is used to track all the variables in the project and enable
+    automatic differentiation. The graph nodes are all the :class:`Variable`
+    objects, and the graph edges represent ependencies as connections between
+    variables. Each edge points from the variable to a dependency and carries
+    the name of the parameter. Multiple edges are allowed between two variables.
+    The graph is required to be acyclic (i.e., there are no circular
+    dependencies).
 
-    The graph is constructed using a quasi depth-first search. In order to
-    perform certain calculations, the directed graph should be acyclic.
+    Currently, only one global `VariableGraph` is created for the project. It
+    is available as `relentless.variable.graph`.
 
     """
     def __init__(self):
@@ -862,6 +939,23 @@ class VariableGraph:
         self._constants = {}
 
     def add(self, x):
+        """Add a variable to the graph.
+
+        A new node is inserted into the project graph if the variable has not
+        yet been added. This function is safe to call multiple times on the
+        same variable. If ``x`` is not already a variable, an attempt is made
+        to coerce it into a `Variable`. If this process fails, an error will be
+        raised.
+
+        Adding a variable invalidates the cached `is_acyclic` property, which
+        must be recomputed the next time it is accessed.
+
+        Parameters
+        ----------
+        x : `Variable` or float
+            The variable to add.
+
+        """
         x = self._ensure_variable(x)
         if x not in self._graph:
             self._graph.add_node(x)
@@ -870,9 +964,33 @@ class VariableGraph:
         return x
 
     def set_dependencies(self, x, depends):
+        """Set dependencies of a variable in the graph.
+        
+        The dependencies of ``x`` should be specified as a dictionary whose
+        keys are the names of the parameters and whose values are `Variable`
+        objects (or values that can be coerced to variables). Any existing
+        dependencies are cleared from ``x`` before setting the ones in
+        ``depends``.
+
+        Parameters
+        ----------
+        x : `DependentVariable`
+            Dependent variable to set dependencies for.
+        depends : dict
+            Variable(s) specifying the parameters that ``x`` depends
+
+        Raises
+        ------
+        KeyError
+            If a dependency is missing from ``depends``.
+
+        """
         self._assert_in_graph(x)
         if not isinstance(x, DependentVariable):
             raise TypeError('Dependencies can only be set for DependentVariable')
+
+        if set(x.params) != depends.keys():
+            raise KeyError('Not all dependencies are set')
 
         # remove any old edges and make new ones
         self._graph.remove_edges_from(self._graph.edges(x))
@@ -884,16 +1002,59 @@ class VariableGraph:
         self._is_acyclic = None
 
     def update(self, x):
+        """Mark a variable as being updated.
+        
+        When an `IndependentVariable` is updated, the graph is updated to
+        reflect that on `DependentVariable` objects that depend on it need to
+        be recomputed. This is done in a lazy way by marking a private property,
+        so the values are only recomputed when they are needed. The update is
+        performed using depth-first search of the graph with the dependency
+        edge directions reversed.
+
+        Warning
+        -------
+        If an `IndependentVariable` is updated without updating the graph,
+        the values of other variables will likely be incorrect. It is the
+        responsibility of developers to ensure this is done!
+
+        Parameters
+        ----------
+        x : `IndependentVariable`
+            Independent variable to update.
+        
+        """
         self._assert_is_variable(x)
         self._assert_in_graph(x)
-        if isinstance(x, DependentVariable):
-            raise TypeError('Cannot update value of dependent variable directly')
+        if not isinstance(x, IndependentVariable):
+            raise TypeError('Can only update independent variables')
 
         for y in networkx.dfs_preorder_nodes(self._graph.reverse(), source=x):
             if isinstance(y, DependentVariable):
                 y._recompute = True
 
     def evaluate(self, x):
+        """Evaluate the value of a variable.
+
+        If ``x`` is a `DependentVariable`, its value is computed by updating
+        the graph using depth-first search. Postorder search is used to ensure
+        that variables are evaluated in the proper order (i.e., from the sinks
+        of the graph up). The results are stored in private attributes of the
+        variables and cached to make subsequent evaluation faster.
+
+        If ``x`` is not a `DependentVariable`, nothing needs to be done and the
+        value is simply returned.
+
+        Parameters
+        ----------
+        x : `Variable`
+            The variable to evaluate.
+
+        Returns
+        -------
+        float
+            The value of ``x``.
+
+        """
         self._assert_is_variable(x)
         self._assert_in_graph(x)
 
@@ -911,6 +1072,25 @@ class VariableGraph:
         return x.value
 
     def evaluate_derivative(self, f, x):
+        """Evaluate the derivative of a variable with respect to another.
+
+        Performs automatic differentiation of ``f`` with respect to ``x`` by
+        tracing all dependency paths of the graph and applying the chain rule.
+        Two special cases are ``f is x``, in which case the derivative is
+        trivially ``1.0``, and when ``f`` does not depend on ``x``, in which
+        case the derivative is trivially ``0.0``.
+
+        Parameters
+        ----------
+        x : `Variable`
+            The variable to evaluate.
+
+        Returns
+        -------
+        float
+            The value of ``x``.
+
+        """
         self._assert_is_variable(f)
         self._assert_is_variable(x)
         self._assert_in_graph(f)
@@ -942,27 +1122,52 @@ class VariableGraph:
 
     @property
     def variables(self):
+        """tuple: All variables in the graph."""
         return tuple(self._graph.nodes)
 
     @property
     def design_variables(self):
+        """tuple: All design variables in the graph."""
         return tuple(x for x in self._graph.nodes if isinstance(x, DesignVariable))
 
     @property
     def constant_variables(self):
+        """tuple: All constant variables in the graph."""
         return tuple(x for x in self._graph.nodes if isinstance(x, ConstantVariable))
 
     @property
     def dependent_variables(self):
+        """tuple: All dependent variables in the graph."""
         return tuple(x for x in self._graph.nodes if isinstance(x, DependentVariable))
 
     @property
     def is_acyclic(self):
+        """bool: True if the graph is acyclic."""
         if self._is_acyclic is None:
             self._is_acyclic = networkx.is_directed_acyclic_graph(self._graph)
         return self._is_acyclic
 
     def check_variables_and_types(self, x, types):
+        """Coerce variables to a tuple and check types.
+        
+        Parameters
+        ----------
+        x : `Variable` or tuple
+            Variable(s) to check
+        types : tuple
+            Valid types for the variables to have (per `isinstance`).
+
+        Returns
+        -------
+        tuple
+            The variables converted to a tuple (even if there is only one).
+
+        Raises
+        ------
+        TypeError
+            If the type does not match the allowed ones.
+
+        """
         try:
             vars = tuple(x)
         except TypeError:
@@ -974,19 +1179,45 @@ class VariableGraph:
         return vars
 
     def _assert_acyclic(self):
+        """Assert graph is acyclic."""
         if not self.is_acyclic:
             raise AssertionError('Circular dependency in variable graph')
 
     def _assert_is_variable(self, x):
-         if not isinstance(x, Variable):
+        """Assert object is a variable."""
+        if not isinstance(x, Variable):
             raise AssertionError('Object is not a variable')
 
     def _assert_in_graph(self, x):
+        """Assert object is a node in the graph."""
         self._assert_is_variable(x)
         if x not in self._graph:
             raise AssertionError('Object has not been added to graph')       
 
     def _ensure_variable(self, x):
+        """Coerce an object into a variable.
+
+        If ``x`` is already a `Variable`, no action is taken. If ``x`` is a
+        float or int, it is converted to a `ConstantVariable`. This is done
+        using caching so that a new variable is not created when the same
+        constant is used. The cache is handled by a dictionary keyed on ``x``.
+
+        Parameters
+        ----------
+        x : float or `Variable`
+            Object to coerce.
+
+        Returns
+        -------
+        Variable
+            A version of x that is a `Variable`.
+
+        Raises
+        ------
+        TypeError
+            If ``x`` cannot be converted to a `Variable`.
+
+        """
         if isinstance(x, (float, int)):
             if x in self._constants:
                 x_ = self._constants[x]
