@@ -101,7 +101,7 @@ class ObjectiveFunctionResult:
 
     """
     def __init__(self, variables=None, value=None, gradient=None, directory=None):
-        variables = variable.graph.check_variables(variables)
+        variables = variable.graph.check_variables_and_types(variables, variable.Variable)
         if len(variables) > 0:
             self._variables = math.KeyedArray(keys=variables)
             self._variables.update({x: x.value for x in variables})
@@ -279,7 +279,7 @@ class RelativeEntropy(ObjectiveFunction):
         # compute the relative entropy gradient by integration
         g_tgt = self.target.rdf
         g_sim = ensemble.rdf
-        dvars = variable.graph.check_variables(variables)
+        dvars = variable.graph.check_variables_and_types(variables, variable.Variable)
         gradient = math.KeyedArray(keys=dvars)
 
         for var in dvars:

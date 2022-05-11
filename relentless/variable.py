@@ -78,162 +78,6 @@ from enum import Enum
 import networkx
 import numpy
 
-class VariableGraph:
-    """Construct a directed graph of dependencies.
-
-    The graph nodes are all the :class:`Variable` objects on which this
-    :class:`DependentVariable` is dependent, and the graph edges represent
-    dependencies as connections between variables and carry the name of the
-    parameter as a "weight". The edge weight is a list of named parameters,
-    so an object can depend on the same :class:`Variable` multiple times;
-    these multiple dependencies are represented as one edge with multiple
-    parameters listed.
-
-    The graph is constructed using a quasi depth-first search. In order to
-    perform certain calculations, the directed graph should be acyclic.
-
-    """
-    def __init__(self):
-        self._graph = networkx.MultiDiGraph()
-        self._is_acyclic = None
-        self._constants = {}
-
-    def ensure_variable(self, x):
-        if isinstance(x, (float, int)):
-            if x in self._constants:
-                x_ = self._constants[x]
-            else:
-                x_ = ConstantVariable(x)
-                # cache auto-created constants to reduce number of variables
-                self._constants[x] = x_
-        else:
-            x_ = x
-
-        # confirm x has right type
-        if not isinstance(x_, Variable):
-            raise TypeError('Type cannot be coerced to a variable.')
-
-        return x_
-
-    def add_variable(self, x):
-        x = self.ensure_variable(x)
-        if x not in self._graph:
-            self._graph.add_node(x)
-            # invalidate acyclic cache value since variables have changed
-            self._is_acyclic = None
-        return x
-
-    def set_dependencies(self, x, depends):
-        if not isinstance(x, DependentVariable):
-            raise TypeError('Dependencies can only be set for DependentVariable')
-        if x not in self._graph:
-            raise ValueError('Variable has not been added to graph')
-
-        # remove any old edges
-        self._graph.remove_edges_from(self._graph.edges(x))
-
-        # set new edges
-        for p, y in depends.items():
-            y = self.add_variable(y)
-            self._graph.add_edge(x, y, depend=str(p))
-
-        # invalidate acyclic cache value since edges have changed
-        self._is_acyclic = None
-
-    def update_variable(self, x):
-        if not isinstance(x, Variable):
-            raise TypeError('Graphs work with Variable objects')
-        if isinstance(x, DependentVariable):
-            raise TypeError('Cannot update value of dependent variable directly')
-        if x not in self._graph:
-            raise ValueError('Variable has not been added to graph')
-        for y in networkx.dfs_preorder_nodes(self._graph.reverse(), source=x):
-            if isinstance(y, DependentVariable):
-                y._recompute = True
-
-    def evaluate(self, x):
-        if isinstance(x, DependentVariable):
-            self._assert_acyclic()
-
-            # evaluate the nodes, bottom up
-            for y in networkx.dfs_postorder_nodes(self._graph, source=x):
-                if isinstance(y, DependentVariable):
-                    depends = self._graph.edges(y, data='depend')
-                    # access _value directly to avoid evaluations
-                    y._value = y.compute(**{p: z.value for _,z,p in depends})
-                    y._recompute = False
-
-        return x.value
-
-    def evaluate_derivative(self, f, x):
-        if f is x:
-            return 1.0
-
-        self._assert_acyclic()
-
-        # check that a path exists before searching
-        if not networkx.has_path(self._graph, source=f, target=x):
-            return 0.0
-
-        # ensure graph values are up-to-date for f, x will get updated too
-        self.evaluate(f)
-
-        # compute chain rule along all paths to the variable
-        deriv = 0.
-        for path in networkx.all_simple_edge_paths(self._graph, source=f, target=x):
-            path_deriv = 1.
-            for edge in path:
-                param = self._graph.edges[edge]['depend']
-                depends = self._graph.edges(edge[0], data='depend')
-                path_deriv *= edge[0].compute_derivative(param, **{p: y.value for _,y,p in depends})
-            deriv += path_deriv
-
-        return deriv
-
-    @property
-    def variables(self):
-        return tuple(self._graph.nodes)
-
-    def check_variables(self, x):
-        try:
-            vars = tuple(x)
-        except TypeError:
-            vars = (x,)
-        for y in vars:
-            if not isinstance(y, Variable):
-                raise TypeError('All variables must be Variable objects')
-            if y not in self._graph:
-                raise ValueError('Variable is not in graph')
-        return vars
-
-    @property
-    def design_variables(self):
-        return tuple(x for x in self._graph.nodes if isinstance(x, DesignVariable))
-
-    def check_design_variables(self, x):
-        try:
-            dvars = tuple(x)
-        except TypeError:
-            dvars = (x,)
-        for y in dvars:
-            if not isinstance(y, DesignVariable):
-                raise TypeError('All design variables must be DesignVariable objects')
-            if y not in self._graph:
-                raise ValueError('Design variable is not in graph')
-        return dvars
-
-    @property
-    def is_acyclic(self):
-        if self._is_acyclic is None:
-            self._is_acyclic = networkx.is_directed_acyclic_graph(self._graph)
-        return self._is_acyclic
-
-    def _assert_acyclic(self):
-        if not self.is_acyclic:
-            raise AssertionError('Circular dependency in variable graph')
-
-graph = VariableGraph()
-
 class Variable(abc.ABC):
     """Abstract base class for a variable.
 
@@ -270,14 +114,14 @@ class Variable(abc.ABC):
     def __init__(self, name=None):
         self.id = Variable.count
         if name is None:
-            name = 'x[{}]'.format(self.id)
+            name = '__x[{}]'.format(self.id)
         if name in self.names:
             raise ValueError('Variable name already used')
         else:
             self.names.add(name)
             self.name = name
         Variable.count += 1
-        graph.add_variable(x=self)
+        graph.add(x=self)
 
     @property
     @abc.abstractmethod
@@ -392,7 +236,7 @@ class IndependentVariable(Variable):
         if not isinstance(value, (float, int)):
             raise TypeError('Independent variables are only float or int')
         self._value = value
-        graph.update_variable(self)
+        graph.update(self)
 
     def __iadd__(self, val):
         """In-place addition of a variable with a scalar."""
@@ -523,7 +367,7 @@ class DesignVariable(IndependentVariable):
         if not isinstance(value, (float, int)):
             raise TypeError('Design variables are only float or int')
         self._value, self._state = self.clamp(value)
-        graph.update_variable(self)
+        graph.update(self)
 
     @property
     def low(self):
@@ -996,3 +840,167 @@ class GeometricMean(BinaryOperator):
                 return numpy.nan
         else:
             raise ValueError('Unknown parameter')
+
+class VariableGraph:
+    """Construct a directed graph of dependencies.
+
+    The graph nodes are all the :class:`Variable` objects on which this
+    :class:`DependentVariable` is dependent, and the graph edges represent
+    dependencies as connections between variables and carry the name of the
+    parameter as a "weight". The edge weight is a list of named parameters,
+    so an object can depend on the same :class:`Variable` multiple times;
+    these multiple dependencies are represented as one edge with multiple
+    parameters listed.
+
+    The graph is constructed using a quasi depth-first search. In order to
+    perform certain calculations, the directed graph should be acyclic.
+
+    """
+    def __init__(self):
+        self._graph = networkx.MultiDiGraph()
+        self._is_acyclic = None
+        self._constants = {}
+
+    def add(self, x):
+        x = self._ensure_variable(x)
+        if x not in self._graph:
+            self._graph.add_node(x)
+            # invalidate acyclic cache value since variables have changed
+            self._is_acyclic = None
+        return x
+
+    def set_dependencies(self, x, depends):
+        self._assert_in_graph(x)
+        if not isinstance(x, DependentVariable):
+            raise TypeError('Dependencies can only be set for DependentVariable')
+
+        # remove any old edges and make new ones
+        self._graph.remove_edges_from(self._graph.edges(x))
+        for p, y in depends.items():
+            y = self.add(y)
+            self._graph.add_edge(x, y, depend=str(p))
+
+        # invalidate acyclic cache value since edges have changed
+        self._is_acyclic = None
+
+    def update(self, x):
+        self._assert_is_variable(x)
+        self._assert_in_graph(x)
+        if isinstance(x, DependentVariable):
+            raise TypeError('Cannot update value of dependent variable directly')
+
+        for y in networkx.dfs_preorder_nodes(self._graph.reverse(), source=x):
+            if isinstance(y, DependentVariable):
+                y._recompute = True
+
+    def evaluate(self, x):
+        self._assert_is_variable(x)
+        self._assert_in_graph(x)
+
+        if isinstance(x, DependentVariable):
+            self._assert_acyclic()
+
+            # evaluate the nodes, bottom up
+            for y in networkx.dfs_postorder_nodes(self._graph, source=x):
+                if isinstance(y, DependentVariable):
+                    depends = self._graph.edges(y, data='depend')
+                    # access _value directly to avoid evaluations
+                    y._value = y.compute(**{p: z.value for _,z,p in depends})
+                    y._recompute = False
+
+        return x.value
+
+    def evaluate_derivative(self, f, x):
+        self._assert_is_variable(f)
+        self._assert_is_variable(x)
+        self._assert_in_graph(f)
+        self._assert_in_graph(x)
+
+        if f is x:
+            return 1.0
+
+        self._assert_acyclic()
+
+        # check that a path exists before searching
+        if not networkx.has_path(self._graph, source=f, target=x):
+            return 0.0
+
+        # ensure graph values are up-to-date for f, x will get updated too
+        self.evaluate(f)
+
+        # compute chain rule along all paths to the variable
+        deriv = 0.
+        for path in networkx.all_simple_edge_paths(self._graph, source=f, target=x):
+            path_deriv = 1.
+            for edge in path:
+                param = self._graph.edges[edge]['depend']
+                depends = self._graph.edges(edge[0], data='depend')
+                path_deriv *= edge[0].compute_derivative(param, **{p: y.value for _,y,p in depends})
+            deriv += path_deriv
+
+        return deriv
+
+    @property
+    def variables(self):
+        return tuple(self._graph.nodes)
+
+    @property
+    def design_variables(self):
+        return tuple(x for x in self._graph.nodes if isinstance(x, DesignVariable))
+
+    @property
+    def constant_variables(self):
+        return tuple(x for x in self._graph.nodes if isinstance(x, ConstantVariable))
+
+    @property
+    def dependent_variables(self):
+        return tuple(x for x in self._graph.nodes if isinstance(x, DependentVariable))
+
+    @property
+    def is_acyclic(self):
+        if self._is_acyclic is None:
+            self._is_acyclic = networkx.is_directed_acyclic_graph(self._graph)
+        return self._is_acyclic
+
+    def check_variables_and_types(self, x, types):
+        try:
+            vars = tuple(x)
+        except TypeError:
+            vars = (x,)
+        for y in vars:
+            if not isinstance(y, types):
+                raise TypeError('Variable does not have required type')
+            self._assert_in_graph(y)
+        return vars
+
+    def _assert_acyclic(self):
+        if not self.is_acyclic:
+            raise AssertionError('Circular dependency in variable graph')
+
+    def _assert_is_variable(self, x):
+         if not isinstance(x, Variable):
+            raise AssertionError('Object is not a variable')
+
+    def _assert_in_graph(self, x):
+        self._assert_is_variable(x)
+        if x not in self._graph:
+            raise AssertionError('Object has not been added to graph')       
+
+    def _ensure_variable(self, x):
+        if isinstance(x, (float, int)):
+            if x in self._constants:
+                x_ = self._constants[x]
+            else:
+                x_ = ConstantVariable(x)
+                # cache auto-created constants to reduce number of variables
+                self._constants[x] = x_
+        else:
+            x_ = x
+
+        # confirm x has right type
+        if not isinstance(x_, Variable):
+            raise TypeError('Type cannot be coerced to a variable.')
+
+        return x_
+
+graph = VariableGraph()

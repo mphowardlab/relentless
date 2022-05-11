@@ -1,4 +1,5 @@
 """Unit tests for core.variable module."""
+import re
 import unittest
 
 import numpy
@@ -7,6 +8,23 @@ import relentless
 
 class test_Variable(unittest.TestCase):
     """Unit tests for relentless.variable.Variable."""
+
+    def test_name(self):
+        x = relentless.variable.IndependentVariable(1.0, name='x')
+        self.assertEqual(x.name,'x')
+
+        y = relentless.variable.IndependentVariable(2.0, name='y')
+        self.assertEqual(y.name, 'y')
+        self.assertEqual(y.id, x.id+1)
+
+        # auto-create name
+        z = relentless.variable.IndependentVariable(3.0)
+        self.assertEqual(z.name[:3],'__x')
+        self.assertEqual(z.id, x.id+2)
+
+        # try to create variable with same name (fail)
+        with self.assertRaises(ValueError):
+            relentless.variable.IndependentVariable(3.0, name='x')
 
     def test_operations(self):
         """Test arithmetic operations on variables."""
@@ -700,6 +718,132 @@ class test_GeometricMean(unittest.TestCase):
             w.compute_derivative('x', a=9.0, b=4.0)
         self.assertAlmostEqual(w.derivative(u), 0.5*4.0/1.0)
         self.assertAlmostEqual(w.derivative(v), 0.5*1.0/4.0)
+
+class test_VariableGraph(unittest.TestCase):
+    def setUp(self):
+        # destroy the variable graph each time
+        relentless.variable.graph = relentless.variable.VariableGraph()
+
+    def test_init(self):
+        g = relentless.variable.graph
+        self.assertEqual(len(g.variables), 0)
+        self.assertEqual(len(g.design_variables), 0)
+        self.assertEqual(len(g.constant_variables), 0)
+        self.assertEqual(len(g.dependent_variables), 0)
+
+    def test_add_variable(self):
+        g = relentless.variable.graph
+        x = relentless.variable.IndependentVariable(2.0)
+        self.assertEqual(len(g.variables), 1)
+        self.assertEqual(len(g.design_variables), 0)
+        self.assertEqual(len(g.constant_variables), 0)
+        self.assertEqual(len(g.dependent_variables), 0)
+        self.assertIn(x, g.variables)
+
+    def test_add_design_variable(self):
+        g = relentless.variable.graph
+        x = relentless.variable.DesignVariable(1.0)
+        self.assertEqual(len(g.variables), 1)
+        self.assertEqual(len(g.design_variables), 1)
+        self.assertEqual(len(g.constant_variables), 0)
+        self.assertEqual(len(g.dependent_variables), 0)
+        self.assertIn(x, g.variables)
+        self.assertIn(x, g.design_variables)
+
+    def test_add_constant(self):
+        g = relentless.variable.graph
+        x = relentless.variable.ConstantVariable(1.0)
+        self.assertEqual(len(g.variables), 1)
+        self.assertEqual(len(g.design_variables), 0)
+        self.assertEqual(len(g.constant_variables), 1)
+        self.assertEqual(len(g.dependent_variables), 0)
+        self.assertIn(x, g.variables)
+        self.assertIn(x, g.constant_variables)
+
+        # add another constant with same value, will increase count since auto
+        g.add(1.0)
+        self.assertEqual(len(g.variables), 2)
+        self.assertEqual(len(g.design_variables), 0)
+        self.assertEqual(len(g.constant_variables), 2)
+        self.assertEqual(len(g.dependent_variables), 0)
+        self.assertIn(1.0, [x.value for x in g.constant_variables])
+
+        # add constant again, will not increase count
+        g.add(1.0)
+        self.assertEqual(len(g.variables), 2)
+        self.assertEqual(len(g.design_variables), 0)
+        self.assertEqual(len(g.constant_variables), 2)
+        self.assertEqual(len(g.dependent_variables), 0)
+
+        # add another constant with different value
+        g.add(2)
+        self.assertEqual(len(g.variables), 3)
+        self.assertEqual(len(g.design_variables), 0)
+        self.assertEqual(len(g.constant_variables), 3)
+        self.assertEqual(len(g.dependent_variables), 0)
+        self.assertIn(2, [x.value for x in g.constant_variables])
+
+    def test_dependent_variable(self):
+        g = relentless.variable.graph
+        x = relentless.variable.DesignVariable(1.0)
+        y = x + 2.0
+
+        self.assertEqual(len(g.variables), 3)
+        self.assertEqual(len(g.design_variables), 1)
+        self.assertEqual(len(g.constant_variables), 1)
+        self.assertEqual(len(g.dependent_variables), 1)
+        self.assertIn(y, g.variables)
+        self.assertIn(y, g.dependent_variables)
+
+    def test_evaluate(self):
+        g = relentless.variable.graph
+        x = relentless.variable.IndependentVariable(1.0)
+        y = x + 2.0
+        self.assertEqual(g.evaluate(x), 1.0)
+        self.assertEqual(g.evaluate(y), 3.0)
+        self.assertTrue(g.is_acyclic)
+
+        # touch the value of x and make sure y can be recomputed
+        x.value = 2.0
+        self.assertTrue(y._recompute)
+        self.assertEqual(g.evaluate(y), 4.0)
+        self.assertFalse(y._recompute)
+
+        with self.assertRaises(AssertionError):
+            g.evaluate(2.0)
+
+    def test_evaluate_derivative(self):
+        g = relentless.variable.graph
+        x = relentless.variable.IndependentVariable(1.0)
+        y = 2*x + 2.0
+        z = 3*y
+        w = relentless.variable.IndependentVariable(2.0)
+        self.assertEqual(g.evaluate_derivative(x, x), 1.0)
+        self.assertEqual(g.evaluate_derivative(y, x), 2.0)
+        self.assertEqual(g.evaluate_derivative(x ,w), 0.0)
+        self.assertEqual(g.evaluate_derivative(z, y), 3.0)
+        self.assertEqual(g.evaluate_derivative(z, x), 6.0)
+
+        with self.assertRaises(AssertionError):
+            g.evaluate_derivative(x, 1.0)
+        with self.assertRaises(AssertionError):
+            g.evaluate_derivative(1.0, x)
+
+    def test_check_convert(self):
+        g = relentless.variable.graph
+        x = relentless.variable.IndependentVariable(1.0)
+        y = relentless.variable.DesignVariable(2.0)
+        result = g.check_variables_and_types(x, relentless.variable.Variable)
+        self.assertCountEqual(result, (x,))
+
+        result = g.check_variables_and_types((x, y), relentless.variable.Variable)
+        self.assertCountEqual(result, (x,y))
+
+        with self.assertRaises(TypeError):
+            g.check_variables_and_types(x, relentless.variable.DesignVariable)
+
+        result = g.check_variables_and_types(x, (relentless.variable.DesignVariable, relentless.variable.IndependentVariable))
+        self.assertCountEqual(result, (x,))
 
 if __name__ == '__main__':
     unittest.main()

@@ -378,7 +378,7 @@ class SteepestDescent(Optimizer):
             design variables are specified for the objective function.
 
         """
-        design_variables = variable.graph.check_design_variables(design_variables)
+        design_variables = variable.graph.check_variables_and_types(design_variables, variable.DesignVariable)
         if len(design_variables) == 0:
             return None
 

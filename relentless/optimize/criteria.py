@@ -232,7 +232,7 @@ class GradientTest(ConvergenceTest):
     """
     def __init__(self, tolerance, variables):
         self._tolerance = Tolerance(absolute=tolerance, relative=0)
-        self.variables = variable.graph.check_variables(variables)
+        self.variables = variable.graph.check_variables_and_types(variables, variable.Variable)
 
     @property
     def tolerance(self):

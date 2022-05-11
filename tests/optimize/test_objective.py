@@ -16,7 +16,7 @@ class QuadraticObjective(relentless.optimize.ObjectiveFunction):
 
     def compute(self, variables, directory=None):
         val = (self.x.value-1)**2
-        variables = relentless.variable.graph.check_variables(variables)
+        variables = relentless.variable.graph.check_variables_and_types(variables, relentless.variable.Variable)
         grad = {}
         for x in variables:
             if x is self.x:
