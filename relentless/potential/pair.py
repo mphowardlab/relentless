@@ -46,7 +46,7 @@ To implement your own pair potential, create a class that derives from
 .. autoclass:: Depletion
 .. autoclass:: LennardJones
 .. autoclass:: PairSpline
-    :members: from_array, knots, num_knots
+    :members: from_array, knots, num_knots, design_variables
 .. autoclass:: Yukawa
 
 """
