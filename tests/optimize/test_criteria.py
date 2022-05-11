@@ -63,7 +63,7 @@ class test_GradientTest(unittest.TestCase):
         """Test creation with data."""
         x = relentless.variable.DesignVariable(value=3.0)
 
-        t = relentless.optimize.GradientTest(tolerance=1e-8)
+        t = relentless.optimize.GradientTest(tolerance=1e-8, variables=x)
         self.assertAlmostEqual(t.tolerance[x], 1e-8)
         self.assertAlmostEqual(t.tolerance.default, 1e-8)
 
@@ -77,7 +77,7 @@ class test_GradientTest(unittest.TestCase):
         x = relentless.variable.DesignVariable(value=3.0)
         q = QuadraticObjective(x=x)
 
-        t = relentless.optimize.GradientTest(tolerance=1e-8)
+        t = relentless.optimize.GradientTest(tolerance=1e-8, variables=x)
         self.assertFalse(t.converged(result=q.compute(x)))
         x.value = 0.999999999
         self.assertTrue(t.converged(result=q.compute(x)))
@@ -147,7 +147,7 @@ class AnyTest(unittest.TestCase):
     def test_init(self):
         """Test creation with data."""
         x = relentless.variable.DesignVariable(value=3.0)
-        t1 = relentless.optimize.GradientTest(tolerance=1e-8)
+        t1 = relentless.optimize.GradientTest(tolerance=1e-8, variables=x)
         t2 = relentless.optimize.ValueTest(value=2.0)
         t3 = relentless.optimize.ValueTest(value=1.0)
 
@@ -158,7 +158,7 @@ class AnyTest(unittest.TestCase):
         """Test converged method."""
         x = relentless.variable.DesignVariable(value=3.0)
         q = QuadraticObjective(x=x)
-        t1 = relentless.optimize.GradientTest(tolerance=1e-8)
+        t1 = relentless.optimize.GradientTest(tolerance=1e-8, variables=x)
         t2 = relentless.optimize.ValueTest(value=1.0)
         t3 = relentless.optimize.ValueTest(value=0.0)
 
@@ -177,7 +177,7 @@ class AllTest(unittest.TestCase):
     def test_init(self):
         """Test creation with data."""
         x = relentless.variable.DesignVariable(value=3.0)
-        t1 = relentless.optimize.GradientTest(tolerance=1e-8)
+        t1 = relentless.optimize.GradientTest(tolerance=1e-8, variables=x)
         t2 = relentless.optimize.ValueTest(value=1.0)
         t3 = relentless.optimize.ValueTest(value=0.0)
 
@@ -188,7 +188,7 @@ class AllTest(unittest.TestCase):
         """Test converged method."""
         x = relentless.variable.DesignVariable(value=3.0)
         q = QuadraticObjective(x=x)
-        t1 = relentless.optimize.GradientTest(tolerance=1e-8)
+        t1 = relentless.optimize.GradientTest(tolerance=1e-8, variables=x)
         t2 = relentless.optimize.ValueTest(value=1.0)
         t3 = relentless.optimize.ValueTest(value=0.0)
 
@@ -208,7 +208,7 @@ class OrTest(unittest.TestCase):
     def test_init(self):
         """Test creation with data."""
         x = relentless.variable.DesignVariable(value=3.0)
-        t1 = relentless.optimize.GradientTest(tolerance=1e-8)
+        t1 = relentless.optimize.GradientTest(tolerance=1e-8, variables=x)
         t2 = relentless.optimize.ValueTest(value=1.0)
 
         t = relentless.optimize.OrTest(t1,t2)
@@ -218,7 +218,7 @@ class OrTest(unittest.TestCase):
         """Test converged method."""
         x = relentless.variable.DesignVariable(value=3.0)
         q = QuadraticObjective(x=x)
-        t1 = relentless.optimize.GradientTest(tolerance=1e-8)
+        t1 = relentless.optimize.GradientTest(tolerance=1e-8, variables=x)
         t2 = relentless.optimize.ValueTest(value=1.0)
 
         t = relentless.optimize.OrTest(t1,t2)
@@ -236,7 +236,7 @@ class AndTest(unittest.TestCase):
     def test_init(self):
         """Test creation with data."""
         x = relentless.variable.DesignVariable(value=3.0)
-        t1 = relentless.optimize.GradientTest(tolerance=1e-8)
+        t1 = relentless.optimize.GradientTest(tolerance=1e-8, variables=x)
         t2 = relentless.optimize.ValueTest(value=1.0)
 
         t = relentless.optimize.AndTest(t1,t2)
@@ -246,7 +246,7 @@ class AndTest(unittest.TestCase):
         """Test converged method."""
         x = relentless.variable.DesignVariable(value=3.0)
         q = QuadraticObjective(x=x)
-        t1 = relentless.optimize.GradientTest(tolerance=1e-8)
+        t1 = relentless.optimize.GradientTest(tolerance=1e-8, variables=x)
         t2 = relentless.optimize.ValueTest(value=1.0)
 
         t = relentless.optimize.AndTest(t1,t2)

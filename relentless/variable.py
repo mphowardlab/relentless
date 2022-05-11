@@ -194,6 +194,18 @@ class VariableGraph:
     def variables(self):
         return tuple(self._graph.nodes)
 
+    def check_variables(self, x):
+        try:
+            vars = tuple(x)
+        except TypeError:
+            vars = (x,)
+        for y in vars:
+            if not isinstance(y, Variable):
+                raise TypeError('All variables must be Variable objects')
+            if y not in self._graph:
+                raise ValueError('Variable is not in graph')
+        return vars
+
     @property
     def design_variables(self):
         return tuple(x for x in self._graph.nodes if isinstance(x, DesignVariable))

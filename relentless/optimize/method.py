@@ -190,10 +190,10 @@ class LineSearch:
             If the relative tolerance is not between 0 and 1.
 
         """
-        ovars = {x: x.value for x in start.design_variables}
+        ovars = {x: x.value for x in start.variables}
 
         # compute search direction
-        d = end.design_variables - start.design_variables
+        d = end.variables - start.variables
         if d.norm() == 0:
             raise ValueError('The start and end of the search interval must be different.')
 
@@ -218,10 +218,10 @@ class LineSearch:
                 new_step = (steps[0]*targets[1] - steps[1]*targets[0])/(targets[1] - targets[0])
 
                 # adjust variables based on new step size, compute new target
-                for x in start.design_variables:
-                    x.value = start.design_variables[x] + new_step*d[x]
+                for x in start.variables:
+                    x.value = start.variables[x] + new_step*d[x]
                 new_dir = directory.directory(str(iter_num)) if directory is not None else None
-                new_res = objective.compute(start.design_variables, new_dir)
+                new_res = objective.compute(start.variables, new_dir)
                 new_target = -d.dot(new_res.gradient)
 
                 # update search intervals
@@ -402,7 +402,7 @@ class SteepestDescent(Optimizer):
 
             #steepest descent update
             for x in design_variables:
-                x.value = cur_res.design_variables[x] - update[x]
+                x.value = cur_res.variables[x] - update[x]
             next_dir = cur_dir.directory('.next') if cur_dir is not None else None
             next_res = objective.compute(design_variables, next_dir)
 
@@ -416,7 +416,7 @@ class SteepestDescent(Optimizer):
 
                 if line_res is not next_res:
                     for x in design_variables:
-                        x.value = line_res.design_variables[x]
+                        x.value = line_res.variables[x]
                     next_res = line_res
 
             # move the contents of the "next" result contents to the new "current" result
