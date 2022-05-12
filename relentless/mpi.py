@@ -139,6 +139,11 @@ class Communicator:
         """int: Index of the root rank in the MPI communicator."""
         return self._root
 
+    @property
+    def rank_is_root(self):
+        """bool: True if the MPI rank is the root rank."""
+        return self.rank == self.root
+
     def barrier(self):
         """Create barrier for all ranks in the MPI communicator."""
         if self.enabled and self.size > 1:
@@ -173,7 +178,7 @@ class Communicator:
         .. code::
 
             comm = relentless.mpi.Communicator()
-            if comm.rank == comm.root:
+            if comm.rank_is_root:
                 x = 42
             else:
                 x = None
@@ -218,7 +223,7 @@ class Communicator:
         .. code::
 
             comm = relentless.mpi.Communicator()
-            if comm.rank == comm.root:
+            if comm.rank_is_root:
                 x = numpy.array([1,2,3], dtype=numpy.int32)
             else:
                 x = None
@@ -229,7 +234,7 @@ class Communicator:
         .. code::
 
             comm = relentless.mpi.Communicator()
-            if comm.rank == comm.root:
+            if comm.rank_is_root:
                 x = numpy.array([1,2,3], dtype=numpy.int32)
             else:
                 x = numpy.empty(3, dtype=numpy.int32)

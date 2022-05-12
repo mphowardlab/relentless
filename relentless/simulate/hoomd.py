@@ -102,6 +102,7 @@ import numpy
 from relentless.collections import PairMatrix
 from relentless.ensemble import RDF
 from relentless.math import Interpolator
+from relentless import mpi
 from relentless.volume import TriclinicBox
 from . import simulate
 
@@ -142,22 +143,17 @@ class HOOMD(simulate.Simulation):
 
         super().__init__(operations,**options)
 
-    def _new_instance(self, ensemble, potentials, directory, communicator):
-        sim = super()._new_instance(ensemble,potentials,directory,communicator)
+    def _new_instance(self, ensemble, potentials, directory):
+        sim = super()._new_instance(ensemble,potentials,directory)
 
         # initialize hoomd exec conf once
         if hoomd.context.exec_conf is None:
-            hoomd.context.initialize('--notice-level=0', mpi_comm=sim.communicator.comm)
+            hoomd.context.initialize('--notice-level=0')
             hoomd.util.quiet_status()
-            HOOMD._communicator = sim.communicator
-        elif sim.communicator is not HOOMD._communicator:
-            # HOOMD 2.x does not allow changing the communicator
-            raise ValueError('HOOMD-blue does not support changing communicators after first initialization')
 
         sim.context = hoomd.context.SimulationContext()
         sim.system = None
         return sim
-HOOMD._communicator = None
 
 ## initializers
 class Initialize(simulate.SimulationOperation):
@@ -367,7 +363,7 @@ class InitializeRandomly(Initialize):
                 snap,box = self.make_snapshot(sim)
 
                 # randomly place particles in fractional coordinates
-                if sim.communicator.rank == 0:
+                if mpi.world.rank == 0:
                     rs = numpy.random.uniform(size=(snap.particles.N,3))
                     snap.particles.position[:] = box.make_absolute(rs)
 
@@ -786,13 +782,10 @@ class ThermodynamicsCallback:
     ----------
     logger : :mod:`hoomd.analyze` logger
         Logger from which to retrieve data.
-    communicator : :class:`~relentless.mpi.Communicator`
-        The MPI communicator to use.
 
     """
-    def __init__(self, logger, communicator):
+    def __init__(self, logger):
         self.logger = logger
-        self.communicator = communicator
         self.reset()
 
     def __call__(self, timestep):
@@ -857,14 +850,11 @@ class RDFCallback:
         Simulation system object.
     params : :class:`~relentless.collections.PairMatrix`
         Parameters to be used to initialize an instance of :class:`freud.density.RDF`.
-    communicator : :class:`~relentless.mpi.Communicator`
-        The MPI communicator to use.
 
     """
-    def __init__(self, system, params, communicator):
+    def __init__(self, system, params):
         self.system = system
         self._rdf = PairMatrix(params.types)
-        self.communicator = communicator
         for i,j in self._rdf:
             self._rdf[i,j] = freud.density.RDF(bins=params[i,j]['bins'],
                                                r_max=params[i,j]['rmax'],
@@ -880,7 +870,7 @@ class RDFCallback:
 
         """
         snap = self.system.take_snapshot()
-        if self.communicator.rank == 0:
+        if mpi.world.rank == 0:
             box = freud.box.Box.from_box(snap.box)
             for i,j in self._rdf:
                 typei = (snap.particles.typeid == snap.particles.types.index(i))
@@ -897,11 +887,11 @@ class RDFCallback:
     def rdf(self):
         rdf = PairMatrix(self._rdf.types)
         for pair in rdf:
-            if self.communicator.rank == 0:
+            if mpi.world.rank == 0:
                 gr = numpy.column_stack((self._rdf[pair].bin_centers,self._rdf[pair].rdf))
             else:
                 gr = None
-            gr = self.communicator.bcast_numpy(gr,root=0)
+            gr = mpi.world.bcast_numpy(gr,root=0)
             rdf[pair] = RDF(gr[:,0],gr[:,1])
         return rdf
 
@@ -944,7 +934,7 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
                                                              'pressure',
                                                              'lx','ly','lz','xy','xz','yz'],
                                                  period=self.check_thermo_every)
-            sim[self].thermo_callback = ThermodynamicsCallback(sim[self].logger,sim.communicator)
+            sim[self].thermo_callback = ThermodynamicsCallback(sim[self].logger)
             hoomd.analyze.callback(callback=sim[self].thermo_callback,
                                    period=self.check_thermo_every)
 
@@ -954,7 +944,7 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
             bins = numpy.round(rmax/self.rdf_dr).astype(int)
             for pair in rdf_params:
                 rdf_params[pair] = {'bins': bins, 'rmax': rmax}
-            sim[self].rdf_callback = RDFCallback(sim.system,rdf_params,sim.communicator)
+            sim[self].rdf_callback = RDFCallback(sim.system,rdf_params)
             hoomd.analyze.callback(callback=sim[self].rdf_callback,
                                    period=self.check_rdf_every)
 

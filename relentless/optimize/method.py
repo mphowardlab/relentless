@@ -53,7 +53,9 @@ import abc
 
 import numpy
 
+from relentless import data
 from relentless import math
+from relentless import mpi
 from relentless import variable
 from .criteria import ConvergenceTest,Tolerance
 
@@ -83,7 +85,7 @@ class Optimizer(abc.ABC):
             The objective function to be optimized.
         design_variables: :class:`~relentless.variable.DesignVariable` or tuple
             Design variable(s) to optimize.
-        directory : :class:`~relentless.data.Directory`
+        directory : str or :class:`~relentless.data.Directory`
             Directory for writing output during optimization. Default of ``None``
             requests no output is written.
 
@@ -169,7 +171,7 @@ class LineSearch:
             The objective function evaluated at the start of the search interval.
         end : :class:`~relentless.optimize.objective.ObjectiveFunctionResult`
             The objective function evaluated at the end of the search interval.
-        directory : :class:`~relentless.data.Directory`
+        directory : str or :class:`~relentless.data.Directory`
             Directory for writing output during search. Default of ``None``
             requests no output is written.
 
@@ -191,6 +193,8 @@ class LineSearch:
             If the relative tolerance is not between 0 and 1.
 
         """
+        if directory is not None:
+            directory = data.Directory.cast(directory)
         ovars = {x: x.value for x in start.variables}
 
         # compute search direction
@@ -370,7 +374,7 @@ class SteepestDescent(Optimizer):
             The objective function to be optimized.
         design_variables: :class:`~relentless.variable.DesignVariable` or tuple
             Design variable(s) to optimize.
-        directory : :class:`~relentless.data.Directory`
+        directory : str or :class:`~relentless.data.Directory`
             Directory for writing output during optimization. Default of `None`
             requests no output is written.
 
@@ -384,6 +388,9 @@ class SteepestDescent(Optimizer):
         design_variables = variable.graph.check_variables_and_types(design_variables, variable.DesignVariable)
         if len(design_variables) == 0:
             return None
+
+        if directory is not None:
+            directory = data.Directory.cast(directory)
 
         #fix scaling parameters
         scale = math.KeyedArray(keys=design_variables)

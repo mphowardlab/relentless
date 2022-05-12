@@ -41,7 +41,7 @@ class test_Communicator(unittest.TestCase):
 
     def test_bcast(self):
         # broadcast from default root
-        if self.comm.rank == self.comm.root:
+        if self.comm.rank_is_root:
             x = 42
         else:
             x = None
@@ -51,7 +51,7 @@ class test_Communicator(unittest.TestCase):
         # broadcast from specified root
         if self.comm.size >= 2:
             root = 1
-            if self.comm.rank == root:
+            if self.comm.rank_is_root:
                 x = 7
             else:
                 x = None
@@ -60,7 +60,7 @@ class test_Communicator(unittest.TestCase):
 
     def test_bcast_numpy(self):
         # float array
-        if self.comm.rank == self.comm.root:
+        if self.comm.rank_is_root:
             x = numpy.array([1.,2.],dtype=numpy.float64)
         else:
             x = None
@@ -72,7 +72,7 @@ class test_Communicator(unittest.TestCase):
         # float array from specified root
         if self.comm.size >= 2:
             root = 1
-            if self.comm.rank == root:
+            if self.comm.rank_is_root:
                 x = numpy.array([3.,4.],dtype=numpy.float64)
             else:
                 x = None
@@ -82,7 +82,7 @@ class test_Communicator(unittest.TestCase):
             numpy.testing.assert_allclose(x,[3.,4.])
 
         # prealloc'd float array
-        if self.comm.rank == self.comm.root:
+        if self.comm.rank_is_root:
             x = numpy.array([5.,6.],dtype=numpy.float64)
         else:
             x = numpy.zeros((2,),dtype=numpy.float64)
@@ -93,13 +93,12 @@ class test_Communicator(unittest.TestCase):
         numpy.testing.assert_allclose(y,[5.,6.])
 
         # incorrectly alloc'd float array
-        print('')
-        if self.comm.rank == self.comm.root:
+        if self.comm.rank_is_root:
             x = numpy.array([5.,6.],dtype=numpy.float64)
         else:
             x = numpy.zeros((2,),dtype=numpy.int32)
         y = self.comm.bcast_numpy(x)
-        if self.comm.rank == self.comm.root:
+        if self.comm.rank_is_root:
             self.assertTrue(y is x)
         else:
             self.assertTrue(y is not x)
@@ -109,7 +108,7 @@ class test_Communicator(unittest.TestCase):
 
     def test_loadtxt(self):
         # create file
-        if self.comm.rank == self.comm.root:
+        if self.comm.rank_is_root:
             tmp = tempfile.NamedTemporaryFile(delete=False)
             tmp.write(b'1 2\n 3 4\n')
             tmp.close()
@@ -122,7 +121,7 @@ class test_Communicator(unittest.TestCase):
         dat = self.comm.loadtxt(filename)
 
         # unlink before testing in case an exception gets raised
-        if self.comm.rank == self.comm.root:
+        if self.comm.rank_is_root:
             os.unlink(tmp.name)
 
         numpy.testing.assert_allclose(dat, [[1.,2.],[3.,4.]])
