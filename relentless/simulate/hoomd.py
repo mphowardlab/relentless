@@ -119,42 +119,6 @@ try:
 except ImportError:
     _freud_found = False
 
-class HOOMD(simulate.Simulation):
-    """:class:`~relentless.simulate.simulate.Simulation` using HOOMD framework.
-
-    Raises
-    ------
-    ImportError
-        If the :mod:`hoomd` package is not found, or is not version 2.x.
-    ImportError
-        If the :mod:`freud` package is not found, or is not version 2.x.
-
-    """
-    def __init__(self, operations=None, **options):
-        if not _hoomd_found:
-            raise ImportError('HOOMD not found.')
-        elif version.parse(hoomd.__version__).major != 2:
-            raise ImportError('Only HOOMD 2.x is supported.')
-
-        if not _freud_found:
-            raise ImportError('freud not found.')
-        elif version.parse(freud.__version__).major != 2:
-            raise ImportError('Only freud 2.x is supported.')
-
-        super().__init__(operations,**options)
-
-    def _new_instance(self, ensemble, potentials, directory):
-        sim = super()._new_instance(ensemble,potentials,directory)
-
-        # initialize hoomd exec conf once
-        if hoomd.context.exec_conf is None:
-            hoomd.context.initialize('--notice-level=0')
-            hoomd.util.quiet_status()
-
-        sim.context = hoomd.context.SimulationContext()
-        sim.system = None
-        return sim
-
 ## initializers
 class Initialize(simulate.SimulationOperation):
     """Initializes a simulation box and pair potentials."""
@@ -775,126 +739,6 @@ class RunUpTo(simulate.SimulationOperation):
             hoomd.run_upto(self.step)
 
 ## analyzers
-class ThermodynamicsCallback:
-    """HOOMD callback for averaging thermodynamic properties.
-
-    Parameters
-    ----------
-    logger : :mod:`hoomd.analyze` logger
-        Logger from which to retrieve data.
-
-    """
-    def __init__(self, logger):
-        self.logger = logger
-        self.reset()
-
-    def __call__(self, timestep):
-        """Evaluates the callback.
-
-        Parameters
-        ----------
-        timestep : int
-            The timestep at which to evaluate the callback.
-
-        """
-        self.num_samples += 1
-
-        T = self.logger.query('temperature')
-        self._T += T
-
-        P = self.logger.query('pressure')
-        self._P += P
-
-        for key in self._V:
-            val = self.logger.query(key.lower())
-            self._V[key] += val
-
-    def reset(self):
-        """Resets sample number, ``T``, ``P``, and all ``V`` parameters to 0."""
-        self.num_samples = 0
-        self._T = 0.
-        self._P = 0.
-        self._V = {'Lx' : 0., 'Ly': 0., 'Lz': 0., 'xy': 0., 'xz': 0., 'yz': 0.}
-
-    @property
-    def T(self):
-        """float: Average temperature across samples."""
-        if self.num_samples > 0:
-            return self._T / self.num_samples
-        else:
-            return None
-
-    @property
-    def P(self):
-        """float: Average pressure across samples."""
-        if self.num_samples > 0:
-            return self._P / self.num_samples
-        else:
-            return None
-
-    @property
-    def V(self):
-        """float: Average volume across samples."""
-        if self.num_samples > 0:
-            _V = {key: self._V[key]/self.num_samples for key in self._V}
-            return TriclinicBox(**_V,convention=TriclinicBox.Convention.HOOMD)
-        else:
-            return None
-
-class RDFCallback:
-    """HOOMD callback for averaging radial distribution function across timesteps.
-
-    Parameters
-    ----------
-    system : :mod:`hoomd.data` system
-        Simulation system object.
-    params : :class:`~relentless.collections.PairMatrix`
-        Parameters to be used to initialize an instance of :class:`freud.density.RDF`.
-
-    """
-    def __init__(self, system, params):
-        self.system = system
-        self._rdf = PairMatrix(params.types)
-        for i,j in self._rdf:
-            self._rdf[i,j] = freud.density.RDF(bins=params[i,j]['bins'],
-                                               r_max=params[i,j]['rmax'],
-                                               normalize=(i==j))
-
-    def __call__(self, timestep):
-        """Evaluates the callback.
-
-        Parameters
-        ----------
-        timestep : int
-            The timestep at which to evaluate the callback.
-
-        """
-        snap = self.system.take_snapshot()
-        if mpi.world.rank == 0:
-            box = freud.box.Box.from_box(snap.box)
-            for i,j in self._rdf:
-                typei = (snap.particles.typeid == snap.particles.types.index(i))
-                typej = (snap.particles.typeid == snap.particles.types.index(j))
-                aabb = freud.locality.AABBQuery(box,snap.particles.position[typej])
-                query_args = dict(self._rdf[i,j].default_query_args)
-                query_args.update(exclude_ii=(i==j))
-                self._rdf[i,j].compute(aabb,
-                                       snap.particles.position[typei],
-                                       neighbors=query_args,
-                                       reset=False)
-
-    @property
-    def rdf(self):
-        rdf = PairMatrix(self._rdf.types)
-        for pair in rdf:
-            if mpi.world.rank == 0:
-                gr = numpy.column_stack((self._rdf[pair].bin_centers,self._rdf[pair].rdf))
-            else:
-                gr = None
-            gr = mpi.world.bcast_numpy(gr,root=0)
-            rdf[pair] = RDF(gr[:,0],gr[:,1])
-        return rdf
-
 class AddEnsembleAnalyzer(simulate.SimulationOperation):
     """Analyzes the simulation ensemble and rdf at specified timestep intervals.
 
@@ -934,7 +778,7 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
                                                              'pressure',
                                                              'lx','ly','lz','xy','xz','yz'],
                                                  period=self.check_thermo_every)
-            sim[self].thermo_callback = ThermodynamicsCallback(sim[self].logger)
+            sim[self].thermo_callback = AddEnsembleAnalyzer.ThermodynamicsCallback(sim[self].logger)
             hoomd.analyze.callback(callback=sim[self].thermo_callback,
                                    period=self.check_thermo_every)
 
@@ -944,7 +788,7 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
             bins = numpy.round(rmax/self.rdf_dr).astype(int)
             for pair in rdf_params:
                 rdf_params[pair] = {'bins': bins, 'rmax': rmax}
-            sim[self].rdf_callback = RDFCallback(sim.system,rdf_params)
+            sim[self].rdf_callback = AddEnsembleAnalyzer.RDFCallback(sim.system,rdf_params)
             hoomd.analyze.callback(callback=sim[self].rdf_callback,
                                    period=self.check_rdf_every)
 
@@ -974,3 +818,181 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
             ens.rdf[pair] = rdf[pair]
 
         return ens
+
+    class ThermodynamicsCallback:
+        """HOOMD callback for averaging thermodynamic properties.
+
+        Parameters
+        ----------
+        logger : :mod:`hoomd.analyze` logger
+            Logger from which to retrieve data.
+
+        """
+        def __init__(self, logger):
+            self.logger = logger
+            self.reset()
+
+        def __call__(self, timestep):
+            """Evaluates the callback.
+
+            Parameters
+            ----------
+            timestep : int
+                The timestep at which to evaluate the callback.
+
+            """
+            self.num_samples += 1
+
+            T = self.logger.query('temperature')
+            self._T += T
+
+            P = self.logger.query('pressure')
+            self._P += P
+
+            for key in self._V:
+                val = self.logger.query(key.lower())
+                self._V[key] += val
+
+        def reset(self):
+            """Resets sample number, ``T``, ``P``, and all ``V`` parameters to 0."""
+            self.num_samples = 0
+            self._T = 0.
+            self._P = 0.
+            self._V = {'Lx' : 0., 'Ly': 0., 'Lz': 0., 'xy': 0., 'xz': 0., 'yz': 0.}
+
+        @property
+        def T(self):
+            """float: Average temperature across samples."""
+            if self.num_samples > 0:
+                return self._T / self.num_samples
+            else:
+                return None
+
+        @property
+        def P(self):
+            """float: Average pressure across samples."""
+            if self.num_samples > 0:
+                return self._P / self.num_samples
+            else:
+                return None
+
+        @property
+        def V(self):
+            """float: Average volume across samples."""
+            if self.num_samples > 0:
+                _V = {key: self._V[key]/self.num_samples for key in self._V}
+                return TriclinicBox(**_V,convention=TriclinicBox.Convention.HOOMD)
+            else:
+                return None
+
+    class RDFCallback:
+        """HOOMD callback for averaging radial distribution function across timesteps.
+
+        Parameters
+        ----------
+        system : :mod:`hoomd.data` system
+            Simulation system object.
+        params : :class:`~relentless.collections.PairMatrix`
+            Parameters to be used to initialize an instance of :class:`freud.density.RDF`.
+
+        """
+        def __init__(self, system, params):
+            self.system = system
+            self._rdf = PairMatrix(params.types)
+            for i,j in self._rdf:
+                self._rdf[i,j] = freud.density.RDF(bins=params[i,j]['bins'],
+                                                r_max=params[i,j]['rmax'],
+                                                normalize=(i==j))
+
+        def __call__(self, timestep):
+            """Evaluates the callback.
+
+            Parameters
+            ----------
+            timestep : int
+                The timestep at which to evaluate the callback.
+
+            """
+            snap = self.system.take_snapshot()
+            if mpi.world.rank == 0:
+                box = freud.box.Box.from_box(snap.box)
+                for i,j in self._rdf:
+                    typei = (snap.particles.typeid == snap.particles.types.index(i))
+                    typej = (snap.particles.typeid == snap.particles.types.index(j))
+                    aabb = freud.locality.AABBQuery(box,snap.particles.position[typej])
+                    query_args = dict(self._rdf[i,j].default_query_args)
+                    query_args.update(exclude_ii=(i==j))
+                    self._rdf[i,j].compute(aabb,
+                                        snap.particles.position[typei],
+                                        neighbors=query_args,
+                                        reset=False)
+
+        @property
+        def rdf(self):
+            rdf = PairMatrix(self._rdf.types)
+            for pair in rdf:
+                if mpi.world.rank == 0:
+                    gr = numpy.column_stack((self._rdf[pair].bin_centers,self._rdf[pair].rdf))
+                else:
+                    gr = None
+                gr = mpi.world.bcast_numpy(gr,root=0)
+                rdf[pair] = RDF(gr[:,0],gr[:,1])
+            return rdf
+
+class HOOMD(simulate.Simulation):
+    """:class:`~relentless.simulate.simulate.Simulation` using HOOMD framework.
+
+    Raises
+    ------
+    ImportError
+        If the :mod:`hoomd` package is not found, or is not version 2.x.
+    ImportError
+        If the :mod:`freud` package is not found, or is not version 2.x.
+
+    """
+    def __init__(self, operations=None, **options):
+        if not _hoomd_found:
+            raise ImportError('HOOMD not found.')
+        elif version.parse(hoomd.__version__).major != 2:
+            raise ImportError('Only HOOMD 2.x is supported.')
+
+        if not _freud_found:
+            raise ImportError('freud not found.')
+        elif version.parse(freud.__version__).major != 2:
+            raise ImportError('Only freud 2.x is supported.')
+
+        super().__init__(operations,**options)
+
+    def _new_instance(self, ensemble, potentials, directory):
+        sim = super()._new_instance(ensemble,potentials,directory)
+
+        # initialize hoomd exec conf once
+        if hoomd.context.exec_conf is None:
+            hoomd.context.initialize('--notice-level=0')
+            hoomd.util.quiet_status()
+
+        sim.context = hoomd.context.SimulationContext()
+        sim.system = None
+        return sim
+
+    # initialization
+    InitializeFromFile = InitializeFromFile
+    InitializeRandomly = InitializeRandomly
+
+    # energy minimization
+    MinimizeEnergy = MinimizeEnergy
+
+    # md integrators
+    AddBrownianIntegrator = AddBrownianIntegrator
+    RemoveBrownianIntegrator = RemoveBrownianIntegrator
+    AddLangevinIntegrator = AddLangevinIntegrator
+    RemoveLangevinIntegrator = RemoveLangevinIntegrator
+    AddVerletIntegrator = AddVerletIntegrator
+    RemoveVerletIntegrator = RemoveVerletIntegrator
+
+    # run commands
+    Run = Run
+    RunUpTo = RunUpTo
+
+    # analysis
+    AddEnsembleAnalyzer = AddEnsembleAnalyzer

@@ -22,32 +22,7 @@ It can be accessed using the corresponding :class:`~relentless.simulate.generic.
 import numpy
 
 from relentless.ensemble import RDF
-from relentless.math import Interpolator
 from . import simulate
-
-class Dilute(simulate.Simulation):
-    r"""Simulation of a dilute system.
-
-    A dilute system, which is defined as having a low particle density, is modeled
-    using the following approximation for the pairwise interparticle force and
-    radial distribution function:
-
-    .. math::
-
-        f_{ij}(r) = -\nabla u_{ij}(r)
-
-    .. math::
-
-        g_{ij}(r) = e^{-\beta u_{ij}(r)}
-
-    The key assumption is that the radial distribution function :math:`g_{ij}(r)`
-    can be determined exactly from the pair potential :math:`u_{ij}(r)`.
-
-    Running a dilute simulation can also be helpful in finding a good initial guess
-    for parameter values before running a full simulation.
-
-    """
-    pass
 
 class _NullOperation(simulate.SimulationOperation):
     """Dummy operation that eats all arguments and doesn't do anything."""
@@ -57,39 +32,6 @@ class _NullOperation(simulate.SimulationOperation):
     def __call__(self, sim):
         pass
 
-## initializers
-class Initialize(_NullOperation):
-    pass
-class InitializeFromFile(Initialize):
-    pass
-class InitializeRandomly(Initialize):
-    pass
-
-## integrators
-class MinimizeEnergy(_NullOperation):
-    pass
-class AddMDIntegrator(_NullOperation):
-    pass
-class RemoveMDIntegrator(_NullOperation):
-    pass
-class AddBrownianIntegrator(AddMDIntegrator):
-    pass
-class RemoveBrownianIntegrator(RemoveMDIntegrator):
-    pass
-class AddLangevinIntegrator(AddMDIntegrator):
-    pass
-class RemoveLangevinIntegrator(RemoveMDIntegrator):
-    pass
-class AddVerletIntegrator(AddMDIntegrator):
-    pass
-class RemoveVerletIntegrator(RemoveMDIntegrator):
-    pass
-class Run(_NullOperation):
-    pass
-class RunUpTo(_NullOperation):
-    pass
-
-## analyzers
 class AddEnsembleAnalyzer(simulate.SimulationOperation):
     """Analyzes the simulation ensemble and rdf."""
     def __init__(self, *args, **ignore):
@@ -164,3 +106,47 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
 
         """
         return sim[self].ensemble
+
+class Dilute(simulate.Simulation):
+    r"""Simulation of a dilute system.
+
+    A dilute system, which is defined as having a low particle density, is modeled
+    using the following approximation for the pairwise interparticle force and
+    radial distribution function:
+
+    .. math::
+
+        f_{ij}(r) = -\nabla u_{ij}(r)
+
+    .. math::
+
+        g_{ij}(r) = e^{-\beta u_{ij}(r)}
+
+    The key assumption is that the radial distribution function :math:`g_{ij}(r)`
+    can be determined exactly from the pair potential :math:`u_{ij}(r)`.
+
+    Running a dilute simulation can also be helpful in finding a good initial guess
+    for parameter values before running a full simulation.
+
+    """
+    # initialization
+    InitializeFromFile = _NullOperation
+    InitializeRandomly = _NullOperation
+
+    # energy minimization
+    MinimizeEnergy = _NullOperation
+
+    # md integrators
+    AddBrownianIntegrator = _NullOperation
+    RemoveBrownianIntegrator = _NullOperation
+    AddLangevinIntegrator = _NullOperation
+    RemoveLangevinIntegrator = _NullOperation
+    AddVerletIntegrator = _NullOperation
+    RemoveVerletIntegrator = _NullOperation
+
+    # run commands
+    Run = _NullOperation
+    RunUpTo = _NullOperation
+
+    # analysis
+    AddEnsembleAnalyzer = AddEnsembleAnalyzer

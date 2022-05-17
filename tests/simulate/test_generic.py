@@ -49,7 +49,7 @@ class test_Generic(unittest.TestCase):
 
     def test_invalid(self):
         #Invalid backend
-        with self.assertRaises(TypeError):
+        with self.assertRaises(NotImplementedError):
             sim = relentless.simulate.Simulation(self.ops)
             sim.run(self.ensemble, self.potentials, self.directory)
 

@@ -78,51 +78,6 @@ try:
 except ImportError:
     _lammps_found = False
 
-class LAMMPS(simulate.Simulation):
-    """:class:`~relentless.simulate.simulate.Simulation` using LAMMPS framework.
-
-    LAMMPS must be built with its `Python interface <https://lammps.sandia.gov/doc/Python_head.html>`_
-    and must be version 29 Sep 2021 or newer.
-
-    Raises
-    ------
-    ImportError
-        If the :mod:`lammps` package is not found.
-
-    """
-    def __init__(self, operations=None, quiet=True, **options):
-        if not _lammps_found:
-            raise ImportError('LAMMPS not found.')
-
-        super().__init__(operations,**options)
-        self.quiet = quiet
-
-    def _new_instance(self, ensemble, potentials, directory):
-        sim = super()._new_instance(ensemble,potentials,directory)
-
-        if self.quiet:
-            # create lammps instance with all output disabled
-            launch_args = ['-echo','none',
-                           '-log','none',
-                           '-screen','none',
-                           '-nocite']
-        else:
-            launch_args = ['-echo','screen',
-                           '-log', sim.directory.file('log.lammps'),
-                           '-nocite']
-
-        sim.lammps = lammps.lammps(cmdargs=launch_args)
-        if sim.lammps.version() < 20210929:
-            raise ImportError('Only LAMMPS 29 Sep 2021 or newer is supported.')
-        # lammps uses 1-indexed ints for types, so build mapping in both direction
-        sim.type_map = {}
-        sim.typeid_map = {}
-        for i,t in enumerate(sim.ensemble.types):
-            sim.type_map[t] = i+1
-            sim.typeid_map[sim.type_map[t]] = t
-
-        return sim
-
 class LAMMPSOperation(simulate.SimulationOperation):
     """Provides an interface to translate :class:`~relentless.simulate.simulate.SimulationOperation`\s
     into LAMMPS operations.
@@ -907,3 +862,68 @@ class AddEnsembleAnalyzer(LAMMPSOperation):
             ens.rdf[pair] = RDF(rdf[:,0],rdf[:,i+1])
 
         return ens
+
+class LAMMPS(simulate.Simulation):
+    """:class:`~relentless.simulate.simulate.Simulation` using LAMMPS framework.
+
+    LAMMPS must be built with its `Python interface <https://lammps.sandia.gov/doc/Python_head.html>`_
+    and must be version 29 Sep 2021 or newer.
+
+    Raises
+    ------
+    ImportError
+        If the :mod:`lammps` package is not found.
+
+    """
+    def __init__(self, operations=None, quiet=True, **options):
+        if not _lammps_found:
+            raise ImportError('LAMMPS not found.')
+
+        super().__init__(operations,**options)
+        self.quiet = quiet
+
+    def _new_instance(self, ensemble, potentials, directory):
+        sim = super()._new_instance(ensemble,potentials,directory)
+
+        if self.quiet:
+            # create lammps instance with all output disabled
+            launch_args = ['-echo','none',
+                           '-log','none',
+                           '-screen','none',
+                           '-nocite']
+        else:
+            launch_args = ['-echo','screen',
+                           '-log', sim.directory.file('log.lammps'),
+                           '-nocite']
+
+        sim.lammps = lammps.lammps(cmdargs=launch_args)
+        if sim.lammps.version() < 20210929:
+            raise ImportError('Only LAMMPS 29 Sep 2021 or newer is supported.')
+        # lammps uses 1-indexed ints for types, so build mapping in both direction
+        sim.type_map = {}
+        sim.typeid_map = {}
+        for i,t in enumerate(sim.ensemble.types):
+            sim.type_map[t] = i+1
+            sim.typeid_map[sim.type_map[t]] = t
+
+        return sim
+
+    # initialization
+    InitializeFromFile = InitializeFromFile
+    InitializeRandomly = InitializeRandomly
+
+    # energy minimization
+    MinimizeEnergy = MinimizeEnergy
+
+    # md integrators
+    AddLangevinIntegrator = AddLangevinIntegrator
+    RemoveLangevinIntegrator = RemoveLangevinIntegrator
+    AddVerletIntegrator = AddVerletIntegrator
+    RemoveVerletIntegrator = RemoveVerletIntegrator
+
+    # run commands
+    Run = Run
+    RunUpTo = RunUpTo
+
+    # analysis
+    AddEnsembleAnalyzer = AddEnsembleAnalyzer
