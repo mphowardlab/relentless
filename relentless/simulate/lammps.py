@@ -554,8 +554,6 @@ class RemoveLangevinIntegrator(LAMMPSOperation):
 
     """
     def __init__(self, add_op):
-        if not isinstance(add_op, AddLangevinIntegrator):
-            raise TypeError('Addition operation is not AddLangevinIntegrator.')
         self.add_op = add_op
 
     def to_commands(self, sim):
@@ -685,8 +683,6 @@ class RemoveVerletIntegrator(LAMMPSOperation):
 
     """
     def __init__(self, add_op):
-        if not isinstance(add_op, AddVerletIntegrator):
-            raise TypeError('Addition operation is not AddVerletIntegrator.')
         self.add_op = add_op
 
     def to_commands(self, sim):

@@ -78,15 +78,17 @@ class test_HOOMD(unittest.TestCase):
         """Test running energy minimization simulation operation."""
         #MinimizeEnergy
         ens,pot = self.ens_pot()
-        op = [relentless.simulate.InitializeRandomly(seed=1),
-              relentless.simulate.MinimizeEnergy(energy_tolerance=1e-7,
-                                                 force_tolerance=1e-7,
-                                                 max_iterations=1000,
-                                                 options={'max_displacement':0.5,
-                                                          'steps_per_iteration':50})
-             ]
-        h = relentless.simulate.HOOMD(operations=op)
-        sim = h.run(ensemble=ens, potentials=pot, directory=self.directory)
+        init = relentless.simulate.InitializeRandomly(seed=1)
+
+        emin = relentless.simulate.MinimizeEnergy(energy_tolerance=1e-7,
+                                                  force_tolerance=1e-7,
+                                                  max_iterations=1000,
+                                                  options={'max_displacement':0.5,
+                                                           'steps_per_iteration':50})
+        h = relentless.simulate.HOOMD(operations=[init,emin])
+        h.run(ensemble=ens, potentials=pot, directory=self.directory)
+        self.assertEqual(emin.options['max_displacement'],0.5)
+        self.assertEqual(emin.options['steps_per_iteration'],50)
 
         #error check for missing max_displacement
         with self.assertRaises(KeyError):
@@ -94,12 +96,16 @@ class test_HOOMD(unittest.TestCase):
                                                       force_tolerance=1e-7,
                                                       max_iterations=1000,
                                                       options={})
+            h = relentless.simulate.HOOMD(operations=[init,emin])
+            h.run(ensemble=ens, potentials=pot, directory=self.directory)
 
         #check default value for max_evaluations
         emin = relentless.simulate.MinimizeEnergy(energy_tolerance=1e-7,
                                                   force_tolerance=1e-7,
                                                   max_iterations=1000,
                                                   options={'max_displacement':0.5})
+        h = relentless.simulate.HOOMD(operations=[init,emin])
+        h.run(ensemble=ens, potentials=pot, directory=self.directory)
         self.assertEqual(emin.options['steps_per_iteration'], 100)
 
     def test_integrators(self):

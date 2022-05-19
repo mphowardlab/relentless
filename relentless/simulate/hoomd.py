@@ -545,8 +545,6 @@ class RemoveBrownianIntegrator(RemoveMDIntegrator):
 
     """
     def __init__(self, add_op):
-        if not isinstance(add_op, AddBrownianIntegrator):
-            raise TypeError('Addition operation is not AddBrownianIntegrator.')
         super().__init__(add_op)
 
 class AddLangevinIntegrator(AddMDIntegrator):
@@ -608,8 +606,6 @@ class RemoveLangevinIntegrator(RemoveMDIntegrator):
 
     """
     def __init__(self, add_op):
-        if not isinstance(add_op, AddLangevinIntegrator):
-            raise TypeError('Addition operation is not AddLangevinIntegrator.')
         super().__init__(add_op)
 
 class AddVerletIntegrator(AddMDIntegrator):
@@ -702,8 +698,6 @@ class RemoveVerletIntegrator(RemoveMDIntegrator):
 
     """
     def __init__(self, add_op):
-        if not isinstance(add_op, AddVerletIntegrator):
-            raise TypeError('Addition operation is not AddVerletIntegrator.')
         super().__init__(add_op)
 
 class Run(simulate.SimulationOperation):

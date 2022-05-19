@@ -88,21 +88,19 @@ class test_LAMMPS(unittest.TestCase):
         init = relentless.simulate.InitializeFromFile(filename=file_)
 
         #MinimizeEnergy
-        op = [init,
-              relentless.simulate.MinimizeEnergy(energy_tolerance=1e-7,
-                                                 force_tolerance=1e-7,
-                                                 max_iterations=1000,
-                                                 options={'max_evaluations':10000})
-             ]
-        l = relentless.simulate.LAMMPS(operations=op, quiet=False)
+        emin = relentless.simulate.MinimizeEnergy(energy_tolerance=1e-7,
+                                                  force_tolerance=1e-7,
+                                                  max_iterations=1000,
+                                                  options={'max_evaluations': 10000})
+        l = relentless.simulate.LAMMPS(operations=[init,emin], quiet=False)
         sim = l.run(ensemble=ens, potentials=pot, directory=self.directory)
+        self.assertEqual(emin.options['max_evaluations'], 10000)
 
         #check default value of max_evaluations
         emin = relentless.simulate.MinimizeEnergy(energy_tolerance=1e-7,
                                                   force_tolerance=1e-7,
                                                   max_iterations=1000,
                                                   options={})
-        self.assertEqual(emin.options['max_evaluations'], None)
         l = relentless.simulate.LAMMPS(operations=[init,emin], quiet=False)
         sim = l.run(ensemble=ens, potentials=pot, directory=self.directory)
         self.assertEqual(emin.options['max_evaluations'], 100*emin.max_iterations)

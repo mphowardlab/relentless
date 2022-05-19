@@ -264,9 +264,10 @@ class SimulationInstance:
         self._opdata = {}
 
     def __getitem__(self, op):
-        if not op in self._opdata:
-            self._opdata[op] = op.Data()
-        return self._opdata[op]
+        op_ = op._op if isinstance(op, GenericOperation) else op
+        if not op_ in self._opdata:
+            self._opdata[op_] = op_.Data()
+        return self._opdata[op_]
 
 class Potentials:
     """Combination of multiple potentials.
@@ -675,10 +676,11 @@ class GenericOperation(SimulationOperation):
 
     """
     def __init__(self, *args, **kwargs):
-        self.args = args
-        self.kwargs = kwargs
         self._op = None
         self._backend = None
+        self._args = args
+        self._kwargs = kwargs
+        self._forward_attr = set()
 
     def __call__(self, sim):
         """Evaluates the generic simulation operation.
@@ -711,10 +713,28 @@ class GenericOperation(SimulationOperation):
             if BackendOp is NotImplementedOperation or BackendOp is None:
                 raise NotImplementedError('{}.{} operation not implemented.'.format(backend.__name__,op_name))
 
-            self._op = BackendOp(*self.args,**self.kwargs)
+            self._op = BackendOp(*self._args,**self._kwargs)
+            for attr in self._forward_attr:
+                value = getattr(self, attr)
+                setattr(self._op, attr, value)
             self._backend = backend
 
         return self._op(sim)
+
+    def __getattr__(self, name):
+        if self._op is not None:
+            if not hasattr(self._op, name):
+                raise AttributeError('Operation does not have attribute')
+            return getattr(self._op, name)
+        else:
+            raise AttributeError('Backend operation not initialized yet')
+
+    def __setattr__(self, name, value):
+        super().__setattr__(name, value)
+        if name not in ('_op','_backend','_args','_kwargs','_forward_attr'):
+            if self._op is not None:
+                self._forward_attr.add(name)
+                setattr(self._op, name, value)
 
 ## initializers
 class InitializeFromFile(GenericOperation):
