@@ -36,7 +36,7 @@ that derives from :class:`LAMMPSOperation` and define the required methods.
     LAMMPSOperation
 
 .. autoclass:: LAMMPS
-    :members:
+
 .. autoclass:: LAMMPSOperation
     :members:
 .. autoclass:: Initialize

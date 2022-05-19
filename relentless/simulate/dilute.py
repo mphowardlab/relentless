@@ -12,7 +12,6 @@ It can be accessed using the corresponding :class:`~relentless.simulate.generic.
     AddEnsembleAnalyzer
 
 .. autoclass:: Dilute
-    :members:
 
 .. autoclass:: AddEnsembleAnalyzer
     :members: __call__,

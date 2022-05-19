@@ -25,8 +25,6 @@ The following HOOMD operations have been implemented.
     RemoveVerletIntegrator
     Run
     RunUpTo
-    ThermodynamicsCallback
-    RDFCallback
     AddEnsembleAnalyzer
 
 :class:`AddMDIntegrator` and :class:`RemoveMDIntegrator` are generic methods
@@ -51,7 +49,7 @@ define the required methods.
     HOOMD
 
 .. autoclass:: HOOMD
-    :members:
+
 .. autoclass:: Initialize
     :members:
 .. autoclass:: InitializeFromFile
@@ -80,15 +78,6 @@ define the required methods.
     :members: __call__
 .. autoclass:: RunUpTo
     :members: __call__
-.. autoclass:: ThermodynamicsCallback
-    :members: __call__,
-        reset,
-        T,
-        P,
-        V
-.. autoclass:: RDFCallback
-    :members: __call__,
-        rdf
 .. autoclass:: AddEnsembleAnalyzer
     :members: __call__,
         extract_ensemble
