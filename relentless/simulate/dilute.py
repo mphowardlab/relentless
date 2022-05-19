@@ -10,12 +10,14 @@ It can be accessed using the corresponding :class:`~relentless.simulate.generic.
 
     Dilute
     AddEnsembleAnalyzer
+    NullOperation
 
 .. autoclass:: Dilute
 
 .. autoclass:: AddEnsembleAnalyzer
-    :members: __call__,
-        extract_ensemble
+    :members: extract_ensemble
+
+.. autoclass:: NullOperation
 
 """
 import numpy
@@ -23,7 +25,7 @@ import numpy
 from relentless.ensemble import RDF
 from . import simulate
 
-class _NullOperation(simulate.SimulationOperation):
+class NullOperation(simulate.SimulationOperation):
     """Dummy operation that eats all arguments and doesn't do anything."""
     def __init__(self, *args, **ignore):
         pass
@@ -32,30 +34,35 @@ class _NullOperation(simulate.SimulationOperation):
         pass
 
 class AddEnsembleAnalyzer(simulate.SimulationOperation):
-    """Analyzes the simulation ensemble and rdf."""
-    def __init__(self, *args, **ignore):
-        # catch options that are used by other AddEnsembleAnalyzer methods and ignore them
+    r"""Analyzes the simulation ensemble and rdf.
+
+    The temperature, volume, and number of particles are copied from the
+    simulation ensemble. The radial distribution function is:
+
+    .. math::
+
+        g_{ij}(r) = e^{-\beta u_{ij}(r)}
+
+    and the pressure is:
+
+    .. math::
+
+        P=k_BT\sum_i\rho_i-\frac{2}{3}\sum_i\sum_j\rho_i\rho_j\int_0^\infty drr^3 \nabla u_{ij}(r) g_{ij}(r)
+
+    Parameters
+    ----------
+    check_thermo_every : int
+        Number of timesteps between computing thermodynamic properties.
+    check_rdf_every : int
+        Number of time steps between computing the RDF.
+    rdf_dr : float
+        The width of a bin in the RDF histogram.
+
+    """
+    def __init__(self, check_thermo_every, check_rdf_every, rdf_dr):
         pass
 
     def __call__(self, sim):
-        r"""Creates a copy of the ensemble. The pressure parameter for the new
-        ensemble is calculated as:
-
-        .. math::
-
-            P=k_BT\sum_i\rho_i+\frac{2}{3}\sum_i\sum_j\rho_i\rho_j\int_0^\infty drr^3f_{ij}(r)g_{ij}(r) \\
-
-        Parameters
-        ----------
-        sim : :class:`~relentless.simulate.simulate.SimulationInstance`
-            Instance to analyze.
-
-        Raises
-        ------
-        ValueError
-            If ``r`` and ``u`` are not both set in the potentials matrix.
-
-        """
         ens = sim.ensemble.copy()
 
         # pair distribution function
@@ -91,17 +98,20 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
         sim[self].ensemble = ens
 
     def extract_ensemble(self, sim):
-        """Creates an ensemble with the averaged thermodynamic properties and rdf.
+        """Extract the average ensemble from the simulation.
+
+        The "average" ensemble is the result of the most recent
+        :meth:`__call__`.
 
         Parameters
         ----------
-        sim : :class:`~relentless.simulate.simulate.Simulation`
-            The simulation object.
+        sim : :class:`~relentless.simulate.simulate.SimulationInstance`
+            The simulation.
 
         Returns
         -------
         :class:`~relentless.ensemble.Ensemble`
-            Ensemble with averaged thermodynamic properties and rdf.
+            Average ensemble from the simulation data.
 
         """
         return sim[self].ensemble
@@ -109,43 +119,43 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
 class Dilute(simulate.Simulation):
     r"""Simulation of a dilute system.
 
-    A dilute system, which is defined as having a low particle density, is modeled
-    using the following approximation for the pairwise interparticle force and
-    radial distribution function:
-
-    .. math::
-
-        f_{ij}(r) = -\nabla u_{ij}(r)
+    A dilute "simulation" is performed under the assumption that the radial
+    distribution function :math:`g_{ij}(r)` can be determined exactly from the
+    pair potential :math:`u_{ij}(r)`:
 
     .. math::
 
         g_{ij}(r) = e^{-\beta u_{ij}(r)}
 
-    The key assumption is that the radial distribution function :math:`g_{ij}(r)`
-    can be determined exactly from the pair potential :math:`u_{ij}(r)`.
+    This approximation is only reasonable for low-density systems, but it can
+    still quite be useful for debugging a script without needing to run a costly
+    simulation. It can also be helpful for finding an initial guess for design
+    variables before switching to a full simulation.
 
-    Running a dilute simulation can also be helpful in finding a good initial guess
-    for parameter values before running a full simulation.
+    Most of the simulation operations are :class:`NullOperation`\s that do not
+    actually do anything: they will simply consume any arguments given to them.
+    Only the :class:`AddEnsembleAnalyzer` operation actually implements the
+    physics of the dilute simulation.
 
     """
     # initialization
-    InitializeFromFile = _NullOperation
-    InitializeRandomly = _NullOperation
+    InitializeFromFile = NullOperation
+    InitializeRandomly = NullOperation
 
     # energy minimization
-    MinimizeEnergy = _NullOperation
+    MinimizeEnergy = NullOperation
 
     # md integrators
-    AddBrownianIntegrator = _NullOperation
-    RemoveBrownianIntegrator = _NullOperation
-    AddLangevinIntegrator = _NullOperation
-    RemoveLangevinIntegrator = _NullOperation
-    AddVerletIntegrator = _NullOperation
-    RemoveVerletIntegrator = _NullOperation
+    AddBrownianIntegrator = NullOperation
+    RemoveBrownianIntegrator = NullOperation
+    AddLangevinIntegrator = NullOperation
+    RemoveLangevinIntegrator = NullOperation
+    AddVerletIntegrator = NullOperation
+    RemoveVerletIntegrator = NullOperation
 
     # run commands
-    Run = _NullOperation
-    RunUpTo = _NullOperation
+    Run = NullOperation
+    RunUpTo = NullOperation
 
     # analysis
     AddEnsembleAnalyzer = AddEnsembleAnalyzer
