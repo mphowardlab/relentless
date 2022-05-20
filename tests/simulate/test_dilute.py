@@ -17,7 +17,8 @@ class test_Dilute(unittest.TestCase):
 
     def test_run(self):
         """Test run method."""
-        analyzer = relentless.simulate.dilute.AddEnsembleAnalyzer()
+        analyzer = relentless.simulate.dilute.AddEnsembleAnalyzer(
+            check_thermo_every=1, check_rdf_every=1, rdf_dr=0.1)
         ens = relentless.ensemble.Ensemble(T=1.0, V=relentless.volume.Cube(L=2.0), N={'A':2,'B':3})
 
         #set up potentials
@@ -36,7 +37,8 @@ class test_Dilute(unittest.TestCase):
 
     def test_inf_potential(self):
         """Test potential with infinite value."""
-        analyzer = relentless.simulate.dilute.AddEnsembleAnalyzer()
+        analyzer = relentless.simulate.dilute.AddEnsembleAnalyzer(
+            check_thermo_every=1, check_rdf_every=1, rdf_dr=0.1)
         ens = relentless.ensemble.Ensemble(T=1.0, V=relentless.volume.Cube(L=2.0), N={'A':2,'B':3})
 
         #test with potential that has infinite potential at low r
