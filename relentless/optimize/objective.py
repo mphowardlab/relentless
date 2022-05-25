@@ -37,22 +37,19 @@ To implement your own objective function, create a class that derives from
 
 .. autoclass:: ObjectiveFunction
     :member-order: bysource
-    :members: compute,
-        design_variables,
-        make_result
+    :members: compute
 
 .. autoclass:: ObjectiveFunctionResult
     :member-order: bysource
-    :members: value,
+    :members: variables,
+        value,
         gradient,
-        design_variables,
         directory
 
 .. autoclass:: RelativeEntropy
     :member-order: bysource
     :members: compute,
         compute_gradient,
-        design_variables,
         target
 
 """
@@ -61,9 +58,9 @@ import abc
 import numpy
 import scipy.integrate
 
-from relentless import collections
-from relentless import math
 from relentless import data
+from relentless import math
+from relentless import variable
 
 class ObjectiveFunction(abc.ABC):
     """Abstract base class for the optimization objective function.
@@ -74,63 +71,33 @@ class ObjectiveFunction(abc.ABC):
 
     """
     @abc.abstractmethod
-    def compute(self, directory=None):
+    def compute(self, variables, directory=None):
         """Evaluate the value and gradient of the objective function.
-
-        This method must call :meth:`make_result()` and return its result.
-
-        Returns
-        -------
-        :class:`ObjectiveFunctionResult`
-            The result of :meth:`make_result()`.
-
-        """
-        pass
-
-    @abc.abstractmethod
-    def design_variables(self):
-        """Return all :class:`~relentless.variable.DesignVariable`\s
-        parametrized by the objective function.
-
-        Returns
-        -------
-        array_like
-            The :class:`~relentless.variable.DesignVariable` parameters.
-
-        """
-        pass
-
-    def make_result(self, value, gradient, directory):
-        """Construct a :class:`ObjectiveFunctionResult` to store the result
-        of :meth:`compute()`.
 
         Parameters
         ----------
-        value : float
-            The value of the objective function.
-        gradient : dict
-            The gradient of the objective function. Each partial derivative is
-            keyed on the :class:`~relentless.variable.DesignVariable`
-            with respect to which it is taken.
+        variables : :class:`~relentless.variable.Variable` or tuple
+            Variables to record in result.
         directory : :class:`~relentless.data.Directory`
-            Directory holding written output associated with result. Setting
-            a value of ``None`` indicates no written output.
+            The ouptut directory. In addition to simulation output, the pair
+            potential design variables at the time of computation are saved
+            (defaults to ``None``).
 
         Returns
         -------
         :class:`ObjectiveFunctionResult`
-            Object storing the value and gradient of this objective function.
+            The result of the function.
 
         """
-        return ObjectiveFunctionResult(self, value, gradient, directory)
+        pass
 
 class ObjectiveFunctionResult:
     """Class storing the value and gradient of a :class:`ObjectiveFunction`.
 
     Parameters
     ----------
-    objective : :class:`ObjectiveFunction`
-       The objective function for which this result is constructed.
+    variables : :class:`~relentless.variable.Variable` or tuple
+        Variables to stash values
     value : float
         The value of the objective function.
     gradient : dict
@@ -141,19 +108,40 @@ class ObjectiveFunctionResult:
         Directory holding written output associated with result. Setting
         a value of ``None`` indicates no written output.
 
+    Raises
+    ------
+    KeyError
+        If both ``variables`` and ``gradient`` are defined but their keys
+        don't match.
+
     """
-    def __init__(self, objective, value, gradient, directory):
-        dvars = objective.design_variables()
-        self._design_variables = math.KeyedArray(keys=dvars)
-        variable_values = {x: x.value for x in dvars}
-        self._design_variables.update(variable_values)
+    def __init__(self, variables=None, value=None, gradient=None, directory=None):
+        variables = variable.graph.check_variables_and_types(variables, variable.Variable)
+        if len(variables) > 0:
+            self._variables = math.KeyedArray(keys=variables)
+            self._variables.update({x: x.value for x in variables})
+        else:
+            self._variables = None
 
         self._value = value
 
-        self._gradient = math.KeyedArray(keys=dvars)
-        self._gradient.update(gradient)
+        if gradient is not None:
+            self._gradient = math.KeyedArray(keys=gradient.keys())
+            self._gradient.update(gradient)
+        else:
+            self._gradient = None
+
+        if self._variables is not None and self._gradient is not None:
+            if self._variables.keys() != self._gradient.keys():
+                raise KeyError('Variable and gradient keys do not match!')
 
         self.directory = directory
+
+    @property
+    def variables(self):
+        """:class:`~relentless.math.KeyedArray`: Recorded variables of the
+        :class:`ObjectiveFunction`."""
+        return self._variables
 
     @property
     def value(self):
@@ -176,13 +164,6 @@ class ObjectiveFunctionResult:
         if value is not None and not isinstance(value, data.Directory):
             value = data.Directory(value)
         self._directory = value
-
-    @property
-    def design_variables(self):
-        """:class:`~relentless.math.KeyedArray`: The design variables of the
-        :class:`ObjectiveFunction` for which the result was constructed, mapped
-        to the value of the variables at the time the result was constructed."""
-        return self._design_variables
 
 class RelativeEntropy(ObjectiveFunction):
     r"""Relative entropy.
@@ -255,7 +236,7 @@ class RelativeEntropy(ObjectiveFunction):
         self.communicator = communicator
         self.extensive = extensive
 
-    def compute(self, directory=None):
+    def compute(self, variables, directory=None):
         r"""Evaluate the value and gradient of the relative entropy function.
 
         The value of the relative entropy is not computed, but the gradient is.
@@ -271,6 +252,8 @@ class RelativeEntropy(ObjectiveFunction):
 
         Parameters
         ----------
+        variables : :class:`~relentless.variable.Variable` or tuple
+            Variables with respect to which to compute gradient.
         directory : :class:`~relentless.data.Directory`
             The ouptut directory. In addition to simulation output, the pair
             potential design variables at the time of computation are saved
@@ -285,7 +268,7 @@ class RelativeEntropy(ObjectiveFunction):
         # run simulation and use result to compute gradient
         sim = self.simulation.run(self.target, self.potentials, directory, self.communicator)
         sim_ens = self.thermo.extract_ensemble(sim)
-        gradient = self.compute_gradient(sim_ens)
+        gradient = self.compute_gradient(sim_ens, variables)
 
         # optionally write output to directory
         if directory is not None and (self.communicator is None or self.communicator.rank == self.communicator.root):
@@ -294,15 +277,17 @@ class RelativeEntropy(ObjectiveFunction):
             sim_ens.save(directory.file('ensemble.json'))
 
         # relative entropy *value* is None
-        return self.make_result(None, gradient, directory)
+        return ObjectiveFunctionResult(variables, None, gradient, directory)
 
-    def compute_gradient(self, ensemble):
+    def compute_gradient(self, ensemble, variables):
         """Computes the relative entropy gradient for an ensemble.
 
         Parameters
         ----------
         ensemble : :class:`~relentless.ensemble.Ensemble`
             The ensemble for which to evaluate the gradient.
+        variables : :class:`~relentless.variable.Variable` or tuple
+            Variables with respect to which to compute gradient.
 
         Returns
         -------
@@ -313,7 +298,7 @@ class RelativeEntropy(ObjectiveFunction):
         # compute the relative entropy gradient by integration
         g_tgt = self.target.rdf
         g_sim = ensemble.rdf
-        dvars = self.design_variables()
+        dvars = variable.graph.check_variables_and_types(variables, variable.Variable)
         gradient = math.KeyedArray(keys=dvars)
 
         for var in dvars:
@@ -358,24 +343,6 @@ class RelativeEntropy(ObjectiveFunction):
             gradient[var] = update
 
         return gradient
-
-    def design_variables(self):
-        """Return all unique, non-constant :class:`~relentless.variable.DesignVariable`\s
-        parametrized by the pair potentials of the relative entropy.
-
-        Returns
-        -------
-        tuple
-            The :class:`~relentless.variable.DesignVariable` parameters.
-
-        """
-        dvars = set()
-        for p in self.potentials.pair.potentials:
-            for x in p.coeff.design_variables():
-                if not x.const:
-                    dvars.add(x)
-
-        return tuple(dvars)
 
     @property
     def target(self):

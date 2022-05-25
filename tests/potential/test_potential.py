@@ -233,31 +233,6 @@ class test_Parameters(unittest.TestCase):
 
         temp.close()
 
-    def test_design_variables(self):
-        """Test design_variables method."""
-        m = relentless.potential.Parameters(types=('A',), params=('energy','mass','charge'))
-
-        #test complex dependent variables as parameters
-        a = relentless.variable.DesignVariable(value=1.0)
-        b = relentless.variable.DesignVariable(value=2.0)
-        c = relentless.variable.SameAs(a=b)
-        d = relentless.variable.ArithmeticMean(a=b, b=c)
-
-        m['A']['energy'] = 1.5
-        m['A']['mass'] = a
-        m['A']['charge'] = d
-
-        x = m.design_variables()
-        self.assertCountEqual(x, (a,b))
-
-        #test same variable as multiple parameters
-        m['A']['energy'] = a
-        m['A']['mass'] = a
-        m['A']['charge'] = a
-
-        x = m.design_variables()
-        self.assertCountEqual(x, (a,))
-
 class MockPotential(relentless.potential.Potential):
     """Mock potential function used to test relentless.potential.Potential"""
 
@@ -349,8 +324,8 @@ class test_Potential(unittest.TestCase):
             p.coeff[t]['rmin'] = 0.0
             p.coeff[t]['rmax'] = 1.0
 
-        self.assertDictEqual(p.coeff['1'].todict(), {'m':2.0, 'rmin':0.0, 'rmax':1.0})
-        self.assertDictEqual(p.coeff['2'].todict(), {'m':2.0, 'rmin':0.0, 'rmax':1.0})
+        self.assertDictEqual(dict(p.coeff['1']), {'m':2.0, 'rmin':0.0, 'rmax':1.0})
+        self.assertDictEqual(dict(p.coeff['2']), {'m':2.0, 'rmin':0.0, 'rmax':1.0})
 
     def test_save(self):
         """Test saving to file"""

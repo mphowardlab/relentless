@@ -54,8 +54,8 @@ import abc
 import numpy
 
 from relentless import math
+from relentless import variable
 from .criteria import ConvergenceTest,Tolerance
-from .objective import ObjectiveFunction
 
 class Optimizer(abc.ABC):
     """Abstract base class for optimization algorithm.
@@ -72,7 +72,7 @@ class Optimizer(abc.ABC):
         self.stop = stop
 
     @abc.abstractmethod
-    def optimize(self, objective, directory=None):
+    def optimize(self, objective, design_variables, directory=None):
         """Minimize an objective function.
 
         The design variables of the objective function are adjusted until convergence.
@@ -81,6 +81,8 @@ class Optimizer(abc.ABC):
         ----------
         objective : :class:`~relentless.optimize.objective.ObjectiveFunction`
             The objective function to be optimized.
+        design_variables: :class:`~relentless.variable.DesignVariable` or tuple
+            Design variable(s) to optimize.
         directory : :class:`~relentless.data.Directory`
             Directory for writing output during optimization. Default of ``None``
             requests no output is written.
@@ -189,10 +191,10 @@ class LineSearch:
             If the relative tolerance is not between 0 and 1.
 
         """
-        ovars = {x: x.value for x in objective.design_variables()}
+        ovars = {x: x.value for x in start.variables}
 
         # compute search direction
-        d = end.design_variables - start.design_variables
+        d = end.variables - start.variables
         if d.norm() == 0:
             raise ValueError('The start and end of the search interval must be different.')
 
@@ -217,10 +219,10 @@ class LineSearch:
                 new_step = (steps[0]*targets[1] - steps[1]*targets[0])/(targets[1] - targets[0])
 
                 # adjust variables based on new step size, compute new target
-                for x in ovars:
-                    x.value = start.design_variables[x] + new_step*d[x]
+                for x in start.variables:
+                    x.value = start.variables[x] + new_step*d[x]
                 new_dir = directory.directory(str(iter_num)) if directory is not None else None
-                new_res = objective.compute(new_dir)
+                new_res = objective.compute(start.variables, new_dir)
                 new_target = -d.dot(new_res.gradient)
 
                 # update search intervals
@@ -342,12 +344,12 @@ class SteepestDescent(Optimizer):
             The descent amount, keyed on the objective function design variables.
 
         """
-        k = math.KeyedArray(keys=gradient.keys)
+        k = math.KeyedArray(keys=gradient.keys())
         for i in k:
             k[i] = self.step_size
         return k
 
-    def optimize(self, objective, directory=None):
+    def optimize(self, objective, design_variables, directory=None):
         r"""Perform the steepest descent optimization for the given objective function.
 
         If specified, a :class:`LineSearch` is performed to choose an optimal step size.
@@ -366,6 +368,8 @@ class SteepestDescent(Optimizer):
         ----------
         objective : :class:`~relentless.optimize.objective.ObjectiveFunction`
             The objective function to be optimized.
+        design_variables: :class:`~relentless.variable.DesignVariable` or tuple
+            Design variable(s) to optimize.
         directory : :class:`~relentless.data.Directory`
             Directory for writing output during optimization. Default of `None`
             requests no output is written.
@@ -377,13 +381,13 @@ class SteepestDescent(Optimizer):
             design variables are specified for the objective function.
 
         """
-        dvars = objective.design_variables()
-        if len(dvars) == 0:
+        design_variables = variable.graph.check_variables_and_types(design_variables, variable.DesignVariable)
+        if len(design_variables) == 0:
             return None
 
         #fix scaling parameters
-        scale = math.KeyedArray(keys=dvars)
-        for x in dvars:
+        scale = math.KeyedArray(keys=design_variables)
+        for x in design_variables:
             if numpy.isscalar(self.scale):
                 scale[x] = self.scale
             else:
@@ -394,16 +398,16 @@ class SteepestDescent(Optimizer):
 
         iter_num = 0
         cur_dir = directory.directory(str(iter_num)) if directory is not None else None
-        cur_res = objective.compute(cur_dir)
+        cur_res = objective.compute(design_variables, cur_dir)
         while not self.stop.converged(cur_res) and iter_num < self.max_iter:
             grad_y = scale*cur_res.gradient
             update = self.descent_amount(grad_y)*grad_y
 
             #steepest descent update
-            for x in dvars:
-                x.value = cur_res.design_variables[x] - update[x]
+            for x in design_variables:
+                x.value = cur_res.variables[x] - update[x]
             next_dir = cur_dir.directory('.next') if cur_dir is not None else None
-            next_res = objective.compute(next_dir)
+            next_res = objective.compute(design_variables, next_dir)
 
             #if line search, attempt backtracking in interval
             if self.line_search is not None:
@@ -414,8 +418,8 @@ class SteepestDescent(Optimizer):
                                                  directory=line_dir)
 
                 if line_res is not next_res:
-                    for x in dvars:
-                        x.value = line_res.design_variables[x]
+                    for x in design_variables:
+                        x.value = line_res.variables[x]
                     next_res = line_res
 
             # move the contents of the "next" result contents to the new "current" result
@@ -542,7 +546,7 @@ class FixedStepDescent(SteepestDescent):
             The descent amount, keyed on the objective function design variables.
 
         """
-        k = math.KeyedArray(keys=gradient.keys)
+        k = math.KeyedArray(keys=gradient.keys())
         for i in k:
             k[i] = self.step_size
         return k/gradient.norm()

@@ -243,12 +243,12 @@ class KeyedArray(FixedKeyDict):
         super().__init__(keys, default)
 
     def _assert_same_keys(self, val):
-        if (self.keys != val.keys):
+        if self.keys() != val.keys():
             raise KeyError('Both KeyedArrays must have identical keys to perform mathematical operations.')
 
     def __add__(self, val):
         """Element-wise addition of two arrays, or of an array and a scalar."""
-        k = KeyedArray(keys=self.keys)
+        k = KeyedArray(keys=self.keys())
         if isinstance(val, KeyedArray):
             self._assert_same_keys(val)
             k.update({x: self[x] + val[x] for x in self})
@@ -260,7 +260,7 @@ class KeyedArray(FixedKeyDict):
 
     def __radd__(self, val):
         """Element-wise addition of a scalar and an array."""
-        k = KeyedArray(keys=self.keys)
+        k = KeyedArray(keys=self.keys())
         if numpy.isscalar(val):
             k.update({x: val + self[x] for x in self})
         else:
@@ -282,7 +282,7 @@ class KeyedArray(FixedKeyDict):
 
     def __sub__(self, val):
         """Element-wise subtraction of two arrays, or of an array and a scalar."""
-        k = KeyedArray(keys=self.keys)
+        k = KeyedArray(keys=self.keys())
         if isinstance(val, KeyedArray):
             self._assert_same_keys(val)
             k.update({x: self[x] - val[x] for x in self})
@@ -294,7 +294,7 @@ class KeyedArray(FixedKeyDict):
 
     def __rsub__(self, val):
         """Element-wise subtraction of a scalar and an array."""
-        k = KeyedArray(keys=self.keys)
+        k = KeyedArray(keys=self.keys())
         if numpy.isscalar(val):
             k.update({x: val - self[x] for x in self})
         else:
@@ -316,7 +316,7 @@ class KeyedArray(FixedKeyDict):
 
     def __mul__(self, val):
         """Element-wise multiplication of two arrays, or of an array and a scalar."""
-        k = KeyedArray(keys=self.keys)
+        k = KeyedArray(keys=self.keys())
         if isinstance(val, KeyedArray):
             self._assert_same_keys(val)
             k.update({x: self[x]*val[x] for x in self})
@@ -328,7 +328,7 @@ class KeyedArray(FixedKeyDict):
 
     def __rmul__(self, val):
         """Element-wise multiplication of a scalar by an array."""
-        k = KeyedArray(keys=self.keys)
+        k = KeyedArray(keys=self.keys())
         if numpy.isscalar(val):
             k.update({x: val*self[x] for x in self})
         else:
@@ -350,7 +350,7 @@ class KeyedArray(FixedKeyDict):
 
     def __truediv__(self, val):
         """Element-wise division of two arrays, or of an array by a scalar."""
-        k = KeyedArray(keys=self.keys)
+        k = KeyedArray(keys=self.keys())
         if isinstance(val, KeyedArray):
             self._assert_same_keys(val)
             k.update({x: self[x]/val[x] for x in self})
@@ -362,7 +362,7 @@ class KeyedArray(FixedKeyDict):
 
     def __rtruediv__(self, val):
         """Element-wise division of a scalar by an array."""
-        k = KeyedArray(keys=self.keys)
+        k = KeyedArray(keys=self.keys())
         if numpy.isscalar(val):
             k.update({x: val/self[x] for x in self})
         else:
@@ -384,7 +384,7 @@ class KeyedArray(FixedKeyDict):
 
     def __pow__(self, val):
         """Element-wise exponentiation of an array by a scalar or by an array."""
-        k = KeyedArray(keys=self.keys)
+        k = KeyedArray(keys=self.keys())
         if isinstance(val, KeyedArray):
             self._assert_same_keys(val)
             k.update({x: self[x]**val[x] for x in self})
@@ -396,7 +396,7 @@ class KeyedArray(FixedKeyDict):
 
     def __neg__(self):
         """Element-wise negation of an array."""
-        k = KeyedArray(keys=self.keys)
+        k = KeyedArray(keys=self.keys())
         k.update({x: -self[x] for x in self})
         return k
 
@@ -416,7 +416,7 @@ class KeyedArray(FixedKeyDict):
             The vector norm.
 
         """
-        return numpy.linalg.norm(list(self.todict().values()))
+        return numpy.linalg.norm(list(self.values()))
 
     def dot(self, val):
         r"""Vector dot product.
@@ -436,7 +436,7 @@ class KeyedArray(FixedKeyDict):
 
         Returns
         -------
-        float
+        floats
             The vector dot product.
 
         """

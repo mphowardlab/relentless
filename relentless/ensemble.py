@@ -150,7 +150,7 @@ class Ensemble:
     @property
     def types(self):
         r"""tuple: The types in the ensemble."""
-        return self.N.keys
+        return self.N.keys()
 
     @property
     def pairs(self):
@@ -183,7 +183,7 @@ class Ensemble:
 
         """
         data = {'T': self.T,
-                'N': self.N.todict(),
+                'N': dict(self.N),
                 'V': {'__name__':type(self.V).__name__,
                       'data':self.V.to_json()
                      },

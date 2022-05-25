@@ -46,7 +46,7 @@ To implement your own pair potential, create a class that derives from
 .. autoclass:: Depletion
 .. autoclass:: LennardJones
 .. autoclass:: PairSpline
-    :members: from_array, knots, num_knots
+    :members: from_array, knots, num_knots, design_variables
 .. autoclass:: Yukawa
 
 """
@@ -641,11 +641,10 @@ class Depletion(PairPotential):
         def __init__(self, sigma_i, sigma_j, sigma_d):
             super().__init__(sigma_i=sigma_i, sigma_j=sigma_j, sigma_d=sigma_d)
 
-        @property
-        def value(self):
-            return 0.5*(self.sigma_i.value + self.sigma_j.value) + self.sigma_d.value
+        def compute(self, sigma_i, sigma_j, sigma_d):
+            return 0.5*(sigma_i + sigma_j) + sigma_d
 
-        def _derivative(self, param):
+        def compute_derivative(self, param, sigma_i, sigma_j, sigma_d):
             if param == 'sigma_i':
                 return 0.5
             elif param == 'sigma_j':
@@ -861,7 +860,7 @@ class PairSpline(PairPotential):
     num_knots : int
         Number of knots.
     mode : str
-        Mode for storing the values of the knots in :class:`~relentless.variable.DesignVariable`
+        Mode for storing the values of the knots in :class:`~relentless.variable.Variable`
         that can be optimized. If ``mode='value'``, the knot amplitudes are stored
         directly. If ``mode='diff'``, the amplitude of the *last* knot is stored
         directly, and differences between neighboring knots are stored for all
@@ -885,7 +884,7 @@ class PairSpline(PairPotential):
     However, the knot variables can be iterated over and manipulated directly::
 
         for r,k in spline.knots(('A','A')):
-            k.const = True
+            k.value = 1.0
 
     """
     valid_modes = ('value','diff')
@@ -911,7 +910,7 @@ class PairSpline(PairPotential):
     def from_array(self, pair, r, u):
         r"""Set up the potential from knot points.
 
-        Each knot will be converted into two :class:`~relentless.variable.DesignVariable`
+        Each knot will be converted into two :class:`~relentless.variable.Variable`
         objects consistent with the storage ``mode``.
 
         Parameters
@@ -948,11 +947,14 @@ class PairSpline(PairPotential):
         for i in range(self.num_knots):
             ri,ki = self._knot_params(i)
             if self.coeff[pair][ri] is None:
-                self.coeff[pair][ri] = variable.DesignVariable(rs[i],const=True)
+                self.coeff[pair][ri] = variable.IndependentVariable(rs[i])
             else:
                 self.coeff[pair][ri].value = rs[i]
             if self.coeff[pair][ki] is None:
-                self.coeff[pair][ki] = variable.DesignVariable(ks[i],const=(i==self.num_knots-1))
+                if i < self.num_knots-1:
+                    self.coeff[pair][ki] = variable.DesignVariable(ks[i])
+                else:
+                    self.coeff[pair][ki] = variable.IndependentVariable(ks[i])
             else:
                 self.coeff[pair][ki].value = ks[i]
 
@@ -995,19 +997,7 @@ class PairSpline(PairPotential):
             f = f.item()
         return f
 
-    def derivative(self, pair, var, r):
-        # Extending PairPotential method to check if r and knot values are DesignVariables.
-        for ri,ki in self.knots(pair):
-            if not isinstance(ri, variable.DesignVariable):
-                raise TypeError('All r values must be DesignVariables')
-            if not isinstance(ki, variable.DesignVariable):
-                raise TypeError('All knot values must be DesignVariables')
-        return super().derivative(pair, var, r)
-
     def _derivative(self, param, r, **params):
-        if 'knot' not in param:
-            raise ValueError('Parameter derivative can only be taken for knot values')
-
         r,d,s = self._zeros(r)
         h = 0.001
 
@@ -1080,6 +1070,17 @@ class PairSpline(PairPotential):
             r = self.coeff[pair][ri]
             k = self.coeff[pair][ki]
             yield r,k
+
+    @property
+    def design_variables(self):
+        """tuple: Designable variables of the spline."""
+        dvars = []
+        for r,k in self.knots:
+            if isinstance(r, variable.DesignVariable):
+                dvars.append(r)
+            if isinstance(k, variable.DesignVariable):
+                dvars.append(k)
+        return tuple(dvars)
 
 class Yukawa(PairPotential):
     r"""Yukawa pair potential.

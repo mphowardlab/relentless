@@ -76,6 +76,7 @@ import abc
 import numpy
 
 from relentless import collections
+from relentless import variable
 
 class ConvergenceTest(abc.ABC):
     r"""Abstract base class for optimization convergence tests.
@@ -227,10 +228,13 @@ class GradientTest(ConvergenceTest):
     ----------
     tolerance : float
         The default absolute tolerance.
+    variables : :class:`~relentless.variable.Variable` or tuple
+        Variable(s) to test convergence for in gradient.
 
     """
-    def __init__(self, tolerance):
+    def __init__(self, tolerance, variables):
         self._tolerance = Tolerance(absolute=tolerance, relative=0)
+        self.variables = variable.graph.check_variables_and_types(variables, variable.Variable)
 
     @property
     def tolerance(self):
@@ -250,9 +254,16 @@ class GradientTest(ConvergenceTest):
         bool
             True if the function is converged.
 
+        Raises
+        ------
+        KeyError
+            If the requested variable is not in the gradient of the result.
+
         """
         converged = True
-        for x in result.design_variables:
+        for x in self.variables:
+            if x not in result.gradient:
+                raise KeyError('Design variable not in result')
             grad = result.gradient[x]
             tol = self.tolerance[x]
             if x.athigh() and  -grad < -tol:
