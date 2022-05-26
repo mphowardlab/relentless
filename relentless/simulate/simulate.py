@@ -4,9 +4,8 @@ Simulation interface
 
 Molecular simulation runs are performed in a :class:`Simulation` ensemble container,
 which initializes and runs a set of :class:`SimulationOperation`\s. Each simulation
-run requires the input of an ensemble, the interaction potentials, a directory
-to write the output data, and an optional MPI communicator to use, which are all
-used to construct a :class:`SimulationInstance`.
+run requires the input of an ensemble, the interaction potentials, and a directory
+to write the output data, which are all used to construct a :class:`SimulationInstance`.
 
 The simulations can use a combination of multiple :class:`~relentless.potential.potential.Potential`\s or
 :class:`~relentless.potential.pair.PairPotential`\s tabulated together, the interface for
@@ -98,7 +97,7 @@ class Simulation:
             self.operations = []
         self.options = options
 
-    def run(self, ensemble, potentials, directory, communicator=None):
+    def run(self, ensemble, potentials, directory):
         """Run the simulation and return the result of analyze.
 
         A new simulation instance is created to perform the run. It is intended
@@ -113,8 +112,6 @@ class Simulation:
             The interaction potentials.
         directory : str or :class:`~relentless.data.Directory`
             Directory for output.
-        communicator: :class:`~relentless.mpi.Communicator`
-            The MPI communicator to use. Defaults to ``None``.
 
         Returns
         -------
@@ -130,10 +127,7 @@ class Simulation:
         if not all([isinstance(op,SimulationOperation) for op in self.operations]):
             raise TypeError('All operations must be SimulationOperations.')
 
-        if communicator is None:
-            communicator = mpi.world
-
-        sim = self._new_instance(ensemble, potentials, directory, communicator)
+        sim = self._new_instance(ensemble, potentials, directory)
         for op in self.operations:
             op(sim)
         return sim
@@ -150,12 +144,11 @@ class Simulation:
         except TypeError:
             self._operations = [ops]
 
-    def _new_instance(self, ensemble, potentials, directory, communicator):
+    def _new_instance(self, ensemble, potentials, directory):
         return SimulationInstance(type(self),
                                   ensemble,
                                   potentials,
                                   directory,
-                                  communicator,
                                   **self.options)
 
 class SimulationInstance:
@@ -172,25 +165,18 @@ class SimulationInstance:
         The interaction potentials.
     directory : str or :class:`~relentless.data.Directory`
         Directory for output.
-    communicator: :class:`~relentless.mpi.Communicator`
-        The MPI communicator to use.
     options : kwargs
         Optional arguments for the initialize, analyze, and defined "operations" functions.
 
     """
-    def __init__(self, backend, ensemble, potentials, directory, communicator, **options):
+    def __init__(self, backend, ensemble, potentials, directory, **options):
         self.backend = backend
         self.ensemble = ensemble
         self.potentials = potentials
 
-        # configure directory and check communicators match
         if directory is not None:
-            if not isinstance(directory,data.Directory):
-                directory = data.Directory(directory,communicator)
-            if directory.communicator is not communicator:
-                raise ValueError('Communicator for directory and for simulation must be the same')
+            directory = data.Directory.cast(directory)
         self.directory = directory
-        self.communicator = communicator
 
         for opt,val in options.items():
             setattr(self,opt,val)

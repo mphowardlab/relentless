@@ -132,16 +132,6 @@ class test_RelativeEntropy(unittest.TestCase):
         self.assertEqual(relent.simulation, self.simulation)
         self.assertEqual(relent.potentials, self.potentials)
         self.assertEqual(relent.thermo, self.thermo)
-        self.assertIsNone(relent.communicator)
-
-        #test communicator argument
-        comm = relentless.mpi.world
-        relent.communicator = comm
-        self.assertEqual(relent.target, self.target)
-        self.assertEqual(relent.simulation, self.simulation)
-        self.assertEqual(relent.potentials, self.potentials)
-        self.assertEqual(relent.thermo, self.thermo)
-        self.assertEqual(relent.communicator, comm)
 
         #test invalid target ensemble
         with self.assertRaises(ValueError):

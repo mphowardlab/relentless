@@ -36,8 +36,6 @@ class Directory:
     ----------
     path : str
         Absolute or relative directory path.
-    communicator: :class:`~relentless.mpi.Communicator`
-        The MPI communicator to use. Defaults to ``None``.
 
     Raises
     ------
@@ -56,19 +54,44 @@ class Directory:
             f = open('bar.txt')
 
     """
-    def __init__(self, path, communicator=None):
+    def __init__(self, path):
         self._start = []
-        self.communicator = communicator
 
         # ensure path exists at time directory is created (synchronizing)
         path = os.path.realpath(path)
-        if self.communicator.rank == self.communicator.root:
+        if mpi.world.rank_is_root:
             if not os.path.exists(path):
                 os.makedirs(path)
-        self.communicator.barrier()
-        if not os.path.isdir(path):
-            raise OSError('The specified path is not a valid directory.')
+            dir_error = not os.path.isdir(path)
+        else:
+            dir_error = None
+        mpi.world.bcast(dir_error)
+        if dir_error:
+            raise OSError('The specified path is not a valid directory')
         self._path = path
+
+    @classmethod
+    def cast(cls, directory):
+        """Try to cast an object to a directory.
+        
+        Ensure that a `str` or :class:`Directory` is a :class:`Directory`. No
+        action is taken if the object is already a :class:`Directory`. Otherwise,
+        a new one is constructed.
+
+        Parameters
+        ----------
+        directory : str or :class:`Directory`
+            Object to ensure is a directory
+
+        Returns
+        -------
+        :class:`Directory`
+            The cast object.
+
+        """
+        if not isinstance(directory, Directory):
+            directory = Directory(directory)
+        return directory
 
     def __enter__(self):
         """Enter the directory context.
@@ -83,7 +106,6 @@ class Directory:
         """
         self._start.append(os.getcwd())
         os.chdir(self.path)
-
         return self
 
     def __exit__(self, exception_type, exception_value, traceback):
@@ -107,14 +129,6 @@ class Directory:
     def path(self):
         """str: Real path to the directory."""
         return self._path
-
-    @property
-    def communicator(self):
-        return self._communicator
-
-    @communicator.setter
-    def communicator(self, value):
-        self._communicator = value if value is not None else mpi.world
 
     def file(self, name):
         """Get the absolute path to a file in the directory.
@@ -166,7 +180,7 @@ class Directory:
             bar = foo.directory('bar')
 
         """
-        return Directory(os.path.join(self.path, name),self.communicator)
+        return Directory(os.path.join(self.path, name))
 
     def clear_contents(self):
         r"""Clear the contents of a directory.
@@ -176,13 +190,13 @@ class Directory:
 
         """
         # delete on root rank and wait
-        if self.communicator.rank == self.communicator.root:
+        if mpi.world.rank_is_root:
             for entry in os.scandir(self.path):
                 if entry.is_file():
                     os.remove(entry.path)
                 elif entry.is_dir():
                     shutil.rmtree(entry.path)
-        self.communicator.barrier()
+        mpi.world.barrier()
 
     def move_contents(self, dest):
         """Move the contents of the directory.
@@ -193,14 +207,12 @@ class Directory:
             Destination directory.
 
         """
-        if not isinstance(dest, Directory):
-            dest = Directory(dest, self.communicator)
-
+        dest = Directory.cast(dest)
         # move on root rank and wait
-        if self.communicator.rank == self.communicator.root:
+        if mpi.world.rank_is_root:
             for entry in os.scandir(self.path):
                 shutil.move(entry.path, dest.path)
-        self.communicator.barrier()
+        mpi.world.barrier()
 
     def copy_contents(self, dest):
         """Copy the contents of the directory.
@@ -211,14 +223,12 @@ class Directory:
             Destination directory.
 
         """
-        if not isinstance(dest, Directory):
-            dest = Directory(dest, self.communicator)
-
+        dest = Directory.cast(dest)
         # copy using root rank and wait
-        if self.communicator.rank == self.communicator.root:
+        if mpi.world.rank_is_root:
             for entry in os.scandir(self.path):
                 if entry.is_file():
                     shutil.copy2(entry.path, dest.path)
                 elif entry.is_dir():
                     shutil.copytree(entry.path, os.path.join(dest.path,entry.name))
-        self.communicator.barrier()
+        mpi.world.barrier()

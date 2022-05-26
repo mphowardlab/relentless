@@ -64,11 +64,11 @@ that derives from :class:`LAMMPSOperation` and define the required methods.
 
 """
 import abc
-import os
 
 import numpy
 
 from relentless.ensemble import RDF
+from relentless import mpi
 from relentless.volume import TriclinicBox
 from . import simulate
 
@@ -97,8 +97,8 @@ class LAMMPS(simulate.Simulation):
         super().__init__(operations,**options)
         self.quiet = quiet
 
-    def _new_instance(self, ensemble, potentials, directory, communicator):
-        sim = super()._new_instance(ensemble,potentials,directory,communicator)
+    def _new_instance(self, ensemble, potentials, directory):
+        sim = super()._new_instance(ensemble,potentials,directory)
 
         if self.quiet:
             # create lammps instance with all output disabled
@@ -111,7 +111,7 @@ class LAMMPS(simulate.Simulation):
                            '-log', sim.directory.file('log.lammps'),
                            '-nocite']
 
-        sim.lammps = lammps.lammps(cmdargs=launch_args, comm=sim.communicator.comm)
+        sim.lammps = lammps.lammps(cmdargs=launch_args)
         if sim.lammps.version() < 20210929:
             raise ImportError('Only LAMMPS 29 Sep 2021 or newer is supported.')
         # lammps uses 1-indexed ints for types, so build mapping in both direction
@@ -301,7 +301,7 @@ class Initialize(LAMMPSOperation):
 
         # write all potentials into a file
         file_ = sim.directory.file('lammps_pair_table.dat')
-        if sim.communicator.rank == sim.communicator.root:
+        if mpi.world.rank_is_root:
             with open(file_,'w') as fw:
                 fw.write('# LAMMPS tabulated pair potentials\n')
                 rcut = {}
@@ -333,7 +333,7 @@ class Initialize(LAMMPSOperation):
                         rcut[(i,j)] = r[1]
         else:
             rcut = None
-        rcut = sim.communicator.bcast(rcut)
+        rcut = mpi.world.bcast(rcut)
 
         # process all lammps commands
         cmds = ['neighbor {skin} multi'.format(skin=sim.potentials.pair.neighbor_buffer)]
@@ -892,7 +892,7 @@ class AddEnsembleAnalyzer(LAMMPSOperation):
 
         # extract thermo properties
         # we skip the first 2 rows, which are LAMMPS junk, and slice out the timestep from col. 0
-        thermo = sim.communicator.loadtxt(sim[self].thermo_file,skiprows=2)[1:]
+        thermo = mpi.world.loadtxt(sim[self].thermo_file,skiprows=2)[1:]
         ens.T = thermo[0]
         ens.P = thermo[1]
         ens.V = TriclinicBox(Lx=thermo[2],Ly=thermo[3],Lz=thermo[4],
@@ -902,7 +902,7 @@ class AddEnsembleAnalyzer(LAMMPSOperation):
         # extract rdfs
         # LAMMPS injects a column for the row index, so we start at column 1 for r
         # we skip the first 4 rows, which are LAMMPS junk, and slice out the first column
-        rdf = sim.communicator.loadtxt(sim[self].rdf_file,skiprows=4)[:,1:]
+        rdf = mpi.world.loadtxt(sim[self].rdf_file,skiprows=4)[:,1:]
         for i,pair in enumerate(sim[self].rdf_pairs):
             ens.rdf[pair] = RDF(rdf[:,0],rdf[:,i+1])
 

@@ -60,6 +60,7 @@ import scipy.integrate
 
 from relentless import data
 from relentless import math
+from relentless import mpi
 from relentless import variable
 
 class ObjectiveFunction(abc.ABC):
@@ -78,7 +79,7 @@ class ObjectiveFunction(abc.ABC):
         ----------
         variables : :class:`~relentless.variable.Variable` or tuple
             Variables to record in result.
-        directory : :class:`~relentless.data.Directory`
+        directory : str or :class:`~relentless.data.Directory`
             The ouptut directory. In addition to simulation output, the pair
             potential design variables at the time of computation are saved
             (defaults to ``None``).
@@ -116,54 +117,83 @@ class ObjectiveFunctionResult:
 
     """
     def __init__(self, variables=None, value=None, gradient=None, directory=None):
-        variables = variable.graph.check_variables_and_types(variables, variable.Variable)
-        if len(variables) > 0:
-            self._variables = math.KeyedArray(keys=variables)
-            self._variables.update({x: x.value for x in variables})
-        else:
-            self._variables = None
-
-        self._value = value
-
-        if gradient is not None:
-            self._gradient = math.KeyedArray(keys=gradient.keys())
-            self._gradient.update(gradient)
-        else:
-            self._gradient = None
-
-        if self._variables is not None and self._gradient is not None:
-            if self._variables.keys() != self._gradient.keys():
-                raise KeyError('Variable and gradient keys do not match!')
-
+        self.variables = variables
+        self.value = value
+        self.gradient = gradient
         self.directory = directory
 
     @property
     def variables(self):
         """:class:`~relentless.math.KeyedArray`: Recorded variables of the
         :class:`ObjectiveFunction`."""
-        return self._variables
+        return getattr(self, '_variables', None)
+
+    @variables.setter
+    def variables(self, value):
+        value = variable.graph.check_variables_and_types(value, variable.Variable)
+        if len(value) > 0:
+            variables_ = math.KeyedArray(keys=value)
+            variables_.update({x: x.value for x in value})
+        else:
+            variables_ = None
+        self._assert_keys_match(variables_, self.gradient)
+        self._variables = variables_
 
     @property
     def value(self):
         """float: The value of the evaluated objective function."""
-        return self._value
+        return getattr(self, '_value', None)
+
+    @value.setter
+    def value(self, x):
+        self._value = x
 
     @property
     def gradient(self):
         """:class:`~relentless.math.KeyedArray`: The gradient of the objective
         function, keyed on its design variables."""
-        return self._gradient
+        return getattr(self, '_gradient', None)
+
+    @gradient.setter
+    def gradient(self, value):
+        if value is not None:
+            gradient_ = math.KeyedArray(keys=value.keys())
+            gradient_.update(value)
+        else:
+            gradient_ = None
+        self._assert_keys_match(self.variables, gradient_)
+        self._gradient = gradient_
 
     @property
     def directory(self):
         """:class:`~relentless.data.Directory` Directory holding written output."""
-        return self._directory
+        return getattr(self, '_directory', None)
 
     @directory.setter
     def directory(self, value):
-        if value is not None and not isinstance(value, data.Directory):
-            value = data.Directory(value)
+        if value is not None:
+            value = data.Directory.cast(value)
         self._directory = value
+
+    def _assert_keys_match(self, vars, grad):
+        """Assert that the keys of the variables and gradient match.
+        
+        Parameters
+        ----------
+        vars : dict
+            Variable dictionary-like object
+        grad : dict
+            Gradient dictionary-like object.
+        
+        Raises
+        ------
+        AssertionError
+            If the keys of ``vars`` and ``grad`` do not match.
+
+        """
+        if vars is not None and grad is not None:
+            if vars.keys() != grad.keys():
+                raise AssertionError('Variable and gradient keys do not match!')
 
 class RelativeEntropy(ObjectiveFunction):
     r"""Relative entropy.
@@ -220,20 +250,16 @@ class RelativeEntropy(ObjectiveFunction):
         The thermodynamic analyzer operation for the simulation ensemble and rdf
         (usually :meth:`~relentless.simulate.simulate.AddEnsembleAnalyzer()`).
         The model ensemble will be extracted from this operation.
-    communicator : :class:`~relentless.mpi.Communicator`
-        The communicator used to run the ``simulation`` (defaults to
-        ``None``).
     extensive : bool
         Specification of whether the relative entropy is extensive (defaults to
         ``False``).
 
     """
-    def __init__(self, target, simulation, potentials, thermo, communicator=None, extensive=False):
+    def __init__(self, target, simulation, potentials, thermo, extensive=False):
         self.target = target
         self.simulation = simulation
         self.potentials = potentials
         self.thermo = thermo
-        self.communicator = communicator
         self.extensive = extensive
 
     def compute(self, variables, directory=None):
@@ -254,7 +280,7 @@ class RelativeEntropy(ObjectiveFunction):
         ----------
         variables : :class:`~relentless.variable.Variable` or tuple
             Variables with respect to which to compute gradient.
-        directory : :class:`~relentless.data.Directory`
+        directory : str or :class:`~relentless.data.Directory`
             The ouptut directory. In addition to simulation output, the pair
             potential design variables at the time of computation are saved
             (defaults to ``None``).
@@ -266,15 +292,17 @@ class RelativeEntropy(ObjectiveFunction):
 
         """
         # run simulation and use result to compute gradient
-        sim = self.simulation.run(self.target, self.potentials, directory, self.communicator)
+        sim = self.simulation.run(self.target, self.potentials, directory)
         sim_ens = self.thermo.extract_ensemble(sim)
         gradient = self.compute_gradient(sim_ens, variables)
 
         # optionally write output to directory
-        if directory is not None and (self.communicator is None or self.communicator.rank == self.communicator.root):
-            for n,p in enumerate(self.potentials.pair.potentials):
-                p.save(directory.file('pair_potential.{}.json'.format(n)))
-            sim_ens.save(directory.file('ensemble.json'))
+        if directory is not None:
+            directory = data.Directory.cast(directory)
+            if mpi.world.rank_is_root:
+                for n,p in enumerate(self.potentials.pair.potentials):
+                    p.save(directory.file('pair_potential.{}.json'.format(n)))
+                sim_ens.save(directory.file('ensemble.json'))
 
         # relative entropy *value* is None
         return ObjectiveFunctionResult(variables, None, gradient, directory)
