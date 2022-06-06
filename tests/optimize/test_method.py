@@ -120,7 +120,7 @@ class test_SteepestDescent(unittest.TestCase):
         self.assertEqual(o.stop, t)
         self.assertEqual(o.max_iter, 1000)
         self.assertAlmostEqual(o.step_size, 0.25)
-        self.assertDictEqual(o.scale, {x:0.3})
+        self.assertEqual(o.scale, {x:0.3})
         self.assertIsNone(o.line_search)
 
         #test using line search
@@ -129,7 +129,7 @@ class test_SteepestDescent(unittest.TestCase):
         self.assertEqual(o.stop, t)
         self.assertEqual(o.max_iter, 1000)
         self.assertAlmostEqual(o.step_size, 0.25)
-        self.assertDictEqual(o.scale, {x:0.3})
+        self.assertEqual(o.scale, {x:0.3})
         self.assertEqual(o.line_search, l)
 
         #test invalid parameters

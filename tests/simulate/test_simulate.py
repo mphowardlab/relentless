@@ -32,22 +32,22 @@ class test_Simulation(unittest.TestCase):
         #no operations, no options
         d = relentless.simulate.Simulation()
         self.assertEqual(d.operations, [])
-        self.assertDictEqual(d.options, {})
+        self.assertEqual(d.options, {})
 
         #with operations, no options
         d = relentless.simulate.Simulation(operations)
         self.assertEqual(d.operations, operations)
-        self.assertDictEqual(d.options, {})
+        self.assertEqual(d.options, {})
 
         #no operations, with options
         d = relentless.simulate.Simulation(**options)
         self.assertEqual(d.operations, [])
-        self.assertDictEqual(d.options, options)
+        self.assertEqual(d.options, options)
 
         #with operations, with options
         d = relentless.simulate.Simulation(operations, **options)
         self.assertCountEqual(d.operations, operations)
-        self.assertDictEqual(d.options, options)
+        self.assertEqual(d.options, options)
 
     def test_run(self):
         """Test run method."""

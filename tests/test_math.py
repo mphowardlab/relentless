@@ -89,10 +89,10 @@ class test_KeyedArray(unittest.TestCase):
     def test_init(self):
         """Test construction with data."""
         k = relentless.math.KeyedArray(keys=('A','B'))
-        self.assertDictEqual(dict(k), {'A':None, 'B':None})
+        self.assertEqual(dict(k), {'A':None, 'B':None})
 
         k = relentless.math.KeyedArray(keys=('A','B'), default=2.0)
-        self.assertDictEqual(dict(k), {'A':2.0, 'B':2.0})
+        self.assertEqual(dict(k), {'A':2.0, 'B':2.0})
 
         #invalid key
         with self.assertRaises(KeyError):
@@ -109,15 +109,15 @@ class test_KeyedArray(unittest.TestCase):
 
         #addition
         k4 = k1 + k2
-        self.assertDictEqual(dict(k4), {'A':3.0, 'B':5.0})
+        self.assertEqual(dict(k4), {'A':3.0, 'B':5.0})
         k4 += k2
-        self.assertDictEqual(dict(k4), {'A':5.0, 'B':8.0})
+        self.assertEqual(dict(k4), {'A':5.0, 'B':8.0})
         k4 = k1 + 1
-        self.assertDictEqual(dict(k4), {'A':2.0, 'B':3.0})
+        self.assertEqual(dict(k4), {'A':2.0, 'B':3.0})
         k4 = 2 + k1
-        self.assertDictEqual(dict(k4), {'A':3.0, 'B':4.0})
+        self.assertEqual(dict(k4), {'A':3.0, 'B':4.0})
         k4 += 1
-        self.assertDictEqual(dict(k4), {'A':4.0, 'B':5.0})
+        self.assertEqual(dict(k4), {'A':4.0, 'B':5.0})
         with self.assertRaises(KeyError):
             k4 = k1 + k3
         with self.assertRaises(KeyError):
@@ -125,15 +125,15 @@ class test_KeyedArray(unittest.TestCase):
 
         #subtraction
         k4 = k1 - k2
-        self.assertDictEqual(dict(k4), {'A':-1.0, 'B':-1.0})
+        self.assertEqual(dict(k4), {'A':-1.0, 'B':-1.0})
         k4 -= k2
-        self.assertDictEqual(dict(k4), {'A':-3.0, 'B':-4.0})
+        self.assertEqual(dict(k4), {'A':-3.0, 'B':-4.0})
         k4 = k1 - 1
-        self.assertDictEqual(dict(k4), {'A':0.0, 'B':1.0})
+        self.assertEqual(dict(k4), {'A':0.0, 'B':1.0})
         k4 = 2 - k1
-        self.assertDictEqual(dict(k4), {'A':1.0, 'B':0.0})
+        self.assertEqual(dict(k4), {'A':1.0, 'B':0.0})
         k4 -= 1
-        self.assertDictEqual(dict(k4), {'A':0.0, 'B':-1.0})
+        self.assertEqual(dict(k4), {'A':0.0, 'B':-1.0})
         with self.assertRaises(KeyError):
             k4 = k1 - k3
         with self.assertRaises(KeyError):
@@ -141,41 +141,41 @@ class test_KeyedArray(unittest.TestCase):
 
         #multiplication
         k4 = k1*k2
-        self.assertDictEqual(dict(k4), {'A':2.0, 'B':6.0})
+        self.assertEqual(dict(k4), {'A':2.0, 'B':6.0})
         k4 *= k2
-        self.assertDictEqual(dict(k4), {'A':4.0, 'B':18.0})
+        self.assertEqual(dict(k4), {'A':4.0, 'B':18.0})
         k4 = 3*k1
-        self.assertDictEqual(dict(k4), {'A':3.0, 'B':6.0})
+        self.assertEqual(dict(k4), {'A':3.0, 'B':6.0})
         k4 = k2*3
-        self.assertDictEqual(dict(k4), {'A':6.0, 'B':9.0})
+        self.assertEqual(dict(k4), {'A':6.0, 'B':9.0})
         k4 *= 3
-        self.assertDictEqual(dict(k4), {'A':18.0, 'B':27.0})
+        self.assertEqual(dict(k4), {'A':18.0, 'B':27.0})
         with self.assertRaises(KeyError):
             k4 = k1*k3
 
         #division
         k4 = k1/k2
-        self.assertDictEqual(dict(k4), {'A':0.5, 'B':0.6666666666666666})
+        self.assertEqual(dict(k4), {'A':0.5, 'B':0.6666666666666666})
         k4 /= k2
-        self.assertDictEqual(dict(k4), {'A':0.25, 'B':0.2222222222222222})
+        self.assertEqual(dict(k4), {'A':0.25, 'B':0.2222222222222222})
         k4 = 2/k2
-        self.assertDictEqual(dict(k4), {'A':1.0, 'B':0.6666666666666666})
+        self.assertEqual(dict(k4), {'A':1.0, 'B':0.6666666666666666})
         k4 = k2/2
-        self.assertDictEqual(dict(k4), {'A':1.0, 'B':1.5})
+        self.assertEqual(dict(k4), {'A':1.0, 'B':1.5})
         k4 /= 2
-        self.assertDictEqual(dict(k4), {'A':0.5, 'B':0.75})
+        self.assertEqual(dict(k4), {'A':0.5, 'B':0.75})
         with self.assertRaises(KeyError):
             k4 = k1/k3
 
         #exponentiation
         k4 = k1**k2
-        self.assertDictEqual(dict(k4), {'A':1.0, 'B':8.0})
+        self.assertEqual(dict(k4), {'A':1.0, 'B':8.0})
         k4 = k2**2
-        self.assertDictEqual(dict(k4), {'A':4.0, 'B':9.0})
+        self.assertEqual(dict(k4), {'A':4.0, 'B':9.0})
 
         #negation
         k4 = -k1
-        self.assertDictEqual(dict(k4), {'A':-1.0, 'B':-2.0})
+        self.assertEqual(dict(k4), {'A':-1.0, 'B':-2.0})
 
     def test_vector_ops(self):
         """Test vector operations."""

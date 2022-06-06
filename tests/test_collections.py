@@ -130,17 +130,17 @@ class test_FixedKeyDict(unittest.TestCase):
 
         #test copying for empty dict
         dict_var = {'A':None, 'B':None}
-        self.assertDictEqual(dict(d), dict_var)
+        self.assertEqual(dict(d), dict_var)
 
         #test copying for partially filled dict
         dict_var = {'A':None, 'B':1.0}
         d['B'] = 1.0
-        self.assertDictEqual(dict(d), dict_var)
+        self.assertEqual(dict(d), dict_var)
 
         #test copying for full dict
         dict_var = {'A':1.0, 'B':1.0}
         d['A'] = 1.0
-        self.assertDictEqual(dict(d), dict_var)
+        self.assertEqual(dict(d), dict_var)
 
 class test_PairMatrix(unittest.TestCase):
     """Unit tests for relentless.collections.PairMatrix."""

@@ -178,7 +178,7 @@ class test_PairPotential(unittest.TestCase):
 
         self.assertCountEqual(p.coeff.types, coeff.types)
         self.assertCountEqual(p.coeff.params, coeff.params)
-        self.assertDictEqual(p.coeff.evaluate(('1','1')), coeff.evaluate(('1','1')))
+        self.assertEqual(p.coeff.evaluate(('1','1')), coeff.evaluate(('1','1')))
 
         #test creation with m and rmin
         p = LinPot(types=('1',), params=('m','rmin'))
@@ -193,7 +193,7 @@ class test_PairPotential(unittest.TestCase):
 
         self.assertCountEqual(p.coeff.types, coeff.types)
         self.assertCountEqual(p.coeff.params, coeff.params)
-        self.assertDictEqual(p.coeff.evaluate(('1','1')), coeff.evaluate(('1','1')))
+        self.assertEqual(p.coeff.evaluate(('1','1')), coeff.evaluate(('1','1')))
 
         #test creation with m and rmax
         p = LinPot(types=('1',), params=('m','rmax'))
@@ -208,7 +208,7 @@ class test_PairPotential(unittest.TestCase):
 
         self.assertCountEqual(p.coeff.types, coeff.types)
         self.assertCountEqual(p.coeff.params, coeff.params)
-        self.assertDictEqual(p.coeff.evaluate(('1','1')), coeff.evaluate(('1','1')))
+        self.assertEqual(p.coeff.evaluate(('1','1')), coeff.evaluate(('1','1')))
 
         #test creation with m and shift
         p = LinPot(types=('1',), params=('m','shift'))
@@ -223,7 +223,7 @@ class test_PairPotential(unittest.TestCase):
 
         self.assertCountEqual(p.coeff.types, coeff.types)
         self.assertCountEqual(p.coeff.params, coeff.params)
-        self.assertDictEqual(p.coeff.evaluate(('1','1')), coeff.evaluate(('1','1')))
+        self.assertEqual(p.coeff.evaluate(('1','1')), coeff.evaluate(('1','1')))
 
         #test creation with all params
         p = LinPot(types=('1',), params=('m','rmin','rmax','shift'))
@@ -240,7 +240,7 @@ class test_PairPotential(unittest.TestCase):
 
         self.assertCountEqual(p.coeff.types, coeff.types)
         self.assertCountEqual(p.coeff.params, coeff.params)
-        self.assertDictEqual(p.coeff.evaluate(('1','1')), coeff.evaluate(('1','1')))
+        self.assertEqual(p.coeff.evaluate(('1','1')), coeff.evaluate(('1','1')))
 
     def test_energy(self):
         """Test energy method"""
@@ -424,9 +424,9 @@ class test_PairPotential(unittest.TestCase):
             p.coeff[pair]['rmin'] = 0.0
             p.coeff[pair]['rmax'] = 1.0
 
-        self.assertDictEqual(dict(p.coeff['1','1']), {'m':2.0, 'rmin':0.0, 'rmax':1.0, 'shift':False})
-        self.assertDictEqual(dict(p.coeff['1','2']), {'m':2.0, 'rmin':0.0, 'rmax':1.0, 'shift':False})
-        self.assertDictEqual(dict(p.coeff['2','2']), {'m':2.0, 'rmin':0.0, 'rmax':1.0, 'shift':False})
+        self.assertEqual(dict(p.coeff['1','1']), {'m':2.0, 'rmin':0.0, 'rmax':1.0, 'shift':False})
+        self.assertEqual(dict(p.coeff['1','2']), {'m':2.0, 'rmin':0.0, 'rmax':1.0, 'shift':False})
+        self.assertEqual(dict(p.coeff['2','2']), {'m':2.0, 'rmin':0.0, 'rmax':1.0, 'shift':False})
 
     def test_save(self):
         """Test saving to file"""
