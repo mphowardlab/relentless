@@ -33,7 +33,7 @@ The required dependencies are pretty minimal:
 - `Python <https://www.python.org>`_ (>= 3.6)
 - `NumPy <https://numpy.org>`_
 - `SciPy <https://www.scipy.org>`_
-- `networkx <https://networkx.org>`_ (>= 2.4)
+- `networkx <https://networkx.org>`_ (>= 2.5)
 
 and can be installed from ``requirements.txt``.
 

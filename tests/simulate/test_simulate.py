@@ -241,17 +241,19 @@ class test_PairPotentialTabulator(unittest.TestCase):
         """Test creation with data."""
         rs = numpy.array([0.0,0.5,1,1.5])
 
-        #test creation with required param
-        t = relentless.simulate.PairPotentialTabulator(rmax=1.5,num=4,neighbor_buffer=0.4)
+        #test creation with only required parameters
+        t = relentless.simulate.PairPotentialTabulator(rmin=0.0,rmax=1.5,num=4,neighbor_buffer=0.4)
         numpy.testing.assert_allclose(t.r,rs)
+        self.assertAlmostEqual(t.rmin, 0.0)
         self.assertAlmostEqual(t.rmax, 1.5)
         self.assertEqual(t.num, 4)
         self.assertEqual(t.neighbor_buffer, 0.4)
         self.assertEqual(t.fmax, None)
 
-        #test creation with required param, fmax, fcut, shift
-        t = relentless.simulate.PairPotentialTabulator(rmax=1.5,num=4,neighbor_buffer=0.4,fmax=1.5)
+        #test creation with required parameters and fmax
+        t = relentless.simulate.PairPotentialTabulator(rmin=0.0,rmax=1.5,num=4,neighbor_buffer=0.4,fmax=1.5)
         numpy.testing.assert_allclose(t.r, rs)
+        self.assertAlmostEqual(t.rmin, 0.0)
         self.assertAlmostEqual(t.rmax, 1.5)
         self.assertEqual(t.num, 4)
         self.assertEqual(t.neighbor_buffer, 0.4)
@@ -264,7 +266,7 @@ class test_PairPotentialTabulator(unittest.TestCase):
         p2 = QuadPairPot(types=('1','2'), params=('m',))
         for pair in p2.coeff.pairs:
             p2.coeff[pair]['m'] = 1.0
-        t = relentless.simulate.PairPotentialTabulator(rmax=5,num=6,neighbor_buffer=0.4,potentials=[p1,p2])
+        t = relentless.simulate.PairPotentialTabulator(rmin=0,rmax=5,num=6,neighbor_buffer=0.4,potentials=[p1,p2])
 
         # test energy method
         u = t.energy(('1','1'))
@@ -293,7 +295,7 @@ class test_PairPotentialTabulator(unittest.TestCase):
         p1 = QuadPairPot(types=('1',), params=('m',))
         p1.coeff['1','1']['m'] = 3.0
 
-        t = relentless.simulate.PairPotentialTabulator(rmax=6.0,num=7,neighbor_buffer=0.4,potentials=p1,fmax=4)
+        t = relentless.simulate.PairPotentialTabulator(rmin=0.0,rmax=6.0,num=7,neighbor_buffer=0.4,potentials=p1,fmax=4)
         f = t.force(('1','1'))
         numpy.testing.assert_allclose(f, numpy.array([4,4,4,0,-4,-4,-4]))
 
