@@ -98,16 +98,16 @@ class ObjectiveFunctionResult:
     Parameters
     ----------
     variables : :class:`~relentless.variable.Variable` or tuple
-        Variables to stash values
+        Variables to stash values (defaults to ``None``).
     value : float
-        The value of the objective function.
+        The value of the objective function (defaults to ``None``).
     gradient : dict
         The gradient of the objective function. Each partial derivative is
         keyed on the :class:`~relentless.variable.DesignVariable`
-        with respect to which it is taken.
+        with respect to which it is taken (defaults to ``None``).
     directory : :class:`~relentless.data.Directory`
         Directory holding written output associated with result. Setting
-        a value of ``None`` indicates no written output.
+        a value of ``None`` indicates no written output (defaults to ``None``).
 
     Raises
     ------
@@ -177,14 +177,14 @@ class ObjectiveFunctionResult:
 
     def _assert_keys_match(self, vars, grad):
         """Assert that the keys of the variables and gradient match.
-        
+
         Parameters
         ----------
         vars : dict
             Variable dictionary-like object
         grad : dict
             Gradient dictionary-like object.
-        
+
         Raises
         ------
         AssertionError
