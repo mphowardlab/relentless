@@ -1075,11 +1075,12 @@ class PairSpline(PairPotential):
     def design_variables(self):
         """tuple: Designable variables of the spline."""
         dvars = []
-        for r,k in self.knots:
-            if isinstance(r, variable.DesignVariable):
-                dvars.append(r)
-            if isinstance(k, variable.DesignVariable):
-                dvars.append(k)
+        for pair in self.coeff:
+            for r,k in self.knots(pair):
+                if isinstance(r, variable.DesignVariable):
+                    dvars.append(r)
+                if isinstance(k, variable.DesignVariable):
+                    dvars.append(k)
         return tuple(dvars)
 
 class Yukawa(PairPotential):
