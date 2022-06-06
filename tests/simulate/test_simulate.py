@@ -31,17 +31,17 @@ class test_Simulation(unittest.TestCase):
 
         #no operations, no options
         d = relentless.simulate.Simulation()
-        self.assertCountEqual(d.operations, [])
+        self.assertEqual(d.operations, [])
         self.assertDictEqual(d.options, {})
 
         #with operations, no options
         d = relentless.simulate.Simulation(operations)
-        self.assertCountEqual(d.operations, operations)
+        self.assertEqual(d.operations, operations)
         self.assertDictEqual(d.options, {})
 
         #no operations, with options
         d = relentless.simulate.Simulation(**options)
-        self.assertCountEqual(d.operations, [])
+        self.assertEqual(d.operations, [])
         self.assertDictEqual(d.options, options)
 
         #with operations, with options
@@ -165,7 +165,7 @@ class test_PotentialTabulator(unittest.TestCase):
         self.assertAlmostEqual(t.start, 0.0)
         self.assertAlmostEqual(t.stop, 1.5)
         self.assertEqual(t.num, 4)
-        self.assertCountEqual(t.potentials, [])
+        self.assertEqual(t.potentials, [])
 
         #test creation with defined potential
         t = relentless.simulate.PotentialTabulator(start=0.0,stop=1.5,num=4,potentials=p1)
@@ -173,7 +173,7 @@ class test_PotentialTabulator(unittest.TestCase):
         self.assertAlmostEqual(t.start, 0.0)
         self.assertAlmostEqual(t.stop, 1.5)
         self.assertEqual(t.num, 4)
-        self.assertCountEqual(t.potentials, [p1])
+        self.assertEqual(t.potentials, [p1])
 
     def test_potential(self):
         """Test energy, force, and derivative methods"""
