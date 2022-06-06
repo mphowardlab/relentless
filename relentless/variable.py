@@ -90,7 +90,7 @@ class Variable(abc.ABC):
     variable is an abstract property that must be implemented. On creation, the
     :class:`Variable` will be inserted into the :class:`VariableGraph` for the
     project.
-    
+
     Most users should not inherit from this variable directly but should make
     use of the more flexible :class:`IndependentVariable` or
     :class:`DependentVariable` types.
