@@ -64,7 +64,7 @@ class FixedKeyDict(collections.abc.MutableMapping):
     Partially reassign/update values::
 
         d.update({'A':0.5})
-        d.update(A=0.5)  #equivalent statement
+        d.update(A=0.5)  # equivalent statement
         >>> print(d)
         {'A':0.5, 'B':1.0}
 

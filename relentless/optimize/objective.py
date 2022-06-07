@@ -336,7 +336,7 @@ class RelativeEntropy(ObjectiveFunction):
                 us = self.potentials.pair.energy((i,j))
                 dus = self.potentials.pair.derivative((i,j),var)
 
-                #only count (continuous range of) finite values
+                # only count (continuous range of) finite values
                 flags = numpy.isinf(us)
                 first_finite = 0
                 while flags[first_finite] and first_finite < len(rs):
@@ -346,7 +346,7 @@ class RelativeEntropy(ObjectiveFunction):
                 if first_finite == len(rs):
                     continue
 
-                #interpolate derivative wrt design variable with r
+                # interpolate derivative wrt design variable with r
                 dudvar = math.Interpolator(rs,dus)
 
                 # find common domain to compare rdfs

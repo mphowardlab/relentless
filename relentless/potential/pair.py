@@ -1001,7 +1001,7 @@ class PairSpline(PairPotential):
         r,d,s = self._zeros(r)
         h = 0.001
 
-        #perturb knot param value
+        # perturb knot param value
         knot_p = params[param]
         params[param] = knot_p + h
         f_high = self._interpolate(params)(r)

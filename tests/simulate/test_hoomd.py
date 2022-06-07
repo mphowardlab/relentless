@@ -28,7 +28,7 @@ class test_HOOMD(unittest.TestCase):
         self._tmp = tempfile.TemporaryDirectory()
         self.directory = relentless.data.Directory(self._tmp.name)
 
-    #mock (NVT) ensemble and potential for testing
+    # mock (NVT) ensemble and potential for testing
     def ens_pot(self):
         ens = relentless.ensemble.Ensemble(T=2.0, V=relentless.volume.Cube(L=20.0), N={'A':2,'B':3})
 
@@ -43,7 +43,7 @@ class test_HOOMD(unittest.TestCase):
 
         return (ens,pots)
 
-    #mock gsd file for testing
+    # mock gsd file for testing
     def create_gsd(self):
         with gsd.hoomd.open(name=self.directory.file('test.gsd'), mode='wb') as f:
             s = gsd.hoomd.Snapshot()
@@ -57,7 +57,7 @@ class test_HOOMD(unittest.TestCase):
 
     def test_initialize(self):
         """Test running initialization simulation operations."""
-        #InitializeFromFile
+        # InitializeFromFile
         ens,pot = self.ens_pot()
         f = self.create_gsd()
         op = relentless.simulate.hoomd.InitializeFromFile(filename=f.file.name)
@@ -66,7 +66,7 @@ class test_HOOMD(unittest.TestCase):
         self.assertIsInstance(sim[op].neighbor_list, hoomd.md.nlist.tree)
         self.assertIsInstance(sim[op].pair_potential, hoomd.md.pair.table)
 
-        #InitializeRandomly
+        # InitializeRandomly
         ens,pot = self.ens_pot()
         op = relentless.simulate.hoomd.InitializeRandomly(seed=1)
         h = relentless.simulate.hoomd.HOOMD(operations=op)
@@ -76,7 +76,7 @@ class test_HOOMD(unittest.TestCase):
 
     def test_minimization(self):
         """Test running energy minimization simulation operation."""
-        #MinimizeEnergy
+        # MinimizeEnergy
         ens,pot = self.ens_pot()
         op = [relentless.simulate.hoomd.InitializeRandomly(seed=1),
               relentless.simulate.hoomd.MinimizeEnergy(energy_tolerance=1e-7,
@@ -88,14 +88,14 @@ class test_HOOMD(unittest.TestCase):
         h = relentless.simulate.hoomd.HOOMD(operations=op)
         sim = h.run(ensemble=ens, potentials=pot, directory=self.directory)
 
-        #error check for missing max_displacement
+        # error check for missing max_displacement
         with self.assertRaises(KeyError):
             emin = relentless.simulate.hoomd.MinimizeEnergy(energy_tolerance=1e-7,
                                                             force_tolerance=1e-7,
                                                             max_iterations=1000,
                                                             options={})
 
-        #check default value for max_evaluations
+        # check default value for max_evaluations
         emin = relentless.simulate.hoomd.MinimizeEnergy(energy_tolerance=1e-7,
                                                         force_tolerance=1e-7,
                                                         max_iterations=1000,
@@ -107,7 +107,7 @@ class test_HOOMD(unittest.TestCase):
         init = relentless.simulate.hoomd.InitializeRandomly(seed=1)
         h = relentless.simulate.hoomd.HOOMD(operations=init)
 
-        #BrownianIntegrator
+        # BrownianIntegrator
         ens,pot = self.ens_pot()
         brn = relentless.simulate.hoomd.AddBrownianIntegrator(dt=0.5,
                                                               friction=1.0,
@@ -119,7 +119,7 @@ class test_HOOMD(unittest.TestCase):
         brn_r(sim)
         self.assertIsNone(sim[brn].integrator)
 
-        #LangevinIntegrator
+        # LangevinIntegrator
         ens,pot = self.ens_pot()
         lgv = relentless.simulate.hoomd.AddLangevinIntegrator(dt=0.5,
                                                               friction=1.0,
@@ -142,7 +142,7 @@ class test_HOOMD(unittest.TestCase):
         lgv_r(sim)
         self.assertIsNone(sim[lgv].integrator)
 
-        #VerletIntegrator - NVE
+        # VerletIntegrator - NVE
         ens,pot = self.ens_pot()
         vrl = relentless.simulate.hoomd.AddVerletIntegrator(dt=0.5)
         vrl_r = relentless.simulate.hoomd.RemoveVerletIntegrator(add_op=vrl)
@@ -152,7 +152,7 @@ class test_HOOMD(unittest.TestCase):
         vrl_r(sim)
         self.assertIsNone(sim[vrl].integrator)
 
-        #VerletIntegrator - NVE (Berendsen)
+        # VerletIntegrator - NVE (Berendsen)
         tb = relentless.simulate.BerendsenThermostat(T=1, tau=0.5)
         vrl = relentless.simulate.hoomd.AddVerletIntegrator(dt=0.5, thermostat=tb)
         vrl_r = relentless.simulate.hoomd.RemoveVerletIntegrator(add_op=vrl)
@@ -162,7 +162,7 @@ class test_HOOMD(unittest.TestCase):
         vrl_r(sim)
         self.assertIsNone(sim[vrl].integrator)
 
-        #VerletIntegrator - NVT
+        # VerletIntegrator - NVT
         tn = relentless.simulate.NoseHooverThermostat(T=1, tau=0.5)
         vrl = relentless.simulate.hoomd.AddVerletIntegrator(dt=0.5, thermostat=tn)
         vrl_r = relentless.simulate.hoomd.RemoveVerletIntegrator(add_op=vrl)
@@ -172,7 +172,7 @@ class test_HOOMD(unittest.TestCase):
         vrl_r(sim)
         self.assertIsNone(sim[vrl].integrator)
 
-        #VerletIntegrator - NPH
+        # VerletIntegrator - NPH
         bm = relentless.simulate.MTKBarostat(P=1, tau=0.5)
         vrl = relentless.simulate.hoomd.AddVerletIntegrator(dt=0.5, barostat=bm)
         vrl_r = relentless.simulate.hoomd.RemoveVerletIntegrator(add_op=vrl)
@@ -182,7 +182,7 @@ class test_HOOMD(unittest.TestCase):
         vrl_r(sim)
         self.assertIsNone(sim[vrl].integrator)
 
-        #VerletIntegrator - NPT
+        # VerletIntegrator - NPT
         vrl = relentless.simulate.hoomd.AddVerletIntegrator(dt=0.5, thermostat=tn, barostat=bm)
         vrl_r = relentless.simulate.hoomd.RemoveVerletIntegrator(add_op=vrl)
         h.operations = [init, vrl]
@@ -191,7 +191,7 @@ class test_HOOMD(unittest.TestCase):
         vrl_r(sim)
         self.assertIsNone(sim[vrl].integrator)
 
-        #VerletIntegrator - incorrect
+        # VerletIntegrator - incorrect
         with self.assertRaises(TypeError):
             vrl = relentless.simulate.hoomd.AddVerletIntegrator(dt=0.5, thermostat=tb, barostat=bm)
             h.operations = [init, vrl]
@@ -202,13 +202,13 @@ class test_HOOMD(unittest.TestCase):
         init = relentless.simulate.hoomd.InitializeRandomly(seed=1)
         h = relentless.simulate.hoomd.HOOMD(operations=init)
 
-        #Run
+        # Run
         ens,pot = self.ens_pot()
         run = relentless.simulate.hoomd.Run(steps=1000)
         h.operations = [init,run]
         sim = h.run(ensemble=ens, potentials=pot, directory=self.directory)
 
-        #RunUpTo
+        # RunUpTo
         ens,pot = self.ens_pot()
         run = relentless.simulate.hoomd.RunUpTo(step=999)
         h.operations = [init,run]
@@ -230,7 +230,7 @@ class test_HOOMD(unittest.TestCase):
         sim = h.run(ensemble=ens, potentials=pot, directory=self.directory)
         thermo = sim[analyzer].thermo_callback
 
-        #extract ensemble
+        # extract ensemble
         ens_ = analyzer.extract_ensemble(sim)
         self.assertIsNotNone(ens_.T)
         self.assertNotEqual(ens_.T, 0)
@@ -242,7 +242,7 @@ class test_HOOMD(unittest.TestCase):
             self.assertEqual(ens_.rdf[i,j].table.shape, (len(pot.pair.r)-1,2))
         self.assertEqual(thermo.num_samples, 100)
 
-        #reset callback
+        # reset callback
         thermo.reset()
         self.assertEqual(thermo.num_samples, 0)
         self.assertIsNone(thermo.T)

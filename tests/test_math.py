@@ -10,37 +10,37 @@ class test_Interpolator(unittest.TestCase):
 
     def test_init(self):
         """Test creation from data."""
-        #test construction with tuple input
+        # test construction with tuple input
         f = relentless.math.Interpolator(x=(-1,0,1), y=(-2,0,2))
         self.assertEqual(f.domain, (-1,1))
 
-        #test construction with list input
+        # test construction with list input
         f = relentless.math.Interpolator(x=[-1,0,1], y=[-2,0,2])
         self.assertEqual(f.domain, (-1,1))
 
-        #test construction with numpy array input
+        # test construction with numpy array input
         f = relentless.math.Interpolator(x=numpy.array([-1,0,1]),
                                          y=numpy.array([-2,0,2]))
         self.assertEqual(f.domain, (-1,1))
 
-        #test construction with mixed input
+        # test construction with mixed input
         f = relentless.math.Interpolator(x=[-1,0,1], y=(-2,0,2))
         self.assertEqual(f.domain, (-1,1))
 
-        #test construction with scalar input
+        # test construction with scalar input
         with self.assertRaises(ValueError):
             f = relentless.math.Interpolator(x=1, y=2)
 
-        #test construction with 2d-array input
+        # test construction with 2d-array input
         with self.assertRaises(ValueError):
             f = relentless.math.Interpolator(x=numpy.array([[-1,0,1], [-2,2,4]]),
                                              y=numpy.array([[-1,0,1], [-2,2,4]]))
 
-        #test construction with x and y having different lengths
+        # test construction with x and y having different lengths
         with self.assertRaises(ValueError):
             f = relentless.math.Interpolator(x=[-1,0], y=[-2,0,2])
 
-        #test construction with non-strictly-increasing domain
+        # test construction with non-strictly-increasing domain
         with self.assertRaises(ValueError):
             f = relentless.math.Interpolator(x=(0,1,-1), y=(0,2,-2))
 
@@ -48,22 +48,22 @@ class test_Interpolator(unittest.TestCase):
         """Test calls, both scalar and array."""
         f = relentless.math.Interpolator(x=(-1,0,1), y=(-2,0,2))
 
-        #test scalar call
+        # test scalar call
         self.assertAlmostEqual(f(-0.5), -1.0)
         self.assertAlmostEqual(f(0.5), 1.0)
 
-        #test array call
+        # test array call
         numpy.testing.assert_allclose(f([-0.5,0.5]), [-1.0,1.0])
 
     def test_derivative(self):
         """Test derivative function, both scalar and array."""
         f = relentless.math.Interpolator(x=(-2,-1,0,1,2), y=(4,1,0,1,4))
 
-        #test scalar call
+        # test scalar call
         d = f.derivative(x=1.5, n=1)
         self.assertAlmostEqual(d, 3.0)
 
-        #test array call
+        # test array call
         d = f.derivative(x=numpy.array([-3.0,-0.5,0.5,3.0]), n=1)
         numpy.testing.assert_allclose(d, numpy.array([0.0,-1.0,1.0,0.0]))
 
@@ -71,16 +71,16 @@ class test_Interpolator(unittest.TestCase):
         """Test extrapolation calls."""
         f = relentless.math.Interpolator(x=(-1,0,1), y=(-2,0,2))
 
-        #test extrap below lo
+        # test extrap below lo
         self.assertAlmostEqual(f(-2), -2.0)
 
-        #test extrap above hi
+        # test extrap above hi
         self.assertAlmostEqual(f(2), 2.0)
 
-        #test extrap below low and above hi
+        # test extrap below low and above hi
         numpy.testing.assert_allclose(f([-2,2]), [-2.0,2.0])
 
-        #test combined extrapolation and interpolation
+        # test combined extrapolation and interpolation
         numpy.testing.assert_allclose(f([-2,0.5,2]), [-2.0,1.0,2.0])
 
 class test_KeyedArray(unittest.TestCase):
@@ -94,7 +94,7 @@ class test_KeyedArray(unittest.TestCase):
         k = relentless.math.KeyedArray(keys=('A','B'), default=2.0)
         self.assertEqual(dict(k), {'A':2.0, 'B':2.0})
 
-        #invalid key
+        # invalid key
         with self.assertRaises(KeyError):
             x = k['C']
 
@@ -107,7 +107,7 @@ class test_KeyedArray(unittest.TestCase):
         k3 = relentless.math.KeyedArray(keys=('A','B','C'))
         k3.update({'A':3.0, 'B':4.0, 'C':5.0})
 
-        #addition
+        # addition
         k4 = k1 + k2
         self.assertEqual(dict(k4), {'A':3.0, 'B':5.0})
         k4 += k2
@@ -123,7 +123,7 @@ class test_KeyedArray(unittest.TestCase):
         with self.assertRaises(KeyError):
             k3 += k2
 
-        #subtraction
+        # subtraction
         k4 = k1 - k2
         self.assertEqual(dict(k4), {'A':-1.0, 'B':-1.0})
         k4 -= k2
@@ -139,7 +139,7 @@ class test_KeyedArray(unittest.TestCase):
         with self.assertRaises(KeyError):
             k3 -= k2
 
-        #multiplication
+        # multiplication
         k4 = k1*k2
         self.assertEqual(dict(k4), {'A':2.0, 'B':6.0})
         k4 *= k2
@@ -153,7 +153,7 @@ class test_KeyedArray(unittest.TestCase):
         with self.assertRaises(KeyError):
             k4 = k1*k3
 
-        #division
+        # division
         k4 = k1/k2
         self.assertEqual(dict(k4), {'A':0.5, 'B':0.6666666666666666})
         k4 /= k2
@@ -167,13 +167,13 @@ class test_KeyedArray(unittest.TestCase):
         with self.assertRaises(KeyError):
             k4 = k1/k3
 
-        #exponentiation
+        # exponentiation
         k4 = k1**k2
         self.assertEqual(dict(k4), {'A':1.0, 'B':8.0})
         k4 = k2**2
         self.assertEqual(dict(k4), {'A':4.0, 'B':9.0})
 
-        #negation
+        # negation
         k4 = -k1
         self.assertEqual(dict(k4), {'A':-1.0, 'B':-2.0})
 
@@ -186,11 +186,11 @@ class test_KeyedArray(unittest.TestCase):
         k3 = relentless.math.KeyedArray(keys=('A','B','C'))
         k3.update({'A':3.0, 'B':4.0, 'C':5.0})
 
-        #norm
+        # norm
         self.assertAlmostEqual(k1.norm(), numpy.sqrt(5))
         self.assertAlmostEqual(k3.norm(), numpy.sqrt(50))
 
-        #dot product
+        # dot product
         self.assertAlmostEqual(k1.dot(k2), 8.0)
         self.assertAlmostEqual(k1.dot(k2), k2.dot(k1))
         with self.assertRaises(KeyError):

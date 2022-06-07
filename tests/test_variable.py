@@ -28,11 +28,11 @@ class test_Variable(unittest.TestCase):
 
     def test_operations(self):
         """Test arithmetic operations on variables."""
-        #create dependent variables
+        # create dependent variables
         v = relentless.variable.IndependentVariable(value=2.0)
         w = relentless.variable.IndependentVariable(value=4.0)
 
-        #addition
+        # addition
         x = v+w
         self.assertAlmostEqual(x.value, 6.0)
         x = v+2.0
@@ -40,7 +40,7 @@ class test_Variable(unittest.TestCase):
         x = 2.0+w
         self.assertAlmostEqual(x.value, 6.0)
 
-        #subtraction
+        # subtraction
         x = v-w
         self.assertAlmostEqual(x.value, -2.0)
         x = v-1.0
@@ -48,7 +48,7 @@ class test_Variable(unittest.TestCase):
         x = 1.0-w
         self.assertAlmostEqual(x.value, -3.0)
 
-        #multiplication
+        # multiplication
         x = v*w
         self.assertAlmostEqual(x.value, 8.0)
         x = v*1.5
@@ -56,7 +56,7 @@ class test_Variable(unittest.TestCase):
         x = 1.5*w
         self.assertAlmostEqual(x.value, 6.0)
 
-        #division
+        # division
         x = w/v
         self.assertAlmostEqual(x.value, 2.0)
         x = v/2.0
@@ -64,17 +64,17 @@ class test_Variable(unittest.TestCase):
         x = 3.0/w
         self.assertAlmostEqual(x.value, 0.75)
 
-        #exponentiation
+        # exponentiation
         x = w**v
         self.assertAlmostEqual(x.value, 16.0)
         x = v**3.0
         self.assertAlmostEqual(x.value, 8.0)
 
-        #negation
+        # negation
         x = -w
         self.assertAlmostEqual(x.value, -4.0)
 
-        #string conversion
+        # string conversion
         self.assertEqual(str(x), '-4.0')
 
 class test_IndependentVariable(unittest.TestCase):
@@ -82,7 +82,7 @@ class test_IndependentVariable(unittest.TestCase):
 
     def test_init(self):
         """Test construction with data."""
-        #test scalar values
+        # test scalar values
         v = relentless.variable.IndependentVariable(1.0)
         self.assertEqual(v.value, 1.0)
 
@@ -102,29 +102,29 @@ class test_IndependentVariable(unittest.TestCase):
 
     def test_ioperations(self):
         """Test in-place arithmetic operations on variables."""
-        #create dependent variables
+        # create dependent variables
         v = relentless.variable.IndependentVariable(value=2.0)
         w = relentless.variable.IndependentVariable(value=4.0)
 
-        #addition
+        # addition
         v += 2.0
         self.assertAlmostEqual(v.value, 4.0)
         with self.assertRaises(TypeError):
             v += w
 
-        #subtraction
+        # subtraction
         w -= 2.0
         self.assertAlmostEqual(w.value, 2.0)
         with self.assertRaises(TypeError):
             v -= w
 
-        #multiplication
+        # multiplication
         w *= 3.0
         self.assertAlmostEqual(w.value, 6.0)
         with self.assertRaises(TypeError):
             v *= w
 
-        #division
+        # division
         v /= 4.0
         self.assertAlmostEqual(v.value, 1.0)
         with self.assertRaises(TypeError):
@@ -135,7 +135,7 @@ class test_DesignVariable(unittest.TestCase):
 
     def test_init(self):
         """Test construction with different bounds."""
-        #test with no bounds
+        # test with no bounds
         v = relentless.variable.DesignVariable(value=1.0)
         self.assertAlmostEqual(v.value, 1.0)
         self.assertEqual(v.low, None)
@@ -144,7 +144,7 @@ class test_DesignVariable(unittest.TestCase):
         self.assertEqual(v.atlow(), False)
         self.assertEqual(v.athigh(), False)
 
-        #test in between low and high bounds
+        # test in between low and high bounds
         v = relentless.variable.DesignVariable(value=1.2, low=0.0, high=2.0)
         self.assertAlmostEqual(v.value, 1.2)
         self.assertAlmostEqual(v.low, 0.0)
@@ -153,7 +153,7 @@ class test_DesignVariable(unittest.TestCase):
         self.assertEqual(v.atlow(), False)
         self.assertEqual(v.athigh(), False)
 
-        #test below low bound
+        # test below low bound
         v = relentless.variable.DesignVariable(value=-1, low=0.5)
         self.assertAlmostEqual(v.value, 0.5)
         self.assertAlmostEqual(v.low, 0.5)
@@ -162,7 +162,7 @@ class test_DesignVariable(unittest.TestCase):
         self.assertEqual(v.atlow(), True)
         self.assertEqual(v.athigh(), False)
 
-        #test above high bound
+        # test above high bound
         v = relentless.variable.DesignVariable(value=2.2, high=2.0)
         self.assertAlmostEqual(v.value, 2.0)
         self.assertEqual(v.high, 2.0)
@@ -171,23 +171,23 @@ class test_DesignVariable(unittest.TestCase):
         self.assertEqual(v.atlow(), False)
         self.assertEqual(v.athigh(), True)
 
-        #test setting bounds after construction
+        # test setting bounds after construction
         v = relentless.variable.DesignVariable(value=-1.0)
         self.assertAlmostEqual(v.value, -1.0)
         self.assertEqual(v.high, None)
         self.assertEqual(v.low, None)
-        #only low
+        # only low
         v.low = -1.5
         self.assertAlmostEqual(v.value, -1.0)
         self.assertEqual(v.high, None)
         self.assertEqual(v.low, -1.5)
-        #only high
+        # only high
         v.low = None
         v.high = 1.5
         self.assertAlmostEqual(v.value, -1.0)
         self.assertEqual(v.high, 1.5)
         self.assertEqual(v.low, None)
-        #both
+        # both
         v.low = -1.5
         self.assertAlmostEqual(v.value, -1.0)
         self.assertEqual(v.high, 1.5)
@@ -195,88 +195,88 @@ class test_DesignVariable(unittest.TestCase):
 
         with self.assertRaises(TypeError):
             v.value = '4'
-        #test invalid low initialization
+        # test invalid low initialization
         with self.assertRaises(TypeError):
             v.low = '4'
-        #test invalid high initialization
+        # test invalid high initialization
         with self.assertRaises(TypeError):
             v.high = '4'
 
     def test_clamp(self):
         """Test methods for clamping values with bounds."""
-        #construction with only low bound
+        # construction with only low bound
         v = relentless.variable.DesignVariable(value=0.0, low=2.0)
-        #test below low
+        # test below low
         val,state = v.clamp(1.0)
         self.assertAlmostEqual(val, 2.0)
         self.assertEqual(state, v.State.LOW)
-        #test at low
+        # test at low
         val,state = v.clamp(2.0)
         self.assertAlmostEqual(val, 2.0)
         self.assertEqual(state, v.State.LOW)
-        #test above low
+        # test above low
         val,state = v.clamp(3.0)
         self.assertAlmostEqual(val, 3.0)
         self.assertEqual(state, v.State.FREE)
 
-        #construction with low and high bounds
+        # construction with low and high bounds
         v = relentless.variable.DesignVariable(value=0.0, low=0.0, high=2.0)
-        #test below low
+        # test below low
         val,state = v.clamp(-1.0)
         self.assertAlmostEqual(val, 0.0)
         self.assertEqual(state, v.State.LOW)
-        #test between bounds
+        # test between bounds
         val,state = v.clamp(1.0)
         self.assertAlmostEqual(val, 1.0)
         self.assertEqual(state, v.State.FREE)
-        #test above high
+        # test above high
         val,state = v.clamp(2.5)
         self.assertAlmostEqual(val, 2.0)
         self.assertEqual(state, v.State.HIGH)
 
-        #construction with no bounds
+        # construction with no bounds
         v = relentless.variable.DesignVariable(value=0.0)
-        #test free variable
+        # test free variable
         val,state = v.clamp(1.0)
         self.assertAlmostEqual(val, 1.0)
         self.assertEqual(state, v.State.FREE)
 
     def test_value(self):
         """Test methods for setting values and checking bounds."""
-        #test construction with value between bounds
+        # test construction with value between bounds
         v = relentless.variable.DesignVariable(value=0.0, low=-1.0, high=1.0)
         self.assertAlmostEqual(v.value, 0.0)
         self.assertEqual(v.state, v.State.FREE)
 
-        #test below low
+        # test below low
         v.value = -1.5
         self.assertAlmostEqual(v.value, -1.0)
         self.assertEqual(v.state, v.State.LOW)
 
-        #test above high
+        # test above high
         v.value = 3
         self.assertAlmostEqual(v.value, 1.0)
         self.assertEqual(v.state, v.State.HIGH)
 
-        #test invalid value
+        # test invalid value
         with self.assertRaises(TypeError):
             v.value = '0'
 
     def test_bounds(self):
         """Test methods for setting bounds and checking value clamping."""
-        #test construction with value between bounds
+        # test construction with value between bounds
         v = relentless.variable.DesignVariable(value=0.0, low=-1.0, high=1.0)
         self.assertAlmostEqual(v.value, 0.0)
         self.assertEqual(v.state, v.State.FREE)
 
-        #test changing low bound to above value
+        # test changing low bound to above value
         v.low = 0.2
         self.assertAlmostEqual(v.value, 0.2)
         self.assertAlmostEqual(v.low, 0.2)
         self.assertAlmostEqual(v.high, 1.0)
         self.assertEqual(v.state, v.State.LOW)
 
-        #test changing high bound to below value
+        # test changing high bound to below value
         v.low = -1.0
         v.high = -0.2
         self.assertAlmostEqual(v.value, -0.2)
@@ -284,7 +284,7 @@ class test_DesignVariable(unittest.TestCase):
         self.assertAlmostEqual(v.high, -0.2)
         self.assertEqual(v.state, v.State.HIGH)
 
-        #test changing bounds incorrectly
+        # test changing bounds incorrectly
         with self.assertRaises(ValueError):
             v.low = 0.2
         with self.assertRaises(ValueError):
@@ -299,9 +299,9 @@ class DepVar(relentless.variable.DependentVariable):
         return numpy.sum([v for v in kwargs.values()])
 
     def compute_derivative(self, param, **kwargs):
-        #Note: this method doesn't calculate the actual derivatives;
-        #it is merely used for testing the chain rule calculations
-        #with various variable dependencies
+        # Note: this method doesn't calculate the actual derivatives;
+        # it is merely used for testing the chain rule calculations
+        # with various variable dependencies
         if param in self.params:
             if kwargs[param] > 5.0:
                 return 0.5
@@ -319,31 +319,31 @@ class test_DependentVariable(unittest.TestCase):
         u = relentless.variable.DesignVariable(value=2.0)
         v = relentless.variable.DesignVariable(value=3.0)
 
-        #test creation with only vardicts
+        # test creation with only vardicts
         w = DepVar({'t':t, 'u':u, 'v':v})
         self.assertAlmostEqual(w.value, 6.0)
 
-        #test creation with only kwvars
+        # test creation with only kwvars
         w = DepVar(t=t, u=u, v=v)
         self.assertAlmostEqual(w.value, 6.0)
 
-        #test creation with vardicts and kwvars
+        # test creation with vardicts and kwvars
         w = DepVar({'t':t, 'u':u}, v=v)
         self.assertAlmostEqual(w.value, 6.0)
 
-        #test creation with repeated attributes
+        # test creation with repeated attributes
         w = DepVar({'t':t, 'u':u}, u=v)
         self.assertAlmostEqual(w.value, 4.0)
 
-        #test creation with multiple vardicts
+        # test creation with multiple vardicts
         w = DepVar({'t':t, 'u':u}, {'v':v})
         self.assertAlmostEqual(w.value, 6.0)
 
-        #test creation with scalar attributes
+        # test creation with scalar attributes
         w = DepVar(t=1.0, u=2.0, v=3.0)
         self.assertAlmostEqual(w.value, 6.0)
 
-        #test invalid creation with no attributes
+        # test invalid creation with no attributes
         with self.assertRaises(AssertionError):
             w = DepVar()
 
@@ -353,23 +353,23 @@ class test_DependentVariable(unittest.TestCase):
         u = relentless.variable.DesignVariable(value=2.0)
         v = relentless.variable.DesignVariable(value=3.0)
 
-        #test derivative with 1 level of dependency
+        # test derivative with 1 level of dependency
         w = DepVar(t=t, u=u, v=v)
         dw = w.derivative(t)
         self.assertAlmostEqual(dw, -0.5)
         dw = w.derivative(v)
         self.assertAlmostEqual(dw, -0.5)
 
-        #test derivative with respect to self
+        # test derivative with respect to self
         dw = w.derivative(w)
         self.assertAlmostEqual(dw, 1.0)
 
-        #test derivative of variable not in the graph
+        # test derivative of variable not in the graph
         x = DepVar(t=t, v=v)
         dx = x.derivative(u)
         self.assertAlmostEqual(dx, 0.0)
 
-        #test derivative with 2 levels of dependency
+        # test derivative with 2 levels of dependency
         y = DepVar(w=w, x=x)
         dy = y.derivative(t)
         self.assertAlmostEqual(dy, 0.0)
@@ -378,7 +378,7 @@ class test_DependentVariable(unittest.TestCase):
         dy = y.derivative(v)
         self.assertAlmostEqual(dy, 0.0)
 
-        #test derivative with more complex dependency
+        # test derivative with more complex dependency
         z = DepVar(t=t, w=w, y=y)
         dz = z.derivative(u)
         self.assertAlmostEqual(dz, -0.375)
@@ -387,7 +387,7 @@ class test_DependentVariable(unittest.TestCase):
         dz = z.derivative(w)
         self.assertAlmostEqual(dz, 0.75)
 
-        #test derivative with 'multiple' dependency on same object
+        # test derivative with 'multiple' dependency on same object
         q = DepVar(t=t, u=t, v=t)
         dq = q.derivative(t)
         self.assertAlmostEqual(dq, -1.5)

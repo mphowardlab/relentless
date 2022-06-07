@@ -11,7 +11,7 @@ class test_RDF(unittest.TestCase):
 
     def test_init(self):
         """Test creation from data"""
-        #test valid construction
+        # test valid construction
         r = [1,2,3]
         g = [2,9,5]
         rdf = relentless.ensemble.RDF(r=r, g=g)
@@ -19,15 +19,15 @@ class test_RDF(unittest.TestCase):
                                                               [2,9],
                                                               [3,5]]))
 
-        #test interpolation
+        # test interpolation
         numpy.testing.assert_allclose(rdf([2.5,3.5]), [8.375,5.0])
 
-        #test invalid construction with r and g having different lengths
+        # test invalid construction with r and g having different lengths
         r = [1,2,3,4]
         with self.assertRaises(ValueError):
             rdf = relentless.ensemble.RDF(r=r, g=g)
 
-        #test invalid construction with non-strictly-increasing r
+        # test invalid construction with non-strictly-increasing r
         r = [1,3,2]
         with self.assertRaises(ValueError):
             rdf = relentless.ensemble.RDF(r=r, g=g)
@@ -37,7 +37,7 @@ class test_Ensemble(unittest.TestCase):
 
     def test_init(self):
         """Test creation from data."""
-        #P and N set
+        # P and N set
         ens = relentless.ensemble.Ensemble(T=10, P=2.0, N={'A':1,'B':2})
         self.assertCountEqual(ens.types, ('A','B'))
         self.assertCountEqual(ens.rdf.pairs, (('A','B'),('A','A'),('B','B')))
@@ -48,7 +48,7 @@ class test_Ensemble(unittest.TestCase):
         self.assertEqual(dict(ens.N), {'A':1,'B':2})
         self.assertAlmostEqual(ens.beta, 0.1)
 
-        #V and N set, non-default value of kB
+        # V and N set, non-default value of kB
         v_obj = relentless.volume.Cube(L=3.0)
         ens = relentless.ensemble.Ensemble(T=20, V=v_obj, N={'A':1,'B':2}, kB=2.0)
         self.assertCountEqual(ens.types, ('A','B'))
@@ -73,7 +73,7 @@ class test_Ensemble(unittest.TestCase):
         self.assertEqual(dict(ens.N), {'A':None,'B':2})
         self.assertAlmostEqual(ens.beta, 0.01)
 
-        #test creation with single type
+        # test creation with single type
         ens = relentless.ensemble.Ensemble(T=100, V=v_obj, N={'A':10})
         self.assertCountEqual(ens.types, ('A',))
         self.assertCountEqual(ens.rdf.pairs, (('A','A'),))
@@ -85,7 +85,7 @@ class test_Ensemble(unittest.TestCase):
         self.assertEqual(dict(ens.N), {'A':10})
         self.assertAlmostEqual(ens.beta, 0.01)
 
-        #test setting rdf
+        # test setting rdf
         ens = relentless.ensemble.Ensemble(T=100, V=v_obj, N={'A':1,'B':2})
         r = [1,2,3]
         ens.rdf['A','B'] = relentless.ensemble.RDF(r=r, g=[2,9,5])
@@ -101,10 +101,10 @@ class test_Ensemble(unittest.TestCase):
                                                                            [2,9],
                                                                            [3,3]]))
 
-        #test setting N as a float
+        # test setting N as a float
         with self.assertRaises(TypeError):
             ens = relentless.ensemble.Ensemble(T=10, P=1.0, N={'A':1.0})
-        #test setting N with non-string type
+        # test setting N with non-string type
         with self.assertRaises(TypeError):
             ens = relentless.ensemble.Ensemble(T=10, P=1.0, N={1:2})
 
@@ -113,14 +113,14 @@ class test_Ensemble(unittest.TestCase):
         v_obj = relentless.volume.Cube(L=3.0)
         v_obj1 = relentless.volume.Cube(L=4.0)
 
-        #NVT ensemble
+        # NVT ensemble
         ens = relentless.ensemble.Ensemble(T=10, V=v_obj, N={'A':1,'B':2})
         self.assertEqual(ens.P, None)
         self.assertIs(ens.V,v_obj)
         self.assertAlmostEqual(ens.V.volume, 27.0)
         self.assertEqual(dict(ens.N), {'A':1,'B':2})
 
-        #set values
+        # set values
         ens.V = v_obj1
         self.assertIs(ens.V,v_obj1)
         self.assertAlmostEqual(ens.V.volume, 64.0)
@@ -128,11 +128,11 @@ class test_Ensemble(unittest.TestCase):
         ens.N['B'] = 3
         self.assertEqual(dict(ens.N), {'A':2,'B':3})
 
-        #set other values
+        # set other values
         ens.P = 2.0
         self.assertAlmostEqual(ens.P, 2.0)
 
-        #test invalid setting of N directly
+        # test invalid setting of N directly
         with self.assertRaises(AttributeError):
             ens.N = {'A':3,'B':4}
 
@@ -140,7 +140,7 @@ class test_Ensemble(unittest.TestCase):
         """Test copy method"""
         v_obj = relentless.volume.Cube(L=1.0)
 
-        #P and mu set
+        # P and mu set
         ens = relentless.ensemble.Ensemble(T=10, P=2.0, V=v_obj, N={'A':1,'B':2})
         ens_ = ens.copy()
         self.assertIsNot(ens, ens_)
@@ -152,7 +152,7 @@ class test_Ensemble(unittest.TestCase):
         self.assertAlmostEqual(ens.V.volume, ens_.V.volume)
         self.assertEqual(dict(ens_.N), dict(ens.N))
 
-        #test copying rdf
+        # test copying rdf
         ens = relentless.ensemble.Ensemble(T=100, V=v_obj, N={'A':1,'B':2})
         r = [1,2,3]
         ens.rdf['A','B'] = relentless.ensemble.RDF(r=r, g=[2,9,5])
@@ -182,7 +182,7 @@ class test_Ensemble(unittest.TestCase):
         self.assertAlmostEqual(ens.V.volume, ens_.V.volume)
         self.assertEqual(dict(ens_.N), dict(ens.N))
 
-        #test saving/constructing rdf
+        # test saving/constructing rdf
         ens = relentless.ensemble.Ensemble(T=100, V=v_obj, N={'A':1,'B':2})
         r = [1,2,3]
         ens.rdf['A','B'] = relentless.ensemble.RDF(r=r, g=[2,9,5])
