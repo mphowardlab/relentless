@@ -110,7 +110,7 @@ class FixedKeyDict(collections.abc.MutableMapping):
         self._data[key] = self.default
 
     def __iter__(self):
-        yield from self._keys
+        return iter(self._keys)
 
     def __len__(self):
         return len(self._data)
