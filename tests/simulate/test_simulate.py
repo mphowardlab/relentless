@@ -9,7 +9,7 @@ import relentless
 class test_Simulation(unittest.TestCase):
     """Unit tests for relentless.Simulation"""
 
-    #mock functions for use as operations
+    # mock functions for use as operations
     class CheckEnsemble(relentless.simulate.SimulationOperation):
         def __call__(self, sim):
             try:
@@ -29,25 +29,25 @@ class test_Simulation(unittest.TestCase):
         operations = [self.CheckEnsemble(), self.CheckPotential()]
         options = {'constant_ens':True, 'constant_pot':True}
 
-        #no operations, no options
+        # no operations, no options
         d = relentless.simulate.Simulation()
-        self.assertCountEqual(d.operations, [])
-        self.assertDictEqual(d.options, {})
+        self.assertEqual(d.operations, [])
+        self.assertEqual(d.options, {})
 
-        #with operations, no options
+        # with operations, no options
         d = relentless.simulate.Simulation(operations)
-        self.assertCountEqual(d.operations, operations)
-        self.assertDictEqual(d.options, {})
+        self.assertEqual(d.operations, operations)
+        self.assertEqual(d.options, {})
 
-        #no operations, with options
+        # no operations, with options
         d = relentless.simulate.Simulation(**options)
-        self.assertCountEqual(d.operations, [])
-        self.assertDictEqual(d.options, options)
+        self.assertEqual(d.operations, [])
+        self.assertEqual(d.options, options)
 
-        #with operations, with options
+        # with operations, with options
         d = relentless.simulate.Simulation(operations, **options)
         self.assertCountEqual(d.operations, operations)
-        self.assertDictEqual(d.options, options)
+        self.assertEqual(d.options, options)
 
     def test_run(self):
         """Test run method."""
@@ -61,7 +61,7 @@ class test_Simulation(unittest.TestCase):
         operations = [self.CheckEnsemble(), self.CheckPotential()]
         options = {'constant_ens':True, 'constant_pot':True}
 
-        #no operations, no options
+        # no operations, no options
         sim = relentless.simulate.Simulation()
         sim_ = sim.run(ensemble=ens, potentials=pot, directory=dirc)
         with self.assertRaises(AttributeError):
@@ -69,19 +69,19 @@ class test_Simulation(unittest.TestCase):
         with self.assertRaises(AttributeError):
             sim_[operations[1]].value
 
-        #with operations, no options
+        # with operations, no options
         sim = relentless.simulate.Simulation(operations=operations)
         sim_ = sim.run(ensemble=ens, potentials=pot, directory=dirc)
         self.assertFalse(sim_[operations[0]].value)
         self.assertFalse(sim_[operations[1]].value)
 
-        #with operations, options
+        # with operations, options
         sim = relentless.simulate.Simulation(operations=operations, **options)
         sim_ = sim.run(ensemble=ens, potentials=pot, directory=dirc)
         self.assertTrue(sim_[operations[0]].value)
         self.assertTrue(sim_[operations[1]].value)
 
-        #invalid operation type
+        # invalid operation type
         sim = relentless.simulate.Simulation(operations='a')
         with self.assertRaises(TypeError):
             sim.run(ensemble=ens, potential=pot, directory=dirc)
@@ -99,14 +99,14 @@ class test_SimulationInstance(unittest.TestCase):
         ens = relentless.ensemble.Ensemble(T=1.0, V=relentless.volume.Cube(L=2.0), N={'A':2,'B':3})
         pots = relentless.simulate.Potentials()
 
-        #no options
+        # no options
         sim = relentless.simulate.SimulationInstance(None, ens, pots, self.directory)
         self.assertEqual(sim.ensemble, ens)
         self.assertEqual(sim.potentials, pots)
         with self.assertRaises(AttributeError):
             sim.constant_ens
 
-        #with options
+        # with options
         sim = relentless.simulate.SimulationInstance(None, ens, pots, self.directory, **options)
         self.assertEqual(sim.ensemble, ens)
         self.assertEqual(sim.potentials, pots)
@@ -159,21 +159,21 @@ class test_PotentialTabulator(unittest.TestCase):
         xs = numpy.array([0.0,0.5,1,1.5])
         p1 = QuadPot(types=('1',), params=('m',))
 
-        #test creation with no potential
+        # test creation with no potential
         t = relentless.simulate.PotentialTabulator(start=0.0,stop=1.5,num=4)
         numpy.testing.assert_allclose(t.x,xs)
         self.assertAlmostEqual(t.start, 0.0)
         self.assertAlmostEqual(t.stop, 1.5)
         self.assertEqual(t.num, 4)
-        self.assertCountEqual(t.potentials, [])
+        self.assertEqual(t.potentials, [])
 
-        #test creation with defined potential
+        # test creation with defined potential
         t = relentless.simulate.PotentialTabulator(start=0.0,stop=1.5,num=4,potentials=p1)
         numpy.testing.assert_allclose(t.x,xs)
         self.assertAlmostEqual(t.start, 0.0)
         self.assertAlmostEqual(t.stop, 1.5)
         self.assertEqual(t.num, 4)
-        self.assertCountEqual(t.potentials, [p1])
+        self.assertEqual(t.potentials, [p1])
 
     def test_potential(self):
         """Test energy, force, and derivative methods"""
@@ -241,7 +241,7 @@ class test_PairPotentialTabulator(unittest.TestCase):
         """Test creation with data."""
         rs = numpy.array([0.0,0.5,1,1.5])
 
-        #test creation with only required parameters
+        # test creation with only required parameters
         t = relentless.simulate.PairPotentialTabulator(rmin=0.0,rmax=1.5,num=4,neighbor_buffer=0.4)
         numpy.testing.assert_allclose(t.r,rs)
         self.assertAlmostEqual(t.rmin, 0.0)
@@ -250,7 +250,7 @@ class test_PairPotentialTabulator(unittest.TestCase):
         self.assertEqual(t.neighbor_buffer, 0.4)
         self.assertEqual(t.fmax, None)
 
-        #test creation with required parameters and fmax
+        # test creation with required parameters and fmax
         t = relentless.simulate.PairPotentialTabulator(rmin=0.0,rmax=1.5,num=4,neighbor_buffer=0.4,fmax=1.5)
         numpy.testing.assert_allclose(t.r, rs)
         self.assertAlmostEqual(t.rmin, 0.0)

@@ -73,7 +73,7 @@ class Directory:
     @classmethod
     def cast(cls, directory):
         """Try to cast an object to a directory.
-        
+
         Ensure that a `str` or :class:`Directory` is a :class:`Directory`. No
         action is taken if the object is already a :class:`Directory`. Otherwise,
         a new one is constructed.

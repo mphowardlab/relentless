@@ -19,7 +19,7 @@ class test_Tolerance(unittest.TestCase):
         self.assertAlmostEqual(t.absolute[y], 1.0)
         self.assertAlmostEqual(t.relative[y], 0.5)
 
-        #test changing tolerances by scalar
+        # test changing tolerances by scalar
         t.absolute.default = 1.1
         t.relative.default = 0.6
         self.assertAlmostEqual(t.absolute[x], 1.1)
@@ -27,7 +27,7 @@ class test_Tolerance(unittest.TestCase):
         self.assertAlmostEqual(t.absolute[y], 1.1)
         self.assertAlmostEqual(t.relative[y], 0.6)
 
-        #test changing tolerances by key
+        # test changing tolerances by key
         t.absolute[x] = 1.2
         t.relative[x] = 0.7
         self.assertAlmostEqual(t.absolute[x], 1.2)
@@ -45,7 +45,7 @@ class test_Tolerance(unittest.TestCase):
         self.assertTrue(t.isclose(x.value, 2.7, key=x))
         self.assertTrue(t.isclose(x.value, 2.7))
 
-        #test invalid tolerances
+        # test invalid tolerances
         with self.assertRaises(ValueError):
             t = relentless.optimize.Tolerance(absolute=-0.1, relative=0.1)
             t.isclose(x.value, 2.5)
@@ -67,7 +67,7 @@ class test_GradientTest(unittest.TestCase):
         self.assertAlmostEqual(t.tolerance[x], 1e-8)
         self.assertAlmostEqual(t.tolerance.default, 1e-8)
 
-        #change tolerance
+        # change tolerance
         t.tolerance[x] = 1e-5
         self.assertAlmostEqual(t.tolerance[x], 1e-5)
         self.assertAlmostEqual(t.tolerance.default, 1e-8)
@@ -82,7 +82,7 @@ class test_GradientTest(unittest.TestCase):
         x.value = 0.999999999
         self.assertTrue(t.converged(result=q.compute(x)))
 
-        #test at high
+        # test at high
         x.value = -2.0
         x.high = 2.0
         self.assertFalse(t.converged(result=q.compute(x)))
@@ -90,7 +90,7 @@ class test_GradientTest(unittest.TestCase):
         x.high = 0.0
         self.assertTrue(t.converged(result=q.compute(x)))
 
-        #test at low
+        # test at low
         x.high = None
         x.value = 0.0
         x.low = 0.0
@@ -106,19 +106,19 @@ class test_ValueTest(unittest.TestCase):
         """Test creation with data."""
         x = relentless.variable.DesignVariable(value=3.0)
 
-        #test default values
+        # test default values
         t = relentless.optimize.ValueTest(value=2.5)
         self.assertAlmostEqual(t.absolute, 1e-8)
         self.assertAlmostEqual(t.relative, 1e-5)
         self.assertAlmostEqual(t.value, 2.5)
 
-        #non-default values
+        # non-default values
         t = relentless.optimize.ValueTest(absolute=1e-7, relative=1e-4, value=3.0)
         self.assertAlmostEqual(t.absolute, 1e-7)
         self.assertAlmostEqual(t.relative, 1e-4)
         self.assertAlmostEqual(t.value, 3.0)
 
-        #change parameters
+        # change parameters
         t.absolute = 1e-9
         t.relative = 1e-5
         t.value = 1.5

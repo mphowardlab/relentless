@@ -1001,7 +1001,7 @@ class PairSpline(PairPotential):
         r,d,s = self._zeros(r)
         h = 0.001
 
-        #perturb knot param value
+        # perturb knot param value
         knot_p = params[param]
         params[param] = knot_p + h
         f_high = self._interpolate(params)(r)
@@ -1075,11 +1075,12 @@ class PairSpline(PairPotential):
     def design_variables(self):
         """tuple: Designable variables of the spline."""
         dvars = []
-        for r,k in self.knots:
-            if isinstance(r, variable.DesignVariable):
-                dvars.append(r)
-            if isinstance(k, variable.DesignVariable):
-                dvars.append(k)
+        for pair in self.coeff:
+            for r,k in self.knots(pair):
+                if isinstance(r, variable.DesignVariable):
+                    dvars.append(r)
+                if isinstance(k, variable.DesignVariable):
+                    dvars.append(k)
         return tuple(dvars)
 
 class Yukawa(PairPotential):

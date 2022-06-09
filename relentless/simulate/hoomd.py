@@ -267,7 +267,7 @@ class Initialize(simulate.SimulationOperation):
                                                         rmax=r[-1],
                                                         coeff=dict(r=r,u=u,f=f))
 
-    #helper method for attach_potentials
+    # helper method for attach_potentials
     def _table_eval(self, r_i, rmin, rmax, **coeff):
         r = coeff['r']
         u = coeff['u']

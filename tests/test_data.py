@@ -16,47 +16,47 @@ class test_Directory(unittest.TestCase):
         """Test basic creation and methods of Directory."""
         cwd = os.getcwd()
 
-        #test creation with existing path
+        # test creation with existing path
         d = relentless.data.Directory(self.f.name)
         self.assertEqual(d.path, self.real_f)
         self.assertEqual(d._start, [])
-        #enter and exit
+        # enter and exit
         with d:
             self.assertEqual(d._start, [cwd])
             self.assertEqual(os.getcwd(), self.real_f)
         self.assertEqual(d._start, [])
 
-        #test creation with non-existent path (absolute)
+        # test creation with non-existent path (absolute)
         foo = os.path.join(self.f.name,'foo')
         real_foo = os.path.realpath(foo)
         d1 = relentless.data.Directory(foo)
         self.assertEqual(d1.path, real_foo)
         self.assertEqual(d1._start, [])
-        #enter and exit
+        # enter and exit
         with d1:
             self.assertEqual(d1._start, [cwd])
             self.assertEqual(os.getcwd(), real_foo)
         self.assertEqual(d1._start, [])
 
-        #test creation with non-existent path (recursive)
+        # test creation with non-existent path (recursive)
         foobar = os.path.join(self.f.name,'bar','foobar')
         real_foobar = os.path.realpath(foobar)
         d2 = relentless.data.Directory(foobar)
         self.assertEqual(d2.path, real_foobar)
         self.assertEqual(d2._start, [])
-        #enter and exit
+        # enter and exit
         with d2:
             self.assertEqual(d2._start, [cwd])
             self.assertEqual(os.getcwd(), real_foobar)
         self.assertEqual(d2._start, [])
 
-        #test creation with invalid directory path
+        # test creation with invalid directory path
         x = tempfile.NamedTemporaryFile(dir=self.f.name)
         with self.assertRaises(OSError):
             d3 = relentless.data.Directory(x.name)
         x.close()
 
-        #test unsuccessfully changing directories (by redundancy)
+        # test unsuccessfully changing directories (by redundancy)
         with d:
             self.assertEqual(d._start, [cwd])
             with d1:
@@ -73,18 +73,18 @@ class test_Directory(unittest.TestCase):
             self.assertEqual(d1._start, [])
         self.assertEqual(d._start, [])
 
-        #test unsuccessful exit after successful enter
+        # test unsuccessful exit after successful enter
         with d2:
             self.assertEqual(d2._start, [cwd])
             with d1:
                 self.assertEqual(d1._start, [d2.path])
                 shutil.rmtree(foobar)
             self.assertEqual(d1._start, [])
-            self.assertEqual(os.getcwd(), d1.path) #no exit
+            self.assertEqual(os.getcwd(), d1.path) # no exit
 
     def test_context(self):
         """Test context methods for Directory."""
-        #create nested directory structure
+        # create nested directory structure
         d = relentless.data.Directory(self.f.name)
         d1 = d.directory('foo')
         d2 = d.directory('bar')
@@ -94,7 +94,7 @@ class test_Directory(unittest.TestCase):
         self.assertEqual(d2.path, os.path.join(self.real_f,'bar'))
         self.assertEqual(d3.path, os.path.join(self.real_f,'foo','bar','foobar'))
 
-        #test creating files
+        # test creating files
         x = d.file('spam.txt')
         x1 = d1.file('ham.txt')
         x2 = d1.file('eggs.txt')
@@ -108,14 +108,14 @@ class test_Directory(unittest.TestCase):
         self.assertEqual(os.path.abspath(x2), os.path.join(d1.path,'eggs.txt'))
         self.assertEqual(os.path.abspath(x3), os.path.join(d3.path,'baz.txt'))
 
-        #test clearing directory structure
-        #delete sub-directory
+        # test clearing directory structure
+        # delete sub-directory
         self.assertCountEqual(os.listdir(d1.path), ['bar','ham.txt','eggs.txt'])
         self.assertCountEqual(os.listdir(d3.path), ['baz.txt'])
         d3.clear_contents()
         self.assertCountEqual(os.listdir(d1.path), ['bar','ham.txt','eggs.txt'])
         self.assertCountEqual(os.listdir(d3.path), [])
-        #delete parent directory
+        # delete parent directory
         self.assertCountEqual(os.listdir(d.path), ['foo','bar','spam.txt'])
         d.clear_contents()
         self.assertCountEqual(os.listdir(d.path), [])
