@@ -56,7 +56,7 @@ from enum import Enum
 
 import numpy
 
-class Volume(abc.ABC):
+class Extent(abc.ABC):
     r"""Abstract base class defining a region of space.
 
     A Volume can be any region of space; typically, it is a simulation "box."
@@ -66,11 +66,6 @@ class Volume(abc.ABC):
 
     """
     @property
-    @abc.abstractmethod
-    def volume(self):
-        r"""float: Volume of the region."""
-        pass
-
     @abc.abstractmethod
     def to_json(self):
         r"""Serialize as a dictionary.
@@ -87,6 +82,86 @@ class Volume(abc.ABC):
 
     @classmethod
     @abc.abstractmethod
+    def from_json(cls, data):
+        r"""Deserialize from a dictionary.
+
+        Returns
+        -------
+        :class:`Volume`
+            The object reconstructed from the ``data``.
+
+        """
+        pass
+
+class Volume(Extent):
+    r"""Abstract base class defining a 3d region of space.
+
+    A Volume can be any region of space; typically, it is a simulation "box."
+    Any deriving class must implement the volume method that computes the scalar
+    volume of the region. Additionally, methods to serialize and deserialize a
+    Volume must be specified so that the object can be saved to disk.
+
+    """
+    @property
+    @abc.abstractmethod
+    def volume(self):
+        r"""float: Volume of the region."""
+        pass
+
+    def to_json(self):
+        r"""Serialize as a dictionary.
+
+        The serialized data can be saved to file as JSON data.
+
+        Returns
+        -------
+        dict
+            The serialized :class:`Volume` data.
+
+        """
+        pass
+
+    @classmethod
+    def from_json(cls, data):
+        r"""Deserialize from a dictionary.
+
+        Returns
+        -------
+        :class:`Volume`
+            The object reconstructed from the ``data``.
+
+        """
+        pass
+
+class Area(Extent):
+    r"""Abstract base class defining a 2d region of space.
+
+    An Area can be any 2d region of space; typically, it is a simulation "box."
+    Any deriving class must implement the volume method that computes the scalar
+    area of the region. Additionally, methods to serialize and deserialize a
+    Area must be specified so that the object can be saved to disk.
+
+    """
+    @property
+    @abc.abstractmethod
+    def area(self):
+        r"""float: Area of the region."""
+        pass
+
+    def to_json(self):
+        r"""Serialize as a dictionary.
+
+        The serialized data can be saved to file as JSON data.
+
+        Returns
+        -------
+        dict
+            The serialized :class:`Volume` data.
+
+        """
+        pass
+
+    @classmethod
     def from_json(cls, data):
         r"""Deserialize from a dictionary.
 
@@ -430,3 +505,31 @@ class Cube(Cuboid):
 
         """
         return Cube(**data)
+
+class Parallelegram(Area):
+        r"""Parallelepiped box defined by three vectors.
+
+    The three vectors :math:`\mathbf{a}`, :math:`\mathbf{b}`, and :math:`\mathbf{c}`
+    must form a right-hand basis so that the box volume :math:`V` is positive:
+
+    .. math::
+
+        V = (\mathbf{a} \times \mathbf{b}) \cdot \mathbf{c} > 0
+
+    Parameters
+    ----------
+    a : array_like
+        First vector defining the parallelepiped.
+    b : array_like
+        Second vector defining the parallelepiped.
+    c : array_like
+        Third vector defining the parallelepiped.
+
+    Raises
+    ------
+    TypeError
+        If ``a``, ``b``, and ``c`` are not all 3-element vectors.
+    ValueError
+        If the volume is not positive.
+
+    """
