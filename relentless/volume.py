@@ -585,7 +585,7 @@ class Parallelogram(Area):
             A new Parallelogram object constructed from the data.
 
         """
-        return Parallelepiped(**data)
+        return Parallelogram(**data)
 
 class ObliqueArea(Parallelogram):
     r"""Oblique area.
@@ -665,14 +665,13 @@ class ObliqueArea(Parallelogram):
         if self.convention is ObliqueArea.Convention.LAMMPS:
             a = (Lx,0,0)
             b = (xy,Ly,0)
-            c = (xz,yz,Lz)
+        
         elif self.convention is ObliqueArea.Convention.HOOMD:
             a = (Lx,0,0)
             b = (xy*Ly,Ly,0)
-            c = (xz*Lz,yz*Lz,Lz)
         else:
             raise ValueError('Triclinic convention must be ObliqueArea.Convention.LAMMPS or ObliqueArea.Convention.HOOMD')
-        super().__init__(a,b,c)
+        super().__init__(a,b)
 
     @property
     def convention(self):
