@@ -76,6 +76,11 @@ class Extent(abc.ABC):
 
     """
     @property
+    def extent(self):
+        r"""float: Extent of the region."""
+        pass
+    
+    @classmethod
     @abc.abstractmethod
     def to_json(self):
         r"""Serialize as a dictionary.
@@ -104,7 +109,7 @@ class Extent(abc.ABC):
         pass
 
 class Volume(Extent):
-    r"""Abstract derived class defining a 3d region of space.
+    r"""Derived class defining a 3d region of space.
 
     A Volume can be any region of space; typically, it is a simulation "box."
     Any deriving class must implement the volume method that computes the scalar
@@ -113,11 +118,11 @@ class Volume(Extent):
 
     """
     @property
-    @abc.abstractmethod
     def volume(self):
         r"""float: Volume of the region."""
-        pass
+        return self.extent
 
+    @classmethod
     def to_json(self):
         r"""Serialize as a dictionary.
 
@@ -144,7 +149,7 @@ class Volume(Extent):
         pass
 
 class Area(Extent):
-    r"""Abstract derived class defining a 2d region of space.
+    r"""Derived class defining a 2d region of space.
 
     An Area can be any 2d region of space; typically, it is a simulation "box."
     Any deriving class must implement the volume method that computes the scalar
@@ -153,11 +158,11 @@ class Area(Extent):
 
     """
     @property
-    @abc.abstractmethod
     def area(self):
         r"""float: Area of the region."""
-        pass
+        return self.extent
 
+    @classmethod
     def to_json(self):
         r"""Serialize as a dictionary.
 
@@ -536,7 +541,7 @@ class Parallelogram(Area):
     Raises
     ------
     TypeError
-        If ``a`` and ``b`` are not all 3-element vectors.
+        If ``a`` and ``b`` are not both 2-element vectors.
     ValueError
         If the area is not positive.
 
@@ -544,10 +549,10 @@ class Parallelogram(Area):
     def __init__(self, a, b):
         self.a = numpy.asarray(a,dtype=numpy.float64)
         self.b = numpy.asarray(b,dtype=numpy.float64)
-        if not (self.a.shape==(3,) and self.b.shape==(3,)):
-            raise TypeError('a and b must be 3-element vectors.')
+        if not (self.a.shape==(2,) and self.b.shape==(2,)):
+            raise TypeError('a and b must be 2-element vectors.')
         if self.area <= 0:
-            raise ValueError('The volume must be positive.')
+            raise ValueError('The area must be positive.')
 
     @property
     def area(self):
@@ -556,7 +561,7 @@ class Parallelogram(Area):
     def to_json(self):
         r"""Serialize as a dictionary.
 
-        The dictionary contains the three box vectors ``a`` and ``b`` as tuples.
+        The dictionary contains the two box vectors ``a`` and ``b`` as tuples.
 
         Returns
         -------
@@ -577,7 +582,7 @@ class Parallelogram(Area):
         data : dict
             The serialized equivalent of the Parallelogram object. The keys
             of ``data`` should be ``('a','b')``, and the data for each
-            is the 3-element box vector.
+            is the 2-element box vector.
 
         Returns
         -------
@@ -592,11 +597,11 @@ class ObliqueArea(Parallelogram):
 
     A ObliqueArea is a special type of :class:`Parallelogram`. The box is
     defined by an area oriented along the Cartesian axes and having
-    three vectors of length :math:`L_x` and :math:`L_y`, respectively.
-    The box is then tilted by factors :math:`xy`, which
+    two vectors of length :math:`L_x` and :math:`L_y`, respectively.
+    The box is then tilted by factor :math:`xy`, which
     is upper off-diagonal elements of the matrix of box vectors. As a result,
     the :math:`\mathbf{a}` vector is always aligned along the :math:`x` axis, while
-    the other vectors may be tilted.
+    the other vector may be tilted.
 
     The tilt factors can be defined using one of two :class:`ObliqueArea.Convention`\s.
     By default, the LAMMPS convention is applied to calculate the basis vectors.
@@ -632,7 +637,6 @@ class ObliqueArea(Parallelogram):
 
             \mathbf{a} = (L_x,0,0)
             \quad \mathbf{b} = (xy,L_y,0)
-            \quad \mathbf{c} = (xz,yz,L_z)
 
         In the `HOOMD-blue <https://hoomd-blue.readthedocs.io/en/stable/box.html>`_
         simulation convention, specified using ``TriclinicBox.Convention.HOOMD``,
@@ -642,7 +646,6 @@ class ObliqueArea(Parallelogram):
 
             \mathbf{a} = (L_x,0,0)
             \quad \mathbf{b} = (xy \cdot L_y,L_y,0)
-            \quad \mathbf{c} = (xz \cdot L_z,yz \cdot L_z,L_z)
 
         Attributes
         ----------
@@ -656,19 +659,16 @@ class ObliqueArea(Parallelogram):
         HOOMD = 2
 
     def __init__(self, Lx, Ly, xy, convention=Convention.LAMMPS):
-        Lz = 0
-        xz = 0
-        yz = 0
         if Lx<=0 or Ly<=0:
             raise ValueError('All side lengths must be positive.')
         self._convention = convention
         if self.convention is ObliqueArea.Convention.LAMMPS:
-            a = (Lx,0,0)
-            b = (xy,Ly,0)
+            a = (Lx,0)
+            b = (xy,Ly)
         
         elif self.convention is ObliqueArea.Convention.HOOMD:
-            a = (Lx,0,0)
-            b = (xy*Ly,Ly,0)
+            a = (Lx,0)
+            b = (xy*Ly,Ly)
         else:
             raise ValueError('Triclinic convention must be ObliqueArea.Convention.LAMMPS or ObliqueArea.Convention.HOOMD')
         super().__init__(a,b)
@@ -681,8 +681,8 @@ class ObliqueArea(Parallelogram):
     def to_json(self):
         r"""Serialize as a dictionary.
 
-        The dictionary contains the three box lengths ``Lx`` and ``Ly``,
-        the tilt factors ``xy``, and the ``convention``
+        The dictionary contains the two box lengths ``Lx`` and ``Ly``,
+        the tilt factor ``xy``, and the ``convention``
         for the tilt factors.
 
         Returns
@@ -709,8 +709,8 @@ class ObliqueArea(Parallelogram):
         ----------
         data : dict
             The serialized equivalent of the ObliqueArea object. The keys
-            of ``data`` should be ``('Lx','Ly','Lz','xy','xz','yz','convention')``.
-            The lengths and tilt factors should be floats, and the convention should
+            of ``data`` should be ``('Lx','Ly','xy','convention')``.
+            The lengths and tilt factor should be floats, and the convention should
             be a string.
 
         Returns

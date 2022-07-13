@@ -146,20 +146,20 @@ class test_Parallelogram(unittest.TestCase):
     def test_init(self):
         """Test creation from data."""
         # test valid construction
-        p = relentless.volume.Parallelogram(a=(6,8,1),b=(3,4,5))
-        numpy.testing.assert_allclose(p.a, numpy.array([6,8,1]))
-        numpy.testing.assert_allclose(p.b, numpy.array([3,4,5]))
-        self.assertAlmostEqual(p.area, 45)
+        p = relentless.volume.Parallelogram(a=(2,5),b=(1,4))
+        numpy.testing.assert_allclose(p.a, numpy.array([2,5]))
+        numpy.testing.assert_allclose(p.b, numpy.array([1,4]))
+        self.assertAlmostEqual(p.area, 3)
 
         # test invalid construction
         with self.assertRaises(TypeError):
             p = relentless.volume.Parallelogram(a=(1,2,1),b=(3,4))
         with self.assertRaises(ValueError):
-            p = relentless.volume.Parallelogram(a=(1,2,3),b=(2,4,6))
+            p = relentless.volume.Parallelogram(a=(1,2),b=(2,4))
 
     def test_to_from_json(self):
         """Test to_json and from_json methods."""
-        p = relentless.volume.Parallelogram(a=(1,2,1),b=(3,4,5))
+        p = relentless.volume.Parallelogram(a=(1,2),b=(3,4))
         data = p.to_json()
         p_ = relentless.volume.Parallelogram.from_json(data)
         self.assertIsInstance(p_, relentless.volume.Parallelogram)
@@ -174,16 +174,16 @@ class test_ObliqueArea(unittest.TestCase):
         """Test creation from data."""
         # test valid construction, LAMMPS convention
         t = relentless.volume.ObliqueArea(Lx=1,Ly=2,xy=1, convention=relentless.volume.ObliqueArea.Convention.LAMMPS)
-        numpy.testing.assert_allclose(t.a, numpy.array([1,0,0]))
-        numpy.testing.assert_allclose(t.b, numpy.array([1,2,0]))
+        numpy.testing.assert_allclose(t.a, numpy.array([1,0]))
+        numpy.testing.assert_allclose(t.b, numpy.array([1,2]))
         self.assertAlmostEqual(t.area, 2)
 
         # test valid construction, HOOMD convention
         t = relentless.volume.ObliqueArea(Lx=1,Ly=2,xy=0.5,
                                            convention=relentless.volume.ObliqueArea.Convention.HOOMD)
-        numpy.testing.assert_allclose(t.a, numpy.array([1,0,0]))
-        numpy.testing.assert_allclose(t.b, numpy.array([1,2,0]))
-        self.assertAlmostEqual(t.area, 2)
+        numpy.testing.assert_allclose(t.a, numpy.array([1,0]))
+        numpy.testing.assert_allclose(t.b, numpy.array([1,2]))
+        self.assertAlmostEqual(t.area, 2)    
 
         # test invalid constructions
         with self.assertRaises(ValueError):
@@ -221,8 +221,8 @@ class test_Rectangle(unittest.TestCase):
         """Test creation from data."""
         # test valid construction
         c = relentless.volume.Rectangle(Lx=3,Ly=4)
-        numpy.testing.assert_allclose(c.a, numpy.array([3,0,0]))
-        numpy.testing.assert_allclose(c.b, numpy.array([0,4,0]))
+        numpy.testing.assert_allclose(c.a, numpy.array([3,0]))
+        numpy.testing.assert_allclose(c.b, numpy.array([0,4]))
         self.assertAlmostEqual(c.area, 12)
 
         # test invalid construction
@@ -240,14 +240,14 @@ class test_Rectangle(unittest.TestCase):
         self.assertAlmostEqual(c.area, c_.area)
 
 class test_Square(unittest.TestCase):
-    """Unit tests for relentless.volume.Cube"""
+    """Unit tests for relentless.volume.Square"""
 
     def test_init(self):
         """Test creation from data."""
         # test valid construction
         c = relentless.volume.Square(L=3)
-        numpy.testing.assert_allclose(c.a, numpy.array([3,0,0]))
-        numpy.testing.assert_allclose(c.b, numpy.array([0,3,0]))
+        numpy.testing.assert_allclose(c.a, numpy.array([3,0]))
+        numpy.testing.assert_allclose(c.b, numpy.array([0,3]))
         self.assertAlmostEqual(c.area, 9)
 
         # test invalid construction
