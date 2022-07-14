@@ -41,7 +41,9 @@ and define the required methods.
 .. autosummary::
     :nosignatures:
 
+    Extent
     Volume
+    Area
 
 .. autoclass:: Extent
     :members:
@@ -58,6 +60,12 @@ and define the required methods.
 .. autoclass:: Cube
     :members:
 .. autoclass:: Parallelogram
+    :members:
+.. autoclass:: ObliqueArea
+    :members:
+.. autoclass:: Rectangle
+    :members:
+.. autoclass:: Square
     :members:
 
 """
@@ -90,7 +98,7 @@ class Extent(abc.ABC):
         Returns
         -------
         dict
-            The serialized :class:`Volume` data.
+            The serialized data.
 
         """
         pass
@@ -102,14 +110,14 @@ class Extent(abc.ABC):
 
         Returns
         -------
-        :class:`Volume`
+        :class:`Extent`
             The object reconstructed from the ``data``.
 
         """
         pass
 
 class Volume(Extent):
-    r"""Derived class defining a 3d region of space.
+    r"""Three-dimensional region of space.
 
     A Volume can be any region of space; typically, it is a simulation "box."
     Any deriving class must implement the volume method that computes the scalar
@@ -122,34 +130,8 @@ class Volume(Extent):
         r"""float: Volume of the region."""
         return self.extent
 
-    @classmethod
-    def to_json(self):
-        r"""Serialize as a dictionary.
-
-        The serialized data can be saved to file as JSON data.
-
-        Returns
-        -------
-        dict
-            The serialized :class:`Volume` data.
-
-        """
-        pass
-
-    @classmethod
-    def from_json(cls, data):
-        r"""Deserialize from a dictionary.
-
-        Returns
-        -------
-        :class:`Volume`
-            The object reconstructed from the ``data``.
-
-        """
-        pass
-
 class Area(Extent):
-    r"""Derived class defining a 2d region of space.
+    r"""Two-dimensional region of space.
 
     An Area can be any 2d region of space; typically, it is a simulation "box."
     Any deriving class must implement the volume method that computes the scalar
@@ -161,32 +143,6 @@ class Area(Extent):
     def area(self):
         r"""float: Area of the region."""
         return self.extent
-
-    @classmethod
-    def to_json(self):
-        r"""Serialize as a dictionary.
-
-        The serialized data can be saved to file as JSON data.
-
-        Returns
-        -------
-        dict
-            The serialized :class:`Area` data.
-
-        """
-        pass
-
-    @classmethod
-    def from_json(cls, data):
-        r"""Deserialize from a dictionary.
-
-        Returns
-        -------
-        :class:`Area`
-            The object reconstructed from the ``data``.
-
-        """
-        pass
 
 class Parallelepiped(Volume):
     r"""Parallelepiped box defined by three vectors.
@@ -665,7 +621,6 @@ class ObliqueArea(Parallelogram):
         if self.convention is ObliqueArea.Convention.LAMMPS:
             a = (Lx,0)
             b = (xy,Ly)
-        
         elif self.convention is ObliqueArea.Convention.HOOMD:
             a = (Lx,0)
             b = (xy*Ly,Ly)
