@@ -1,7 +1,7 @@
 """
-Volumes
+Extents
 =======
-A :class:`Extent` represents a region of space with a fixed, scalar volume or area. It corresponds
+An :class:`Extent` represents a region of space with a fixed, scalar volume or area. It corresponds
 to the "box" used in simulations. The following box types have been implemented:
 
 .. autosummary::
