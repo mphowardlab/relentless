@@ -30,7 +30,7 @@ class test_HOOMD(unittest.TestCase):
 
     # mock (NVT) ensemble and potential for testing
     def ens_pot(self):
-        ens = relentless.ensemble.Ensemble(T=2.0, V=relentless.volume.Cube(L=20.0), N={'A':2,'B':3})
+        ens = relentless.ensemble.Ensemble(T=2.0, V=relentless.extent.Cube(L=20.0), N={'A':2,'B':3})
 
         # setup potentials
         pot = LinPot(ens.types,params=('m',))
@@ -260,7 +260,7 @@ class test_HOOMD(unittest.TestCase):
             s.configuration.box = [8,8,8,0,0,0]
             f.append(s)
 
-        ens = relentless.ensemble.Ensemble(T=2.0, V=relentless.volume.Cube(L=8.0), N={'A':2,'B':2})
+        ens = relentless.ensemble.Ensemble(T=2.0, V=relentless.extent.Cube(L=8.0), N={'A':2,'B':2})
         _,pot = self.ens_pot()
         init = relentless.simulate.hoomd.InitializeFromFile(filename=f.file.name)
         ig = relentless.simulate.hoomd.AddVerletIntegrator(dt=0.0)

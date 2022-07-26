@@ -96,7 +96,7 @@ class test_SimulationInstance(unittest.TestCase):
     def test_init(self):
         """Test creation from data."""
         options = {'constant_ens':True, 'constant_pot':False}
-        ens = relentless.ensemble.Ensemble(T=1.0, V=relentless.volume.Cube(L=2.0), N={'A':2,'B':3})
+        ens = relentless.ensemble.Ensemble(T=1.0, V=relentless.extent.Cube(L=2.0), N={'A':2,'B':3})
         pots = relentless.simulate.Potentials()
 
         # no options

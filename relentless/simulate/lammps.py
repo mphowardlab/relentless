@@ -69,7 +69,7 @@ import numpy
 
 from relentless.ensemble import RDF
 from relentless import mpi
-from relentless.volume import TriclinicBox
+from relentless.extent import TriclinicBox
 from . import simulate
 
 try:

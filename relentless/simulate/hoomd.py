@@ -103,7 +103,7 @@ from relentless.collections import PairMatrix
 from relentless.ensemble import RDF
 from relentless.math import Interpolator
 from relentless import mpi
-from relentless.volume import TriclinicBox
+from relentless.extent import TriclinicBox
 from . import simulate
 
 try:

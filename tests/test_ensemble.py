@@ -49,7 +49,7 @@ class test_Ensemble(unittest.TestCase):
         self.assertAlmostEqual(ens.beta, 0.1)
 
         # V and N set, non-default value of kB
-        v_obj = relentless.volume.Cube(L=3.0)
+        v_obj = relentless.extent.Cube(L=3.0)
         ens = relentless.ensemble.Ensemble(T=20, V=v_obj, N={'A':1,'B':2}, kB=2.0)
         self.assertCountEqual(ens.types, ('A','B'))
         self.assertCountEqual(ens.rdf.pairs, (('A','B'),('A','A'),('B','B')))
@@ -110,8 +110,8 @@ class test_Ensemble(unittest.TestCase):
 
     def test_set_params(self):
         """Test setting constant and fluctuating parameter values."""
-        v_obj = relentless.volume.Cube(L=3.0)
-        v_obj1 = relentless.volume.Cube(L=4.0)
+        v_obj = relentless.extent.Cube(L=3.0)
+        v_obj1 = relentless.extent.Cube(L=4.0)
 
         # NVT ensemble
         ens = relentless.ensemble.Ensemble(T=10, V=v_obj, N={'A':1,'B':2})
@@ -138,7 +138,7 @@ class test_Ensemble(unittest.TestCase):
 
     def test_copy(self):
         """Test copy method"""
-        v_obj = relentless.volume.Cube(L=1.0)
+        v_obj = relentless.extent.Cube(L=1.0)
 
         # P and mu set
         ens = relentless.ensemble.Ensemble(T=10, P=2.0, V=v_obj, N={'A':1,'B':2})
@@ -148,7 +148,7 @@ class test_Ensemble(unittest.TestCase):
         self.assertCountEqual(ens.rdf.pairs, ens_.rdf.pairs)
         self.assertAlmostEqual(ens.T, ens_.T)
         self.assertAlmostEqual(ens.P, ens_.P)
-        self.assertIsInstance(ens_.V, relentless.volume.Cube)
+        self.assertIsInstance(ens_.V, relentless.extent.Cube)
         self.assertAlmostEqual(ens.V.volume, ens_.V.volume)
         self.assertEqual(dict(ens_.N), dict(ens.N))
 
@@ -169,7 +169,7 @@ class test_Ensemble(unittest.TestCase):
         """Test save and from_file methods"""
         temp = tempfile.NamedTemporaryFile()
 
-        v_obj = relentless.volume.Cube(L=1.0)
+        v_obj = relentless.extent.Cube(L=1.0)
         ens = relentless.ensemble.Ensemble(T=20, V=v_obj, P=1.0, N={'A':1,'B':2})
         ens.save(temp.name)
         ens_ = relentless.ensemble.Ensemble.from_file(temp.name)
@@ -178,7 +178,7 @@ class test_Ensemble(unittest.TestCase):
         self.assertCountEqual(ens.rdf.pairs, ens_.rdf.pairs)
         self.assertAlmostEqual(ens.T, ens_.T)
         self.assertAlmostEqual(ens.P, ens_.P)
-        self.assertIsInstance(ens_.V, relentless.volume.Cube)
+        self.assertIsInstance(ens_.V, relentless.extent.Cube)
         self.assertAlmostEqual(ens.V.volume, ens_.V.volume)
         self.assertEqual(dict(ens_.N), dict(ens.N))
 

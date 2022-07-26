@@ -23,7 +23,7 @@ Examples
 --------
 Construct a simulation box with defined basis vectors and volume::
 
-    v = relentless.volume.Cube(L=3)
+    v = relentless.extent.Cube(L=3)
     >>> print(v.a)
     [3.0 0.0 0.0]
     >>> print(v.b)
