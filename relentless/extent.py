@@ -181,7 +181,7 @@ class Parallelepiped(Volume):
             raise ValueError('The volume must be positive.')
 
     @property
-    def volume(self):
+    def extent(self):
         return numpy.dot(numpy.cross(self.a,self.b),self.c)
 
     def to_json(self):
@@ -511,7 +511,7 @@ class Parallelogram(Area):
             raise ValueError('The area must be positive.')
 
     @property
-    def area(self):
+    def extent(self):
         return numpy.linalg.norm(numpy.cross(self.a,self.b))
 
     def to_json(self):

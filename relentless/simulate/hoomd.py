@@ -104,6 +104,7 @@ from relentless.ensemble import RDF
 from relentless.math import Interpolator
 from relentless import mpi
 from relentless.extent import TriclinicBox
+from relentless.extent import ObliqueArea
 from . import simulate
 
 try:
@@ -177,25 +178,30 @@ class Initialize(simulate.SimulationOperation):
         ValueError
             If the volume is not set.
         TypeError
-            If the volume does not derive from :class:`~relentless.volume.TriclinicBox`.
+            If the volume does not derive from :class:`~relentless.volume.TriclinicBox` or :class:`~relentless.volume.ObliqueArea`.
 
         """
         # cast simulation box in HOOMD parameters
         V = sim.ensemble.V
         if V is None:
             raise ValueError('Box volume must be set.')
-        elif not isinstance(V, TriclinicBox):
-            raise TypeError('HOOMD boxes must be derived from TriclinicBox')
-
-        Lx = V.a[0]
-        Ly = V.b[1]
-        Lz = V.c[2]
-        xy = V.b[0]/Ly
-        xz = V.c[0]/Lz
-        yz = V.c[1]/Lz
-
-        return numpy.array([Lx,Ly,Lz,xy,xz,yz])
-
+        elif not isinstance(V, (TriclinicBox, ObliqueArea)):
+            raise TypeError('HOOMD boxes must be derived from TriclinicBox or ObliqueArea')
+        if isinstance(V, TriclinicBox)==True:
+            Lx = V.a[0]
+            Ly = V.b[1]
+            Lz = V.c[2]
+            xy = V.b[0]/Ly
+            xz = V.c[0]/Lz
+            yz = V.c[1]/Lz
+            return numpy.array([Lx,Ly,Lz,xy,xz,yz])
+        elif isinstance(V, ObliqueArea)==True:
+            Lx = V.a[0]
+            Ly = V.b[1]
+            Lz = 1
+            xy = V.b[0]/Ly
+            xz = 0
+            yz = 0
     def make_snapshot(self, sim):
         """Creates a particle snapshot and box for the simulation context.
 

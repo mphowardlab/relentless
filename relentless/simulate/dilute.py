@@ -126,10 +126,10 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
         # compute pressure
         ens.P = 0.
         for a in ens.types:
-            rho_a = ens.N[a]/ens.V.volume
+            rho_a = ens.N[a]/ens.V.extent
             ens.P += ens.kT*rho_a
             for b in ens.types:
-                rho_b = ens.N[b]/ens.V.volume
+                rho_b = ens.N[b]/ens.V.extent
                 r = sim.potentials.pair.r
                 u = sim.potentials.pair.energy((a,b))
                 f = sim.potentials.pair.force((a,b))

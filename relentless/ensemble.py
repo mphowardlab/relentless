@@ -57,7 +57,7 @@ class Ensemble:
         - The temperature ``T``.
         - The number ``N`` for each particle type. The particle types are
           strings determined from the keys of ``N``.
-        - The volume ``V`` and/or pressure ``P``.
+        - The Extent ``V`` and/or pressure ``P``.
 
     Parameters
     ----------
@@ -65,8 +65,8 @@ class Ensemble:
         Temperature of the system.
     N : dict
         The number of particles for each specified type.
-    V : :class:`~relentless.extent.Volume`
-        Volume of the system (defaults to ``None``).
+    V : :class:`~relentless.extent.Extent`
+        Extent of the system (defaults to ``None``).
     P : float
         Pressure of the system (defaults to ``None``).
     kB : float
@@ -124,13 +124,13 @@ class Ensemble:
 
     @property
     def V(self):
-        r""":class:`~relentless.extent.Volume`: The volume of the system."""
+        r""":class:`~relentless.extent.Extent`: The Extent of the system."""
         return self._V
 
     @V.setter
     def V(self, value):
-        if value is not None and not isinstance(value, extent.Volume):
-            raise TypeError('V can only be set as a Volume object or as None.')
+        if value is not None and not isinstance(value, extent.Extent):
+            raise TypeError('V can only be set as a Extent object or as None.')
         self._V = value
 
     @property

@@ -62,6 +62,7 @@ from relentless import data
 from relentless import math
 from relentless import mpi
 from relentless import variable
+from relentless.extent import Area, Volume
 
 class ObjectiveFunction(abc.ABC):
     """Abstract base class for the optimization objective function.
@@ -359,13 +360,16 @@ class RelativeEntropy(ObjectiveFunction):
                 r = numpy.arange(r0,r1+0.5*dr,dr)
 
                 # normalization to extensive or intensive as specified
-                norm_factor = self.target.V.volume if not self.extensive else 1.
+                norm_factor = self.target.V.extent if not self.extensive else 1.
 
                 # take integral by trapezoidal rule
-                sim_factor = ensemble.N[i]*ensemble.N[j]*ensemble.beta/(ensemble.V.volume*norm_factor)
-                tgt_factor = self.target.N[i]*self.target.N[j]*self.target.beta/(self.target.V.volume*norm_factor)
+                sim_factor = ensemble.N[i]*ensemble.N[j]*ensemble.beta/(ensemble.V.extent*norm_factor)
+                tgt_factor = self.target.N[i]*self.target.N[j]*self.target.beta/(self.target.V.extent*norm_factor)
                 mult = 1 if i == j else 2 # 1 if same, otherwise need i,j and j,i contributions
-                y = -2*mult*numpy.pi*r**2*(sim_factor*g_sim[i,j](r)-tgt_factor*g_tgt[i,j](r))*dudvar(r)
+                if isinstance(self.target.V, Volume)==True:
+                    y = -2*mult*numpy.pi*r**2*(sim_factor*g_sim[i,j](r)-tgt_factor*g_tgt[i,j](r))*dudvar(r)
+                elif isinstance(self.target.V, Area)==True: 
+                    y = -4*mult*numpy.pi*r**2*(sim_factor*g_sim[i,j](r)-tgt_factor*g_tgt[i,j](r))*dudvar(r)
                 update += scipy.integrate.trapz(y, x=r)
 
             gradient[var] = update
