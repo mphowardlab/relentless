@@ -103,7 +103,7 @@ from relentless.collections import PairMatrix
 from relentless.ensemble import RDF
 from relentless.math import Interpolator
 from relentless import mpi
-from relentless.extent import TriclinicBox
+from relentless.extent import Area, TriclinicBox, Volume
 from relentless.extent import ObliqueArea
 from . import simulate
 
@@ -161,7 +161,7 @@ class Initialize(simulate.SimulationOperation):
     """Initializes a simulation box and pair potentials."""
     def extract_box_params(self, sim):
         """Extracts HOOMD box parameters (``Lx``, ``Ly``, ``Lz``, ``xy``, ``xz``, ``yz``)
-        from the simulation's ensemble volume.
+        from the simulation's ensemble extent.
 
         Parameters
         ----------
@@ -176,18 +176,18 @@ class Initialize(simulate.SimulationOperation):
         Raises
         ------
         ValueError
-            If the volume is not set.
+            If the extent is not set.
         TypeError
-            If the volume does not derive from :class:`~relentless.volume.TriclinicBox` or :class:`~relentless.volume.ObliqueArea`.
+            If the extent does not derive from :class:`~relentless.extent.TriclinicBox` or :class:`~relentless.extent.ObliqueArea`.
 
         """
         # cast simulation box in HOOMD parameters
         V = sim.ensemble.V
         if V is None:
-            raise ValueError('Box volume must be set.')
+            raise ValueError('Box extent must be set.')
         elif not isinstance(V, (TriclinicBox, ObliqueArea)):
             raise TypeError('HOOMD boxes must be derived from TriclinicBox or ObliqueArea')
-        if isinstance(V, TriclinicBox)==True:
+        if isinstance(V, TriclinicBox):
             Lx = V.a[0]
             Ly = V.b[1]
             Lz = V.c[2]
@@ -195,13 +195,14 @@ class Initialize(simulate.SimulationOperation):
             xz = V.c[0]/Lz
             yz = V.c[1]/Lz
             return numpy.array([Lx,Ly,Lz,xy,xz,yz])
-        elif isinstance(V, ObliqueArea)==True:
+        elif isinstance(V, ObliqueArea):
             Lx = V.a[0]
             Ly = V.b[1]
             Lz = 1
             xy = V.b[0]/Ly
             xz = 0
             yz = 0
+            return numpy.array([Lx,Ly,Lz,xy,xz,yz])
     def make_snapshot(self, sim):
         """Creates a particle snapshot and box for the simulation context.
 
@@ -232,10 +233,13 @@ class Initialize(simulate.SimulationOperation):
 
         # cast simulation box in HOOMD parameters
         Lx,Ly,Lz,xy,xz,yz = self.extract_box_params(sim)
-
+        if isinstance(sim.ensemble.V, Area):
+            self.dim = 2
+        if isinstance(sim.ensemble.V, Volume):
+            self.dim = 3
         # make the empty snapshot in the current context
         with sim.context:
-            box = hoomd.data.boxdim(Lx=Lx,Ly=Ly,Lz=Lz,xy=xy,xz=xz,yz=yz)
+            box = hoomd.data.boxdim(Lx=Lx,Ly=Ly,Lz=Lz,xy=xy,xz=xz,yz=yz,dimensions=self.dim)
             snap = hoomd.data.make_snapshot(N=N,
                                             box=box,
                                             particle_types=list(sim.ensemble.types))
@@ -310,13 +314,13 @@ class InitializeFromFile(Initialize):
         ------
         ValueError
             If the simulation box dimensions specified by the file is inconsistent
-            with the ensemble volume (for a constant volume simulation).
+            with the ensemble extent (for a constant extent simulation).
 
         """
         with sim.context:
             sim.system = hoomd.init.read_gsd(self.filename,**self.options)
 
-            # check that the boxes are consistent in constant volume sims.
+            # check that the boxes are consistent in constant extent sims.
             if sim.ensemble.V is not None:
                 system_box = sim.system.box
                 box_from_file = numpy.array([system_box.Lx,
@@ -327,7 +331,7 @@ class InitializeFromFile(Initialize):
                                           system_box.yz])
                 box_from_ensemble = self.extract_box_params(sim)
                 if not numpy.all(numpy.isclose(box_from_file,box_from_ensemble)):
-                    raise ValueError('Box from file is is inconsistent with ensemble volume.')
+                    raise ValueError('Box from file is is inconsistent with ensemble extent.')
 
         self.attach_potentials(sim)
 
@@ -367,10 +371,12 @@ class InitializeRandomly(Initialize):
             # randomly place the particles
             with sim.context:
                 snap,box = self.make_snapshot(sim)
-
                 # randomly place particles in fractional coordinates
                 if mpi.world.rank == 0:
-                    rs = numpy.random.uniform(size=(snap.particles.N,3))
+                    if self.dim == 2:
+                        rs = numpy.hstack((numpy.random.uniform(size=(snap.particles.N,3)), numpy.zeros([snap.particles.N,1])))
+                    if self.dim == 3:
+                        rs = numpy.random.uniform(size=(snap.particles.N,3))
                     snap.particles.position[:] = box.make_absolute(rs)
 
                     # set types of each
@@ -379,7 +385,10 @@ class InitializeRandomly(Initialize):
 
                     # assume unit mass and thermalize to Maxwell-Boltzmann distribution
                     snap.particles.mass[:] = 1.0
-                    vel = numpy.random.normal(scale=numpy.sqrt(sim.ensemble.kT),size=(snap.particles.N,3))
+                    if self.dim == 2:
+                        vel = numpy.hstack((numpy.random.normal(scale=numpy.sqrt(sim.ensemble.kT),size=(snap.particles.N,3)), numpy.zeros([snap.particles.N,1])))
+                    if self.dim == 3:
+                        vel = numpy.random.normal(scale=numpy.sqrt(sim.ensemble.kT),size=(snap.particles.N,3))
                     snap.particles.velocity[:] = vel-numpy.mean(vel,axis=0)
 
                 # read snapshot
@@ -840,7 +849,7 @@ class ThermodynamicsCallback:
 
     @property
     def V(self):
-        """float: Average volume across samples."""
+        """float: Average extent across samples."""
         if self.num_samples > 0:
             _V = {key: self._V[key]/self.num_samples for key in self._V}
             return TriclinicBox(**_V,convention=TriclinicBox.Convention.HOOMD)

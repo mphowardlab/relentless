@@ -222,10 +222,10 @@ class Ensemble:
             data = json.load(f)
 
         # create initial ensemble
-        VolumeType = getattr(extent,data['V']['__name__'])
+        ExtentType = getattr(extent,data['V']['__name__'])
         thermo = {'T': data['T'],
                   'N': data['N'],
-                  'V': VolumeType.from_json(data['V']['data']),
+                  'V': ExtentType.from_json(data['V']['data']),
                   'P': data['P'],
                   'kB': data['kB']
                  }

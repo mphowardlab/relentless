@@ -229,7 +229,7 @@ class RelativeEntropy(ObjectiveFunction):
         \nabla_\mathbf{x} S_{\rm rel} = -\frac{1}{2}\sum_{i,j}\int{dr\left(4\pi r^2\right)\left[\frac{\beta N_i N_j}{V} g_{ij}(r)-\frac{\beta_0 N_{i,0} N_{j,0}}{V_0} g_{ij,0}(r)\right]\nabla_\mathbf{x} u_{ij}(r)}
 
     where :math:`\beta=1/(k_{\rm B}T)`, :math:`N_i` is the number of particles
-    of type :math:`i`, :math:`V` is the volume, and :math:`u_{ij}(r)` is the pair potential
+    of type :math:`i`, :math:`V` is the extent, and :math:`u_{ij}(r)` is the pair potential
     in the *model* ensemble. The corresponding properties of the *target*
     ensemble are denoted with subscript :math:`0`.
 
@@ -366,10 +366,11 @@ class RelativeEntropy(ObjectiveFunction):
                 sim_factor = ensemble.N[i]*ensemble.N[j]*ensemble.beta/(ensemble.V.extent*norm_factor)
                 tgt_factor = self.target.N[i]*self.target.N[j]*self.target.beta/(self.target.V.extent*norm_factor)
                 mult = 1 if i == j else 2 # 1 if same, otherwise need i,j and j,i contributions
-                if isinstance(self.target.V, Volume)==True:
-                    y = -2*mult*numpy.pi*r**2*(sim_factor*g_sim[i,j](r)-tgt_factor*g_tgt[i,j](r))*dudvar(r)
-                elif isinstance(self.target.V, Area)==True: 
-                    y = -4*mult*numpy.pi*r**2*(sim_factor*g_sim[i,j](r)-tgt_factor*g_tgt[i,j](r))*dudvar(r)
+                if isinstance(self.target.V, Volume):
+                    geo_prefactor = 4*numpy.pi*r**2
+                elif isinstance(self.target.V, Area): 
+                    geo_prefactor = 2*numpy.pi*r
+                y = -0.5*mult*geo_prefactor*(sim_factor*g_sim[i,j](r)-tgt_factor*g_tgt[i,j](r))*dudvar(r)
                 update += scipy.integrate.trapz(y, x=r)
 
             gradient[var] = update
