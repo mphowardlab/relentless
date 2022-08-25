@@ -22,7 +22,7 @@ It can be accessed using the corresponding :class:`~relentless.simulate.generic.
 import numpy
 
 from relentless.ensemble import RDF
-from relentless.extent import Area, Volume
+from relentless import extent
 from relentless.math import Interpolator
 from . import simulate
 
@@ -146,11 +146,13 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
                 f = f[first_finite:]
                 gr = gr[first_finite:]
 
-                if isinstance(ens.V, Volume):
-                    ens.P += (2.*numpy.pi/3.)*rho_a*rho_b*numpy.trapz(y=f*gr*r**3,x=r)
-                if isinstance(ens.V, Area):
-                    ens.P += (numpy.pi/3.)*rho_a*rho_b*numpy.trapz(y=f*gr*r**2,x=r)
-
+                if isinstance(ens.V, extent.Volume):
+                    geo_prefactor = 4*numpy.pi*r**2
+                elif isinstance(ens.V, extent.Area): 
+                    geo_prefactor = 2*numpy.pi*r
+                y = (geo_prefactor/6.)*rho_a*rho_b*f*gr*r
+                ens.P += numpy.trapz(y,x=r)
+    
         sim[self].ensemble = ens
 
     def extract_ensemble(self, sim):

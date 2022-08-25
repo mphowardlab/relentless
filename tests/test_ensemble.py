@@ -57,7 +57,7 @@ class test_Ensemble(unittest.TestCase):
         self.assertAlmostEqual(ens.T, 20)
         self.assertEqual(ens.P, None)
         self.assertIs(ens.V,v_obj)
-        self.assertAlmostEqual(ens.V.volume, 27.0)
+        self.assertAlmostEqual(ens.V.extent, 27.0)
         self.assertEqual(dict(ens.N), {'A':1,'B':2})
         self.assertAlmostEqual(ens.beta, 0.025)
 
@@ -69,7 +69,7 @@ class test_Ensemble(unittest.TestCase):
         self.assertAlmostEqual(ens.T, 100)
         self.assertEqual(ens.P, None)
         self.assertIs(ens.V,v_obj)
-        self.assertAlmostEqual(ens.V.volume, 27.0)
+        self.assertAlmostEqual(ens.V.extent, 27.0)
         self.assertEqual(dict(ens.N), {'A':None,'B':2})
         self.assertAlmostEqual(ens.beta, 0.01)
 
@@ -81,7 +81,7 @@ class test_Ensemble(unittest.TestCase):
         self.assertAlmostEqual(ens.T, 100)
         self.assertEqual(ens.P, None)
         self.assertIs(ens.V,v_obj)
-        self.assertAlmostEqual(ens.V.volume, 27.0)
+        self.assertAlmostEqual(ens.V.extent, 27.0)
         self.assertEqual(dict(ens.N), {'A':10})
         self.assertAlmostEqual(ens.beta, 0.01)
 
@@ -117,13 +117,13 @@ class test_Ensemble(unittest.TestCase):
         ens = relentless.ensemble.Ensemble(T=10, V=v_obj, N={'A':1,'B':2})
         self.assertEqual(ens.P, None)
         self.assertIs(ens.V,v_obj)
-        self.assertAlmostEqual(ens.V.volume, 27.0)
+        self.assertAlmostEqual(ens.V.extent, 27.0)
         self.assertEqual(dict(ens.N), {'A':1,'B':2})
 
         # set values
         ens.V = v_obj1
         self.assertIs(ens.V,v_obj1)
-        self.assertAlmostEqual(ens.V.volume, 64.0)
+        self.assertAlmostEqual(ens.V.extent, 64.0)
         ens.N['A'] = 2
         ens.N['B'] = 3
         self.assertEqual(dict(ens.N), {'A':2,'B':3})
@@ -149,7 +149,7 @@ class test_Ensemble(unittest.TestCase):
         self.assertAlmostEqual(ens.T, ens_.T)
         self.assertAlmostEqual(ens.P, ens_.P)
         self.assertIsInstance(ens_.V, relentless.extent.Cube)
-        self.assertAlmostEqual(ens.V.volume, ens_.V.volume)
+        self.assertAlmostEqual(ens.V.extent, ens_.V.extent)
         self.assertEqual(dict(ens_.N), dict(ens.N))
 
         # test copying rdf
@@ -179,7 +179,7 @@ class test_Ensemble(unittest.TestCase):
         self.assertAlmostEqual(ens.T, ens_.T)
         self.assertAlmostEqual(ens.P, ens_.P)
         self.assertIsInstance(ens_.V, relentless.extent.Cube)
-        self.assertAlmostEqual(ens.V.volume, ens_.V.volume)
+        self.assertAlmostEqual(ens.V.extent, ens_.V.extent)
         self.assertEqual(dict(ens_.N), dict(ens.N))
 
         # test saving/constructing rdf

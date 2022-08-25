@@ -194,7 +194,7 @@ class Initialize(simulate.SimulationOperation):
             xy = V.b[0]/Ly
             xz = V.c[0]/Lz
             yz = V.c[1]/Lz
-            return numpy.array([Lx,Ly,Lz,xy,xz,yz])
+            dim = 3
         elif isinstance(V, ObliqueArea):
             Lx = V.a[0]
             Ly = V.b[1]
@@ -202,7 +202,9 @@ class Initialize(simulate.SimulationOperation):
             xy = V.b[0]/Ly
             xz = 0
             yz = 0
-            return numpy.array([Lx,Ly,Lz,xy,xz,yz])
+            dim = 2
+        return Lx,Ly,Lz,xy,xz,yz,dim
+
     def make_snapshot(self, sim):
         """Creates a particle snapshot and box for the simulation context.
 
@@ -232,14 +234,10 @@ class Initialize(simulate.SimulationOperation):
             N += sim.ensemble.N[t]
 
         # cast simulation box in HOOMD parameters
-        Lx,Ly,Lz,xy,xz,yz = self.extract_box_params(sim)
-        if isinstance(sim.ensemble.V, Area):
-            self.dim = 2
-        if isinstance(sim.ensemble.V, Volume):
-            self.dim = 3
+        Lx,Ly,Lz,xy,xz,yz,dim = self.extract_box_params(sim)
         # make the empty snapshot in the current context
         with sim.context:
-            box = hoomd.data.boxdim(Lx=Lx,Ly=Ly,Lz=Lz,xy=xy,xz=xz,yz=yz,dimensions=self.dim)
+            box = hoomd.data.boxdim(Lx=Lx,Ly=Ly,Lz=Lz,xy=xy,xz=xz,yz=yz,dimensions=dim)
             snap = hoomd.data.make_snapshot(N=N,
                                             box=box,
                                             particle_types=list(sim.ensemble.types))
@@ -328,10 +326,20 @@ class InitializeFromFile(Initialize):
                                           system_box.Lz,
                                           system_box.xy,
                                           system_box.xy,
-                                          system_box.yz])
+                                          system_box.yz,
+                                          system_box.dimensions])
                 box_from_ensemble = self.extract_box_params(sim)
                 if not numpy.all(numpy.isclose(box_from_file,box_from_ensemble)):
                     raise ValueError('Box from file is is inconsistent with ensemble extent.')
+                
+                dim_from_file = system_box.dimensions
+                if isinstance(sim.ensemble.V, Area):
+                    dim_from_ensemble = 2
+                elif isinstance(sim.ensemble.V, Volume):
+                    dim_from_ensemble = 3
+                if not numpy.isclose(dim_from_file,dim_from_ensemble):
+                    raise ValueError('Dimensions from file is is inconsistent with ensemble dimensions.')
+
 
         self.attach_potentials(sim)
 
@@ -373,9 +381,10 @@ class InitializeRandomly(Initialize):
                 snap,box = self.make_snapshot(sim)
                 # randomly place particles in fractional coordinates
                 if mpi.world.rank == 0:
-                    if self.dim == 2:
-                        rs = numpy.hstack((numpy.random.uniform(size=(snap.particles.N,3)), numpy.zeros([snap.particles.N,1])))
-                    if self.dim == 3:
+                    if box.dimensions == 2:
+                        rs = numpy.zeros((snap.particles.N,3))
+                        rs[:,:2] = numpy.random.uniform(size=(snap.particles.N,2))
+                    elif box.dimensions == 3:
                         rs = numpy.random.uniform(size=(snap.particles.N,3))
                     snap.particles.position[:] = box.make_absolute(rs)
 
@@ -383,11 +392,12 @@ class InitializeRandomly(Initialize):
                     snap.particles.typeid[:] = numpy.repeat(numpy.arange(len(sim.ensemble.types)),
                                                             [sim.ensemble.N[t] for t in sim.ensemble.types])
 
-                    # assume unit mass and thermalize to Maxwell-Boltzmann distribution
+                    # assume unit mass and thermalize to Maxwe®®ll-Boltzmann distribution
                     snap.particles.mass[:] = 1.0
-                    if self.dim == 2:
-                        vel = numpy.hstack((numpy.random.normal(scale=numpy.sqrt(sim.ensemble.kT),size=(snap.particles.N,3)), numpy.zeros([snap.particles.N,1])))
-                    if self.dim == 3:
+                    if box.dimensions == 2:
+                        vel = numpy.zeros((snap.particles.N,3))
+                        vel[:,:2] = numpy.random.normal(scale=numpy.sqrt(sim.ensemble.kT),size=(snap.particles.N,2))
+                    elif box.dimensions == 3:
                         vel = numpy.random.normal(scale=numpy.sqrt(sim.ensemble.kT),size=(snap.particles.N,3))
                     snap.particles.velocity[:] = vel-numpy.mean(vel,axis=0)
 

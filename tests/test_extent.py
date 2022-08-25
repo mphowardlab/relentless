@@ -15,7 +15,7 @@ class test_Parallelepiped(unittest.TestCase):
         numpy.testing.assert_allclose(p.a, numpy.array([1,2,1]))
         numpy.testing.assert_allclose(p.b, numpy.array([3,4,5]))
         numpy.testing.assert_allclose(p.c, numpy.array([9,9,0]))
-        self.assertAlmostEqual(p.volume, 36)
+        self.assertAlmostEqual(p.extent, 36)
 
         # test invalid construction
         with self.assertRaises(TypeError):
@@ -32,7 +32,7 @@ class test_Parallelepiped(unittest.TestCase):
         numpy.testing.assert_allclose(p.a, p_.a)
         numpy.testing.assert_allclose(p.b, p_.b)
         numpy.testing.assert_allclose(p.c, p_.c)
-        self.assertAlmostEqual(p.volume, p_.volume)
+        self.assertAlmostEqual(p.extent, p_.extent)
 
 class test_TriclinicBox(unittest.TestCase):
     """Unit tests for relentless.extent.TriclinicBox"""
@@ -45,7 +45,7 @@ class test_TriclinicBox(unittest.TestCase):
         numpy.testing.assert_allclose(t.a, numpy.array([1,0,0]))
         numpy.testing.assert_allclose(t.b, numpy.array([1,2,0]))
         numpy.testing.assert_allclose(t.c, numpy.array([0.75,2.25,3]))
-        self.assertAlmostEqual(t.volume, 6)
+        self.assertAlmostEqual(t.extent, 6)
 
         # test valid construction, HOOMD convention
         t = relentless.extent.TriclinicBox(Lx=1,Ly=2,Lz=3,xy=0.5,xz=0.25,yz=0.75,
@@ -53,7 +53,7 @@ class test_TriclinicBox(unittest.TestCase):
         numpy.testing.assert_allclose(t.a, numpy.array([1,0,0]))
         numpy.testing.assert_allclose(t.b, numpy.array([1,2,0]))
         numpy.testing.assert_allclose(t.c, numpy.array([0.75,2.25,3]))
-        self.assertAlmostEqual(t.volume, 6)
+        self.assertAlmostEqual(t.extent, 6)
 
         # test invalid constructions
         with self.assertRaises(ValueError):
@@ -73,7 +73,7 @@ class test_TriclinicBox(unittest.TestCase):
         numpy.testing.assert_allclose(c.a, c_.a)
         numpy.testing.assert_allclose(c.b, c_.b)
         numpy.testing.assert_allclose(c.c, c_.c)
-        self.assertAlmostEqual(c.volume, c_.volume)
+        self.assertAlmostEqual(c.extent, c_.extent)
 
         # test HOOMD convention
         c = relentless.extent.TriclinicBox(Lx=3,Ly=4,Lz=5,xy=2,xz=3,yz=4,
@@ -84,7 +84,7 @@ class test_TriclinicBox(unittest.TestCase):
         numpy.testing.assert_allclose(c.a, c_.a)
         numpy.testing.assert_allclose(c.b, c_.b)
         numpy.testing.assert_allclose(c.c, c_.c)
-        self.assertAlmostEqual(c.volume, c_.volume)
+        self.assertAlmostEqual(c.extent, c_.extent)
 
 class test_Cuboid(unittest.TestCase):
     """Unit tests for relentless.extent.Cuboid"""
@@ -96,7 +96,7 @@ class test_Cuboid(unittest.TestCase):
         numpy.testing.assert_allclose(c.a, numpy.array([3,0,0]))
         numpy.testing.assert_allclose(c.b, numpy.array([0,4,0]))
         numpy.testing.assert_allclose(c.c, numpy.array([0,0,5]))
-        self.assertAlmostEqual(c.volume, 60)
+        self.assertAlmostEqual(c.extent, 60)
 
         # test invalid construction
         with self.assertRaises(ValueError):
@@ -111,7 +111,7 @@ class test_Cuboid(unittest.TestCase):
         numpy.testing.assert_allclose(c.a, c_.a)
         numpy.testing.assert_allclose(c.b, c_.b)
         numpy.testing.assert_allclose(c.c, c_.c)
-        self.assertAlmostEqual(c.volume, c_.volume)
+        self.assertAlmostEqual(c.extent, c_.extent)
 
 class test_Cube(unittest.TestCase):
     """Unit tests for relentless.extent.Cube"""
@@ -123,7 +123,7 @@ class test_Cube(unittest.TestCase):
         numpy.testing.assert_allclose(c.a, numpy.array([3,0,0]))
         numpy.testing.assert_allclose(c.b, numpy.array([0,3,0]))
         numpy.testing.assert_allclose(c.c, numpy.array([0,0,3]))
-        self.assertAlmostEqual(c.volume, 27)
+        self.assertAlmostEqual(c.extent, 27)
 
         # test invalid construction
         with self.assertRaises(ValueError):
@@ -138,7 +138,7 @@ class test_Cube(unittest.TestCase):
         numpy.testing.assert_allclose(c.a, c_.a)
         numpy.testing.assert_allclose(c.b, c_.b)
         numpy.testing.assert_allclose(c.c, c_.c)
-        self.assertAlmostEqual(c.volume, c_.volume)
+        self.assertAlmostEqual(c.extent, c_.extent)
 
 class test_Parallelogram(unittest.TestCase):
     """Unit tests for relentless.extent.Parallelogram"""
@@ -149,7 +149,7 @@ class test_Parallelogram(unittest.TestCase):
         p = relentless.extent.Parallelogram(a=(2,5),b=(1,4))
         numpy.testing.assert_allclose(p.a, numpy.array([2,5]))
         numpy.testing.assert_allclose(p.b, numpy.array([1,4]))
-        self.assertAlmostEqual(p.area, 3)
+        self.assertAlmostEqual(p.extent, 3)
 
         # test invalid construction
         with self.assertRaises(TypeError):
@@ -165,7 +165,7 @@ class test_Parallelogram(unittest.TestCase):
         self.assertIsInstance(p_, relentless.extent.Parallelogram)
         numpy.testing.assert_allclose(p.a, p_.a)
         numpy.testing.assert_allclose(p.b, p_.b)
-        self.assertAlmostEqual(p.area, p_.area)
+        self.assertAlmostEqual(p.extent, p_.extent)
 
 class test_ObliqueArea(unittest.TestCase):
     """Unit tests for relentless.extent.ObliqueArea"""
@@ -176,14 +176,14 @@ class test_ObliqueArea(unittest.TestCase):
         t = relentless.extent.ObliqueArea(Lx=1,Ly=2,xy=1, convention=relentless.extent.ObliqueArea.Convention.LAMMPS)
         numpy.testing.assert_allclose(t.a, numpy.array([1,0]))
         numpy.testing.assert_allclose(t.b, numpy.array([1,2]))
-        self.assertAlmostEqual(t.area, 2)
+        self.assertAlmostEqual(t.extent, 2)
 
         # test valid construction, HOOMD convention
         t = relentless.extent.ObliqueArea(Lx=1,Ly=2,xy=0.5,
                                            convention=relentless.extent.ObliqueArea.Convention.HOOMD)
         numpy.testing.assert_allclose(t.a, numpy.array([1,0]))
         numpy.testing.assert_allclose(t.b, numpy.array([1,2]))
-        self.assertAlmostEqual(t.area, 2)    
+        self.assertAlmostEqual(t.extent, 2)    
 
         # test invalid constructions
         with self.assertRaises(ValueError):
@@ -202,7 +202,7 @@ class test_ObliqueArea(unittest.TestCase):
         self.assertIsInstance(c_, relentless.extent.ObliqueArea)
         numpy.testing.assert_allclose(c.a, c_.a)
         numpy.testing.assert_allclose(c.b, c_.b)
-        self.assertAlmostEqual(c.area, c_.area)
+        self.assertAlmostEqual(c.extent, c_.extent)
 
         # test HOOMD convention
         c = relentless.extent.ObliqueArea(Lx=3,Ly=4,xy=2,
@@ -212,7 +212,7 @@ class test_ObliqueArea(unittest.TestCase):
         self.assertIsInstance(c_, relentless.extent.ObliqueArea)
         numpy.testing.assert_allclose(c.a, c_.a)
         numpy.testing.assert_allclose(c.b, c_.b)
-        self.assertAlmostEqual(c.area, c_.area) 
+        self.assertAlmostEqual(c.extent, c_.extent) 
 
 class test_Rectangle(unittest.TestCase):
     """Unit tests for relentless.extent.Rectangle"""
@@ -223,7 +223,7 @@ class test_Rectangle(unittest.TestCase):
         c = relentless.extent.Rectangle(Lx=3,Ly=4)
         numpy.testing.assert_allclose(c.a, numpy.array([3,0]))
         numpy.testing.assert_allclose(c.b, numpy.array([0,4]))
-        self.assertAlmostEqual(c.area, 12)
+        self.assertAlmostEqual(c.extent, 12)
 
         # test invalid construction
         with self.assertRaises(ValueError):
@@ -237,7 +237,7 @@ class test_Rectangle(unittest.TestCase):
         self.assertIsInstance(c_, relentless.extent.Rectangle)
         numpy.testing.assert_allclose(c.a, c_.a)
         numpy.testing.assert_allclose(c.b, c_.b)
-        self.assertAlmostEqual(c.area, c_.area)
+        self.assertAlmostEqual(c.extent, c_.extent)
 
 class test_Square(unittest.TestCase):
     """Unit tests for relentless.extent.Square"""
@@ -248,7 +248,7 @@ class test_Square(unittest.TestCase):
         c = relentless.extent.Square(L=3)
         numpy.testing.assert_allclose(c.a, numpy.array([3,0]))
         numpy.testing.assert_allclose(c.b, numpy.array([0,3]))
-        self.assertAlmostEqual(c.area, 9)
+        self.assertAlmostEqual(c.extent, 9)
 
         # test invalid construction
         with self.assertRaises(ValueError):
@@ -262,7 +262,7 @@ class test_Square(unittest.TestCase):
         self.assertIsInstance(c_, relentless.extent.Square)
         numpy.testing.assert_allclose(c.a, c_.a)
         numpy.testing.assert_allclose(c.b, c_.b)
-        self.assertAlmostEqual(c.area, c_.area)
+        self.assertAlmostEqual(c.extent, c_.extent)
 
 if __name__ == '__main__':
     unittest.main()

@@ -2,7 +2,9 @@
 Extents
 =======
 An :class:`Extent` represents a region of space with a fixed, scalar volume or area. It corresponds
-to the "box" used in simulations. The following box types have been implemented:
+to the "box" used in simulations. 
+
+The following three-dimensional box types have been implemented:
 
 .. autosummary::
     :nosignatures:
@@ -11,6 +13,12 @@ to the "box" used in simulations. The following box types have been implemented:
     TriclinicBox
     Cuboid
     Cube
+
+The following two-dimensional box types have been implemented:
+
+.. autosummary::
+    :nosignatures:
+
     Parallelogram
     ObliqueArea
     Rectangle
@@ -30,7 +38,7 @@ Construct a simulation box with defined basis vectors and volume::
     [0.0 3.0 0.0]
     >>> print(v.c)
     [0.0 0.0 3.0]
-    >>> print(v.volume)
+    >>> print(v.extent)
     27.0
 
 .. rubric:: Developer notes
@@ -78,17 +86,17 @@ class Extent(abc.ABC):
     r"""Abstract base class defining a region of space.
 
     An Extent can be any region of space; typically, it is a simulation "box."
-    Any deriving class must implement the volume method that computes the scalar
-    volume of the region. Additionally, methods to serialize and deserialize a
-    Volume must be specified so that the object can be saved to disk.
+    Any deriving class must implement the extent method that computes the scalar
+    size of the region. Additionally, methods to serialize and deserialize an
+    Extent must be specified so that the object can be saved to disk.
 
     """
     @property
+    @abc.abstractmethod
     def extent(self):
         r"""float: Extent of the region."""
         pass
     
-    @classmethod
     @abc.abstractmethod
     def to_json(self):
         r"""Serialize as a dictionary.
@@ -128,7 +136,7 @@ class Volume(Extent):
     @property
     def volume(self):
         r"""float: Volume of the region."""
-        return self.extent
+        pass
 
 class Area(Extent):
     r"""Two-dimensional region of space.
@@ -142,7 +150,7 @@ class Area(Extent):
     @property
     def area(self):
         r"""float: Area of the region."""
-        return self.extent
+        pass
 
 class Parallelepiped(Volume):
     r"""Parallelepiped box defined by three vectors.
@@ -177,7 +185,7 @@ class Parallelepiped(Volume):
         self.c = numpy.asarray(c,dtype=numpy.float64)
         if not (self.a.shape==(3,) and self.b.shape==(3,) and self.c.shape==(3,)):
             raise TypeError('a, b, and c must be 3-element vectors.')
-        if self.volume <= 0:
+        if self.extent <= 0:
             raise ValueError('The volume must be positive.')
 
     @property
@@ -507,7 +515,7 @@ class Parallelogram(Area):
         self.b = numpy.asarray(b,dtype=numpy.float64)
         if not (self.a.shape==(2,) and self.b.shape==(2,)):
             raise TypeError('a and b must be 2-element vectors.')
-        if self.area <= 0:
+        if self.extent <= 0:
             raise ValueError('The area must be positive.')
 
     @property

@@ -20,8 +20,7 @@ _has_modules = (relentless.simulate.hoomd._hoomd_found and
                 relentless.simulate.hoomd._freud_found and
                 _found_gsd)
 
-for i in (2,3):
-    dim = i
+for dim in (2,3):
     @unittest.skipIf(not _has_modules, "HOOMD, freud, and/or GSD not installed")
     class test_HOOMD(unittest.TestCase):
         """Unit tests for relentless.HOOMD"""
@@ -57,7 +56,6 @@ for i in (2,3):
                 if dim==2:
                     s.particles.position = numpy.random.uniform(low=-5.0,high=5.0,size=(5,3))
                     s.particles.position[:, 2] = 0
-                    print(s.particles.position)
                     s.configuration.box = [20,20,0,0,0,0]
                 if dim==3:
                     s.particles.position = numpy.random.uniform(low=-5.0,high=5.0,size=(5,3))
@@ -261,16 +259,24 @@ for i in (2,3):
 
         def test_self_interactions(self):
             """Test if self-interactions are excluded from rdf computation."""
+            if dim == 3:
+                Lz = 8.
+                z = 1.
+                box_type = relentless.extent.Cube
+            else:
+                Lz = 0.
+                z = 0.
+                box_type = relentless.extent.Square     
             with gsd.hoomd.open(name=self.directory.file('mock.gsd'), mode='wb') as f:
                 s = gsd.hoomd.Snapshot()
                 s.particles.N = 4
                 s.particles.types = ['A','B']
                 s.particles.typeid = [0,1,0,1]
-                s.particles.position = [[-1,-1,-1],[1,1,1],[1,-1,1],[-1,1,-1]]
-                s.configuration.box = [8,8,8,0,0,0]
+                s.particles.position = [[-1,-1,-z],[1,1,z],[1,-1,z],[-1,1,-z]]
+                s.configuration.box = [8,8,Lz,0,0,0]
                 f.append(s)
 
-            ens = relentless.ensemble.Ensemble(T=2.0, V=relentless.extent.Cube(L=8.0), N={'A':2,'B':2})
+            ens = relentless.ensemble.Ensemble(T=2.0, V=box_type(L=8.0), N={'A':2,'B':2})
             _,pot = self.ens_pot()
             init = relentless.simulate.hoomd.InitializeFromFile(filename=f.file.name)
             ig = relentless.simulate.hoomd.AddVerletIntegrator(dt=0.0)

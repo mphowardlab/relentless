@@ -57,7 +57,7 @@ class Ensemble:
         - The temperature ``T``.
         - The number ``N`` for each particle type. The particle types are
           strings determined from the keys of ``N``.
-        - The Extent ``V`` and/or pressure ``P``.
+        - The extent ``V`` and/or pressure ``P``.
 
     Parameters
     ----------

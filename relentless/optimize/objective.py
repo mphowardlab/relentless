@@ -59,10 +59,10 @@ import numpy
 import scipy.integrate
 
 from relentless import data
+from relentless import extent
 from relentless import math
 from relentless import mpi
 from relentless import variable
-from relentless.extent import Area, Volume
 
 class ObjectiveFunction(abc.ABC):
     """Abstract base class for the optimization objective function.
@@ -366,9 +366,9 @@ class RelativeEntropy(ObjectiveFunction):
                 sim_factor = ensemble.N[i]*ensemble.N[j]*ensemble.beta/(ensemble.V.extent*norm_factor)
                 tgt_factor = self.target.N[i]*self.target.N[j]*self.target.beta/(self.target.V.extent*norm_factor)
                 mult = 1 if i == j else 2 # 1 if same, otherwise need i,j and j,i contributions
-                if isinstance(self.target.V, Volume):
+                if isinstance(self.target.V, extent.Volume):
                     geo_prefactor = 4*numpy.pi*r**2
-                elif isinstance(self.target.V, Area): 
+                elif isinstance(self.target.V, extent.Area): 
                     geo_prefactor = 2*numpy.pi*r
                 y = -0.5*mult*geo_prefactor*(sim_factor*g_sim[i,j](r)-tgt_factor*g_tgt[i,j](r))*dudvar(r)
                 update += scipy.integrate.trapz(y, x=r)
