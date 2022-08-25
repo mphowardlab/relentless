@@ -392,7 +392,7 @@ class InitializeRandomly(Initialize):
                     snap.particles.typeid[:] = numpy.repeat(numpy.arange(len(sim.ensemble.types)),
                                                             [sim.ensemble.N[t] for t in sim.ensemble.types])
 
-                    # assume unit mass and thermalize to Maxwe®®ll-Boltzmann distribution
+                    # assume unit mass and thermalize to Maxwell-Boltzmann distribution
                     snap.particles.mass[:] = 1.0
                     if box.dimensions == 2:
                         vel = numpy.zeros((snap.particles.N,3))
