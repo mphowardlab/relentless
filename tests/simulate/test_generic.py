@@ -27,7 +27,7 @@ class test_Generic(unittest.TestCase):
                     relentless.simulate.AddLangevinIntegrator(dt=0.1, friction=0.8, seed=2)]
 
     def test_basic(self):
-        #Dilute
+        # Dilute
         dilute = relentless.simulate.dilute.Dilute(self.ops)
         dilute.run(self.ensemble, self.potentials, self.directory)
 

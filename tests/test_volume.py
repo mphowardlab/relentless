@@ -10,14 +10,14 @@ class test_Parallelepiped(unittest.TestCase):
 
     def test_init(self):
         """Test creation from data."""
-        #test valid construction
+        # test valid construction
         p = relentless.volume.Parallelepiped(a=(1,2,1),b=(3,4,5),c=(9,9,0))
         numpy.testing.assert_allclose(p.a, numpy.array([1,2,1]))
         numpy.testing.assert_allclose(p.b, numpy.array([3,4,5]))
         numpy.testing.assert_allclose(p.c, numpy.array([9,9,0]))
         self.assertAlmostEqual(p.volume, 36)
 
-        #test invalid construction
+        # test invalid construction
         with self.assertRaises(TypeError):
             p = relentless.volume.Parallelepiped(a=(1,2,1),b=(3,4,5),c=(9,9))
         with self.assertRaises(ValueError):
@@ -39,7 +39,7 @@ class test_TriclinicBox(unittest.TestCase):
 
     def test_init(self):
         """Test creation from data."""
-        #test valid construction, LAMMPS convention
+        # test valid construction, LAMMPS convention
         t = relentless.volume.TriclinicBox(Lx=1,Ly=2,Lz=3,xy=1,xz=0.75,yz=2.25,
                                            convention=relentless.volume.TriclinicBox.Convention.LAMMPS)
         numpy.testing.assert_allclose(t.a, numpy.array([1,0,0]))
@@ -47,7 +47,7 @@ class test_TriclinicBox(unittest.TestCase):
         numpy.testing.assert_allclose(t.c, numpy.array([0.75,2.25,3]))
         self.assertAlmostEqual(t.volume, 6)
 
-        #test valid construction, HOOMD convention
+        # test valid construction, HOOMD convention
         t = relentless.volume.TriclinicBox(Lx=1,Ly=2,Lz=3,xy=0.5,xz=0.25,yz=0.75,
                                            convention=relentless.volume.TriclinicBox.Convention.HOOMD)
         numpy.testing.assert_allclose(t.a, numpy.array([1,0,0]))
@@ -55,7 +55,7 @@ class test_TriclinicBox(unittest.TestCase):
         numpy.testing.assert_allclose(t.c, numpy.array([0.75,2.25,3]))
         self.assertAlmostEqual(t.volume, 6)
 
-        #test invalid constructions
+        # test invalid constructions
         with self.assertRaises(ValueError):
             t = relentless.volume.TriclinicBox(Lx=1,Ly=2,Lz=3,xy=1,xz=0.75,yz=2.25,convention='LAMMPS')
         with self.assertRaises(ValueError):
@@ -64,7 +64,7 @@ class test_TriclinicBox(unittest.TestCase):
 
     def test_to_from_json(self):
         """Test to_json and from_json methods."""
-        #test LAMMPS convention
+        # test LAMMPS convention
         c = relentless.volume.TriclinicBox(Lx=3,Ly=4,Lz=5,xy=2,xz=3,yz=4,
                                            convention=relentless.volume.TriclinicBox.Convention.LAMMPS)
         data = c.to_json()
@@ -75,7 +75,7 @@ class test_TriclinicBox(unittest.TestCase):
         numpy.testing.assert_allclose(c.c, c_.c)
         self.assertAlmostEqual(c.volume, c_.volume)
 
-        #test HOOMD convention
+        # test HOOMD convention
         c = relentless.volume.TriclinicBox(Lx=3,Ly=4,Lz=5,xy=2,xz=3,yz=4,
                                            convention=relentless.volume.TriclinicBox.Convention.HOOMD)
         data = c.to_json()
@@ -91,14 +91,14 @@ class test_Cuboid(unittest.TestCase):
 
     def test_init(self):
         """Test creation from data."""
-        #test valid construction
+        # test valid construction
         c = relentless.volume.Cuboid(Lx=3,Ly=4,Lz=5)
         numpy.testing.assert_allclose(c.a, numpy.array([3,0,0]))
         numpy.testing.assert_allclose(c.b, numpy.array([0,4,0]))
         numpy.testing.assert_allclose(c.c, numpy.array([0,0,5]))
         self.assertAlmostEqual(c.volume, 60)
 
-        #test invalid construction
+        # test invalid construction
         with self.assertRaises(ValueError):
             c = relentless.volume.Cuboid(Lx=-3,Ly=4,Lz=5)
 
@@ -118,14 +118,14 @@ class test_Cube(unittest.TestCase):
 
     def test_init(self):
         """Test creation from data."""
-        #test valid construction
+        # test valid construction
         c = relentless.volume.Cube(L=3)
         numpy.testing.assert_allclose(c.a, numpy.array([3,0,0]))
         numpy.testing.assert_allclose(c.b, numpy.array([0,3,0]))
         numpy.testing.assert_allclose(c.c, numpy.array([0,0,3]))
         self.assertAlmostEqual(c.volume, 27)
 
-        #test invalid construction
+        # test invalid construction
         with self.assertRaises(ValueError):
             c = relentless.volume.Cube(L=-1)
 

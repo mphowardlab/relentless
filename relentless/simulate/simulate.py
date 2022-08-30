@@ -187,7 +187,11 @@ class Potentials:
 
     """
     def __init__(self, pair_potentials=None):
-        self._pair = PairPotentialTabulator(rmax=None,num=None,neighbor_buffer=0.0,potentials=pair_potentials)
+        self._pair = PairPotentialTabulator(rmin=0.0,
+                                            rmax=None,
+                                            num=None,
+                                            neighbor_buffer=0.0,
+                                            potentials=pair_potentials)
 
     @property
     def pair(self):
@@ -358,6 +362,8 @@ class PairPotentialTabulator(PotentialTabulator):
 
     Parameters
     ----------
+    rmin : float
+        The minimum value of ``r`` at which to tabulate.
     rmax : float
         The maximum value of ``r`` at which to tabulate.
     num : int
@@ -371,8 +377,8 @@ class PairPotentialTabulator(PotentialTabulator):
         The maximum value of force at which to allow evaluation.
 
     """
-    def __init__(self, rmax, num, neighbor_buffer, potentials=None, fmax=None):
-        super().__init__(0,rmax,num,potentials)
+    def __init__(self, rmin, rmax, num, neighbor_buffer, potentials=None, fmax=None):
+        super().__init__(rmin,rmax,num,potentials)
         self.neighbor_buffer = neighbor_buffer
         self.fmax = fmax
 
@@ -380,6 +386,15 @@ class PairPotentialTabulator(PotentialTabulator):
     def r(self):
         """array_like: The values of ``r`` at which to evaluate :meth:`energy`, :meth:`force`, and :meth:`derivative`."""
         return self.x
+
+    @property
+    def rmin(self):
+        """float: The minimum value of ``r`` at which to allow tabulation."""
+        return self.start
+
+    @rmin.setter
+    def rmin(self, val):
+        self.start = val
 
     @property
     def rmax(self):

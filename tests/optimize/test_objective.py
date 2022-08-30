@@ -48,9 +48,9 @@ class test_ObjectiveFunction(unittest.TestCase):
         self.assertAlmostEqual(res.variables[x], 4.0)
 
         x.value = 3.0
-        self.assertAlmostEqual(res.variables[x], 4.0) #maintains the value at time of construction
+        self.assertAlmostEqual(res.variables[x], 4.0) # maintains the value at time of construction
 
-        #test "invalid" variable
+        # test "invalid" variable
         with self.assertRaises(KeyError):
             m = res.gradient[relentless.variable.SameAs(x)]
 
@@ -134,7 +134,7 @@ class test_RelativeEntropy(unittest.TestCase):
         self.assertEqual(relent.potentials, self.potentials)
         self.assertEqual(relent.thermo, self.thermo)
 
-        #test invalid target ensemble
+        # test invalid target ensemble
         with self.assertRaises(ValueError):
             relent.target = relentless.ensemble.Ensemble(T=1.5, P=1, N={'1':50})
 
@@ -160,7 +160,7 @@ class test_RelativeEntropy(unittest.TestCase):
         numpy.testing.assert_allclose(res_grad[self.epsilon], grad_eps, atol=1e-4)
         numpy.testing.assert_allclose(res_grad[self.sigma], grad_sig, atol=1e-4)
 
-        #test extensive option
+        # test extensive option
         relent = relentless.optimize.RelativeEntropy(self.target,
                                                      self.simulation,
                                                      self.potentials,

@@ -86,6 +86,7 @@ class LAMMPSOperation(simulate.SimulationOperation):
         """
         pass
 
+## initializers
 class Initialize(LAMMPSOperation):
     """Initializes a simulation box and pair potentials.
 
@@ -315,6 +316,7 @@ class InitializeRandomly(Initialize):
 
         return cmds
 
+## integrators
 class MinimizeEnergy(LAMMPSOperation):
     """Runs an energy minimization until converged.
 
@@ -596,6 +598,7 @@ class RunUpTo(LAMMPSOperation):
 
         return cmds
 
+## analyzers
 class AddEnsembleAnalyzer(LAMMPSOperation):
     """Analyzes the simulation ensemble and rdf at specified timestep intervals.
 

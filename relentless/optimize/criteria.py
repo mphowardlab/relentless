@@ -194,7 +194,7 @@ class GradientTest(ConvergenceTest):
 
     .. code::
 
-        test = GradientTest(1.e-3)
+        test = GradientTest(1.e-3, (x,y))
         test.tolerance[x] = 1.e-2
 
     The result is converged with respect to an unconstrained design variable

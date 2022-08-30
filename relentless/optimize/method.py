@@ -392,7 +392,7 @@ class SteepestDescent(Optimizer):
         if directory is not None:
             directory = data.Directory.cast(directory)
 
-        #fix scaling parameters
+        # fix scaling parameters
         scale = math.KeyedArray(keys=design_variables)
         for x in design_variables:
             if numpy.isscalar(self.scale):
@@ -410,13 +410,13 @@ class SteepestDescent(Optimizer):
             grad_y = scale*cur_res.gradient
             update = self.descent_amount(grad_y)*grad_y
 
-            #steepest descent update
+            # steepest descent update
             for x in design_variables:
                 x.value = cur_res.variables[x] - update[x]
             next_dir = cur_dir.directory('.next') if cur_dir is not None else None
             next_res = objective.compute(design_variables, next_dir)
 
-            #if line search, attempt backtracking in interval
+            # if line search, attempt backtracking in interval
             if self.line_search is not None:
                 line_dir = cur_dir.directory('.line') if cur_dir is not None else None
                 line_res = self.line_search.find(objective=objective,

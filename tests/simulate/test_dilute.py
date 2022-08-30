@@ -21,7 +21,7 @@ class test_Dilute(unittest.TestCase):
             check_thermo_every=1, check_rdf_every=1, rdf_dr=0.1)
         ens = relentless.ensemble.Ensemble(T=1.0, V=relentless.volume.Cube(L=2.0), N={'A':2,'B':3})
 
-        #set up potentials
+        # set up potentials
         pot = LinPot(ens.types,params=('m',))
         for pair in pot.coeff:
             pot.coeff[pair]['m'] = 2.0
@@ -41,7 +41,7 @@ class test_Dilute(unittest.TestCase):
             check_thermo_every=1, check_rdf_every=1, rdf_dr=0.1)
         ens = relentless.ensemble.Ensemble(T=1.0, V=relentless.volume.Cube(L=2.0), N={'A':2,'B':3})
 
-        #test with potential that has infinite potential at low r
+        # test with potential that has infinite potential at low r
         pot = relentless.potential.LennardJones(types=('A','B'))
         for pair in pot.coeff:
             pot.coeff[pair].update({'epsilon':1.0, 'sigma':1.0, 'rmax':3.0, 'shift':True})
@@ -56,7 +56,7 @@ class test_Dilute(unittest.TestCase):
             sim = d.run(ensemble=ens, potentials=pots, directory=self.directory)
         except RuntimeWarning:
             warned = True
-        self.assertFalse(warned)   #no warning should be raised
+        self.assertFalse(warned)   # no warning should be raised
         ens_ = analyzer.extract_ensemble(sim)
         self.assertAlmostEqual(ens_.P, -1.1987890)
 

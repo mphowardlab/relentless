@@ -90,7 +90,7 @@ class Variable(abc.ABC):
     variable is an abstract property that must be implemented. On creation, the
     :class:`Variable` will be inserted into the :class:`VariableGraph` for the
     project.
-    
+
     Most users should not inherit from this variable directly but should make
     use of the more flexible :class:`IndependentVariable` or
     :class:`DependentVariable` types.
@@ -581,7 +581,7 @@ class DependentVariable(Variable):
     @property
     def value(self):
         """float: Value of the variable.
-        
+
         The variable will be evaluated using the `VariableGraph` if it needs to
         be recomputed.
 
@@ -619,10 +619,10 @@ class DependentVariable(Variable):
     @abc.abstractmethod
     def compute(self):
         """Implementation of the value.
-        
+
         This method should implement calculation of the variable from the
         parameter keywords. The parameters will be passed as keyword arguments.
-        
+
         """
         pass
 
@@ -974,7 +974,7 @@ class VariableGraph:
 
     def set_dependencies(self, x, depends):
         """Set dependencies of a variable in the graph.
-        
+
         The dependencies of ``x`` should be specified as a dictionary whose
         keys are the names of the parameters and whose values are :class:`Variable`
         objects (or values that can be coerced to variables). Any existing
@@ -986,7 +986,7 @@ class VariableGraph:
         x : :class:`DependentVariable`
             Dependent variable to set dependencies for.
         depends : dict
-            Variable(s) specifying the parameters that ``x`` depends
+            Variable(s) specifying the parameters on which ``x`` depends.
 
         Raises
         ------
@@ -1012,9 +1012,9 @@ class VariableGraph:
 
     def update(self, x):
         """Mark a variable as being updated.
-        
+
         When an :class:`IndependentVariable` is updated, the graph is updated to
-        reflect that on :class:`DependentVariable` objects that depend on it need to
+        reflect that :class:`DependentVariable` objects that depend on it need to
         be recomputed. This is done in a lazy way by marking a private property,
         so the values are only recomputed when they are needed. The update is
         performed using depth-first search of the graph with the dependency
@@ -1030,7 +1030,7 @@ class VariableGraph:
         ----------
         x : :class:`IndependentVariable`
             Independent variable to update.
-        
+
         """
         self._assert_is_variable(x)
         self._assert_in_graph(x)
@@ -1050,8 +1050,8 @@ class VariableGraph:
         of the graph up). The results are stored in private attributes of the
         variables and cached to make subsequent evaluation faster.
 
-        If ``x`` is not a :class:`DependentVariable`, nothing needs to be done and the
-        value is simply returned.
+        If ``x`` is not a :class:`DependentVariable`, nothing needs to be done
+        and the value is simply returned.
 
         Parameters
         ----------
@@ -1158,11 +1158,11 @@ class VariableGraph:
 
     def check_variables_and_types(self, x, types):
         """Coerce variables to a tuple and check types.
-        
+
         Parameters
         ----------
         x : :class:`Variable` or tuple
-            Variable(s) to check
+            Variable(s) to check.
         types : tuple
             Valid types for the variables to have (per `isinstance`).
 
@@ -1201,7 +1201,7 @@ class VariableGraph:
         """Assert object is a node in the graph."""
         self._assert_is_variable(x)
         if x not in self._graph:
-            raise AssertionError('Object has not been added to graph')       
+            raise AssertionError('Object has not been added to graph')
 
     def _ensure_variable(self, x):
         """Coerce an object into a variable.

@@ -98,16 +98,16 @@ class ObjectiveFunctionResult:
     Parameters
     ----------
     variables : :class:`~relentless.variable.Variable` or tuple
-        Variables to stash values
+        Variables to stash values (defaults to ``None``).
     value : float
-        The value of the objective function.
+        The value of the objective function (defaults to ``None``).
     gradient : dict
         The gradient of the objective function. Each partial derivative is
         keyed on the :class:`~relentless.variable.DesignVariable`
-        with respect to which it is taken.
+        with respect to which it is taken (defaults to ``None``).
     directory : :class:`~relentless.data.Directory`
         Directory holding written output associated with result. Setting
-        a value of ``None`` indicates no written output.
+        a value of ``None`` indicates no written output (defaults to ``None``).
 
     Raises
     ------
@@ -177,14 +177,14 @@ class ObjectiveFunctionResult:
 
     def _assert_keys_match(self, vars, grad):
         """Assert that the keys of the variables and gradient match.
-        
+
         Parameters
         ----------
         vars : dict
             Variable dictionary-like object
         grad : dict
             Gradient dictionary-like object.
-        
+
         Raises
         ------
         AssertionError
@@ -336,7 +336,7 @@ class RelativeEntropy(ObjectiveFunction):
                 us = self.potentials.pair.energy((i,j))
                 dus = self.potentials.pair.derivative((i,j),var)
 
-                #only count (continuous range of) finite values
+                # only count (continuous range of) finite values
                 flags = numpy.isinf(us)
                 first_finite = 0
                 while flags[first_finite] and first_finite < len(rs):
@@ -346,7 +346,7 @@ class RelativeEntropy(ObjectiveFunction):
                 if first_finite == len(rs):
                     continue
 
-                #interpolate derivative wrt design variable with r
+                # interpolate derivative wrt design variable with r
                 dudvar = math.Interpolator(rs,dus)
 
                 # find common domain to compare rdfs
