@@ -2,20 +2,9 @@
 Dilute
 ======
 
-The :class:`AddEnsembleAnalyzer` simulation operation for a dilute system is provided.
-It can be accessed using the corresponding :class:`~relentless.simulate.generic.GenericOperation`.
-
-.. autosummary::
-    :nosignatures:
-
-    Dilute
-    AddEnsembleAnalyzer
-    NullOperation
-
-.. autoclass:: Dilute
-
-.. autoclass:: AddEnsembleAnalyzer
-    :members: extract_ensemble
+This module implements the :class:`Dilute` simulation backend and its specific
+operations. It is best to interface with these operations using the frontend in
+:mod:`relentless.simulate`.
 
 .. autoclass:: NullOperation
 
@@ -34,9 +23,9 @@ class NullOperation(simulate.SimulationOperation):
         pass
 
 class AddEnsembleAnalyzer(simulate.SimulationOperation):
-    r"""Analyzes the simulation ensemble and rdf.
+    r"""Analyzer for the simulation ensemble.
 
-    The temperature, volume, and number of particles are copied from the
+    The temperature, volume, and number of particles are copied from the current
     simulation ensemble. The radial distribution function is:
 
     .. math::
