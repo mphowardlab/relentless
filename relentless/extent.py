@@ -24,9 +24,6 @@ The following two-dimensional box types have been implemented:
     Rectangle
     Square
 
-The :class:`TriclinicBox` can be constructed using both the LAMMPS and HOOMD-blue
-:class:`TriclinicBox.Convention`\s for applying tilt factors.
-
 Examples
 --------
 Construct a simulation box with defined basis vectors and volume::

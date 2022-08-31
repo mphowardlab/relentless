@@ -370,6 +370,8 @@ class RelativeEntropy(ObjectiveFunction):
                     geo_prefactor = 4*numpy.pi*r**2
                 elif isinstance(self.target.V, extent.Area): 
                     geo_prefactor = 2*numpy.pi*r
+                else:
+                    raise ValueError('Geometric integration factor unknown for extent type')
                 y = -0.5*mult*geo_prefactor*(sim_factor*g_sim[i,j](r)-tgt_factor*g_tgt[i,j](r))*dudvar(r)
                 update += scipy.integrate.trapz(y, x=r)
 

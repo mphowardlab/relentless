@@ -203,7 +203,7 @@ class Initialize(simulate.SimulationOperation):
             xz = 0
             yz = 0
             dim = 2
-        return Lx,Ly,Lz,xy,xz,yz,dim
+        return (Lx,Ly,Lz,xy,xz,yz),dim
 
     def make_snapshot(self, sim):
         """Creates a particle snapshot and box for the simulation context.
@@ -234,7 +234,7 @@ class Initialize(simulate.SimulationOperation):
             N += sim.ensemble.N[t]
 
         # cast simulation box in HOOMD parameters
-        Lx,Ly,Lz,xy,xz,yz,dim = self.extract_box_params(sim)
+        (Lx,Ly,Lz,xy,xz,yz),dim = self.extract_box_params(sim)
         # make the empty snapshot in the current context
         with sim.context:
             box = hoomd.data.boxdim(Lx=Lx,Ly=Ly,Lz=Lz,xy=xy,xz=xz,yz=yz,dimensions=dim)
@@ -326,21 +326,10 @@ class InitializeFromFile(Initialize):
                                           system_box.Lz,
                                           system_box.xy,
                                           system_box.xy,
-                                          system_box.yz,
-                                          system_box.dimensions])
-                box_from_ensemble = self.extract_box_params(sim)
-                if not numpy.all(numpy.isclose(box_from_file,box_from_ensemble)):
+                                          system_box.yz])
+                box_size, dim = self.extract_box_params(sim)
+                if not numpy.all(numpy.isclose(box_from_file,box_size)) or system_box.dimensions != dim:
                     raise ValueError('Box from file is is inconsistent with ensemble extent.')
-                
-                dim_from_file = system_box.dimensions
-                if isinstance(sim.ensemble.V, Area):
-                    dim_from_ensemble = 2
-                elif isinstance(sim.ensemble.V, Volume):
-                    dim_from_ensemble = 3
-                if not numpy.isclose(dim_from_file,dim_from_ensemble):
-                    raise ValueError('Dimensions from file is is inconsistent with ensemble dimensions.')
-
-
         self.attach_potentials(sim)
 
 class InitializeRandomly(Initialize):

@@ -150,6 +150,8 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
                     geo_prefactor = 4*numpy.pi*r**2
                 elif isinstance(ens.V, extent.Area): 
                     geo_prefactor = 2*numpy.pi*r
+                else:
+                    raise ValueError('Geometric integration factor unknown for extent type')
                 y = (geo_prefactor/6.)*rho_a*rho_b*f*gr*r
                 ens.P += numpy.trapz(y,x=r)
     
