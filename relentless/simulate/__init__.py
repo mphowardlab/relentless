@@ -27,6 +27,17 @@ It also helps document workflows that can be shared and reproduced by others.
     lmp = relentless.simulate.LAMMPS(ops)
     lmp.run(...)
 
+.. rubric:: How it works
+
+To learn more about how to setup a simulation, read through the following:
+
+.. toctree::
+    :maxdepth: 1
+
+    engines
+    operations
+    interactions
+
 """
 from .simulate import (Simulation,
                        SimulationInstance,
