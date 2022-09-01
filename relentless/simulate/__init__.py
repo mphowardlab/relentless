@@ -2,18 +2,17 @@
 Simulations
 ===========
 
-A generalizable and human-readable interface for molecular simulations is provided.
-Molecular simulations are used to evolve a system described by a potential and
-generate ensemble-averaged descriptions of the system's properties. These act as
-figures of merit which are used to minimize the statistical distance between ensembles
-during the inverse design process. In addition, a framework for generic simulation
-operations is provided to ensure that users have the freedom to choose between
-simulation engines without significantly altering their code.
+:mod:`relentless.simulate` implements a generalizable and human-readable
+interface for performing molecular simulations. The simulations are used to
+evolve a system described by interactions in :mod:`relentless.potential` to
+generate statistical ensembles. This module implements code to translate one
+common simulation "recipe" into a running simulation in a variety of popular
+packages. This gives you the freedom to choose simulation software this is
+most compatible with your environment and resources using a single common code!
+It also helps document workflows that can be shared and reproduced by others.
 
-Example
--------
-Implement a sequence of simulation operations through a reproducible workflow that
-can be directly translated between all of the supported simulation packages::
+.. rubric:: Example
+.. code::
 
     # generic simulation operations
     ops = [relentless.simulate.InitializeRandomly(seed=1),
@@ -24,13 +23,20 @@ can be directly translated between all of the supported simulation packages::
                                                    rdf_dr=dr),
            relentless.simulate.RunUpTo(step=1e4)]
 
-    # perform operations using HOOMD and LAMMPS
-    hmd = relentless.simulate.HOOMD(ops)
+    # perform simulation using LAMMPS
     lmp = relentless.simulate.LAMMPS(ops)
+    lmp.run(...)
 
-.. automodule:: relentless.simulate.simulate
+.. rubric:: How it works
 
-.. automodule:: relentless.simulate.generic
+To learn more about how to setup a simulation, read through the following:
+
+.. toctree::
+    :maxdepth: 1
+
+    engines
+    operations
+    interactions
 
 """
 from .simulate import (Simulation,
@@ -45,19 +51,7 @@ from .simulate import (Simulation,
                        Barostat,
                        BerendsenBarostat,
                        MTKBarostat)
-
-from . import dilute
-from .dilute import Dilute
-
-from . import hoomd
-from .hoomd import HOOMD
-
-from . import lammps
-from .lammps import LAMMPS
-
-# setup generic (adapter) objects
-from . import generic
-from .generic import (InitializeFromFile,
+from .simulate import (InitializeFromFile,
                       InitializeRandomly,
                       MinimizeEnergy,
                       AddBrownianIntegrator,
@@ -70,6 +64,12 @@ from .generic import (InitializeFromFile,
                       RunUpTo,
                       AddEnsembleAnalyzer,
                       )
-generic.GenericOperation.add_backend(Dilute)
-generic.GenericOperation.add_backend(HOOMD)
-generic.GenericOperation.add_backend(LAMMPS)
+
+from . import dilute
+from .dilute import Dilute
+
+from . import hoomd
+from .hoomd import HOOMD
+
+from . import lammps
+from .lammps import LAMMPS

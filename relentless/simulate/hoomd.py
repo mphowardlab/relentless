@@ -2,96 +2,18 @@
 HOOMD
 =====
 
-Simulation operations using the `HOOMD-blue engine <https://hoomd-blue.readthedocs.io/en/stable>`_
-for classical molecular dynamics are provided. They can be accessed using the
-corresponding :class:`~relentless.simulate.generic.GenericOperation`.
-
-The following HOOMD operations have been implemented.
-
-.. autosummary::
-    :nosignatures:
-
-    Initialize
-    InitializeFromFile
-    InitializeRandomly
-    MinimizeEnergy
-    AddMDIntegrator
-    RemoveMDIntegrator
-    AddBrownianIntegrator
-    RemoveBrownianIntegrator
-    AddLangevinIntegrator
-    RemoveLangevinIntegrator
-    AddVerletIntegrator
-    RemoveVerletIntegrator
-    Run
-    RunUpTo
-    ThermodynamicsCallback
-    RDFCallback
-    AddEnsembleAnalyzer
-
-:class:`AddMDIntegrator` and :class:`RemoveMDIntegrator` are generic methods
-which can be used to implement additional integrators if desired. :class:`ThermodynamicsCallback`
-and :class:`RDFCallback` are helper operations for the :class:`AddEnsembleAnalyzer`
-operation.
-
-The `freud <https://freud.readthedocs.io>`_
-library is used to assist in the initialization of the simulation box and in the
-calculation of the RDF ensemble average.
+This module implements the :class:`HOOMD` simulation backend and its specific
+operations. It is best to interface with these operations using the frontend in
+:mod:`relentless.simulate`.
 
 .. rubric:: Developer notes
 
-For compatibility with the generic operations, the :class:`HOOMD` backend is
-defined here. If you want to implement your own HOOMD operation, create a class
-that derives from :class:`~relentless.simulate.simulate.SimulationOperation` and
-define the required methods.
+To implement your own HOOMD operation, create an operation that derives from
+:class:`~relentless.simulate.simulate.SimulationOperation` and define the
+required methods.
 
-.. autosummary::
-    :nosignatures:
-
-    HOOMD
-
-.. autoclass:: HOOMD
-    :members:
 .. autoclass:: Initialize
     :members:
-.. autoclass:: InitializeFromFile
-    :members: __call__
-.. autoclass:: InitializeRandomly
-    :members: __call__
-.. autoclass:: MinimizeEnergy
-    :members: __call__
-.. autoclass:: AddMDIntegrator
-    :members:
-.. autoclass:: RemoveMDIntegrator
-    :members:
-.. autoclass:: AddBrownianIntegrator
-    :members: __call__
-.. autoclass:: RemoveBrownianIntegrator
-    :members:
-.. autoclass:: AddLangevinIntegrator
-    :members: __call__
-.. autoclass:: RemoveLangevinIntegrator
-    :members:
-.. autoclass:: AddVerletIntegrator
-    :members: __call__
-.. autoclass:: RemoveVerletIntegrator
-    :members:
-.. autoclass:: Run
-    :members: __call__
-.. autoclass:: RunUpTo
-    :members: __call__
-.. autoclass:: ThermodynamicsCallback
-    :members: __call__,
-        reset,
-        T,
-        P,
-        V
-.. autoclass:: RDFCallback
-    :members: __call__,
-        rdf
-.. autoclass:: AddEnsembleAnalyzer
-    :members: __call__,
-        extract_ensemble
 
 """
 import os
@@ -118,42 +40,6 @@ try:
     _freud_found = True
 except ImportError:
     _freud_found = False
-
-class HOOMD(simulate.Simulation):
-    """:class:`~relentless.simulate.simulate.Simulation` using HOOMD framework.
-
-    Raises
-    ------
-    ImportError
-        If the :mod:`hoomd` package is not found, or is not version 2.x.
-    ImportError
-        If the :mod:`freud` package is not found, or is not version 2.x.
-
-    """
-    def __init__(self, operations=None, **options):
-        if not _hoomd_found:
-            raise ImportError('HOOMD not found.')
-        elif version.parse(hoomd.__version__).major != 2:
-            raise ImportError('Only HOOMD 2.x is supported.')
-
-        if not _freud_found:
-            raise ImportError('freud not found.')
-        elif version.parse(freud.__version__).major != 2:
-            raise ImportError('Only freud 2.x is supported.')
-
-        super().__init__(operations,**options)
-
-    def _new_instance(self, ensemble, potentials, directory):
-        sim = super()._new_instance(ensemble,potentials,directory)
-
-        # initialize hoomd exec conf once
-        if hoomd.context.exec_conf is None:
-            hoomd.context.initialize('--notice-level=0')
-            hoomd.util.quiet_status()
-
-        sim.context = hoomd.context.SimulationContext()
-        sim.system = None
-        return sim
 
 ## initializers
 class Initialize(simulate.SimulationOperation):
@@ -286,6 +172,12 @@ class InitializeFromFile(Initialize):
     options : kwargs
         Options for file reading (as used in :func:`hoomd.init.read_gsd`).
 
+    Raises
+    ------
+    ValueError
+        If the simulation box dimensions specified by the file is inconsistent
+        with the ensemble volume (for a constant volume simulation).
+
     """
     def __init__(self, filename, **options):
         super().__init__()
@@ -293,20 +185,6 @@ class InitializeFromFile(Initialize):
         self.options = options
 
     def __call__(self, sim):
-        """Performs the from-file initialization operation.
-
-        Parameters
-        ----------
-        sim : :class:`~relentless.simulate.simulate.Simulation`
-            The simulation object.
-
-        Raises
-        ------
-        ValueError
-            If the simulation box dimensions specified by the file is inconsistent
-            with the ensemble volume (for a constant volume simulation).
-
-        """
         with sim.context:
             sim.system = hoomd.init.read_gsd(self.filename,**self.options)
 
@@ -328,6 +206,9 @@ class InitializeFromFile(Initialize):
 class InitializeRandomly(Initialize):
     """Initializes a randomly generated simulation box and pair potentials.
 
+    Places particles in random coordinates, sets particle types, gives the
+    particles unit mass and thermalizes to the Maxwell-Boltzmann distribution.
+
     Parameters
     ----------
     seed : int
@@ -339,17 +220,6 @@ class InitializeRandomly(Initialize):
         self.seed = seed
 
     def __call__(self, sim):
-        """Performs the random initialization operation.
-
-        Places particles in random coordinates, sets particle types, gives the
-        particles unit mass and thermalizes to the Maxwell-Boltzmann distribution.
-
-        Parameters
-        ----------
-        sim : :class:`~relentless.simulate.Simulation`
-            The simulation object.
-
-        """
         # if setting seed, preserve the current RNG state
         if self.seed is not None:
             old_state = numpy.random.get_state()
@@ -411,6 +281,9 @@ class MinimizeEnergy(simulate.SimulationOperation):
     ------
     KeyError
         If a value for the maximum displacement is not provided.
+    RuntimeError
+        If energy minimization has failed to converge within the maximum
+        number of iterations.
 
     """
     def __init__(self, energy_tolerance, force_tolerance, max_iterations, options):
@@ -424,20 +297,6 @@ class MinimizeEnergy(simulate.SimulationOperation):
             self.options['steps_per_iteration'] = 100
 
     def __call__(self, sim):
-        """Performs the energy minimization operation.
-
-        Parameters
-        ----------
-        sim : :class:`~relentless.simulate.simulate.Simulation`
-            The simulation object.
-
-        Raises
-        ------
-        RuntimeError
-            If energy minimization has failed to converge within the maximum
-            number of iterations.
-
-        """
         with sim.context:
             # setup FIRE minimization
             fire = hoomd.md.integrate.mode_minimize_fire(dt=self.options['max_displacement'],
@@ -473,14 +332,6 @@ class AddMDIntegrator(simulate.SimulationOperation):
         self.dt = dt
 
     def attach_integrator(self, sim):
-        """Enables standard integration methods in the simulation context.
-
-        Parameters
-        ----------
-        sim : :class:`~relentless.simulate.simulate.Simulation`
-            The simulation object.
-
-        """
         # note that this assumes you can only have ONE integrator in the system
         #
         # to support multiple methods, you would need to only attach this only if
@@ -498,24 +349,16 @@ class RemoveMDIntegrator(simulate.SimulationOperation):
     add_op : :class:`~relentless.simulate.simulate.SimulationOperation`
         The addition/integration operation to be removed.
 
+    Raises
+    ------
+    AttributeError
+        If the specified integrator has already been removed.
+
     """
     def __init__(self, add_op):
         self.add_op = add_op
 
     def __call__(self, sim):
-        """Removes the integrator from the simulation.
-
-        Parameters
-        ----------
-        sim : :class:`~relentless.simulate.simulate.Simulation`
-            The simulation object.
-
-        Raises
-        ------
-        AttributeError
-            If the specified integrator has already been removed.
-
-        """
         if sim[self.add_op].integrator is not None:
             sim[self.add_op].integrator.disable()
             sim[self.add_op].integrator = None
@@ -544,14 +387,6 @@ class AddBrownianIntegrator(AddMDIntegrator):
         self.options = options
 
     def __call__(self, sim):
-        """Adds the Brownian integrator to the simulation.
-
-        Parameters
-        ----------
-        sim : :class:`~relentless.simulate.simulate.Simulation`
-            The simulation object.
-
-        """
         self.attach_integrator(sim)
         with sim.context:
             all_ = hoomd.group.all()
@@ -581,17 +416,15 @@ class RemoveBrownianIntegrator(RemoveMDIntegrator):
 
     """
     def __init__(self, add_op):
-        if not isinstance(add_op, AddBrownianIntegrator):
-            raise TypeError('Addition operation is not AddBrownianIntegrator.')
         super().__init__(add_op)
 
 class AddLangevinIntegrator(AddMDIntegrator):
-    """Langevin dynamics for a NVT ensemble.
+    """Add a Langevin dynamics integrator.
 
     Parameters
     ----------
     dt : float
-        Time step size for each simulation iteration.
+        Time step.
     friction : float or dict
         Drag coefficient for each particle type (shared or per-type).
     seed : int
@@ -607,14 +440,6 @@ class AddLangevinIntegrator(AddMDIntegrator):
         self.options = options
 
     def __call__(self, sim):
-        """Adds the Langevin integrator to the simulation.
-
-        Parameters
-        ----------
-        sim : :class:`~relentless.simulate.simulate.Simulation`
-            The simulation object.
-
-        """
         self.attach_integrator(sim)
         with sim.context:
             all_ = hoomd.group.all()
@@ -630,26 +455,19 @@ class AddLangevinIntegrator(AddMDIntegrator):
                 sim[self].integrator.set_gamma(t,gamma)
 
 class RemoveLangevinIntegrator(RemoveMDIntegrator):
-    """Removes the Langevin integrator operation.
+    """Remove a Langevin integrator.
 
     Parameters
     ----------
     add_op : :class:`AddLangevinIntegrator`
-        The integrator addition operation to be removed.
-
-    Raises
-    ------
-    TypeError
-        If the specified addition operation is not a Langevin integrator.
+        The add operation for the integrator to remove.
 
     """
     def __init__(self, add_op):
-        if not isinstance(add_op, AddLangevinIntegrator):
-            raise TypeError('Addition operation is not AddLangevinIntegrator.')
         super().__init__(add_op)
 
 class AddVerletIntegrator(AddMDIntegrator):
-    """Family of Verlet integration modes.
+    """Add a Verlet integrator.
 
     This method supports:
 
@@ -661,44 +479,29 @@ class AddVerletIntegrator(AddMDIntegrator):
     Parameters
     ----------
     dt : float
-        Time step size for each simulation iteration.
+        Time step.
     thermostat : :class:`~relentless.simulate.simulate.Thermostat`
-        Thermostat used for integration (defaults to ``None``).
+        Thermostat for temperature control (defaults to ``None``).
     barostat : :class:`~relentless.simulate.simulate.Barostat`
-        Barostat used for integration (defaults to ``None``).
-    options : kwargs
-        Options used in :class:`hoomd.md.integrate.nve`,
-        :class:`hoomd.md.integrate.berendsen`, :class:`hoomd.md.integrate.nvt`,
-        :class:`hoomd.md.integrate.nph`, or :class:`hoomd.md.integrate.npt`, as
-        appropriate.
+        Barostat for pressure control (defaults to ``None``).
+
+    Raises
+    ------
+    TypeError
+        If an appropriate combination of thermostat and barostat is not set.
 
     """
-    def __init__(self, dt, thermostat=None, barostat=None, **options):
+    def __init__(self, dt, thermostat=None, barostat=None):
         super().__init__(dt)
         self.thermostat = thermostat
         self.barostat = barostat
-        self.options = options
 
     def __call__(self, sim):
-        """Adds the Verlet integrator to the simulation.
-
-        Parameters
-        ----------
-        sim : :class:`~relentless.simulate.simulate.Simulation`
-            The simulation object.
-
-        Raises
-        ------
-        TypeError
-            If an appropriate combination of thermostat and barostat is not set.
-
-        """
         self.attach_integrator(sim)
         with sim.context:
             all_ = hoomd.group.all()
             if self.thermostat is None and self.barostat is None:
-                sim[self].integrator = hoomd.md.integrate.nve(group=all_,
-                                                              **self.options)
+                sim[self].integrator = hoomd.md.integrate.nve(group=all_)
             elif isinstance(self.thermostat, simulate.BerendsenThermostat) and self.barostat is None:
                 sim[self].integrator = hoomd.md.integrate.berendsen(group=all_,
                                                                     kT=sim.ensemble.kB*self.thermostat.T,
@@ -710,40 +513,31 @@ class AddVerletIntegrator(AddMDIntegrator):
             elif self.thermostat is None and isinstance(self.barostat, simulate.MTKBarostat):
                 sim[self].integrator = hoomd.md.integrate.nph(group=all_,
                                                               P=self.barostat.P,
-                                                              tauP=self.barostat.tau,
-                                                              **self.options)
+                                                              tauP=self.barostat.tau)
             elif isinstance(self.thermostat, simulate.NoseHooverThermostat) and isinstance(self.barostat, simulate.MTKBarostat):
                 sim[self].integrator = hoomd.md.integrate.npt(group=all_,
                                                               kT=sim.ensemble.kB*self.thermostat.T,
                                                               tau=self.thermostat.tau,
                                                               P=self.barostat.P,
-                                                              tauP=self.barostat.tau,
-                                                              **self.options)
+                                                              tauP=self.barostat.tau)
             else:
                 raise TypeError('An appropriate combination of thermostat and barostat must be set.')
 
 
 class RemoveVerletIntegrator(RemoveMDIntegrator):
-    """Removes the Verlet integrator operation.
+    """Remove a Verlet integrator.
 
     Parameters
     ----------
     add_op : :class:`AddVerletIntegrator`
-        The integrator addition operation to be removed.
-
-    Raises
-    ------
-    TypeError
-        If the specified addition operation is not a Verlet integrator.
+        The add operation for the integrator to remove.
 
     """
     def __init__(self, add_op):
-        if not isinstance(add_op, AddVerletIntegrator):
-            raise TypeError('Addition operation is not AddVerletIntegrator.')
         super().__init__(add_op)
 
 class Run(simulate.SimulationOperation):
-    """Advances the simulation by a given number of time steps.
+    """Advance the simulation by a given number of timesteps.
 
     Parameters
     ----------
@@ -759,7 +553,7 @@ class Run(simulate.SimulationOperation):
             hoomd.run(self.steps)
 
 class RunUpTo(simulate.SimulationOperation):
-    """Advances the simulation up to a given time step number.
+    """Advance the simulation up to a given timestep.
 
     Parameters
     ----------
@@ -774,138 +568,21 @@ class RunUpTo(simulate.SimulationOperation):
         with sim.context:
             hoomd.run_upto(self.step)
 
-## analyzers
-class ThermodynamicsCallback:
-    """HOOMD callback for averaging thermodynamic properties.
-
-    Parameters
-    ----------
-    logger : :mod:`hoomd.analyze` logger
-        Logger from which to retrieve data.
-
-    """
-    def __init__(self, logger):
-        self.logger = logger
-        self.reset()
-
-    def __call__(self, timestep):
-        """Evaluates the callback.
-
-        Parameters
-        ----------
-        timestep : int
-            The timestep at which to evaluate the callback.
-
-        """
-        self.num_samples += 1
-
-        T = self.logger.query('temperature')
-        self._T += T
-
-        P = self.logger.query('pressure')
-        self._P += P
-
-        for key in self._V:
-            val = self.logger.query(key.lower())
-            self._V[key] += val
-
-    def reset(self):
-        """Resets sample number, ``T``, ``P``, and all ``V`` parameters to 0."""
-        self.num_samples = 0
-        self._T = 0.
-        self._P = 0.
-        self._V = {'Lx' : 0., 'Ly': 0., 'Lz': 0., 'xy': 0., 'xz': 0., 'yz': 0.}
-
-    @property
-    def T(self):
-        """float: Average temperature across samples."""
-        if self.num_samples > 0:
-            return self._T / self.num_samples
-        else:
-            return None
-
-    @property
-    def P(self):
-        """float: Average pressure across samples."""
-        if self.num_samples > 0:
-            return self._P / self.num_samples
-        else:
-            return None
-
-    @property
-    def V(self):
-        """float: Average volume across samples."""
-        if self.num_samples > 0:
-            _V = {key: self._V[key]/self.num_samples for key in self._V}
-            return TriclinicBox(**_V,convention=TriclinicBox.Convention.HOOMD)
-        else:
-            return None
-
-class RDFCallback:
-    """HOOMD callback for averaging radial distribution function across timesteps.
-
-    Parameters
-    ----------
-    system : :mod:`hoomd.data` system
-        Simulation system object.
-    params : :class:`~relentless.collections.PairMatrix`
-        Parameters to be used to initialize an instance of :class:`freud.density.RDF`.
-
-    """
-    def __init__(self, system, params):
-        self.system = system
-        self._rdf = PairMatrix(params.types)
-        for i,j in self._rdf:
-            self._rdf[i,j] = freud.density.RDF(bins=params[i,j]['bins'],
-                                               r_max=params[i,j]['rmax'],
-                                               normalize=(i==j))
-
-    def __call__(self, timestep):
-        """Evaluates the callback.
-
-        Parameters
-        ----------
-        timestep : int
-            The timestep at which to evaluate the callback.
-
-        """
-        snap = self.system.take_snapshot()
-        if mpi.world.rank == 0:
-            box = freud.box.Box.from_box(snap.box)
-            for i,j in self._rdf:
-                typei = (snap.particles.typeid == snap.particles.types.index(i))
-                typej = (snap.particles.typeid == snap.particles.types.index(j))
-                aabb = freud.locality.AABBQuery(box,snap.particles.position[typej])
-                query_args = dict(self._rdf[i,j].default_query_args)
-                query_args.update(exclude_ii=(i==j))
-                self._rdf[i,j].compute(aabb,
-                                       snap.particles.position[typei],
-                                       neighbors=query_args,
-                                       reset=False)
-
-    @property
-    def rdf(self):
-        rdf = PairMatrix(self._rdf.types)
-        for pair in rdf:
-            if mpi.world.rank == 0:
-                gr = numpy.column_stack((self._rdf[pair].bin_centers,self._rdf[pair].rdf))
-            else:
-                gr = None
-            gr = mpi.world.bcast_numpy(gr,root=0)
-            rdf[pair] = RDF(gr[:,0],gr[:,1])
-        return rdf
-
 class AddEnsembleAnalyzer(simulate.SimulationOperation):
-    """Analyzes the simulation ensemble and rdf at specified timestep intervals.
+    """Analyzer for the simulation ensemble.
+
+    The simulation ensemble is analyzed online while it is running. The
+    instantaneous thermodynamic properties are extracted from a HOOMD logger,
+    while the radial distribution function is computed using :mod:`freud`.
 
     Parameters
     ----------
     check_thermo_every : int
-        Interval of time steps at which to log thermodynamic properties of the simulation.
+        Number of timesteps between computing thermodynamic properties.
     check_rdf_every : int
-        Interval of time steps at which to log the rdf of the simulation.
+        Number of time steps between computing the RDF.
     rdf_dr : float
-        The width (in units ``r``) of a bin in the histogram of the rdf.
+        The width of a bin in the RDF histogram.
 
     """
     def __init__(self, check_thermo_every, check_rdf_every, rdf_dr):
@@ -914,19 +591,6 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
         self.rdf_dr = rdf_dr
 
     def __call__(self, sim):
-        """Adds the ensemble analyzer to the simulation.
-
-        Parameters
-        ----------
-        sim : :class:`~relentless.simulate.simulate.Simulation`
-            The simulation object.
-
-        Raises
-        ------
-        ValueError
-            If the simulation ensemble does not have constant ``N``.
-
-        """
         with sim.context:
             # thermodynamic properties
             sim[self].logger = hoomd.analyze.log(filename=None,
@@ -934,7 +598,7 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
                                                              'pressure',
                                                              'lx','ly','lz','xy','xz','yz'],
                                                  period=self.check_thermo_every)
-            sim[self].thermo_callback = ThermodynamicsCallback(sim[self].logger)
+            sim[self].thermo_callback = AddEnsembleAnalyzer.ThermodynamicsCallback(sim[self].logger)
             hoomd.analyze.callback(callback=sim[self].thermo_callback,
                                    period=self.check_thermo_every)
 
@@ -944,22 +608,22 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
             bins = numpy.round(rmax/self.rdf_dr).astype(int)
             for pair in rdf_params:
                 rdf_params[pair] = {'bins': bins, 'rmax': rmax}
-            sim[self].rdf_callback = RDFCallback(sim.system,rdf_params)
+            sim[self].rdf_callback = AddEnsembleAnalyzer.RDFCallback(sim.system,rdf_params)
             hoomd.analyze.callback(callback=sim[self].rdf_callback,
                                    period=self.check_rdf_every)
 
     def extract_ensemble(self, sim):
-        """Creates an ensemble with the averaged thermodynamic properties and rdf.
+        """Extract the average ensemble from a simulation instance.
 
         Parameters
         ----------
-        sim : :class:`~relentless.simulate.simulate.Simulation`
-            The simulation object.
+        sim : :class:`~relentless.simulate.simulate.SimulationInstance`
+            The simulation.
 
         Returns
         -------
         :class:`~relentless.ensemble.Ensemble`
-            Ensemble with averaged thermodynamic properties and rdf.
+            Average ensemble from the simulation data.
 
         """
         ens = sim.ensemble.copy()
@@ -974,3 +638,181 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
             ens.rdf[pair] = rdf[pair]
 
         return ens
+
+    class ThermodynamicsCallback:
+        """HOOMD callback for averaging thermodynamic properties.
+
+        Parameters
+        ----------
+        logger : :class:`hoomd.analyze.log`
+            HOOMD logger from which to retrieve instantaneous thermo data.
+
+        """
+        def __init__(self, logger):
+            self.logger = logger
+            self.reset()
+
+        def __call__(self, timestep):
+            self.num_samples += 1
+
+            T = self.logger.query('temperature')
+            self._T += T
+
+            P = self.logger.query('pressure')
+            self._P += P
+
+            for key in self._V:
+                val = self.logger.query(key.lower())
+                self._V[key] += val
+
+        def reset(self):
+            """Reset sampling variables to 0."""
+            self.num_samples = 0
+            self._T = 0.
+            self._P = 0.
+            self._V = {'Lx' : 0., 'Ly': 0., 'Lz': 0., 'xy': 0., 'xz': 0., 'yz': 0.}
+
+        @property
+        def T(self):
+            """float: Average temperature."""
+            if self.num_samples > 0:
+                return self._T / self.num_samples
+            else:
+                return None
+
+        @property
+        def P(self):
+            """float: Average pressure."""
+            if self.num_samples > 0:
+                return self._P / self.num_samples
+            else:
+                return None
+
+        @property
+        def V(self):
+            """float: Average volume."""
+            if self.num_samples > 0:
+                _V = {key: self._V[key]/self.num_samples for key in self._V}
+                return TriclinicBox(**_V,convention=TriclinicBox.Convention.HOOMD)
+            else:
+                return None
+
+    class RDFCallback:
+        """HOOMD callback for averaging radial distribution function.
+
+        Parameters
+        ----------
+        system : :mod:`hoomd.data.system_data`
+            HOOMD system.
+        params : :class:`~relentless.collections.PairMatrix`
+            Parameters to be used to initialize :class:`freud.density.RDF`
+            for each pair.
+
+        """
+        def __init__(self, system, params):
+            self.system = system
+            self._rdf = PairMatrix(params.types)
+            for i,j in self._rdf:
+                self._rdf[i,j] = freud.density.RDF(bins=params[i,j]['bins'],
+                                                r_max=params[i,j]['rmax'],
+                                                normalize=(i==j))
+
+        def __call__(self, timestep):
+            snap = self.system.take_snapshot()
+            if mpi.world.rank == 0:
+                box = freud.box.Box.from_box(snap.box)
+                for i,j in self._rdf:
+                    typei = (snap.particles.typeid == snap.particles.types.index(i))
+                    typej = (snap.particles.typeid == snap.particles.types.index(j))
+                    aabb = freud.locality.AABBQuery(box,snap.particles.position[typej])
+                    query_args = dict(self._rdf[i,j].default_query_args)
+                    query_args.update(exclude_ii=(i==j))
+                    self._rdf[i,j].compute(aabb,
+                                        snap.particles.position[typei],
+                                        neighbors=query_args,
+                                        reset=False)
+
+        @property
+        def rdf(self):
+            """:class:`~relentless.collections.PairMatrix`: Average RDF for each pair."""
+            rdf = PairMatrix(self._rdf.types)
+            for pair in rdf:
+                if mpi.world.rank == 0:
+                    gr = numpy.column_stack((self._rdf[pair].bin_centers,self._rdf[pair].rdf))
+                else:
+                    gr = None
+                gr = mpi.world.bcast_numpy(gr,root=0)
+                rdf[pair] = RDF(gr[:,0],gr[:,1])
+            return rdf
+
+class HOOMD(simulate.Simulation):
+    """Simulation using HOOMD-blue.
+
+    A simulation is performed using `HOOMD-blue <https://hoomd-blue.readthedocs.io/en/stable>`_.
+    HOOMD-blue is a molecular dynamics program that can execute on both CPUs and
+    GPUs, as a single process or with MPI parallelism. The launch configuration
+    will be automatically selected for you when the simulation is run.
+
+    Currently, this class only supports operations for HOOMD 2.x. Support for
+    HOOMD 3.x will be added in future. The `freud <https://freud.readthedocs.io>`_
+    analysis package (version 2.x) is also required for initialization and analysis.
+    To use this simulation backend, you will need to install both `hoomd` and
+    `freud` into your Python environment. `hoomd` is available through
+    `conda-forge` or can be built from source, while `freud` is available through
+    both `pip` and `conda-forge`. Please refer to the package documentation for
+    details of how to install these.
+
+    Raises
+    ------
+    ImportError
+        If the :mod:`hoomd` package is not found or is not version 2.x.
+    ImportError
+        If the :mod:`freud` package is not found or is not version 2.x.
+
+    """
+    def __init__(self, operations=None, **options):
+        if not _hoomd_found:
+            raise ImportError('HOOMD not found.')
+        elif version.parse(hoomd.__version__).major != 2:
+            raise ImportError('Only HOOMD 2.x is supported.')
+
+        if not _freud_found:
+            raise ImportError('freud not found.')
+        elif version.parse(freud.__version__).major != 2:
+            raise ImportError('Only freud 2.x is supported.')
+
+        super().__init__(operations,**options)
+
+    def _new_instance(self, ensemble, potentials, directory):
+        sim = super()._new_instance(ensemble,potentials,directory)
+
+        # initialize hoomd exec conf once
+        if hoomd.context.exec_conf is None:
+            hoomd.context.initialize('--notice-level=0')
+            hoomd.util.quiet_status()
+
+        sim.context = hoomd.context.SimulationContext()
+        sim.system = None
+        return sim
+
+    # initialization
+    InitializeFromFile = InitializeFromFile
+    InitializeRandomly = InitializeRandomly
+
+    # energy minimization
+    MinimizeEnergy = MinimizeEnergy
+
+    # md integrators
+    AddBrownianIntegrator = AddBrownianIntegrator
+    RemoveBrownianIntegrator = RemoveBrownianIntegrator
+    AddLangevinIntegrator = AddLangevinIntegrator
+    RemoveLangevinIntegrator = RemoveLangevinIntegrator
+    AddVerletIntegrator = AddVerletIntegrator
+    RemoveVerletIntegrator = RemoveVerletIntegrator
+
+    # run commands
+    Run = Run
+    RunUpTo = RunUpTo
+
+    # analysis
+    AddEnsembleAnalyzer = AddEnsembleAnalyzer
