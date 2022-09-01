@@ -12,8 +12,9 @@ import numpy
 import relentless
 from ..potential.test_pair import LinPot
 
-@unittest.skipIf(not relentless.simulate.lammps._lammps_found,
-                 "Compatible LAMMPS not installed")
+dim = 3
+@unittest.skipIf(relentless.simulate.lammps._lammps_found,
+                "Compatible LAMMPS not installed")
 class test_LAMMPS(unittest.TestCase):
     """Unit tests for relentless.LAMMPS"""
 
@@ -23,9 +24,11 @@ class test_LAMMPS(unittest.TestCase):
 
     # mock (NVT) ensemble and potential for testing
     def ens_pot(self):
-        ens = relentless.ensemble.Ensemble(T=2.0, V=relentless.extent.Cube(L=10.0), N={'1':2,'2':3})
+        if dim == 2:
+            ens = relentless.ensemble.Ensemble(T=2.0, V=relentless.extent.Square(L=10.0), N={'1':2,'2':3})
+        if dim == 3:
+            ens = relentless.ensemble.Ensemble(T=2.0, V=relentless.extent.Cube(L=10.0), N={'1':2,'2':3})
         ens.P = 2.5
-
         # setup potentials
         pot = LinPot(ens.types,params=('m',))
         for pair in pot.coeff:
@@ -41,26 +44,26 @@ class test_LAMMPS(unittest.TestCase):
         file_ = self.directory.file('test.data')
         with open(file_,'w') as f:
             f.write(('LAMMPS test data\n'
-                     '\n'
-                     '5 atoms\n'
-                     '2 atom types\n'
-                     '\n'
-                     '-5.0 5.0 xlo xhi\n'
-                     '-5.0 5.0 ylo yhi\n'
-                     '-5.0 5.0 zlo zhi\n'
-                     '\n'
-                     'Atoms\n'
-                     '\n'
-                     '1 1 -4.0 -4.0 -4.0\n'
-                     '2 1 -2.0 -2.0 -2.0\n'
-                     '3 2 0.0 0.0 0.0\n'
-                     '4 2 2.0 2.0 2.0\n'
-                     '5 2 4.0 4.0 4.0\n'
-                     '\n'
-                     'Masses\n'
-                     '\n'
-                     '1 0.3\n'
-                     '2 0.1'))
+                    '\n'
+                    '5 atoms\n'
+                    '2 atom types\n'
+                    '\n'
+                    '-5.0 5.0 xlo xhi\n'
+                    '-5.0 5.0 ylo yhi\n'
+                    '-5.0 5.0 zlo zhi\n'
+                    '\n'
+                    'Atoms\n'
+                    '\n'
+                    '1 1 -4.0 -4.0 -4.0\n'
+                    '2 1 -2.0 -2.0 -2.0\n'
+                    '3 2 0.0 0.0 0.0\n'
+                    '4 2 2.0 2.0 2.0\n'
+                    '5 2 4.0 4.0 4.0\n'
+                    '\n'
+                    'Masses\n'
+                    '\n'
+                    '1 0.3\n'
+                    '2 0.1'))
         return file_
 
     def test_initialize(self):
@@ -89,19 +92,19 @@ class test_LAMMPS(unittest.TestCase):
 
         # MinimizeEnergy
         op = [init,
-              relentless.simulate.lammps.MinimizeEnergy(energy_tolerance=1e-7,
+            relentless.simulate.lammps.MinimizeEnergy(energy_tolerance=1e-7,
                                                         force_tolerance=1e-7,
                                                         max_iterations=1000,
                                                         options={'max_evaluations':10000})
-             ]
+            ]
         l = relentless.simulate.lammps.LAMMPS(operations=op, quiet=False)
         sim = l.run(ensemble=ens, potentials=pot, directory=self.directory)
 
         # check default value of max_evaluations
         emin = relentless.simulate.lammps.MinimizeEnergy(energy_tolerance=1e-7,
-                                                         force_tolerance=1e-7,
-                                                         max_iterations=1000,
-                                                         options={})
+                                                        force_tolerance=1e-7,
+                                                        max_iterations=1000,
+                                                        options={})
         self.assertEqual(emin.options['max_evaluations'], None)
         l = relentless.simulate.lammps.LAMMPS(operations=[init,emin], quiet=False)
         sim = l.run(ensemble=ens, potentials=pot, directory=self.directory)
@@ -116,8 +119,8 @@ class test_LAMMPS(unittest.TestCase):
         # float friction
         ens,pot = self.ens_pot()
         lgv = relentless.simulate.lammps.AddLangevinIntegrator(dt=0.5,
-                                                               friction=1.5,
-                                                               seed=2)
+                                                            friction=1.5,
+                                                            seed=2)
         lgv_r = relentless.simulate.lammps.RemoveLangevinIntegrator(add_op=lgv)
         l.operations = [init, lgv]
         sim = l.run(ensemble=ens, potentials=pot, directory=self.directory)
@@ -129,8 +132,8 @@ class test_LAMMPS(unittest.TestCase):
 
         # dictionary friction
         lgv = relentless.simulate.lammps.AddLangevinIntegrator(dt=0.5,
-                                                               friction={'1':2.0,'2':5.0},
-                                                               seed=2)
+                                                            friction={'1':2.0,'2':5.0},
+                                                            seed=2)
         lgv_r = relentless.simulate.lammps.RemoveLangevinIntegrator(add_op=lgv)
         l.operations = [init, lgv]
         sim = l.run(ensemble=ens, potentials=pot, directory=self.directory)
@@ -143,8 +146,8 @@ class test_LAMMPS(unittest.TestCase):
         # single-type friction
         ens_1 = relentless.ensemble.Ensemble(T=2.0, V=relentless.extent.Cube(L=10.0), N={'1':2})
         lgv = relentless.simulate.lammps.AddLangevinIntegrator(dt=0.5,
-                                                               friction={'1':3.0},
-                                                               seed=2)
+                                                            friction={'1':3.0},
+                                                            seed=2)
         lgv_r = relentless.simulate.lammps.RemoveLangevinIntegrator(add_op=lgv)
         l.operations = [init, lgv]
         sim = l.run(ensemble=ens_1, potentials=pot, directory=self.directory)
@@ -156,8 +159,8 @@ class test_LAMMPS(unittest.TestCase):
 
         # invalid-type friction
         lgv = relentless.simulate.lammps.AddLangevinIntegrator(dt=0.5,
-                                                               friction={'2':5.0,'3':2.0},
-                                                               seed=2)
+                                                            friction={'2':5.0,'3':2.0},
+                                                            seed=2)
         l.operations = [init, lgv]
         with self.assertRaises(KeyError):
             sim = l.run(ensemble=ens, potentials=pot, directory=self.directory)
@@ -270,12 +273,12 @@ class test_LAMMPS(unittest.TestCase):
         ens,pot = self.ens_pot()
         init = relentless.simulate.lammps.InitializeRandomly(seed=1)
         analyzer = relentless.simulate.lammps.AddEnsembleAnalyzer(check_thermo_every=5,
-                                                                  check_rdf_every=5,
-                                                                  rdf_dr=1.0)
+                                                                check_rdf_every=5,
+                                                                rdf_dr=1.0)
         run = relentless.simulate.lammps.Run(steps=500)
         lgv = relentless.simulate.lammps.AddLangevinIntegrator(dt=0.1,
-                                                               friction=1.0,
-                                                               seed=1)
+                                                            friction=1.0,
+                                                            seed=1)
         op = [init,lgv,analyzer,run]
         h = relentless.simulate.lammps.LAMMPS(operations=op, quiet=False)
         sim = h.run(ensemble=ens, potentials=pot, directory=self.directory)

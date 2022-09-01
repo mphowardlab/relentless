@@ -70,6 +70,7 @@ import numpy
 from relentless.ensemble import RDF
 from relentless import mpi
 from relentless.extent import TriclinicBox
+from relentless.extent import ObliqueArea
 from . import simulate
 
 try:
@@ -242,20 +243,28 @@ class Initialize(LAMMPSOperation):
         V = sim.ensemble.V
         if V is None:
             raise ValueError('Box volume must be set.')
-        elif not isinstance(V, TriclinicBox):
-            raise TypeError('LAMMPS boxes must be derived from TriclinicBox')
-
-        Lx = V.a[0]
-        Ly = V.b[1]
-        Lz = V.c[2]
-        xy = V.b[0]
-        xz = V.c[0]
-        yz = V.c[1]
-
+        elif not isinstance(V, (TriclinicBox, ObliqueArea)):
+            raise TypeError('LAMMPS boxes must be derived from TriclinicBox or ObliqueArea')
+        if isinstance(V, TriclinicBox):
+            Lx = V.a[0]
+            Ly = V.b[1]
+            Lz = V.c[2]
+            xy = V.b[0]
+            xz = V.c[0]
+            yz = V.c[1]
+            dim = 3
+        elif isinstance(V, ObliqueArea):
+            Lx = V.a[0]
+            Ly = V.b[1]
+            Lz = 0.0001
+            xy = V.b[0]
+            xz = 0
+            yz = 0
+            dim = 2
         lo = -0.5*numpy.array([Lx,Ly,Lz])
         hi = lo + V.a + V.b + V.c
 
-        return numpy.array([lo[0],hi[0],lo[1],hi[1],lo[2],hi[2],xy,xz,yz])
+        return numpy.array([lo[0],hi[0],lo[1],hi[1],lo[2],hi[2],xy,xz,yz]),dim
 
     def attach_potentials(self, sim):
         """Adds tabulated pair potentials to the simulation object.
@@ -429,12 +438,16 @@ class InitializeRandomly(Initialize):
         cmds = super().to_commands(sim)
 
         # make box from ensemble
-        box = self.extract_box_params(sim)
-        if not numpy.all(numpy.isclose(box[-3:],0)):
-            cmds += ['region box prism {} {} {} {} {} {} {} {} {}'.format(*box)]
+        box_size, dim = self.extract_box_params(sim)
+        if not numpy.all(numpy.isclose(box_size[-3:],0)):
+            cmds += ['region box prism {} {} {} {} {} {} {} {} {}'.format(*box_size)]
         else:
-            cmds += ['region box block {} {} {} {} {} {}'.format(*box[:-3])]
+            cmds += ['region box block {} {} {} {} {} {}'.format(*box_size[:-3])]
+        cmds += ['dimension {}'.format(dim)]
         cmds += ['create_box {N} box'.format(N=len(sim.ensemble.types))]
+        if dim == 2:
+            cmds += ['fix {idx} {group_idx} enforce2d'.format(idx=self.new_fix_id(),
+                                                   group_idx='all')]
 
         # use lammps random initialization routines
         for i in sim.ensemble.types:

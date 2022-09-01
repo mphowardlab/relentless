@@ -828,7 +828,10 @@ class ThermodynamicsCallback:
         self.num_samples = 0
         self._T = 0.
         self._P = 0.
-        self._V = {'Lx' : 0., 'Ly': 0., 'Lz': 0., 'xy': 0., 'xz': 0., 'yz': 0.}
+        if not hasattr(self.logger, "Lz"):
+            self._V = {'Lx' : 0., 'Ly': 0., 'xy': 0.}
+        if hasattr(self.logger, "Lz"): 
+            self._V = {'Lx' : 0., 'Ly': 0., 'Lz': 0., 'xy': 0., 'xz': 0., 'yz': 0.}
 
     @property
     def T(self):
@@ -851,7 +854,10 @@ class ThermodynamicsCallback:
         """float: Average extent across samples."""
         if self.num_samples > 0:
             _V = {key: self._V[key]/self.num_samples for key in self._V}
-            return TriclinicBox(**_V,convention=TriclinicBox.Convention.HOOMD)
+            if not hasattr(self.logger, "Lz"):
+                return ObliqueArea(**_V,convention=ObliqueArea.Convention.HOOMD)    
+            if hasattr(self.logger, "Lz"):
+                return TriclinicBox(**_V,convention=TriclinicBox.Convention.HOOMD)
         else:
             return None
 
@@ -943,10 +949,12 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
         """
         with sim.context:
             # thermodynamic properties
+            if isinstance(sim.ensemble.V, Volume):
+                quantities_logged = ['temperature','pressure','lx','ly','lz','xy','xz','yz']
+            if isinstance(sim.ensemble.V, Area):
+                quantities_logged = ['temperature','pressure','lx','ly','xy']
             sim[self].logger = hoomd.analyze.log(filename=None,
-                                                 quantities=['temperature',
-                                                             'pressure',
-                                                             'lx','ly','lz','xy','xz','yz'],
+                                                 quantities= quantities_logged,
                                                  period=self.check_thermo_every)
             sim[self].thermo_callback = ThermodynamicsCallback(sim[self].logger)
             hoomd.analyze.callback(callback=sim[self].thermo_callback,
