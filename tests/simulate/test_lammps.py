@@ -1,5 +1,6 @@
 """Unit tests for relentless.simulate.lammps."""
 import sys
+from parameterized import parameterized, parameterized_class
 import tempfile
 import unittest
 
@@ -12,10 +13,12 @@ import numpy
 import relentless
 from ..potential.test_pair import LinPot
 
-dim = 3
-@unittest.skipIf(relentless.simulate.lammps._lammps_found,
+@parameterized_class([{ "dim": 2}, { "dim": 3}])
+
+@unittest.skipIf(not relentless.simulate.lammps._lammps_found,
                 "Compatible LAMMPS not installed")
 class test_LAMMPS(unittest.TestCase):
+    
     """Unit tests for relentless.LAMMPS"""
 
     def setUp(self):
@@ -24,9 +27,9 @@ class test_LAMMPS(unittest.TestCase):
 
     # mock (NVT) ensemble and potential for testing
     def ens_pot(self):
-        if dim == 2:
+        if self.dim == 2:
             ens = relentless.ensemble.Ensemble(T=2.0, V=relentless.extent.Square(L=10.0), N={'1':2,'2':3})
-        if dim == 3:
+        if self.dim == 3:
             ens = relentless.ensemble.Ensemble(T=2.0, V=relentless.extent.Cube(L=10.0), N={'1':2,'2':3})
         ens.P = 2.5
         # setup potentials
@@ -43,27 +46,50 @@ class test_LAMMPS(unittest.TestCase):
     def create_file(self):
         file_ = self.directory.file('test.data')
         with open(file_,'w') as f:
-            f.write(('LAMMPS test data\n'
-                    '\n'
-                    '5 atoms\n'
-                    '2 atom types\n'
-                    '\n'
-                    '-5.0 5.0 xlo xhi\n'
-                    '-5.0 5.0 ylo yhi\n'
-                    '-5.0 5.0 zlo zhi\n'
-                    '\n'
-                    'Atoms\n'
-                    '\n'
-                    '1 1 -4.0 -4.0 -4.0\n'
-                    '2 1 -2.0 -2.0 -2.0\n'
-                    '3 2 0.0 0.0 0.0\n'
-                    '4 2 2.0 2.0 2.0\n'
-                    '5 2 4.0 4.0 4.0\n'
-                    '\n'
-                    'Masses\n'
-                    '\n'
-                    '1 0.3\n'
-                    '2 0.1'))
+            if self.dim == 2: 
+                f.write(('LAMMPS test data\n'
+                        '\n'
+                        '5 atoms\n'
+                        '2 atom types\n'
+                        '\n'
+                        '-5.0 5.0 xlo xhi\n'
+                        '-5.0 5.0 ylo yhi\n'
+                        '-0.1 0.1 zlo zhi\n'
+                        '\n'
+                        'Atoms\n'
+                        '\n'
+                        '1 1 -4.0 -4.0 0.0\n'
+                        '2 1 -2.0 -2.0 0.0\n'
+                        '3 2 0.0 0.0 0.0\n'
+                        '4 2 2.0 2.0 0.0\n'
+                        '5 2 4.0 4.0 0.0\n'
+                        '\n'
+                        'Masses\n'
+                        '\n'
+                        '1 0.3\n'
+                        '2 0.1'))
+            if self.dim == 3:
+                f.write(('LAMMPS test data\n'
+                        '\n'
+                        '5 atoms\n'
+                        '2 atom types\n'
+                        '\n'
+                        '-5.0 5.0 xlo xhi\n'
+                        '-5.0 5.0 ylo yhi\n'
+                        '-5.0 5.0 zlo zhi\n'
+                        '\n'
+                        'Atoms\n'
+                        '\n'
+                        '1 1 -4.0 -4.0 -4.0\n'
+                        '2 1 -2.0 -2.0 -2.0\n'
+                        '3 2 0.0 0.0 0.0\n'
+                        '4 2 2.0 2.0 2.0\n'
+                        '5 2 4.0 4.0 4.0\n'
+                        '\n'
+                        'Masses\n'
+                        '\n'
+                        '1 0.3\n'
+                        '2 0.1'))
         return file_
 
     def test_initialize(self):

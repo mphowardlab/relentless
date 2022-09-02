@@ -253,19 +253,23 @@ class Initialize(LAMMPSOperation):
             xz = V.c[0]
             yz = V.c[1]
             dim = 3
+
+            added = V.a + V.b + V.c
         elif isinstance(V, ObliqueArea):
-            Lx = V.a[0]
-            Ly = V.b[1]
-            Lz = 0.0001
-            xy = V.b[0]
-            xz = 0
-            yz = 0
+            Lx = V.a[0] #10
+            Ly = V.b[1] #10
+            Lz = 0.2 #
+            xy = V.b[0] # 0 
+            xz = 0.0
+            yz = 0.0
             dim = 2
+            
+            added = numpy.array((V.a[0]+V.b[0],V.a[1]+V.b[1],Lz))
         lo = -0.5*numpy.array([Lx,Ly,Lz])
-        hi = lo + V.a + V.b + V.c
+        hi = lo + added
 
         return numpy.array([lo[0],hi[0],lo[1],hi[1],lo[2],hi[2],xy,xz,yz]),dim
-
+        
     def attach_potentials(self, sim):
         """Adds tabulated pair potentials to the simulation object.
 
@@ -446,8 +450,7 @@ class InitializeRandomly(Initialize):
         cmds += ['dimension {}'.format(dim)]
         cmds += ['create_box {N} box'.format(N=len(sim.ensemble.types))]
         if dim == 2:
-            cmds += ['fix {idx} {group_idx} enforce2d'.format(idx=self.new_fix_id(),
-                                                   group_idx='all')]
+            cmds += ['fix 2d all enforce2d']
 
         # use lammps random initialization routines
         for i in sim.ensemble.types:

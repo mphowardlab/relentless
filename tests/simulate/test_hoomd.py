@@ -1,4 +1,5 @@
 """Unit tests for relentless.simulate.hoomd."""
+from parameterized import parameterized_class
 import tempfile
 import unittest
 
@@ -20,25 +21,26 @@ _has_modules = (relentless.simulate.hoomd._hoomd_found and
                 relentless.simulate.hoomd._freud_found and
                 _found_gsd)
 
-dim = 3
+@parameterized_class([{ "dim": 2}, { "dim": 3}])
+
 @unittest.skipIf(not _has_modules, "HOOMD, freud, and/or GSD not installed")
 class test_HOOMD(unittest.TestCase):
     """Unit tests for relentless.HOOMD"""
-
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
         self.directory = relentless.data.Directory(self._tmp.name)
 
     # mock (NVT) ensemble and potential for testing
     def ens_pot(self):
-        if dim == 2:
+        if self.dim == 2:
             ens = relentless.ensemble.Ensemble(T=2.0, V=relentless.extent.Square(L=20.0), N={'A':2,'B':3})
-        elif dim == 3: 
+        elif self.dim == 3: 
             ens = relentless.ensemble.Ensemble(T=2.0, V=relentless.extent.Cube(L=20.0), N={'A':2,'B':3})
         # setup potentials
-        pot = LinPot(ens.types,params=('m',))
+        pot = LinPot(ens.types,params=('m','rmin'))
         for pair in pot.coeff:
             pot.coeff[pair]['m'] = 2.0
+            pot.coeff[pair]['rmin'] = 0.1
         pots = relentless.simulate.Potentials()
         pots.pair.potentials.append(pot)
         pots.pair.rmax = 3.0
@@ -53,11 +55,11 @@ class test_HOOMD(unittest.TestCase):
             s.particles.N = 5
             s.particles.types = ['A','B']
             s.particles.typeid = [0,0,1,1,1]
-            if dim==2:
+            if self.dim==2:
                 s.particles.position = numpy.random.uniform(low=-5.0,high=5.0,size=(5,3))
                 s.particles.position[:, 2] = 0
                 s.configuration.box = [20,20,0,0,0,0]
-            if dim==3:
+            if self.dim==3:
                 s.particles.position = numpy.random.uniform(low=-5.0,high=5.0,size=(5,3))
                 s.configuration.box = [20,20,20,0,0,0]
             f.append(s)
@@ -259,11 +261,11 @@ class test_HOOMD(unittest.TestCase):
 
     def test_self_interactions(self):
         """Test if self-interactions are excluded from rdf computation."""
-        if dim == 3:
+        if self.dim == 3:
             Lz = 8.
             z = 1.
             box_type = relentless.extent.Cube
-        elif dim ==2:
+        elif self.dim ==2:
             Lz = 0.
             z = 0.
             box_type = relentless.extent.Square     
