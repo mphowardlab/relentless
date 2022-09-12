@@ -13,10 +13,10 @@ import numpy
 import relentless
 from ..potential.test_pair import LinPot
 
-@parameterized_class([{ "dim": 2}, { "dim": 3}])
-
 @unittest.skipIf(not relentless.simulate.lammps._lammps_found,
                 "Compatible LAMMPS not installed")
+@parameterized_class([{'dim': 2}, {'dim': 3}],
+    class_name_func=lambda cls, num, params_dict: "{}_{}d".format(cls.__name__,params_dict['dim']))
 class test_LAMMPS(unittest.TestCase):
     
     """Unit tests for relentless.LAMMPS"""
@@ -35,7 +35,7 @@ class test_LAMMPS(unittest.TestCase):
         # setup potentials
         pot = LinPot(ens.types,params=('m',))
         for pair in pot.coeff:
-            pot.coeff[pair]['m'] = 2.0
+            pot.coeff[pair]['m'] = -2.0
         pots = relentless.simulate.Potentials()
         pots.pair.potentials.append(pot)
         pots.pair.rmax = 10.0

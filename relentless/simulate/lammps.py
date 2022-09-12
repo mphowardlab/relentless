@@ -122,6 +122,9 @@ class LAMMPS(simulate.Simulation):
             sim.type_map[t] = i+1
             sim.typeid_map[sim.type_map[t]] = t
 
+        # by default, the dimension of a LAMMPS simulation is 3
+        sim.dimension = 3
+
         return sim
 
 class LAMMPSOperation(simulate.SimulationOperation):
@@ -211,8 +214,17 @@ class Initialize(LAMMPSOperation):
             The LAMMPS commands for this operation.
 
         """
+        # check the dimension of the simulation up front
+        if isinstance(sim.ensemble.V, TriclinicBox):
+            sim.dimension = 3
+        elif isinstance(sim.ensemble.V, ObliqueArea):
+            sim.dimension = 2
+        else:
+            raise TypeError('LAMMPS boxes must be derived from TriclinicBox or ObliqueArea')
+
         cmds = ['units {style}'.format(style=self.units),
                 'boundary p p p',
+                'dimension {dim}'.format(dim=sim.dimension),
                 'atom_style {style}'.format(style=self.atom_style)]
 
         return cmds
@@ -245,30 +257,28 @@ class Initialize(LAMMPSOperation):
             raise ValueError('Box volume must be set.')
         elif not isinstance(V, (TriclinicBox, ObliqueArea)):
             raise TypeError('LAMMPS boxes must be derived from TriclinicBox or ObliqueArea')
-        if isinstance(V, TriclinicBox):
+        if sim.dimension == 3:
             Lx = V.a[0]
             Ly = V.b[1]
             Lz = V.c[2]
             xy = V.b[0]
             xz = V.c[0]
             yz = V.c[1]
-            dim = 3
-
-            added = V.a + V.b + V.c
-        elif isinstance(V, ObliqueArea):
-            Lx = V.a[0] #10
-            Ly = V.b[1] #10
-            Lz = 0.2 #
-            xy = V.b[0] # 0 
+            dL = V.a + V.b + V.c
+        elif sim.dimension == 2:
+            Lx = V.a[0]
+            Ly = V.b[1]
+            Lz = 0.2 # LAMMPS wants Lz to be a tiny number
+            xy = V.b[0]
             xz = 0.0
             yz = 0.0
-            dim = 2
-            
-            added = numpy.array((V.a[0]+V.b[0],V.a[1]+V.b[1],Lz))
+            dL = numpy.array((V.a[0]+V.b[0],V.a[1]+V.b[1],Lz))
+        else:
+            raise ValueError('LAMMPS only supports 2d and 3d simulations')
         lo = -0.5*numpy.array([Lx,Ly,Lz])
-        hi = lo + added
+        hi = lo + dL
 
-        return numpy.array([lo[0],hi[0],lo[1],hi[1],lo[2],hi[2],xy,xz,yz]),dim
+        return numpy.array([lo[0],hi[0],lo[1],hi[1],lo[2],hi[2],xy,xz,yz])
         
     def attach_potentials(self, sim):
         """Adds tabulated pair potentials to the simulation object.
@@ -442,15 +452,12 @@ class InitializeRandomly(Initialize):
         cmds = super().to_commands(sim)
 
         # make box from ensemble
-        box_size, dim = self.extract_box_params(sim)
+        box_size = self.extract_box_params(sim)
         if not numpy.all(numpy.isclose(box_size[-3:],0)):
             cmds += ['region box prism {} {} {} {} {} {} {} {} {}'.format(*box_size)]
         else:
             cmds += ['region box block {} {} {} {} {} {}'.format(*box_size[:-3])]
-        cmds += ['dimension {}'.format(dim)]
         cmds += ['create_box {N} box'.format(N=len(sim.ensemble.types))]
-        if dim == 2:
-            cmds += ['fix 2d all enforce2d']
 
         # use lammps random initialization routines
         for i in sim.ensemble.types:
@@ -518,6 +525,9 @@ class MinimizeEnergy(LAMMPSOperation):
                                                                     ftol=self.force_tolerance,
                                                                     maxiter=self.max_iterations,
                                                                     maxeval=self.options['max_evaluations'])]
+        if sim.dimension == 2:
+            fix_2d = self.new_fix_id()
+            cmds = ['fix {} all enforce2d'.format(fix_2d)] + cmds + ['unfix {}'.format(fix_2d)]
 
         return cmds
 
@@ -773,6 +783,9 @@ class Run(LAMMPSOperation):
 
     def to_commands(self, sim):
         cmds = ['run {N}'.format(N=self.steps)]
+        if sim.dimension == 2:
+            fix_2d = self.new_fix_id()
+            cmds = ['fix {} all enforce2d'.format(fix_2d)] + cmds + ['unfix {}'.format(fix_2d)]
 
         return cmds
 
@@ -790,6 +803,9 @@ class RunUpTo(LAMMPSOperation):
 
     def to_commands(self, sim):
         cmds = ['run {N} upto'.format(N=self.step)]
+        if sim.dimension == 2:
+            fix_2d = self.new_fix_id()
+            cmds = ['fix {} all enforce2d'.format(fix_2d)] + cmds + ['unfix {}'.format(fix_2d)]
 
         return cmds
 

@@ -154,11 +154,22 @@ class HOOMD(simulate.Simulation):
 
         sim.context = hoomd.context.SimulationContext()
         sim.system = None
+        # default dimensionality is unknown in HOOMD
+        sim.dimension = None
         return sim
 
 ## initializers
 class Initialize(simulate.SimulationOperation):
     """Initializes a simulation box and pair potentials."""
+    def __call__(self, sim):
+        # check the dimension of the simulation up front
+        if isinstance(sim.ensemble.V, TriclinicBox):
+            sim.dimension = 3
+        elif isinstance(sim.ensemble.V, ObliqueArea):
+            sim.dimension = 2
+        else:
+            raise TypeError('HOOMD boxes must be derived from TriclinicBox or ObliqueArea')
+
     def extract_box_params(self, sim):
         """Extracts HOOMD box parameters (``Lx``, ``Ly``, ``Lz``, ``xy``, ``xz``, ``yz``)
         from the simulation's ensemble extent.
@@ -194,7 +205,6 @@ class Initialize(simulate.SimulationOperation):
             xy = V.b[0]/Ly
             xz = V.c[0]/Lz
             yz = V.c[1]/Lz
-            dim = 3
         elif isinstance(V, ObliqueArea):
             Lx = V.a[0]
             Ly = V.b[1]
@@ -202,8 +212,7 @@ class Initialize(simulate.SimulationOperation):
             xy = V.b[0]/Ly
             xz = 0
             yz = 0
-            dim = 2
-        return (Lx,Ly,Lz,xy,xz,yz),dim
+        return Lx,Ly,Lz,xy,xz,yz
 
     def make_snapshot(self, sim):
         """Creates a particle snapshot and box for the simulation context.
@@ -234,10 +243,10 @@ class Initialize(simulate.SimulationOperation):
             N += sim.ensemble.N[t]
 
         # cast simulation box in HOOMD parameters
-        (Lx,Ly,Lz,xy,xz,yz),dim = self.extract_box_params(sim)
+        Lx,Ly,Lz,xy,xz,yz = self.extract_box_params(sim)
         # make the empty snapshot in the current context
         with sim.context:
-            box = hoomd.data.boxdim(Lx=Lx,Ly=Ly,Lz=Lz,xy=xy,xz=xz,yz=yz,dimensions=dim)
+            box = hoomd.data.boxdim(Lx=Lx,Ly=Ly,Lz=Lz,xy=xy,xz=xz,yz=yz,dimensions=sim.dimension)
             snap = hoomd.data.make_snapshot(N=N,
                                             box=box,
                                             particle_types=list(sim.ensemble.types))
@@ -315,6 +324,7 @@ class InitializeFromFile(Initialize):
             with the ensemble extent (for a constant extent simulation).
 
         """
+        super().__call__(sim)
         with sim.context:
             sim.system = hoomd.init.read_gsd(self.filename,**self.options)
 
@@ -327,8 +337,8 @@ class InitializeFromFile(Initialize):
                                           system_box.xy,
                                           system_box.xy,
                                           system_box.yz])
-                box_size, dim = self.extract_box_params(sim)
-                if not numpy.all(numpy.isclose(box_from_file,box_size)) or system_box.dimensions != dim:
+                box_size = self.extract_box_params(sim)
+                if not numpy.all(numpy.isclose(box_from_file,box_size)) or system_box.dimensions != sim.dimension:
                     raise ValueError('Box from file is is inconsistent with ensemble extent.')
         self.attach_potentials(sim)
 
@@ -357,6 +367,8 @@ class InitializeRandomly(Initialize):
             The simulation object.
 
         """
+        super().__call__(sim)
+
         # if setting seed, preserve the current RNG state
         if self.seed is not None:
             old_state = numpy.random.get_state()
@@ -370,11 +382,13 @@ class InitializeRandomly(Initialize):
                 snap,box = self.make_snapshot(sim)
                 # randomly place particles in fractional coordinates
                 if mpi.world.rank == 0:
-                    if box.dimensions == 2:
+                    if sim.dimension == 3:
+                        rs = numpy.random.uniform(size=(snap.particles.N,3))
+                    elif sim.dimension == 2:
                         rs = numpy.zeros((snap.particles.N,3))
                         rs[:,:2] = numpy.random.uniform(size=(snap.particles.N,2))
-                    elif box.dimensions == 3:
-                        rs = numpy.random.uniform(size=(snap.particles.N,3))
+                    else:
+                        raise ValueError('HOOMD supports 2d and 3d simulations')
                     snap.particles.position[:] = box.make_absolute(rs)
 
                     # set types of each
@@ -383,11 +397,13 @@ class InitializeRandomly(Initialize):
 
                     # assume unit mass and thermalize to Maxwell-Boltzmann distribution
                     snap.particles.mass[:] = 1.0
-                    if box.dimensions == 2:
+                    if sim.dimension == 3:
+                        vel = numpy.random.normal(scale=numpy.sqrt(sim.ensemble.kT),size=(snap.particles.N,3))
+                    elif sim.dimension == 2:
                         vel = numpy.zeros((snap.particles.N,3))
                         vel[:,:2] = numpy.random.normal(scale=numpy.sqrt(sim.ensemble.kT),size=(snap.particles.N,2))
-                    elif box.dimensions == 3:
-                        vel = numpy.random.normal(scale=numpy.sqrt(sim.ensemble.kT),size=(snap.particles.N,3))
+                    else:
+                        raise ValueError('HOOMD supports 2d and 3d simulations')
                     snap.particles.velocity[:] = vel-numpy.mean(vel,axis=0)
 
                 # read snapshot

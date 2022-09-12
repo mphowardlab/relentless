@@ -21,9 +21,9 @@ _has_modules = (relentless.simulate.hoomd._hoomd_found and
                 relentless.simulate.hoomd._freud_found and
                 _found_gsd)
 
-@parameterized_class([{ "dim": 2}, { "dim": 3}])
-
 @unittest.skipIf(not _has_modules, "HOOMD, freud, and/or GSD not installed")
+@parameterized_class([{'dim': 2}, {'dim': 3}],
+    class_name_func=lambda cls, num, params_dict: "{}_{}d".format(cls.__name__,params_dict['dim']))
 class test_HOOMD(unittest.TestCase):
     """Unit tests for relentless.HOOMD"""
     def setUp(self):
@@ -37,10 +37,9 @@ class test_HOOMD(unittest.TestCase):
         elif self.dim == 3: 
             ens = relentless.ensemble.Ensemble(T=2.0, V=relentless.extent.Cube(L=20.0), N={'A':2,'B':3})
         # setup potentials
-        pot = LinPot(ens.types,params=('m','rmin'))
+        pot = LinPot(ens.types,params=('m',))
         for pair in pot.coeff:
-            pot.coeff[pair]['m'] = 2.0
-            pot.coeff[pair]['rmin'] = 0.1
+            pot.coeff[pair]['m'] = -2.0
         pots = relentless.simulate.Potentials()
         pots.pair.potentials.append(pot)
         pots.pair.rmax = 3.0
