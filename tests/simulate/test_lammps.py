@@ -167,7 +167,7 @@ class test_LAMMPS(unittest.TestCase):
         self.assertFalse(sim.lammps.has_id('fix',str(lgv._fix_langevin)))
 
         # single-type friction
-        ens_1 = relentless.ensemble.Ensemble(T=2.0, V=relentless.volume.Cube(L=10.0), N={'1':2})
+        ens_1 = relentless.ensemble.Ensemble(T=2.0, V=relentless.extent.Cube(L=10.0), N={'1':2})
         lgv = relentless.simulate.AddLangevinIntegrator(dt=0.5,
                                                         friction={'1':3.0},
                                                         seed=2)
