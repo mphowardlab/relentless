@@ -48,8 +48,8 @@ class test_Generic(unittest.TestCase):
             self.skipTest('LAMMPS not installed')
 
     def test_invalid(self):
-        # Invalid backend
-        with self.assertRaises(TypeError):
+        #Invalid backend
+        with self.assertRaises(NotImplementedError):
             sim = relentless.simulate.Simulation(self.ops)
             sim.run(self.ensemble, self.potentials, self.directory)
 

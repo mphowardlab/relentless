@@ -90,7 +90,8 @@ class test_RelativeEntropy(unittest.TestCase):
         gs = numpy.exp(-lj.energy(('1','1'),rs))
         self.target.rdf['1','1'] = relentless.ensemble.RDF(r=rs, g=gs)
 
-        self.thermo = relentless.simulate.dilute.AddEnsembleAnalyzer()
+        self.thermo = relentless.simulate.dilute.AddEnsembleAnalyzer(
+            check_thermo_every=1, check_rdf_every=1, rdf_dr=0.1)
         self.simulation = relentless.simulate.dilute.Dilute(operations=[self.thermo])
 
     def relent_grad(self, var, ext=False):

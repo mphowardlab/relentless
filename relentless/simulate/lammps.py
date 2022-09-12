@@ -2,64 +2,19 @@
 LAMMPS
 ======
 
-Simulation operations using the `LAMMPS engine <https://docs.lammps.org>`_
-for classical molecular dynamics are provided. They can be accessed using the
-corresponding :class:`~relentless.simulate.generic.GenericOperation`.
-
-The following LAMMPS operations have been implemented.
-
-.. autosummary::
-    :nosignatures:
-
-    Initialize
-    InitializeFromFile
-    InitializeRandomly
-    MinimizeEnergy
-    AddLangevinIntegrator
-    RemoveLangevinIntegrator
-    AddVerletIntegrator
-    RemoveVerletIntegrator
-    Run
-    RunUpTo
-    AddEnsembleAnalyzer
+This module implements the :class:`LAMMPS` simulation backend and its specific
+operations. It is best to interface with these operations using the frontend in
+:mod:`relentless.simulate`.
 
 .. rubric:: Developer notes
 
-For compatibility with the generic operations, the :class:`LAMMPS` backend is
-defined here. If you want to implement your own LAMMPS operation, create a class
-that derives from :class:`LAMMPSOperation` and define the required methods.
+To implement your own LAMMPS operation, create an operation that derives from
+:class:`LAMMPSOperation` and define the required methods.
 
-.. autosummary::
-    :nosignatures:
-
-    LAMMPS
-    LAMMPSOperation
-
-.. autoclass:: LAMMPS
-    :members:
 .. autoclass:: LAMMPSOperation
     :members:
+    :special-members: __call__
 .. autoclass:: Initialize
-    :members:
-.. autoclass:: InitializeFromFile
-    :members:
-.. autoclass:: InitializeRandomly
-    :members:
-.. autoclass:: MinimizeEnergy
-    :members:
-.. autoclass:: AddLangevinIntegrator
-    :members:
-.. autoclass:: RemoveLangevinIntegrator
-    :members:
-.. autoclass:: AddVerletIntegrator
-    :members:
-.. autoclass:: RemoveVerletIntegrator
-    :members:
-.. autoclass:: Run
-    :members:
-.. autoclass:: RunUpTo
-    :members:
-.. autoclass:: AddEnsembleAnalyzer
     :members:
 
 """
@@ -79,59 +34,8 @@ try:
 except ImportError:
     _lammps_found = False
 
-class LAMMPS(simulate.Simulation):
-    """:class:`~relentless.simulate.simulate.Simulation` using LAMMPS framework.
-
-    LAMMPS must be built with its `Python interface <https://lammps.sandia.gov/doc/Python_head.html>`_
-    and must be version 29 Sep 2021 or newer.
-
-    Raises
-    ------
-    ImportError
-        If the :mod:`lammps` package is not found.
-
-    """
-    def __init__(self, operations=None, quiet=True, **options):
-        if not _lammps_found:
-            raise ImportError('LAMMPS not found.')
-
-        super().__init__(operations,**options)
-        self.quiet = quiet
-
-    def _new_instance(self, ensemble, potentials, directory):
-        sim = super()._new_instance(ensemble,potentials,directory)
-
-        if self.quiet:
-            # create lammps instance with all output disabled
-            launch_args = ['-echo','none',
-                           '-log','none',
-                           '-screen','none',
-                           '-nocite']
-        else:
-            launch_args = ['-echo','screen',
-                           '-log', sim.directory.file('log.lammps'),
-                           '-nocite']
-
-        sim.lammps = lammps.lammps(cmdargs=launch_args)
-        if sim.lammps.version() < 20210929:
-            raise ImportError('Only LAMMPS 29 Sep 2021 or newer is supported.')
-        # lammps uses 1-indexed ints for types, so build mapping in both direction
-        sim.type_map = {}
-        sim.typeid_map = {}
-        for i,t in enumerate(sim.ensemble.types):
-            sim.type_map[t] = i+1
-            sim.typeid_map[sim.type_map[t]] = t
-
-        # by default, the dimension of a LAMMPS simulation is 3
-        sim.dimension = 3
-
-        return sim
-
 class LAMMPSOperation(simulate.SimulationOperation):
-    """Provides an interface to translate :class:`~relentless.simulate.simulate.SimulationOperation`\s
-    into LAMMPS operations.
-
-    """
+    """LAMMPS simulation operation."""
     _fix_counter = 1
 
     def __call__(self, sim):
@@ -152,7 +56,7 @@ class LAMMPSOperation(simulate.SimulationOperation):
 
     @classmethod
     def new_fix_id(cls):
-        """Sets a unique new ID for a LAMMPS fix.
+        """Make a unique new fix ID.
 
         Returns
         -------
@@ -166,10 +70,9 @@ class LAMMPSOperation(simulate.SimulationOperation):
 
     @abc.abstractmethod
     def to_commands(self, sim):
-        """Calls the appropriate LAMMPS commands for the simulation operation.
+        """Create the LAMMPS commands for the simulation operation.
 
-        All classes deriving from :class:`LAMMPSOperation` must implement
-        this method.
+        All deriving classes must implement this method.
 
         Parameters
         ----------
@@ -201,19 +104,6 @@ class Initialize(LAMMPSOperation):
         self.atom_style = atom_style
 
     def to_commands(self, sim):
-        """Sets up basic parameters for the initialization operation.
-
-        Parameters
-        ----------
-        sim : :class:`~relentless.simulate.simulate.Simulation`
-            The simulation object.
-
-        Returns
-        -------
-        array_like
-            The LAMMPS commands for this operation.
-
-        """
         # check the dimension of the simulation up front
         if isinstance(sim.ensemble.V, TriclinicBox):
             sim.dimension = 3
@@ -391,19 +281,6 @@ class InitializeFromFile(Initialize):
         self.filename = filename
 
     def to_commands(self, sim):
-        """Performs the from-file initialization operation.
-
-        Parameters
-        ----------
-        sim : :class:`~relentless.simulate.simulate.Simulation`
-            The simulation object.
-
-        Returns
-        -------
-        array_like
-            The LAMMPS commands for this operation.
-
-        """
         cmds = super().to_commands(sim)
         cmds += ['read_data {filename}'.format(filename=self.filename)]
         cmds += self.attach_potentials(sim)
@@ -422,33 +299,17 @@ class InitializeRandomly(Initialize):
     atom_style : str
         The LAMMPS style of atoms used in a simulation (defaults to ``atomic``).
 
+    Raises
+    ------
+    ValueError
+        If the number of particles is not set for all types.
+
     """
     def __init__(self, seed, units='lj', atom_style='atomic'):
         super().__init__(units, atom_style)
         self.seed = seed
 
     def to_commands(self, sim):
-        """Performs the random initialization operation.
-
-        Places particles in random coordinates, sets particle types, gives the
-        particles unit mass and thermalizes to the Maxwell-Boltzmann distribution.
-
-        Parameters
-        ----------
-        sim : :class:`~relentless.simulate.simulate.Simulation`
-            The simulation object.
-
-        Returns
-        -------
-        array_like
-            The LAMMPS commands for this operation.
-
-        Raises
-        ------
-        ValueError
-            If the number of particles is not set for all types.
-
-        """
         cmds = super().to_commands(sim)
 
         # make box from ensemble
@@ -505,19 +366,6 @@ class MinimizeEnergy(LAMMPSOperation):
             self.options['max_evaluations'] = None
 
     def to_commands(self, sim):
-        """Performs the energy minimization operation.
-
-        Parameters
-        ----------
-        sim : :class:`~relentless.simulate.simulate.Simulation`
-            The simulation object.
-
-        Returns
-        -------
-        array_like
-            The LAMMPS commands for this operation.
-
-        """
         if self.options['max_evaluations'] is None:
             self.options['max_evaluations'] = 100*self.max_iterations
 
@@ -543,6 +391,14 @@ class AddLangevinIntegrator(LAMMPSOperation):
     seed : int
         Seed used to randomly generate a uniform force.
 
+    Raises
+    ------
+    ValueError
+        If particle masses are not set for all types.
+    ValueError
+        If the friction factor is not set as a single value or per-type
+        for all types.
+
     """
     def __init__(self, dt, friction, seed):
         self.friction = friction
@@ -552,27 +408,6 @@ class AddLangevinIntegrator(LAMMPSOperation):
         self._fix_nve = self.new_fix_id()
 
     def to_commands(self, sim):
-        """Adds the Langevin integrator to the simulation.
-
-        Parameters
-        ----------
-        sim : :class:`~relentless.simulate.simulate.Simulation`
-            The simulation object.
-
-        Returns
-        -------
-        array_like
-            The LAMMPS commands for this operation.
-
-        Raises
-        ------
-        ValueError
-            If particle masses are not set for all types.
-        ValueError
-            If the friction factor is not set as a single value or per-type
-            for all types.
-
-        """
         # obtain per-type mass (arrays 1-indexed using lammps convention)
         Ntypes = len(sim.ensemble.types)
         mass = sim.lammps.numpy.extract_atom('mass')
@@ -627,8 +462,6 @@ class RemoveLangevinIntegrator(LAMMPSOperation):
 
     """
     def __init__(self, add_op):
-        if not isinstance(add_op, AddLangevinIntegrator):
-            raise TypeError('Addition operation is not AddLangevinIntegrator.')
         self.add_op = add_op
 
     def to_commands(self, sim):
@@ -656,6 +489,11 @@ class AddVerletIntegrator(LAMMPSOperation):
     barostat : :class:`~relentless.simulate.simulate.Barostat`
         Barostat used for integration (defaults to ``None``).
 
+    Raises
+    ------
+    TypeError
+        If an appropriate combination of thermostat and barostat is not set.
+
     """
     def __init__(self, dt, thermostat=None, barostat=None):
         self.thermostat = thermostat
@@ -665,24 +503,6 @@ class AddVerletIntegrator(LAMMPSOperation):
         self._extra_fixes = []
 
     def to_commands(self, sim):
-        """Adds the Verlet integrator to the simulation.
-
-        Parameters
-        ----------
-        sim : :class:`~relentless.simulate.simulate.Simulation`
-            The simulation object.
-
-        Returns
-        -------
-        array_like
-            The LAMMPS commands for this operation.
-
-        Raises
-        ------
-        TypeError
-            If an appropriate combination of thermostat and barostat is not set.
-
-        """
         fix_berendsen_temp = False
         fix_berendsen_pres = False
 
@@ -758,8 +578,6 @@ class RemoveVerletIntegrator(LAMMPSOperation):
 
     """
     def __init__(self, add_op):
-        if not isinstance(add_op, AddVerletIntegrator):
-            raise TypeError('Addition operation is not AddVerletIntegrator.')
         self.add_op = add_op
 
     def to_commands(self, sim):
@@ -822,6 +640,12 @@ class AddEnsembleAnalyzer(LAMMPSOperation):
     rdf_dr : float
         The width (in units ``r``) of a bin in the histogram of the rdf.
 
+    Raises
+    ------
+    RuntimeError
+        If more than one LAMMPS :class:`AddEnsembleAnalyzer` is initialized
+        at the same time.
+
     """
     def __init__(self, check_thermo_every, check_rdf_every, rdf_dr):
         self.check_thermo_every = check_thermo_every
@@ -829,25 +653,6 @@ class AddEnsembleAnalyzer(LAMMPSOperation):
         self.rdf_dr = rdf_dr
 
     def to_commands(self, sim):
-        """Adds the ensemble analyzer to the simulation.
-
-        Parameters
-        ----------
-        sim : :class:`~relentless.simulate.simulate.Simulation`
-            The simulation object.
-
-        Returns
-        -------
-        array_like
-            The LAMMPS commands for this operation.
-
-        Raises
-        ------
-        RuntimeError
-            If more than one LAMMPS :class:`AddEnsembleAnalyzer` is initialized
-            at the same time.
-
-        """
         # check that IDs reserved for analysis do not yet exist
         reserved_ids = (('fix','thermo_avg'),
                         ('compute','rdf'),
@@ -942,3 +747,75 @@ class AddEnsembleAnalyzer(LAMMPSOperation):
             ens.rdf[pair] = RDF(rdf[:,0],rdf[:,i+1])
 
         return ens
+
+class LAMMPS(simulate.Simulation):
+    """Simulation using LAMMPS.
+
+    A simulation is performed using `LAMMPS <https://docs.lammps.org>`_.
+    LAMMPS is a molecular dynamics program that can execute on both CPUs and
+    GPUs, as a single process or with MPI parallelism. The launch configuration
+    will be automatically selected for you when the simulation is run.
+
+    LAMMPS must be built with its `Python interface <https://docs.lammps.org/Python_head.html>`_
+    and must be version 29 Sep 2021 or newer.
+
+    Raises
+    ------
+    ImportError
+        If the :mod:`lammps` package is not found.
+
+    """
+    def __init__(self, operations=None, quiet=True, **options):
+        if not _lammps_found:
+            raise ImportError('LAMMPS not found.')
+
+        super().__init__(operations,**options)
+        self.quiet = quiet
+
+    def _new_instance(self, ensemble, potentials, directory):
+        sim = super()._new_instance(ensemble,potentials,directory)
+
+        if self.quiet:
+            # create lammps instance with all output disabled
+            launch_args = ['-echo','none',
+                           '-log','none',
+                           '-screen','none',
+                           '-nocite']
+        else:
+            launch_args = ['-echo','screen',
+                           '-log', sim.directory.file('log.lammps'),
+                           '-nocite']
+
+        sim.lammps = lammps.lammps(cmdargs=launch_args)
+        if sim.lammps.version() < 20210929:
+            raise ImportError('Only LAMMPS 29 Sep 2021 or newer is supported.')
+        # lammps uses 1-indexed ints for types, so build mapping in both direction
+        sim.type_map = {}
+        sim.typeid_map = {}
+        for i,t in enumerate(sim.ensemble.types):
+            sim.type_map[t] = i+1
+            sim.typeid_map[sim.type_map[t]] = t
+        # by default, the dimension of a LAMMPS simulation is 3
+        sim.dimension = 3
+
+        return sim
+
+    # initialization
+    InitializeFromFile = InitializeFromFile
+    InitializeRandomly = InitializeRandomly
+
+    # energy minimization
+    MinimizeEnergy = MinimizeEnergy
+
+    # md integrators
+    AddLangevinIntegrator = AddLangevinIntegrator
+    RemoveLangevinIntegrator = RemoveLangevinIntegrator
+    AddVerletIntegrator = AddVerletIntegrator
+    RemoveVerletIntegrator = RemoveVerletIntegrator
+
+    # run commands
+    Run = Run
+    RunUpTo = RunUpTo
+
+    # analysis
+    AddEnsembleAnalyzer = AddEnsembleAnalyzer

@@ -2,90 +2,47 @@
 Simulation interface
 ====================
 
-Molecular simulation runs are performed in a :class:`Simulation` ensemble container,
-which initializes and runs a set of :class:`SimulationOperation`\s. Each simulation
-run requires the input of an ensemble, the interaction potentials, and a directory
-to write the output data, which are all used to construct a :class:`SimulationInstance`.
-
-The simulations can use a combination of multiple :class:`~relentless.potential.potential.Potential`\s or
-:class:`~relentless.potential.pair.PairPotential`\s tabulated together, the interface for
-which is given here using :class:`Potentials` and the tabulators :class:`PotentialTabulator`
-and :class:`PairPotentialTabulator`.
-
-A number of :class:`Thermostat`\s and :class:`Barostat`\s are also provided to enable
-control of the temperature and pressure of the simulation.
-
-.. autosummary::
-    :nosignatures:
-
-    Simulation
-    SimulationInstance
-    Potentials
-    PotentialTabulator
-    PairPotentialTabulator
-    BerendsenThermostat
-    NoseHooverThermostat
-    BerendsenBarostat
-    MTKBarostat
-
-.. rubric:: Developer notes
-
-To implement your own simulation operation, create a class that derives from
-:class:`SimulationOperation` and define the required methods.
-
-To implement your own thermostat or barostat, create a class that derives from
-:class:`Thermostat` or :class:`Barostat` and define the required methods.
-
-.. autosummary::
-    :nosignatures:
-
-    SimulationOperation
-    Thermostat
-    Barostat
-
-.. autoclass:: Simulation
-    :members:
-.. autoclass:: SimulationInstance
-    :members:
-.. autoclass:: SimulationOperation
-    :members:
-.. autoclass:: Potentials
-    :members:
-.. autoclass:: PotentialTabulator
-    :members:
-.. autoclass:: PairPotentialTabulator
-    :members:
-.. autoclass:: Thermostat
-    :members:
-.. autoclass:: BerendsenThermostat
-    :members:
-.. autoclass:: NoseHooverThermostat
-    :members:
-.. autoclass:: Barostat
-    :members:
-.. autoclass:: BerendsenBarostat
-    :members:
-.. autoclass:: MTKBarostat
-    :members:
+See :mod:`relentless.simulate` for module level documentation.
 
 """
 import abc
-
 import numpy
 
 from relentless import data
-from relentless import mpi
+
+class SimulationOperation(abc.ABC):
+    """Operation to be performed by a :class:`Simulation`."""
+    class Data:
+        pass
+
+    @abc.abstractmethod
+    def __call__(self, sim):
+        pass
+
+class NotImplementedOperation(SimulationOperation):
+    """Operation not implemented by a :class:`Simulation`."""
+    def __call__(self, sim):
+        raise NotImplementedError('Operation not implemented')
 
 class Simulation:
-    """Ensemble simulation container.
+    """Simulation engine.
 
-    Base class that initializes and runs a simulation described by a set of
-    :class:`SimulationOperation`\s.
+    A simulation engine interprets a sequence of :class:`SimulationOperation`\s
+    into a set of commands or parameters that are executed by backend software.
+    The easiest backend software to work with will have a Python interface so
+    that the operation commands can be passed through to Python commands.
+    However, in-house or legacy software may require creation of input files,
+    etc. that are executed by other binaries or programs.
+
+    When the simulation is :meth:`run`, a :class:`SimulationInstance` is created
+    that can hold specific data or parameters associated with the operations.
+    Hence, a single :class:`Simulation` can be run multiple times, e.g., with
+    varied inputs, to obtain different output :class:`SimulationInstance`\s.
 
     Parameters
     ----------
     operations : array_like
-        Array of :class:`SimulationOperation`\s to call.
+        Sequence of :class:`SimulationOperation`\s to call.
     options : kwargs
         Optional arguments to attach to each instance of a simulation.
 
@@ -98,7 +55,7 @@ class Simulation:
         self.options = options
 
     def run(self, ensemble, potentials, directory):
-        """Run the simulation and return the result of analyze.
+        """Run the simulation operations.
 
         A new simulation instance is created to perform the run. It is intended
         to be destroyed at the end of the run to prevent memory leaks.
@@ -151,6 +108,28 @@ class Simulation:
                                   directory,
                                   **self.options)
 
+    # initialization
+    InitializeFromFile = NotImplementedOperation
+    InitializeRandomly = NotImplementedOperation
+
+    # energy minimization
+    MinimizeEnergy = NotImplementedOperation
+
+    # md integrators
+    AddBrownianIntegrator = NotImplementedOperation
+    RemoveBrownianIntegrator = NotImplementedOperation
+    AddLangevinIntegrator = NotImplementedOperation
+    RemoveLangevinIntegrator = NotImplementedOperation
+    AddVerletIntegrator = NotImplementedOperation
+    RemoveVerletIntegrator = NotImplementedOperation
+
+    # run commands
+    Run = NotImplementedOperation
+    RunUpTo = NotImplementedOperation
+
+    # analysis
+    AddEnsembleAnalyzer = NotImplementedOperation
+
 class SimulationInstance:
     """Specific instance of a simulation and its data.
 
@@ -166,7 +145,7 @@ class SimulationInstance:
     directory : str or :class:`~relentless.data.Directory`
         Directory for output.
     options : kwargs
-        Optional arguments for the initialize, analyze, and defined "operations" functions.
+        Optional arguments to forward.
 
     """
     def __init__(self, backend, ensemble, potentials, directory, **options):
@@ -183,28 +162,22 @@ class SimulationInstance:
         self._opdata = {}
 
     def __getitem__(self, op):
-        if not op in self._opdata:
-            self._opdata[op] = op.Data()
-        return self._opdata[op]
-
-class SimulationOperation(abc.ABC):
-    """Abstract base class for operations performed using a simulation engine. To
-    implement your own operation, a ``__call__`` method must be defined as specified.
-    """
-    class Data:
-        pass
-
-    @abc.abstractmethod
-    def __call__(self, sim):
-        pass
+        op_ = op._op if isinstance(op, GenericOperation) else op
+        if not op_ in self._opdata:
+            self._opdata[op_] = op_.Data()
+        return self._opdata[op_]
 
 class Potentials:
-    """Combination of multiple potentials.
+    """Set of interaction potentials.
 
-    Initializes a :class:`PairPotentialTabulator` object that can store multiple
-    potentials. Before the :class:`Potentials` object can be used, the ``rmax``
-    and ``num`` attributes of all ``pair``\s (that are not ``None``) must be set.
-    Additionally, the ``rmin`` attribute defaults to 0.
+    This class combines one or more potentials to be used as input to
+    :meth:`Simulation.run`. In order to enable a common interface, potentials
+    must be organized by type (e.g., pair potentials). Potentials of a common
+    type are then numerically tabulated, as many simulation packages can
+    accommodate tabulated inputs with complex parametrization.
+
+    The parameters of these tabulators, which are automatically initialized,
+    must be specified before a simulation can be run.
 
     Parameters
     ----------
@@ -222,14 +195,17 @@ class Potentials:
 
     @property
     def pair(self):
-        """:class:`PairPotentialTabulator`: The combined potentials."""
+        """:class:`PairPotentialTabulator`: Pair potentials."""
         return self._pair
 
 class PotentialTabulator:
-    """Tabulates one or more potentials.
+    """Tabulator for an interaction potential.
 
-    Enables evaluation of energy, force, and derivative at different
-    positional values (i.e. ``x``).
+    The energy, force, and derivative are evaluated at different positions ``x``
+    and stored in arrays. The ``start`` and ``end`` of this range must be
+    specified, along with the number of points (``num``) to use.
+
+    If no ``potentials`` are specified, the tabulator returns zeros for all.
 
     Parameters
     ----------
@@ -379,7 +355,7 @@ class PotentialTabulator:
         return d
 
 class PairPotentialTabulator(PotentialTabulator):
-    """Tabulates one or more pair potentials.
+    """Tabulate one or more pair potentials.
 
     Enables evaluation of energy, force, and derivative at different
     positional values (i.e. ``r``).
@@ -604,3 +580,295 @@ class MTKBarostat(Barostat):
     def __init__(self, P, tau):
         super().__init__(P)
         self.tau = tau
+
+class GenericOperation(SimulationOperation):
+    """Generic simulation operation adapter.
+
+    Translates a generic simulation operation into an implemented operation
+    for a valid :class:`Simulation` backend. The backend must be an attribute
+    of the :class:`GenericOperation`.
+
+    Parameters
+    ----------
+    args : args
+        Positional arguments for simulation operation.
+    kwargs : kwargs
+        Keyword arguments for simulation operation.
+
+    """
+    def __init__(self, *args, **kwargs):
+        self._op = None
+        self._backend = None
+        self._args = args
+        self._kwargs = kwargs
+        self._forward_attr = set()
+
+    def __call__(self, sim):
+        """Evaluates the generic simulation operation.
+
+        Parameters
+        ----------
+        sim : :class:`Simulation`
+            Simulation object.
+
+        Returns
+        -------
+        :class:`object`
+            The result of the generic simulation operation function.
+
+        Raises
+        ------
+        TypeError
+            If the specified simulation backend is not registered (using :meth:`add_backend()`).
+        TypeError
+            If the specified operation is not found in the simulation backend.
+
+        """
+        if self._op is None or self._backend != sim.backend:
+            backend = sim.backend
+            if not issubclass(backend, Simulation):
+                raise TypeError('Backend must be a Simulation.')
+
+            op_name = type(self).__name__
+            BackendOp = getattr(backend, op_name, None)
+            if BackendOp is NotImplementedOperation or BackendOp is None:
+                raise NotImplementedError('{}.{} operation not implemented.'.format(backend.__name__,op_name))
+
+            self._op = BackendOp(*self._args,**self._kwargs)
+            for attr in self._forward_attr:
+                value = getattr(self, attr)
+                setattr(self._op, attr, value)
+            self._backend = backend
+
+        return self._op(sim)
+
+    def __getattr__(self, name):
+        if self._op is not None:
+            if not hasattr(self._op, name):
+                raise AttributeError('Operation does not have attribute')
+            return getattr(self._op, name)
+        else:
+            raise AttributeError('Backend operation not initialized yet')
+
+    def __setattr__(self, name, value):
+        super().__setattr__(name, value)
+        if name not in ('_op','_backend','_args','_kwargs','_forward_attr'):
+            if self._op is not None:
+                self._forward_attr.add(name)
+                setattr(self._op, name, value)
+
+## initializers
+class InitializeFromFile(GenericOperation):
+    """Initialize a simulation box and pair potentials from a file.
+
+    Parameters
+    ----------
+    filename : str
+        The file from which to read the system data.
+    options : kwargs
+        Options for file reading.
+
+    """
+    def __init__(self, filename, **options):
+        super().__init__(filename, **options)
+
+class InitializeRandomly(GenericOperation):
+    """Initialize a randomly generated simulation box and pair potentials.
+
+    Parameters
+    ----------
+    seed : int
+        The seed to randomly initialize the particle locations.
+    options : kwargs
+        Options for random initialization.
+
+    """
+    def __init__(self, seed, **options):
+        super().__init__(seed, **options)
+
+## integrators
+class MinimizeEnergy(GenericOperation):
+    """Run an energy minimization until converged.
+
+    Parameters
+    ----------
+    energy_tolerance : float
+        Energy convergence criterion.
+    force_tolerance : float
+        Force convergence criterion.
+    max_iterations : int
+        Maximum number of iterations to run the minimization.
+    options : dict
+        Additional options for energy minimizer (defaults to ``None``).
+
+    """
+    def __init__(self, energy_tolerance, force_tolerance, max_iterations, options=None):
+        super().__init__(energy_tolerance, force_tolerance, max_iterations, options)
+
+class AddBrownianIntegrator(GenericOperation):
+    """Add a Brownian dynamics integration scheme.
+
+    Parameters
+    ----------
+    dt : float
+        Time step size for each simulation iteration
+    friction : float
+        Sets drag coefficient for each particle type.
+    seed : int
+        Seed used to randomly generate a uniform force.
+    options : kwargs
+        Options used in integrator function.
+
+    """
+    def __init__(self, dt, friction, seed, **options):
+        super().__init__(dt, friction, seed, **options)
+
+class RemoveBrownianIntegrator(GenericOperation):
+    """Remove a Brownian dynamics integrator.
+
+    Parameters
+    ----------
+    add_op : :class:`AddBrownianIntegrator`
+        The integrator addition operation to be removed.
+
+    """
+    def __init__(self, add_op):
+        super().__init__(add_op)
+
+class AddLangevinIntegrator(GenericOperation):
+    """Add a Langevin dynamics integration scheme.
+
+    Parameters
+    ----------
+    dt : float
+        Time step size for each simulation iteration
+    friction : float or dict
+        Sets drag coefficient for each particle type (shared or per-type).
+    seed : int
+        Seed used to randomly generate a uniform force.
+    options : kwargs
+        Options used in integrator function.
+
+    """
+    def __init__(self, dt, friction, seed, **options):
+        super().__init__(dt, friction, seed, **options)
+
+class RemoveLangevinIntegrator(GenericOperation):
+    """Remove a Langevin dynamics integrator.
+
+    Parameters
+    ----------
+    add_op : :class:`AddLangevinIntegrator`
+        The integrator addition operation to be removed.
+
+    """
+    def __init__(self, add_op):
+        super().__init__(add_op)
+
+class AddVerletIntegrator(GenericOperation):
+    """Add a Verlet-style integrator.
+
+    The Verlet-style integrator is used to implement classical molecular
+    dynamics equations of motion. The integrator may optionally accept a
+    :class:`Thermostat` and a :class:`Barostat` for temperature and pressure
+    control, respectively. Depending on the :class:`Simulation` engine, not
+    all combinations of ``thermostat`` and ``barostat`` may be allowed. Refer
+    to the specific documentation for the engine you plan to use if you are
+    unsure or obtain an error for your chosen combination.
+
+    .. rubric:: Thermostats
+    .. autosummary::
+        :nosignatures:
+
+        BerendsenThermostat
+        NoseHooverThermostat
+
+    .. rubric:: Barostats
+    .. autosummary::
+        :nosignatures:
+
+        BerendsenBarostat
+        MTKBarostat
+
+    Parameters
+    ----------
+    dt : float
+        Time step size for each simulation iteration.
+    thermostat : :class:`~relentless.simulate.simulate.Thermostat`
+        Thermostat used for integration (defaults to ``None``).
+    barostat : :class:`~relentless.simulate.simulate.Barostat`
+        Barostat used for integration (defaults to ``None``).
+
+    """
+    def __init__(self, dt, thermostat=None, barostat=None):
+        super().__init__(dt, thermostat, barostat)
+
+class RemoveVerletIntegrator(GenericOperation):
+    """Remove a Verlet-style integrator.
+
+    Parameters
+    ----------
+    add_op : :class:`AddVerletIntegrator`
+        The integrator addition operation to be removed.
+
+    """
+    def __init__(self, add_op):
+        super().__init__(add_op)
+
+# run commands
+class Run(GenericOperation):
+    """Advance the simulation by a given number of time steps.
+
+    Parameters
+    ----------
+    steps : int
+        Number of steps to run.
+
+    """
+    def __init__(self, steps):
+        super().__init__(steps)
+
+class RunUpTo(GenericOperation):
+    """Advance the simulation up to a given time step.
+
+    Parameters
+    ----------
+    step : int
+        Step number up to which to run.
+
+    """
+    def __init__(self, step):
+        super().__init__(step)
+
+# analyzers
+class AddEnsembleAnalyzer(GenericOperation):
+    """Analyze the simulation ensemble.
+
+    Parameters
+    ----------
+    check_thermo_every : int
+        Interval of time steps at which to log thermodynamic properties of the simulation.
+    check_rdf_every : int
+        Interval of time steps at which to log the rdf of the simulation.
+    rdf_dr : float
+        The width (in units ``r``) of a bin in the histogram of the rdf.
+
+    """
+    def __init__(self, check_thermo_every, check_rdf_every, rdf_dr):
+        super().__init__(check_thermo_every, check_rdf_every, rdf_dr)
+
+    def extract_ensemble(self, sim):
+        """Create an ensemble with the averaged thermodynamic properties and rdf.
+
+        Parameters
+        ----------
+        sim : :class:`~relentless.simulate.simulate.Simulation`
+            The simulation object.
+
+        Returns
+        -------
+        :class:`~relentless.ensemble.Ensemble`
+            Ensemble with averaged thermodynamic properties and rdf.
+
+        """
+        return self._op.extract_ensemble(sim)

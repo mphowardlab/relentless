@@ -249,7 +249,7 @@ class RelativeEntropy(ObjectiveFunction):
         The pair potentials to use in the simulations.
     thermo : :class:`~relentless.simulate.simulate.SimulationOperation`
         The thermodynamic analyzer operation for the simulation ensemble and rdf
-        (usually :meth:`~relentless.simulate.simulate.AddEnsembleAnalyzer()`).
+        (usually :class:`~relentless.simulate.simulate.AddEnsembleAnalyzer`).
         The model ensemble will be extracted from this operation.
     extensive : bool
         Specification of whether the relative entropy is extensive (defaults to
