@@ -64,8 +64,8 @@ class LAMMPSOperation(simulate.SimulationOperation):
             The fix ID.
 
         """
-        idx = int(cls._fix_counter)
-        cls._fix_counter += 1
+        idx = int(LAMMPSOperation._fix_counter)
+        LAMMPSOperation._fix_counter += 1
         return idx
 
     @abc.abstractmethod
