@@ -702,7 +702,7 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
             self._P = 0.
             if not hasattr(self.logger, "Lz"):
                 self._V = {'Lx' : 0., 'Ly': 0., 'xy': 0.}
-            if hasattr(self.logger, "Lz"):
+            elif hasattr(self.logger, "Lz"):
                 self._V = {'Lx' : 0., 'Ly': 0., 'Lz': 0., 'xy': 0., 'xz': 0., 'yz': 0.}
 
         @property

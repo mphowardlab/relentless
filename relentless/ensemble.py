@@ -124,13 +124,13 @@ class Ensemble:
 
     @property
     def V(self):
-        r""":class:`~relentless.extent.Extent`: The Extent of the system."""
+        r""":class:`~relentless.extent.Extent`: The extent of the system."""
         return self._V
 
     @V.setter
     def V(self, value):
         if value is not None and not isinstance(value, extent.Extent):
-            raise TypeError('V can only be set as a Extent object or as None.')
+            raise TypeError('V can only be set as an Extent object or as None.')
         self._V = value
 
     @property
