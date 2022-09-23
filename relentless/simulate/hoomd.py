@@ -82,6 +82,7 @@ class Initialize(simulate.SimulationOperation):
             raise ValueError('Box extent must be set.')
         elif not isinstance(V, (TriclinicBox, ObliqueArea)):
             raise TypeError('HOOMD boxes must be derived from TriclinicBox or ObliqueArea')
+        
         if isinstance(V, TriclinicBox):
             Lx = V.a[0]
             Ly = V.b[1]
@@ -623,8 +624,10 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
             # thermodynamic properties
             if isinstance(sim.ensemble.V, Volume):
                 quantities_logged = ['temperature','pressure','lx','ly','lz','xy','xz','yz']
-            if isinstance(sim.ensemble.V, Area):
+            elif isinstance(sim.ensemble.V, Area):
                 quantities_logged = ['temperature','pressure','lx','ly','xy']
+            else:
+                raise TypeError('Unrecognized extent type')
             sim[self].logger = hoomd.analyze.log(filename=None,
                                                  quantities= quantities_logged,
                                                  period=self.check_thermo_every)
@@ -700,10 +703,10 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
             self.num_samples = 0
             self._T = 0.
             self._P = 0.
-            if not hasattr(self.logger, "Lz"):
-                self._V = {'Lx' : 0., 'Ly': 0., 'xy': 0.}
-            elif hasattr(self.logger, "Lz"):
+            if hasattr(self.logger, "Lz"):
                 self._V = {'Lx' : 0., 'Ly': 0., 'Lz': 0., 'xy': 0., 'xz': 0., 'yz': 0.}
+            else:
+                self._V = {'Lx' : 0., 'Ly': 0., 'xy': 0.}
 
         @property
         def T(self):
@@ -726,10 +729,10 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
             """float: Average extent across samples."""
             if self.num_samples > 0:
                 _V = {key: self._V[key]/self.num_samples for key in self._V}
-                if not hasattr(self.logger, "Lz"):
-                    return ObliqueArea(**_V,convention=ObliqueArea.Convention.HOOMD)
                 if hasattr(self.logger, "Lz"):
-                    return TriclinicBox(**_V,convention=TriclinicBox.Convention.HOOMD)
+                    return TriclinicBox(**_V,convention=TriclinicBox.Convention.HOOMD)                
+                else:
+                    return ObliqueArea(**_V,convention=ObliqueArea.Convention.HOOMD)
             else:
                 return None
 

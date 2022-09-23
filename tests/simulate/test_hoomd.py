@@ -32,10 +32,13 @@ class test_HOOMD(unittest.TestCase):
 
     # mock (NVT) ensemble and potential for testing
     def ens_pot(self):
-        if self.dim == 2:
-            ens = relentless.ensemble.Ensemble(T=2.0, V=relentless.extent.Square(L=20.0), N={'A':2,'B':3})
-        elif self.dim == 3: 
+        if self.dim == 3: 
             ens = relentless.ensemble.Ensemble(T=2.0, V=relentless.extent.Cube(L=20.0), N={'A':2,'B':3})
+        elif self.dim == 2:
+            ens = relentless.ensemble.Ensemble(T=2.0, V=relentless.extent.Square(L=20.0), N={'A':2,'B':3})
+        else:
+            raise ValueError('HOOMD supports 2d and 3d simulations')
+        
         # setup potentials
         pot = LinPot(ens.types,params=('m',))
         for pair in pot.coeff:
@@ -54,13 +57,15 @@ class test_HOOMD(unittest.TestCase):
             s.particles.N = 5
             s.particles.types = ['A','B']
             s.particles.typeid = [0,0,1,1,1]
-            if self.dim==2:
+            if self.dim == 3:
+                s.particles.position = numpy.random.uniform(low=-5.0,high=5.0,size=(5,3))
+                s.configuration.box = [20,20,20,0,0,0]
+            elif self.dim == 2:
                 s.particles.position = numpy.random.uniform(low=-5.0,high=5.0,size=(5,3))
                 s.particles.position[:, 2] = 0
                 s.configuration.box = [20,20,0,0,0,0]
-            if self.dim==3:
-                s.particles.position = numpy.random.uniform(low=-5.0,high=5.0,size=(5,3))
-                s.configuration.box = [20,20,20,0,0,0]
+            else:
+                raise ValueError('HOOMD supports 2d and 3d simulations')
             f.append(s)
         return f
 
@@ -273,7 +278,10 @@ class test_HOOMD(unittest.TestCase):
         elif self.dim ==2:
             Lz = 0.
             z = 0.
-            box_type = relentless.extent.Square     
+            box_type = relentless.extent.Square   
+        else:
+            raise ValueError('HOOMD supports 2d and 3d simulations')
+  
         with gsd.hoomd.open(name=self.directory.file('mock.gsd'), mode='wb') as f:
             s = gsd.hoomd.Snapshot()
             s.particles.N = 4

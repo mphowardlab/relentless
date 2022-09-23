@@ -147,6 +147,7 @@ class Initialize(LAMMPSOperation):
             raise ValueError('Box volume must be set.')
         elif not isinstance(V, (TriclinicBox, ObliqueArea)):
             raise TypeError('LAMMPS boxes must be derived from TriclinicBox or ObliqueArea')
+        
         if sim.dimension == 3:
             Lx = V.a[0]
             Ly = V.b[1]
