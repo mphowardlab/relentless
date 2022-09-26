@@ -2,3 +2,4 @@ hoomd=2.9.7
 freud>=2
 gsd
 lammps=2021.09.29
+parameterized

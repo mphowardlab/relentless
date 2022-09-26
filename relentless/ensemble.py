@@ -29,7 +29,7 @@ import numpy
 
 from .collections import FixedKeyDict,PairMatrix
 from .math import Interpolator
-from . import volume
+from . import extent
 
 class RDF(Interpolator):
     r"""Radial distribution function.
@@ -57,7 +57,7 @@ class Ensemble:
         - The temperature ``T``.
         - The number ``N`` for each particle type. The particle types are
           strings determined from the keys of ``N``.
-        - The volume ``V`` and/or pressure ``P``.
+        - The extent ``V`` and/or pressure ``P``.
 
     Parameters
     ----------
@@ -65,8 +65,8 @@ class Ensemble:
         Temperature of the system.
     N : dict
         The number of particles for each specified type.
-    V : :class:`~relentless.volume.Volume`
-        Volume of the system (defaults to ``None``).
+    V : :class:`~relentless.extent.Extent`
+        Extent of the system (defaults to ``None``).
     P : float
         Pressure of the system (defaults to ``None``).
     kB : float
@@ -124,13 +124,13 @@ class Ensemble:
 
     @property
     def V(self):
-        r""":class:`~relentless.volume.Volume`: The volume of the system."""
+        r""":class:`~relentless.extent.Extent`: The extent of the system."""
         return self._V
 
     @V.setter
     def V(self, value):
-        if value is not None and not isinstance(value, volume.Volume):
-            raise TypeError('V can only be set as a Volume object or as None.')
+        if value is not None and not isinstance(value, extent.Extent):
+            raise TypeError('V can only be set as an Extent object or as None.')
         self._V = value
 
     @property
@@ -222,10 +222,10 @@ class Ensemble:
             data = json.load(f)
 
         # create initial ensemble
-        VolumeType = getattr(volume,data['V']['__name__'])
+        ExtentType = getattr(extent,data['V']['__name__'])
         thermo = {'T': data['T'],
                   'N': data['N'],
-                  'V': VolumeType.from_json(data['V']['data']),
+                  'V': ExtentType.from_json(data['V']['data']),
                   'P': data['P'],
                   'kB': data['kB']
                  }

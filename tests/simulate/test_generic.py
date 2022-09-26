@@ -12,7 +12,7 @@ class test_Generic(unittest.TestCase):
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
         self.directory = relentless.data.Directory(self._tmp.name)
-        self.ensemble = relentless.ensemble.Ensemble(T=1.0, V=relentless.volume.Cube(L=2.0), N={'A':2,'B':3})
+        self.ensemble = relentless.ensemble.Ensemble(T=1.0, V=relentless.extent.Cube(L=2.0), N={'A':2,'B':3})
 
         self.potentials = relentless.simulate.Potentials()
         pot = LinPot(self.ensemble.types,params=('m',))

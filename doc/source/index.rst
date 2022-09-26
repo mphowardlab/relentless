@@ -20,7 +20,7 @@
     api/simulate/index
     api/optimize/index
     api/variable
-    api/volume
+    api/extent
     api/devtools
 
 .. toctree::

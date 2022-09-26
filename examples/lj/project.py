@@ -22,7 +22,7 @@ epsilon = relentless.variable.DesignVariable(1.0)
 lj.coeff['1','1'].update({'epsilon': epsilon, 'sigma': 1.0, 'rmax': 3.0, 'shift': True})
 
 # target ensemble
-target = relentless.ensemble.Ensemble(T=1.5, V=relentless.volume.Cube(L=10.), N={'1':50})
+target = relentless.ensemble.Ensemble(T=1.5, V=relentless.extent.Cube(L=10.), N={'1':50})
 dr = 0.05
 rs = numpy.arange(0.5*dr,5.0,dr)
 for pair in target.pairs:

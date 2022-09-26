@@ -1,5 +1,6 @@
 """Unit tests for relentless.simulate.lammps."""
 import sys
+from parameterized import parameterized_class
 import tempfile
 import unittest
 
@@ -13,7 +14,9 @@ import relentless
 from ..potential.test_pair import LinPot
 
 @unittest.skipIf(not relentless.simulate.lammps._lammps_found,
-                 "Compatible LAMMPS not installed")
+                "Compatible LAMMPS not installed")
+@parameterized_class([{'dim': 2}, {'dim': 3}],
+    class_name_func=lambda cls, num, params_dict: "{}_{}d".format(cls.__name__,params_dict['dim']))
 class test_LAMMPS(unittest.TestCase):
     """Unit tests for relentless.LAMMPS"""
 
@@ -23,13 +26,17 @@ class test_LAMMPS(unittest.TestCase):
 
     # mock (NVT) ensemble and potential for testing
     def ens_pot(self):
-        ens = relentless.ensemble.Ensemble(T=2.0, V=relentless.volume.Cube(L=10.0), N={'1':2,'2':3})
+        if self.dim == 3:
+            ens = relentless.ensemble.Ensemble(T=2.0, V=relentless.extent.Cube(L=10.0), N={'1':2,'2':3})
+        elif self.dim == 2:
+            ens = relentless.ensemble.Ensemble(T=2.0, V=relentless.extent.Square(L=10.0), N={'1':2,'2':3})
+        else:
+            raise ValueError('LAMMPS supports 2d and 3d simulations')
         ens.P = 2.5
-
         # setup potentials
         pot = LinPot(ens.types,params=('m',))
         for pair in pot.coeff:
-            pot.coeff[pair]['m'] = 2.0
+            pot.coeff[pair]['m'] = -2.0
         pots = relentless.simulate.Potentials()
         pots.pair.potentials.append(pot)
         pots.pair.rmax = 10.0
@@ -39,28 +46,48 @@ class test_LAMMPS(unittest.TestCase):
 
     def create_file(self):
         file_ = self.directory.file('test.data')
+        
+        if self.dim == 3:
+            zlo = '-5.0'
+            zhi = '5.0'
+            z1 = '-4.0'
+            z2 = '-2.0'
+            z3 = '0.0'
+            z4 = '2.0'
+            z5 = '4.0'
+        elif self.dim == 2: 
+            zlo = '-0.1'
+            zhi = '0.1'
+            z1 = '0.0'
+            z2 = '0.0'
+            z3 = '0.0'
+            z4 = '0.0'
+            z5 = '0.0'
+        else:
+            raise ValueError('LAMMPS supports 2d and 3d simulations')
+        
         with open(file_,'w') as f:
             f.write(('LAMMPS test data\n'
-                     '\n'
-                     '5 atoms\n'
-                     '2 atom types\n'
-                     '\n'
-                     '-5.0 5.0 xlo xhi\n'
-                     '-5.0 5.0 ylo yhi\n'
-                     '-5.0 5.0 zlo zhi\n'
-                     '\n'
-                     'Atoms\n'
-                     '\n'
-                     '1 1 -4.0 -4.0 -4.0\n'
-                     '2 1 -2.0 -2.0 -2.0\n'
-                     '3 2 0.0 0.0 0.0\n'
-                     '4 2 2.0 2.0 2.0\n'
-                     '5 2 4.0 4.0 4.0\n'
-                     '\n'
-                     'Masses\n'
-                     '\n'
-                     '1 0.3\n'
-                     '2 0.1'))
+                    '\n'
+                    '5 atoms\n'
+                    '2 atom types\n'
+                    '\n'
+                    '-5.0 5.0 xlo xhi\n'
+                    '-5.0 5.0 ylo yhi\n'
+                    '{} {} zlo zhi\n'
+                    '\n'
+                    'Atoms\n'
+                    '\n'
+                    '1 1 -4.0 -4.0 {}\n'
+                    '2 1 -2.0 -2.0 {}\n'
+                    '3 2 0.0 0.0 {}\n'
+                    '4 2 2.0 2.0 {}\n'
+                    '5 2 4.0 4.0 {}\n'
+                    '\n'
+                    'Masses\n'
+                    '\n'
+                    '1 0.3\n'
+                    '2 0.1').format(zlo, zhi, z1, z2, z3, z4, z5))
         return file_
 
     def test_initialize(self):
@@ -139,7 +166,7 @@ class test_LAMMPS(unittest.TestCase):
         self.assertFalse(sim.lammps.has_id('fix',str(lgv._fix_langevin)))
 
         # single-type friction
-        ens_1 = relentless.ensemble.Ensemble(T=2.0, V=relentless.volume.Cube(L=10.0), N={'1':2})
+        ens_1 = relentless.ensemble.Ensemble(T=2.0, V=relentless.extent.Cube(L=10.0), N={'1':2})
         lgv = relentless.simulate.AddLangevinIntegrator(dt=0.5,
                                                         friction={'1':3.0},
                                                         seed=2)

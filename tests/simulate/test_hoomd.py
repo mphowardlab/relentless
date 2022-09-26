@@ -1,4 +1,5 @@
 """Unit tests for relentless.simulate.hoomd."""
+from parameterized import parameterized_class
 import tempfile
 import unittest
 
@@ -21,21 +22,27 @@ _has_modules = (relentless.simulate.hoomd._hoomd_found and
                 _found_gsd)
 
 @unittest.skipIf(not _has_modules, "HOOMD, freud, and/or GSD not installed")
+@parameterized_class([{'dim': 2}, {'dim': 3}],
+    class_name_func=lambda cls, num, params_dict: "{}_{}d".format(cls.__name__,params_dict['dim']))
 class test_HOOMD(unittest.TestCase):
     """Unit tests for relentless.HOOMD"""
-
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
         self.directory = relentless.data.Directory(self._tmp.name)
 
     # mock (NVT) ensemble and potential for testing
     def ens_pot(self):
-        ens = relentless.ensemble.Ensemble(T=2.0, V=relentless.volume.Cube(L=20.0), N={'A':2,'B':3})
-
+        if self.dim == 3: 
+            ens = relentless.ensemble.Ensemble(T=2.0, V=relentless.extent.Cube(L=20.0), N={'A':2,'B':3})
+        elif self.dim == 2:
+            ens = relentless.ensemble.Ensemble(T=2.0, V=relentless.extent.Square(L=20.0), N={'A':2,'B':3})
+        else:
+            raise ValueError('HOOMD supports 2d and 3d simulations')
+        
         # setup potentials
         pot = LinPot(ens.types,params=('m',))
         for pair in pot.coeff:
-            pot.coeff[pair]['m'] = 2.0
+            pot.coeff[pair]['m'] = -2.0
         pots = relentless.simulate.Potentials()
         pots.pair.potentials.append(pot)
         pots.pair.rmax = 3.0
@@ -50,8 +57,15 @@ class test_HOOMD(unittest.TestCase):
             s.particles.N = 5
             s.particles.types = ['A','B']
             s.particles.typeid = [0,0,1,1,1]
-            s.particles.position = numpy.random.uniform(low=-5.0,high=5.0,size=(5,3))
-            s.configuration.box = [20,20,20,0,0,0]
+            if self.dim == 3:
+                s.particles.position = numpy.random.uniform(low=-5.0,high=5.0,size=(5,3))
+                s.configuration.box = [20,20,20,0,0,0]
+            elif self.dim == 2:
+                s.particles.position = numpy.random.uniform(low=-5.0,high=5.0,size=(5,3))
+                s.particles.position[:, 2] = 0
+                s.configuration.box = [20,20,0,0,0,0]
+            else:
+                raise ValueError('HOOMD supports 2d and 3d simulations')
             f.append(s)
         return f
 
@@ -243,7 +257,7 @@ class test_HOOMD(unittest.TestCase):
         self.assertIsNotNone(ens_.P)
         self.assertNotEqual(ens_.P, 0)
         self.assertIsNotNone(ens_.V)
-        self.assertNotEqual(ens_.V.volume, 0)
+        self.assertNotEqual(ens_.V.extent, 0)
         for i,j in ens_.rdf:
             self.assertEqual(ens_.rdf[i,j].table.shape, (len(pot.pair.r)-1,2))
         self.assertEqual(thermo.num_samples, 100)
@@ -257,16 +271,27 @@ class test_HOOMD(unittest.TestCase):
 
     def test_self_interactions(self):
         """Test if self-interactions are excluded from rdf computation."""
+        if self.dim == 3:
+            Lz = 8.
+            z = 1.
+            box_type = relentless.extent.Cube
+        elif self.dim ==2:
+            Lz = 0.
+            z = 0.
+            box_type = relentless.extent.Square   
+        else:
+            raise ValueError('HOOMD supports 2d and 3d simulations')
+  
         with gsd.hoomd.open(name=self.directory.file('mock.gsd'), mode='wb') as f:
             s = gsd.hoomd.Snapshot()
             s.particles.N = 4
             s.particles.types = ['A','B']
             s.particles.typeid = [0,1,0,1]
-            s.particles.position = [[-1,-1,-1],[1,1,1],[1,-1,1],[-1,1,-1]]
-            s.configuration.box = [8,8,8,0,0,0]
+            s.particles.position = [[-1,-1,-z],[1,1,z],[1,-1,z],[-1,1,-z]]
+            s.configuration.box = [8,8,Lz,0,0,0]
             f.append(s)
 
-        ens = relentless.ensemble.Ensemble(T=2.0, V=relentless.volume.Cube(L=8.0), N={'A':2,'B':2})
+        ens = relentless.ensemble.Ensemble(T=2.0, V=box_type(L=8.0), N={'A':2,'B':2})
         _,pot = self.ens_pot()
         init = relentless.simulate.InitializeFromFile(filename=f.file.name)
         ig = relentless.simulate.AddVerletIntegrator(dt=0.0)

@@ -12,6 +12,7 @@ operations. It is best to interface with these operations using the frontend in
 import numpy
 
 from relentless.ensemble import RDF
+from relentless import extent
 from . import simulate
 
 class NullOperation(simulate.SimulationOperation):
@@ -63,10 +64,10 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
         # compute pressure
         ens.P = 0.
         for a in ens.types:
-            rho_a = ens.N[a]/ens.V.volume
+            rho_a = ens.N[a]/ens.V.extent
             ens.P += ens.kT*rho_a
             for b in ens.types:
-                rho_b = ens.N[b]/ens.V.volume
+                rho_b = ens.N[b]/ens.V.extent
                 r = sim.potentials.pair.r
                 u = sim.potentials.pair.energy((a,b))
                 f = sim.potentials.pair.force((a,b))
@@ -82,8 +83,15 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
                 f = f[first_finite:]
                 gr = gr[first_finite:]
 
-                ens.P += (2.*numpy.pi/3.)*rho_a*rho_b*numpy.trapz(y=f*gr*r**3,x=r)
-
+                if isinstance(ens.V, extent.Volume):
+                    geo_prefactor = 4*numpy.pi*r**2
+                elif isinstance(ens.V, extent.Area): 
+                    geo_prefactor = 2*numpy.pi*r
+                else:
+                    raise ValueError('Geometric integration factor unknown for extent type')
+                y = (geo_prefactor/6.)*rho_a*rho_b*f*gr*r
+                ens.P += numpy.trapz(y,x=r)
+    
         sim[self].ensemble = ens
 
     def extract_ensemble(self, sim):

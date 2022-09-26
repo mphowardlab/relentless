@@ -25,7 +25,8 @@ from relentless.collections import PairMatrix
 from relentless.ensemble import RDF
 from relentless.math import Interpolator
 from relentless import mpi
-from relentless.volume import TriclinicBox
+from relentless.extent import Area, TriclinicBox, Volume
+from relentless.extent import ObliqueArea
 from . import simulate
 
 try:
@@ -44,9 +45,18 @@ except ImportError:
 ## initializers
 class Initialize(simulate.SimulationOperation):
     """Initializes a simulation box and pair potentials."""
+    def __call__(self, sim):
+        # check the dimension of the simulation up front
+        if isinstance(sim.ensemble.V, TriclinicBox):
+            sim.dimension = 3
+        elif isinstance(sim.ensemble.V, ObliqueArea):
+            sim.dimension = 2
+        else:
+            raise TypeError('HOOMD boxes must be derived from TriclinicBox or ObliqueArea')
+
     def extract_box_params(self, sim):
         """Extracts HOOMD box parameters (``Lx``, ``Ly``, ``Lz``, ``xy``, ``xz``, ``yz``)
-        from the simulation's ensemble volume.
+        from the simulation's ensemble extent.
 
         Parameters
         ----------
@@ -61,26 +71,33 @@ class Initialize(simulate.SimulationOperation):
         Raises
         ------
         ValueError
-            If the volume is not set.
+            If the extent is not set.
         TypeError
-            If the volume does not derive from :class:`~relentless.volume.TriclinicBox`.
+            If the extent does not derive from :class:`~relentless.extent.TriclinicBox` or :class:`~relentless.extent.ObliqueArea`.
 
         """
         # cast simulation box in HOOMD parameters
         V = sim.ensemble.V
         if V is None:
-            raise ValueError('Box volume must be set.')
-        elif not isinstance(V, TriclinicBox):
-            raise TypeError('HOOMD boxes must be derived from TriclinicBox')
-
-        Lx = V.a[0]
-        Ly = V.b[1]
-        Lz = V.c[2]
-        xy = V.b[0]/Ly
-        xz = V.c[0]/Lz
-        yz = V.c[1]/Lz
-
-        return numpy.array([Lx,Ly,Lz,xy,xz,yz])
+            raise ValueError('Box extent must be set.')
+        elif not isinstance(V, (TriclinicBox, ObliqueArea)):
+            raise TypeError('HOOMD boxes must be derived from TriclinicBox or ObliqueArea')
+        
+        if isinstance(V, TriclinicBox):
+            Lx = V.a[0]
+            Ly = V.b[1]
+            Lz = V.c[2]
+            xy = V.b[0]/Ly
+            xz = V.c[0]/Lz
+            yz = V.c[1]/Lz
+        elif isinstance(V, ObliqueArea):
+            Lx = V.a[0]
+            Ly = V.b[1]
+            Lz = 1
+            xy = V.b[0]/Ly
+            xz = 0
+            yz = 0
+        return Lx,Ly,Lz,xy,xz,yz
 
     def make_snapshot(self, sim):
         """Creates a particle snapshot and box for the simulation context.
@@ -112,10 +129,9 @@ class Initialize(simulate.SimulationOperation):
 
         # cast simulation box in HOOMD parameters
         Lx,Ly,Lz,xy,xz,yz = self.extract_box_params(sim)
-
         # make the empty snapshot in the current context
         with sim.context:
-            box = hoomd.data.boxdim(Lx=Lx,Ly=Ly,Lz=Lz,xy=xy,xz=xz,yz=yz)
+            box = hoomd.data.boxdim(Lx=Lx,Ly=Ly,Lz=Lz,xy=xy,xz=xz,yz=yz,dimensions=sim.dimension)
             snap = hoomd.data.make_snapshot(N=N,
                                             box=box,
                                             particle_types=list(sim.ensemble.types))
@@ -185,10 +201,11 @@ class InitializeFromFile(Initialize):
         self.options = options
 
     def __call__(self, sim):
+        super().__call__(sim)
         with sim.context:
             sim.system = hoomd.init.read_gsd(self.filename,**self.options)
 
-            # check that the boxes are consistent in constant volume sims.
+            # check that the boxes are consistent in constant extent sims.
             if sim.ensemble.V is not None:
                 system_box = sim.system.box
                 box_from_file = numpy.array([system_box.Lx,
@@ -197,10 +214,9 @@ class InitializeFromFile(Initialize):
                                           system_box.xy,
                                           system_box.xy,
                                           system_box.yz])
-                box_from_ensemble = self.extract_box_params(sim)
-                if not numpy.all(numpy.isclose(box_from_file,box_from_ensemble)):
-                    raise ValueError('Box from file is is inconsistent with ensemble volume.')
-
+                box_size = self.extract_box_params(sim)
+                if not numpy.all(numpy.isclose(box_from_file,box_size)) or system_box.dimensions != sim.dimension:
+                    raise ValueError('Box from file is is inconsistent with ensemble extent.')
         self.attach_potentials(sim)
 
 class InitializeRandomly(Initialize):
@@ -220,6 +236,7 @@ class InitializeRandomly(Initialize):
         self.seed = seed
 
     def __call__(self, sim):
+        super().__call__(sim)
         # if setting seed, preserve the current RNG state
         if self.seed is not None:
             old_state = numpy.random.get_state()
@@ -231,10 +248,15 @@ class InitializeRandomly(Initialize):
             # randomly place the particles
             with sim.context:
                 snap,box = self.make_snapshot(sim)
-
                 # randomly place particles in fractional coordinates
                 if mpi.world.rank == 0:
-                    rs = numpy.random.uniform(size=(snap.particles.N,3))
+                    if sim.dimension == 3:
+                        rs = numpy.random.uniform(size=(snap.particles.N,3))
+                    elif sim.dimension == 2:
+                        rs = numpy.zeros((snap.particles.N,3))
+                        rs[:,:2] = numpy.random.uniform(size=(snap.particles.N,2))
+                    else:
+                        raise ValueError('HOOMD supports 2d and 3d simulations')
                     snap.particles.position[:] = box.make_absolute(rs)
 
                     # set types of each
@@ -243,7 +265,13 @@ class InitializeRandomly(Initialize):
 
                     # assume unit mass and thermalize to Maxwell-Boltzmann distribution
                     snap.particles.mass[:] = 1.0
-                    vel = numpy.random.normal(scale=numpy.sqrt(sim.ensemble.kT),size=(snap.particles.N,3))
+                    if sim.dimension == 3:
+                        vel = numpy.random.normal(scale=numpy.sqrt(sim.ensemble.kT),size=(snap.particles.N,3))
+                    elif sim.dimension == 2:
+                        vel = numpy.zeros((snap.particles.N,3))
+                        vel[:,:2] = numpy.random.normal(scale=numpy.sqrt(sim.ensemble.kT),size=(snap.particles.N,2))
+                    else:
+                        raise ValueError('HOOMD supports 2d and 3d simulations')
                     snap.particles.velocity[:] = vel-numpy.mean(vel,axis=0)
 
                 # read snapshot
@@ -568,6 +596,7 @@ class RunUpTo(simulate.SimulationOperation):
         with sim.context:
             hoomd.run_upto(self.step)
 
+## analyzers
 class AddEnsembleAnalyzer(simulate.SimulationOperation):
     """Analyzer for the simulation ensemble.
 
@@ -593,10 +622,14 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
     def __call__(self, sim):
         with sim.context:
             # thermodynamic properties
+            if isinstance(sim.ensemble.V, Volume):
+                quantities_logged = ['temperature','pressure','lx','ly','lz','xy','xz','yz']
+            elif isinstance(sim.ensemble.V, Area):
+                quantities_logged = ['temperature','pressure','lx','ly','xy']
+            else:
+                raise TypeError('Unrecognized extent type')
             sim[self].logger = hoomd.analyze.log(filename=None,
-                                                 quantities=['temperature',
-                                                             'pressure',
-                                                             'lx','ly','lz','xy','xz','yz'],
+                                                 quantities= quantities_logged,
                                                  period=self.check_thermo_every)
             sim[self].thermo_callback = AddEnsembleAnalyzer.ThermodynamicsCallback(sim[self].logger)
             hoomd.analyze.callback(callback=sim[self].thermo_callback,
@@ -644,8 +677,8 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
 
         Parameters
         ----------
-        logger : :class:`hoomd.analyze.log`
-            HOOMD logger from which to retrieve instantaneous thermo data.
+        logger : :mod:`hoomd.analyze` logger
+            Logger from which to retrieve data.
 
         """
         def __init__(self, logger):
@@ -666,15 +699,18 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
                 self._V[key] += val
 
         def reset(self):
-            """Reset sampling variables to 0."""
+            """Resets sample number, ``T``, ``P``, and all ``V`` parameters to 0."""
             self.num_samples = 0
             self._T = 0.
             self._P = 0.
-            self._V = {'Lx' : 0., 'Ly': 0., 'Lz': 0., 'xy': 0., 'xz': 0., 'yz': 0.}
+            if hasattr(self.logger, "Lz"):
+                self._V = {'Lx' : 0., 'Ly': 0., 'Lz': 0., 'xy': 0., 'xz': 0., 'yz': 0.}
+            else:
+                self._V = {'Lx' : 0., 'Ly': 0., 'xy': 0.}
 
         @property
         def T(self):
-            """float: Average temperature."""
+            """float: Average temperature across samples."""
             if self.num_samples > 0:
                 return self._T / self.num_samples
             else:
@@ -682,7 +718,7 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
 
         @property
         def P(self):
-            """float: Average pressure."""
+            """float: Average pressure across samples."""
             if self.num_samples > 0:
                 return self._P / self.num_samples
             else:
@@ -690,23 +726,25 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
 
         @property
         def V(self):
-            """float: Average volume."""
+            """float: Average extent across samples."""
             if self.num_samples > 0:
                 _V = {key: self._V[key]/self.num_samples for key in self._V}
-                return TriclinicBox(**_V,convention=TriclinicBox.Convention.HOOMD)
+                if hasattr(self.logger, "Lz"):
+                    return TriclinicBox(**_V,convention=TriclinicBox.Convention.HOOMD)                
+                else:
+                    return ObliqueArea(**_V,convention=ObliqueArea.Convention.HOOMD)
             else:
                 return None
 
     class RDFCallback:
-        """HOOMD callback for averaging radial distribution function.
+        """HOOMD callback for averaging radial distribution function across timesteps.
 
         Parameters
         ----------
-        system : :mod:`hoomd.data.system_data`
-            HOOMD system.
+        system : :mod:`hoomd.data` system
+            Simulation system object.
         params : :class:`~relentless.collections.PairMatrix`
-            Parameters to be used to initialize :class:`freud.density.RDF`
-            for each pair.
+            Parameters to be used to initialize an instance of :class:`freud.density.RDF`.
 
         """
         def __init__(self, system, params):
@@ -714,8 +752,8 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
             self._rdf = PairMatrix(params.types)
             for i,j in self._rdf:
                 self._rdf[i,j] = freud.density.RDF(bins=params[i,j]['bins'],
-                                                r_max=params[i,j]['rmax'],
-                                                normalize=(i==j))
+                                                   r_max=params[i,j]['rmax'],
+                                                   normalize=(i==j))
 
         def __call__(self, timestep):
             snap = self.system.take_snapshot()
@@ -728,13 +766,12 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
                     query_args = dict(self._rdf[i,j].default_query_args)
                     query_args.update(exclude_ii=(i==j))
                     self._rdf[i,j].compute(aabb,
-                                        snap.particles.position[typei],
-                                        neighbors=query_args,
-                                        reset=False)
+                                           snap.particles.position[typei],
+                                           neighbors=query_args,
+                                           reset=False)
 
         @property
         def rdf(self):
-            """:class:`~relentless.collections.PairMatrix`: Average RDF for each pair."""
             rdf = PairMatrix(self._rdf.types)
             for pair in rdf:
                 if mpi.world.rank == 0:
@@ -793,6 +830,8 @@ class HOOMD(simulate.Simulation):
 
         sim.context = hoomd.context.SimulationContext()
         sim.system = None
+        # default dimensionality is unknown in HOOMD
+        sim.dimension = None
         return sim
 
     # initialization

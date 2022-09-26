@@ -84,7 +84,7 @@ class test_RelativeEntropy(unittest.TestCase):
         self.potentials.pair.fmax = 100.
         self.potentials.pair.neighbor_buffer = 0.4
 
-        v_obj = relentless.volume.Cube(L=10.)
+        v_obj = relentless.extent.Cube(L=10.)
         self.target = relentless.ensemble.Ensemble(T=1.5, V=v_obj, N={'1':50})
         rs = numpy.arange(0.05,5.0,0.1)
         gs = numpy.exp(-lj.energy(('1','1'),rs))
