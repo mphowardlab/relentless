@@ -116,6 +116,7 @@ class InitializeRandomly(Initialize):
                                              xz=self.V.c[0]/self.V.c[2],
                                              yz=self.V.c[1]/self.V.c[2],
                                              dimensions=3)
+                    box = freud.Box.from_box([box_.Lx, box_.Ly, box_.Lz, box_.xy, box_.xz, box_.yz], dimensions=3)
                 elif isinstance(self.V, ObliqueArea):
                     box_ = hoomd.data.boxdim(Lx=self.V.a[0],
                                              Ly=self.V.b[1],
@@ -124,6 +125,7 @@ class InitializeRandomly(Initialize):
                                              xz=0,
                                              yz=0,
                                              dimensions=2)
+                    box = freud.Box.from_box([box_.Lx, box_.Ly, 0, box_.xy, 0, 0], dimensions=2)
                 else:
                     raise ValueError('HOOMD supports 2d and 3d simulations')
 
@@ -131,7 +133,6 @@ class InitializeRandomly(Initialize):
                 snap = hoomd.data.make_snapshot(N=sum(self.N.values()),
                                                 box=box_,
                                                 particle_types=list(types))
-                box = freud.Box.from_box(box_)
 
                 # randomly place particles in fractional coordinates
                 if mpi.world.rank == 0:
@@ -648,7 +649,11 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
         def __call__(self, timestep):
             snap = self.system.take_snapshot()
             if mpi.world.rank == 0:
-                box = freud.box.Box.from_box(snap.box)
+                box_array = numpy.array([snap.box.Lx, snap.box.Ly, snap.box.Lz, snap.box.xy, snap.box.xz, snap.box.yz])
+                if snap.box.dimensions == 2:
+                    box_array[2] = 0.
+                    box_array[-2:] = 0.
+                box = freud.box.Box.from_box(box_array, dimensions=snap.box.dimensions)
                 # pre build aabbs per type and count particles by type
                 aabbs = {}
                 type_masks = {}
