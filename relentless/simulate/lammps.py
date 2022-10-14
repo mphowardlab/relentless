@@ -24,8 +24,7 @@ import numpy
 
 from relentless import ensemble
 from relentless import mpi
-from relentless.extent import TriclinicBox
-from relentless.extent import ObliqueArea
+from relentless import extent
 from . import simulate
 
 try:
@@ -39,7 +38,7 @@ class LAMMPSOperation(simulate.SimulationOperation):
     _fix_counter = 1
 
     def __call__(self, sim):
-        """Evaluates the LAMMPS simulation operation.
+        """Evaluate the LAMMPS simulation operation.
 
         Each deriving class of :class:`LAMMPSOperation` must implement a
         :meth:`to_commands()` method that returns a list or tuple of LAMMPS
@@ -47,8 +46,8 @@ class LAMMPSOperation(simulate.SimulationOperation):
 
         Parameters
         ----------
-        sim : :class:`~relentless.simulate.simulate.Simulation`
-            The simulation object.
+        sim : :class:`~relentless.simulate.SimulationInstance`
+            The simulation instance.
 
         """
         cmds = self.to_commands(sim)
@@ -76,8 +75,8 @@ class LAMMPSOperation(simulate.SimulationOperation):
 
         Parameters
         ----------
-        sim : :class:`~relentless.simulate.simulate.Simulation`
-            The simulation object.
+        sim : :class:`~relentless.simulate.SimulationInstance`
+            The simulation instance.
 
         Returns
         -------
@@ -89,14 +88,14 @@ class LAMMPSOperation(simulate.SimulationOperation):
 
 ## initializers
 class Initialize(LAMMPSOperation):
-    """Initializes a simulation box and pair potentials.
+    """Initialize a simulation.
 
     Parameters
     ----------
+    lammps_types : dict
+        Mapping of type names (`str`) to LAMMPS type integers.
     units : str
         The LAMMPS style of units used in the simulation (defaults to ``lj``).
-    atom_style : str
-        The LAMMPS style of atoms used in a simulation (defaults to ``atomic``).
 
     """
     def __init__(self, lammps_types=None, units='lj', atom_style='atomic'):
@@ -119,7 +118,13 @@ class Initialize(LAMMPSOperation):
 
 
 class InitializeFromFile(Initialize):
-    """Initializes a simulation box and pair potentials from a LAMMPS data file.
+    """Initialize a simulation from a LAMMPS data file.
+
+    Because LAMMPS data files only contain the LAMMPS integer types for particles,
+    you are required to specify the type map as an attribute of this operation.::
+
+        init = InitializeFromFile('lammps.data')
+        init.lammps_types = {'A': 2, 'B': 1}
 
     Parameters
     ----------
@@ -137,32 +142,36 @@ class InitializeFromFile(Initialize):
         return ['read_data {filename}'.format(filename=self.filename)]
 
 class InitializeRandomly(Initialize):
-    """Initializes a randomly generated simulation box and pair potentials.
+    """Initialize a randomly generated simulation box.
+
+    The initialization is done using LAMMPS's ``create_atoms`` method, which
+    may produce poor initial structures at high densities.
 
     Parameters
     ----------
     seed : int
         The seed to randomly initialize the particle locations.
-
-    Raises
-    ------
-    ValueError
-        If the number of particles is not set for all types.
+    N : dict
+        Number of particles of each type.
+    V : :class:`~relentless.extent.TriclinicBox` or :class:`~relentless.extent.ObliqueArea`
+        Simulation extent.
+    T : float
+        Temperature.
+    masses : dict
+        Mass of each particle type.
 
     """
     def __init__(self, seed, N, V, T=None, masses=None):
         super().__init__({i: idx+1 for idx,i in enumerate(N.keys())})
-
         self.seed = seed
-        self.N = dict(N)
+        self.N = N
         self.V = V
-        if not isinstance(self.V, (TriclinicBox, ObliqueArea)):
-            raise TypeError('LAMMPS boxes must be derived from TriclinicBox or ObliqueArea')
         self.T = T
         self.masses = masses
 
     def initialize(self, sim):
-        types = tuple(self.N.keys())
+        if not isinstance(self.V, (extent.TriclinicBox, extent.ObliqueArea)):
+            raise TypeError('LAMMPS boxes must be derived from TriclinicBox or ObliqueArea')
 
         # make box
         if sim.dimension == 3:
@@ -190,6 +199,7 @@ class InitializeRandomly(Initialize):
             cmds = ['region box prism {} {} {} {} {} {} {} {} {}'.format(*box_size)]
         else:
             cmds = ['region box block {} {} {} {} {} {}'.format(*box_size[:-3])]
+        types = tuple(self.N.keys())
         cmds += ['create_box {N} box'.format(N=len(types))]
 
         # use lammps random initialization routines
@@ -207,7 +217,7 @@ class InitializeRandomly(Initialize):
 
 ## integrators
 class MinimizeEnergy(LAMMPSOperation):
-    """Runs an energy minimization until converged.
+    """Run energy minimization until convergence.
 
     Valid **options** include:
 
@@ -249,12 +259,12 @@ class MinimizeEnergy(LAMMPSOperation):
         return cmds
 
 class AddMDIntegrator(LAMMPSOperation):
-    """Adds an integrator (for equations of motion) to the simulation.
+    """Add an integrator (for equations of motion) to the simulation.
 
     Parameters
     ----------
     dt : float
-        Time step size for each simulation iteration.
+        Time step.
 
     """
     def __init__(self, dt):
@@ -270,6 +280,8 @@ class AddLangevinIntegrator(AddMDIntegrator):
     ----------
     dt : float
         Time step size for each simulation iteration.
+    T : float
+        Temperature.
     friction : float or dict
         Drag coefficient for each particle type (shared or per-type).
     seed : int
@@ -633,13 +645,10 @@ class AddEnsembleAnalyzer(LAMMPSOperation):
         # extract thermo properties
         # we skip the first 2 rows, which are LAMMPS junk, and slice out the timestep from col. 0
         thermo = mpi.world.loadtxt(sim[self].thermo_file,skiprows=2)[1:]
-
-        num_types = len(sim.types)
-        N = {i: Ni for i,Ni in zip(sim.types, thermo[8:8+num_types])}
-
-        V = TriclinicBox(Lx=thermo[2],Ly=thermo[3],Lz=thermo[4],
+        N = {i: Ni for i,Ni in zip(sim.types, thermo[8:8+len(sim.types)])}
+        V = extent.TriclinicBox(Lx=thermo[2],Ly=thermo[3],Lz=thermo[4],
                          xy=thermo[5],xz=thermo[6],yz=thermo[7],
-                         convention=TriclinicBox.Convention.LAMMPS)
+                         convention=extent.TriclinicBox.Convention.LAMMPS)
         ens = ensemble.Ensemble(N=N,
                                 T=thermo[0],
                                 P=thermo[1],
@@ -664,6 +673,20 @@ class LAMMPS(simulate.Simulation):
 
     LAMMPS must be built with its `Python interface <https://docs.lammps.org/Python_head.html>`_
     and must be version 29 Sep 2021 or newer.
+
+    Parameters
+    ----------
+    initializer : :class:`~relentless.simulate.SimulationOperation`
+        Operation that initializes the simulation.
+    operations : array_like
+        :class:`~relentless.simulate.SimulationOperation` to execute for run.
+        Defaults to ``None``, which means nothing is done after initialization.
+    dimension : int
+        Dimensionality of the simulation. Defaults to 3.
+    quiet : bool
+        If ``True``, silence LAMMPS screen output. Setting this to ``False`` can
+        be helpful for debugging but would be very noisy in a long production
+        simulation.
 
     Raises
     ------
@@ -712,13 +735,8 @@ class LAMMPS(simulate.Simulation):
 
         Parameters
         ----------
-        sim: :class:`~relentless.simulate.simulate.Simulation`
-            The simulation object.
-
-        Returns
-        -------
-        array_like
-            The LAMMPS commands for attaching pair potentials.
+        sim: :class:`~relentless.simulate.SimulationInstance`
+            The simulation instance.
 
         Raises
         ------

@@ -45,8 +45,6 @@ class Simulation:
         Operation to initialize the simulation.
     operations : array_like
         Sequence of :class:`SimulationOperation`\s to call.
-    options : kwargs
-        Optional arguments to attach to each instance of a simulation.
 
     """
     def __init__(self, initializer, operations=None):
@@ -148,15 +146,28 @@ class SimulationInstance:
     ----------
     backend : type
         Type of the simulation class.
+    initializer : :class:`SimulationOperation`
+        Operation to initialize the simulation.
     potentials : :class:`Potentials`
         The interaction potentials.
     directory : str or :class:`~relentless.data.Directory`
         Directory for output.
-    options : kwargs
-        Optional arguments to forward.
+
+    Attributes
+    ----------
+    backend : type
+        Backend class type for the simulation.
+    potentials : :class:`Potentials`
+        Potentials for the simulation.
+    directory : :class:`~relentless.data.Directory`
+        Directory for simulation data.    
+    dimension : int
+        Dimensionality of the simulation.
+    initializer : :class:`SimulationOperation`
+        Operation to initialize the simulation.
 
     """
-    def __init__(self, backend, initializer, potentials, directory, **options):
+    def __init__(self, backend, initializer, potentials, directory):
         self.backend = backend
         self.potentials = potentials
 
@@ -169,8 +180,7 @@ class SimulationInstance:
         self._types = None
         self._pairs = None
 
-        for opt,val in options.items():
-            setattr(self,opt,val)
+        # operation data set
         self._opdata = {}
 
         # finish running the setup with the initializer
@@ -186,6 +196,7 @@ class SimulationInstance:
 
     @property
     def types(self):
+        """tuple: Particle types in simulation."""
         return self._types
 
     @types.setter
@@ -195,6 +206,7 @@ class SimulationInstance:
 
     @property
     def pairs(self):
+        """tuple: Unique pairs of particle types in simulation."""
         return self._pairs
 
 class Potentials:
@@ -216,6 +228,11 @@ class Potentials:
         resulting in an empty :class:`PairPotentialTabulator` object).
     kB : float
         Boltzmann constant in your units.
+
+    Attributes
+    ----------
+    kB : float
+        Boltzmann constant.
 
     """
     def __init__(self, pair_potentials=None, kB=1.0):
@@ -692,28 +709,33 @@ class GenericOperation(SimulationOperation):
 
 ## initializers
 class InitializeFromFile(GenericOperation):
-    """Initialize a simulation box and pair potentials from a file.
+    """Initialize a simulation from a file.
 
     Parameters
     ----------
     filename : str
         The file from which to read the system data.
-    options : kwargs
-        Options for file reading.
 
     """
     def __init__(self, filename):
         super().__init__(filename)
 
 class InitializeRandomly(GenericOperation):
-    """Initialize a randomly generated simulation box and pair potentials.
+    """Initialize a randomly generated simulation box.
 
     Parameters
     ----------
     seed : int
         The seed to randomly initialize the particle locations.
-    options : kwargs
-        Options for random initialization.
+    N : dict
+        Number of particles of each type.
+    V : :class:`~relentless.extent.Extent`
+        Simulation extent.
+    T : float
+        Temperature. Defaults to None, which means system is not thermalized.
+    masses : dict
+        Masses of each particle type. Defaults to None, which means particles
+        have unit mass.
 
     """
     def __init__(self, seed, N, V, T=None, masses=None):
@@ -751,12 +773,10 @@ class AddBrownianIntegrator(GenericOperation):
         Sets drag coefficient for each particle type.
     seed : int
         Seed used to randomly generate a uniform force.
-    options : kwargs
-        Options used in integrator function.
 
     """
-    def __init__(self, dt, T, friction, seed, **options):
-        super().__init__(dt, T, friction, seed, **options)
+    def __init__(self, dt, T, friction, seed):
+        super().__init__(dt, T, friction, seed)
 
 class RemoveBrownianIntegrator(GenericOperation):
     """Remove a Brownian dynamics integrator.
@@ -783,12 +803,10 @@ class AddLangevinIntegrator(GenericOperation):
         Sets drag coefficient for each particle type (shared or per-type).
     seed : int
         Seed used to randomly generate a uniform force.
-    options : kwargs
-        Options used in integrator function.
 
     """
-    def __init__(self, dt, T, friction, seed, **options):
-        super().__init__(dt, T, friction, seed, **options)
+    def __init__(self, dt, T, friction, seed):
+        super().__init__(dt, T, friction, seed)
 
 class RemoveLangevinIntegrator(GenericOperation):
     """Remove a Langevin dynamics integrator.

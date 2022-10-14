@@ -24,22 +24,30 @@ class NullOperation(simulate.SimulationOperation):
         pass
 
 class InitializeRandomly(simulate.SimulationOperation):
-    """Initializes a randomly generated simulation box and pair potentials.
+    """Initializes a "randomly" generated simulation.
 
-    Places particles in random coordinates, sets particle types, gives the
-    particles unit mass and thermalizes to the Maxwell-Boltzmann distribution.
+    Since this is a dilute system, there is not actual particle configuration.
+    Instead, this operation sets up a canonical (NVT) ensemble that is
+    consistent with the specified conditions.
 
     Parameters
     ----------
     seed : int
         The seed to randomly initialize the particle locations.
+    N : dict
+        Number of particles of each type.
+    V : :class:`~relentless.extent.Extent`
+        Simulation extent.
+    T : float
+        Temperature.
+    masses : dict
+        Masses of each particle type. These are not actually used by this
+        operation, so default of ``None`` is the same as specifying something.
 
     """
-    def __init__(self, seed, N, V, T=None, masses=None):
-        self.N = dict(N)
+    def __init__(self, seed, N, V, T, masses=None):
+        self.N = N
         self.V = V
-        if not isinstance(self.V, (extent.Volume, extent.Area)):
-            raise TypeError('Dilute boxes must be derived from Volume or Area')
         self.T = T
 
     def __call__(self, sim):
@@ -72,26 +80,22 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
 
     """
     def __init__(self, check_thermo_every, check_rdf_every, rdf_dr):
-        super().__init__()
+        pass
 
     def __call__(self, sim):
-        if sim[sim.initializer].ensemble is None:
-            raise RuntimeError('Initialization operation missing')
         ens = sim[sim.initializer].ensemble.copy()
-
         kT = sim.potentials.kB*ens.T
         # pair distribution function
         for pair in ens.pairs:
             u = sim.potentials.pair.energy(pair)
-            ens.rdf[pair] = ensemble.RDF(sim.potentials.pair.r,
-                                         numpy.exp(-u/kT))
+            ens.rdf[pair] = ensemble.RDF(sim.potentials.pair.r, numpy.exp(-u/kT))
 
         # compute pressure
         ens.P = 0.
-        for a in ens.types:
+        for a in sim.types:
             rho_a = ens.N[a]/ens.V.extent
             ens.P += kT*rho_a
-            for b in ens.types:
+            for b in sim.types:
                 rho_b = ens.N[b]/ens.V.extent
                 r = sim.potentials.pair.r
                 u = sim.potentials.pair.energy((a,b))
@@ -160,6 +164,7 @@ class Dilute(simulate.Simulation):
     physics of the dilute simulation.
 
     """
+
     def _new_instance(self, initializer, potentials, directory):
         sim = super()._new_instance(initializer, potentials, directory)
 

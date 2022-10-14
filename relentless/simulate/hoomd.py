@@ -24,10 +24,9 @@ import numpy
 
 from relentless.collections import FixedKeyDict, PairMatrix
 from relentless import ensemble
+from relentless import extent
 from relentless.math import Interpolator
 from relentless import mpi
-from relentless.extent import Area, TriclinicBox, Volume
-from relentless.extent import ObliqueArea
 from . import simulate
 
 try:
@@ -45,25 +44,39 @@ except ImportError:
 
 ## initializers
 class Initialize(simulate.SimulationOperation):
-    """Initializes a simulation box and pair potentials."""
+    """Initialize a simulation.
+    
+    This is an abstract base class that needs to have its :meth:`initialize`
+    method implemented.
+    
+    """
     def __call__(self, sim):
-        ## initialize the system and determine dimensionality
         sim[self].system = self.initialize(sim)
 
     @abc.abstractmethod
     def initialize(self, sim):
-        """Initialize the simulation."""
+        """Initialize the simulation.
+        
+        Parameters
+        ----------
+        sim : :class:`~relentless.simulate.SimulationInstance`
+            Simulation instance.
+
+        Returns
+        -------
+        :class:`hoomd.data.system_data`
+            HOOMD system.
+        
+        """
         pass
 
 class InitializeFromFile(Initialize):
-    """Initializes a simulation box and pair potentials from a GSD file.
+    """Initialize a simulation from a GSD file.
 
     Parameters
     ----------
     filename : str
         The file from which to read the system data.
-    options : kwargs
-        Options for file reading (as used in :func:`hoomd.init.read_gsd`).
 
     """
     def __init__(self, filename):
@@ -75,28 +88,38 @@ class InitializeFromFile(Initialize):
             return hoomd.init.read_gsd(self.filename)
 
 class InitializeRandomly(Initialize):
-    """Initializes a randomly generated simulation box and pair potentials.
+    """Initialize a randomly generated simulation box.
 
-    Places particles in random coordinates, sets particle types, gives the
-    particles unit mass and thermalizes to the Maxwell-Boltzmann distribution.
+    Particles are randomly placed in the box according to the specification.
+    No checks are performed for overlaps, so this can produce very poor starting
+    states for denser systems.
 
     Parameters
     ----------
     seed : int
         The seed to randomly initialize the particle locations.
+    N : dict
+        Number of particles of each type.
+    V : :class:`~relentless.extent.TriclinicBox` or :class:`~relentless.extent.ObliqueArea`
+        Simulation extent.
+    T : float
+        Temperature.
+    masses : dict
+        Mass of each particle type.
 
     """
     def __init__(self, seed, N, V, T=None, masses=None):
         super().__init__()
         self.seed = seed
-        self.N = dict(N)
+        self.N = N
         self.V = V
-        if not isinstance(self.V, (TriclinicBox, ObliqueArea)):
-            raise TypeError('HOOMD boxes must be derived from TriclinicBox or ObliqueArea')
         self.T = T
         self.masses = masses
 
     def initialize(self, sim):
+        if not isinstance(self.V, (extent.TriclinicBox, extent.ObliqueArea)):
+            raise TypeError('HOOMD boxes must be derived from TriclinicBox or ObliqueArea')
+
         # if setting seed, preserve the current RNG state
         if self.seed is not None:
             old_state = numpy.random.get_state()
@@ -108,7 +131,7 @@ class InitializeRandomly(Initialize):
             # randomly place the particles
             with sim.hoomd:
                 # make the box and snapshot
-                if isinstance(self.V, TriclinicBox):
+                if isinstance(self.V, extent.TriclinicBox):
                     box_ = hoomd.data.boxdim(Lx=self.V.a[0],
                                              Ly=self.V.b[1],
                                              Lz=self.V.c[2],
@@ -117,7 +140,7 @@ class InitializeRandomly(Initialize):
                                              yz=self.V.c[1]/self.V.c[2],
                                              dimensions=3)
                     box = freud.Box.from_box([box_.Lx, box_.Ly, box_.Lz, box_.xy, box_.xz, box_.yz], dimensions=3)
-                elif isinstance(self.V, ObliqueArea):
+                elif isinstance(self.V, extent.ObliqueArea):
                     box_ = hoomd.data.boxdim(Lx=self.V.a[0],
                                              Ly=self.V.b[1],
                                              Lz=1,
@@ -291,6 +314,8 @@ class AddBrownianIntegrator(AddMDIntegrator):
     ----------
     dt : float
         Time step size for each simulation iteration.
+    T : float
+        Temperature.
     friction : float
         Sets drag coefficient for each particle type.
     seed : int
@@ -615,9 +640,9 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
             if self.num_samples > 0:
                 _V = {key: self._V[key]/self.num_samples for key in self._V}
                 if hasattr(self.logger, "Lz"):
-                    return TriclinicBox(**_V,convention=TriclinicBox.Convention.HOOMD)                
+                    return extent.TriclinicBox(**_V,convention=extent.TriclinicBox.Convention.HOOMD)                
                 else:
-                    return ObliqueArea(**_V,convention=ObliqueArea.Convention.HOOMD)
+                    return extent.ObliqueArea(**_V,convention=extent.ObliqueArea.Convention.HOOMD)
             else:
                 return None
 
@@ -674,6 +699,7 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
 
         @property
         def N(self):
+            """:class:`~relentless.collections.FixedKeyDict`: Number of particles by type."""
             if self.num_samples > 0:
                 N = FixedKeyDict(self._N.keys())               
                 for i in self._N:
@@ -689,6 +715,7 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
 
         @property
         def rdf(self):
+            """:class:`~relentless.collections.PairMatrix`: Radial distribution functions."""
             if self.num_samples > 0:
                 rdf = PairMatrix(self._rdf.types)
                 for pair in rdf:
@@ -703,6 +730,7 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
                 return None
 
         def reset(self):
+            """Reset the averages."""
             self.num_samples = 0
             for i in self._N.types:
                 self._N[i] = 0
@@ -766,6 +794,17 @@ class HOOMD(simulate.Simulation):
         return sim
 
     def _attach_potentials(self, sim):
+        """Attach potentials to the simulation.
+
+        The potentials are attached to the instance as the last step of
+        initialization, after the particles types are encoded by the initializer.
+
+        Parameters
+        ----------
+        sim : :class:`~relentless.simulate.SimulationInstance`
+            Simulation instance.
+
+        """
         def _table_eval(r_i, rmin, rmax, **coeff):
             r = coeff['r']
             u = coeff['u']
@@ -774,7 +813,6 @@ class HOOMD(simulate.Simulation):
             f_r = Interpolator(r,f)
             return (u_r(r_i), f_r(r_i))
         with sim.hoomd:
-            # create potentials in HOOMD script
             neighbor_list = hoomd.md.nlist.tree(r_buff=sim.potentials.pair.neighbor_buffer)
             pair_potential = hoomd.md.pair.table(width=len(sim.potentials.pair.r),
                                                  nlist=neighbor_list)

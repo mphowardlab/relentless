@@ -111,6 +111,24 @@ class test_LAMMPS(unittest.TestCase):
         self.assertIsInstance(sim.lammps, lammps.lammps)
         self.assertEqual(sim.lammps.get_natoms(), 5)
 
+    def test_random_initialize_options(self):
+        # no T
+        ens,pot = self.ens_pot()
+        op = relentless.simulate.InitializeRandomly(seed=1, N=ens.N, V=ens.V)
+        h = relentless.simulate.LAMMPS(op, dimension=self.dim)
+        h.run(potentials=pot, directory=self.directory)
+
+        # no T + mass
+        m = {i: idx+1 for idx,i in enumerate(ens.N)}
+        op = relentless.simulate.InitializeRandomly(seed=1, N=ens.N, V=ens.V, masses=m)
+        h = relentless.simulate.LAMMPS(op, dimension=self.dim)
+        h.run(potentials=pot, directory=self.directory)
+
+        # T + mass
+        op = relentless.simulate.InitializeRandomly(seed=1, N=ens.N, V=ens.V, T=ens.T, masses=m)
+        h = relentless.simulate.LAMMPS(op, dimension=self.dim)
+        h.run(potentials=pot, directory=self.directory)
+
     def test_minimization(self):
         """Test running energy minimization simulation operation."""
         ens,pot = self.ens_pot()
