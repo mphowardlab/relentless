@@ -184,7 +184,8 @@ class InitializeRandomly(Initialize):
         else:
             raise ValueError('LAMMPS only supports 2d and 3d simulations')
         lo = -0.5*dL
-        box_size = numpy.array([lo[0],Lx,lo[1],Ly,lo[2],Lz,xy,xz,yz])
+        hi = lo + [Lx,Ly,Lz]
+        box_size = numpy.array([lo[0],hi[0],lo[1],hi[1],lo[2],hi[2],xy,xz,yz])
         if not numpy.all(numpy.isclose(box_size[-3:],0)):
             cmds = ['region box prism {} {} {} {} {} {} {} {} {}'.format(*box_size)]
         else:
