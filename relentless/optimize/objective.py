@@ -293,7 +293,7 @@ class RelativeEntropy(ObjectiveFunction):
 
         """
         # run simulation and use result to compute gradient
-        sim = self.simulation.run(self.target, self.potentials, directory)
+        sim = self.simulation.run(self.potentials, directory)
         sim_ens = self.thermo.extract_ensemble(sim)
         gradient = self.compute_gradient(sim_ens, variables)
 
@@ -362,9 +362,9 @@ class RelativeEntropy(ObjectiveFunction):
                 # normalization to extensive or intensive as specified
                 norm_factor = self.target.V.extent if not self.extensive else 1.
 
-                # take integral by trapezoidal rule
-                sim_factor = ensemble.N[i]*ensemble.N[j]*ensemble.beta/(ensemble.V.extent*norm_factor)
-                tgt_factor = self.target.N[i]*self.target.N[j]*self.target.beta/(self.target.V.extent*norm_factor)
+                # take integral by trapezoidal rule              
+                sim_factor = ensemble.N[i]*ensemble.N[j]/(self.potentials.kB*ensemble.T*ensemble.V.extent*norm_factor)
+                tgt_factor = self.target.N[i]*self.target.N[j]/(self.potentials.kB*self.target.T*self.target.V.extent*norm_factor)
                 mult = 1 if i == j else 2 # 1 if same, otherwise need i,j and j,i contributions
                 if isinstance(self.target.V, extent.Volume):
                     geo_prefactor = 4*numpy.pi*r**2

@@ -22,7 +22,7 @@ import abc
 
 import numpy
 
-from relentless.ensemble import RDF
+from relentless import ensemble
 from relentless import mpi
 from relentless.extent import TriclinicBox
 from relentless.extent import ObliqueArea
@@ -99,170 +99,24 @@ class Initialize(LAMMPSOperation):
         The LAMMPS style of atoms used in a simulation (defaults to ``atomic``).
 
     """
-    def __init__(self, units='lj', atom_style='atomic'):
+    def __init__(self, lammps_types=None, units='lj', atom_style='atomic'):
+        self.lammps_types = lammps_types
         self.units = units
         self.atom_style = atom_style
 
-    def to_commands(self, sim):
-        # check the dimension of the simulation up front
-        if isinstance(sim.ensemble.V, TriclinicBox):
-            sim.dimension = 3
-        elif isinstance(sim.ensemble.V, ObliqueArea):
-            sim.dimension = 2
-        else:
-            raise TypeError('LAMMPS boxes must be derived from TriclinicBox or ObliqueArea')
+    def __call__(self, sim):
+        super().__call__(sim)
+        sim[self].lammps_types = dict(self.lammps_types)
 
+    def to_commands(self, sim):
         cmds = ['units {style}'.format(style=self.units),
                 'boundary p p p',
                 'dimension {dim}'.format(dim=sim.dimension),
                 'atom_style {style}'.format(style=self.atom_style)]
+        cmds += self.initialize(sim)
 
         return cmds
 
-    def extract_box_params(self, sim):
-        """Extracts LAMMPS box parameters (``Lx``, ``Ly``, ``Lz``, ``xy``, ``xz``, ``yz``)
-        from the simulation's ensemble volume.
-
-        Parameters
-        ----------
-        sim: :class:`~relentless.simulate.simulate.Simulation`
-            The simulation object.
-
-        Returns
-        -------
-        array_like
-            Array of the simulation box parameters.
-
-        Raises
-        ------
-        ValueError
-            If the volume is not set.
-        TypeError
-            If the volume does not derive from :class:`~relentless.volume.TriclinicBox`.
-
-        """
-        # cast simulation box in LAMMPS parameters
-        V = sim.ensemble.V
-        if V is None:
-            raise ValueError('Box volume must be set.')
-        elif not isinstance(V, (TriclinicBox, ObliqueArea)):
-            raise TypeError('LAMMPS boxes must be derived from TriclinicBox or ObliqueArea')
-        
-        if sim.dimension == 3:
-            Lx = V.a[0]
-            Ly = V.b[1]
-            Lz = V.c[2]
-            xy = V.b[0]
-            xz = V.c[0]
-            yz = V.c[1]
-            dL = V.a + V.b + V.c
-        elif sim.dimension == 2:
-            Lx = V.a[0]
-            Ly = V.b[1]
-            Lz = 0.2 # LAMMPS wants Lz to be a tiny number
-            xy = V.b[0]
-            xz = 0.0
-            yz = 0.0
-            dL = numpy.array((V.a[0]+V.b[0],V.a[1]+V.b[1],Lz))
-        else:
-            raise ValueError('LAMMPS only supports 2d and 3d simulations')
-        lo = -0.5*numpy.array([Lx,Ly,Lz])
-        hi = lo + dL
-
-        return numpy.array([lo[0],hi[0],lo[1],hi[1],lo[2],hi[2],xy,xz,yz])
-        
-    def attach_potentials(self, sim):
-        """Adds tabulated pair potentials to the simulation object.
-
-        Parameters
-        ----------
-        sim: :class:`~relentless.simulate.simulate.Simulation`
-            The simulation object.
-
-        Returns
-        -------
-        array_like
-            The LAMMPS commands for attaching pair potentials.
-
-        Raises
-        ------
-        ValueError
-            If there are not at least two points in the tabulated potential.
-        ValueError
-            If the pair potentials do not have equally spaced ``r``.
-
-        """
-        # lammps requires r > 0
-        flags = sim.potentials.pair.r > 0
-        r = sim.potentials.pair.r[flags]
-        Nr = len(r)
-        if Nr == 1:
-            raise ValueError('LAMMPS requires at least two points in the tabulated potential.')
-
-        # check that all r are equally spaced
-        dr = r[1:]-r[:-1]
-        if not numpy.all(numpy.isclose(dr,dr[0])):
-            raise ValueError('LAMMPS requires equally spaced r in pair potentials.')
-
-        def pair_map(sim,pair):
-            # Map lammps type indexes as a pair, lowest type first
-            i,j = pair
-            id_i = sim.type_map[i]
-            id_j = sim.type_map[j]
-            if id_i > id_j:
-                id_i,id_j = id_j,id_i
-
-            return id_i,id_j
-
-        # write all potentials into a file
-        file_ = sim.directory.file('lammps_pair_table.dat')
-        if mpi.world.rank_is_root:
-            with open(file_,'w') as fw:
-                fw.write('# LAMMPS tabulated pair potentials\n')
-                rcut = {}
-                for i,j in sim.ensemble.pairs:
-                    id_i,id_j = pair_map(sim,(i,j))
-                    fw.write(('# pair ({i},{j})\n'
-                              '\n'
-                              'TABLE_{id_i}_{id_j}\n').format(i=i,
-                                                              j=j,
-                                                              id_i=id_i,
-                                                              id_j=id_j)
-                            )
-                    fw.write('N {N} R {rmin} {rmax}\n\n'.format(N=Nr,
-                                                                rmin=r[0],
-                                                                rmax=r[-1]))
-
-                    u = sim.potentials.pair.energy((i,j))[flags]
-                    f = sim.potentials.pair.force((i,j))[flags]
-                    for idx in range(Nr):
-                        fw.write('{idx} {r} {u} {f}\n'.format(idx=idx+1,r=r[idx],u=u[idx],f=f[idx]))
-
-                    # find r where potential and force are zero
-                    nonzero_r = numpy.flatnonzero(numpy.logical_and(~numpy.isclose(u,0),~numpy.isclose(f,0)))
-                    if len(nonzero_r) > 1:
-                        # cutoff at last nonzero r (cannot be first r)
-                        rcut[(i,j)] = r[nonzero_r[-1]]
-                    else:
-                        # if first or second r is nonzero, cutoff at second
-                        rcut[(i,j)] = r[1]
-        else:
-            rcut = None
-        rcut = mpi.world.bcast(rcut)
-
-        # process all lammps commands
-        cmds = ['neighbor {skin} multi'.format(skin=sim.potentials.pair.neighbor_buffer)]
-        cmds += ['pair_style table linear {N}'.format(N=Nr)]
-
-        for i,j in sim.ensemble.pairs:
-            # get lammps type indexes, lowest type first
-            id_i,id_j = pair_map(sim,(i,j))
-            cmds += ['pair_coeff {id_i} {id_j} {filename} TABLE_{id_i}_{id_j} {cutoff}'.format(id_i=id_i,
-                                                                                               id_j=id_j,
-                                                                                               filename=file_,
-                                                                                               cutoff=rcut[(i,j)])]
-
-        return cmds
 
 class InitializeFromFile(Initialize):
     """Initializes a simulation box and pair potentials from a LAMMPS data file.
@@ -271,22 +125,16 @@ class InitializeFromFile(Initialize):
     ----------
     filename : str
         The file from which to read the system data.
-    units : str
-        The LAMMPS style of units used in the simulation (defaults to ``lj``).
-    atom_style : str
-        The LAMMPS style of atoms used in a simulation (defaults to ``atomic``).
 
     """
-    def __init__(self, filename, units='lj', atom_style='atomic'):
-        super().__init__(units, atom_style)
+    def __init__(self, filename):
+        super().__init__()
         self.filename = filename
 
-    def to_commands(self, sim):
-        cmds = super().to_commands(sim)
-        cmds += ['read_data {filename}'.format(filename=self.filename)]
-        cmds += self.attach_potentials(sim)
-
-        return cmds
+    def initialize(self, sim):
+        if self.lammps_types is None:
+            raise ValueError('lammps_types needs to be manually specified with a file')
+        return ['read_data {filename}'.format(filename=self.filename)]
 
 class InitializeRandomly(Initialize):
     """Initializes a randomly generated simulation box and pair potentials.
@@ -295,10 +143,6 @@ class InitializeRandomly(Initialize):
     ----------
     seed : int
         The seed to randomly initialize the particle locations.
-    units : str
-        The LAMMPS style of units used in the simulation (defaults to ``lj``).
-    atom_style : str
-        The LAMMPS style of atoms used in a simulation (defaults to ``atomic``).
 
     Raises
     ------
@@ -306,34 +150,57 @@ class InitializeRandomly(Initialize):
         If the number of particles is not set for all types.
 
     """
-    def __init__(self, seed, units='lj', atom_style='atomic'):
-        super().__init__(units, atom_style)
+    def __init__(self, seed, N, V, T=None, masses=None):
+        super().__init__({i: idx+1 for idx,i in enumerate(N.keys())})
+
         self.seed = seed
+        self.N = dict(N)
+        self.V = V
+        if not isinstance(self.V, (TriclinicBox, ObliqueArea)):
+            raise TypeError('LAMMPS boxes must be derived from TriclinicBox or ObliqueArea')
+        self.T = T
+        self.masses = masses
 
-    def to_commands(self, sim):
-        cmds = super().to_commands(sim)
+    def initialize(self, sim):
+        types = tuple(self.N.keys())
 
-        # make box from ensemble
-        box_size = self.extract_box_params(sim)
-        if not numpy.all(numpy.isclose(box_size[-3:],0)):
-            cmds += ['region box prism {} {} {} {} {} {} {} {} {}'.format(*box_size)]
+        # make box
+        if sim.dimension == 3:
+            Lx = self.V.a[0]
+            Ly = self.V.b[1]
+            Lz = self.V.c[2]
+            xy = self.V.b[0]
+            xz = self.V.c[0]
+            yz = self.V.c[1]
+            dL = self.V.a + self.V.b + self.V.c
+        elif sim.dimension == 2:
+            Lx = self.V.a[0]
+            Ly = self.V.b[1]
+            Lz = 0.2 # LAMMPS wants Lz to be a tiny number
+            xy = self.V.b[0]
+            xz = 0.0
+            yz = 0.0
+            dL = numpy.array((self.V.a[0]+self.V.b[0],self.V.a[1]+self.V.b[1],Lz))
         else:
-            cmds += ['region box block {} {} {} {} {} {}'.format(*box_size[:-3])]
-        cmds += ['create_box {N} box'.format(N=len(sim.ensemble.types))]
+            raise ValueError('LAMMPS only supports 2d and 3d simulations')
+        lo = -0.5*dL
+        box_size = numpy.array([lo[0],Lx,lo[1],Ly,lo[2],Lz,xy,xz,yz])
+        if not numpy.all(numpy.isclose(box_size[-3:],0)):
+            cmds = ['region box prism {} {} {} {} {} {} {} {} {}'.format(*box_size)]
+        else:
+            cmds = ['region box block {} {} {} {} {} {}'.format(*box_size[:-3])]
+        cmds += ['create_box {N} box'.format(N=len(types))]
 
         # use lammps random initialization routines
-        for i in sim.ensemble.types:
-            if sim.ensemble.N[i] is None:
-                raise ValueError('Number of particles for type {} must be set.'.format(i))
+        for i in types:
+            cmds += ['create_atoms {typeid} random {N} {seed} box'.format(typeid=self.lammps_types[i],
+                                                                          N=self.N[i],
+                                                                          seed=self.seed+self.lammps_types[i]-1),
+                     'mass {typeid} {mass}'.format(typeid=self.lammps_types[i],
+                                                   mass=self.masses[i] if self.masses is not None else 1.0)]
 
-            cmds += ['create_atoms {typeid} random {N} {seed} box'.format(typeid=sim.type_map[i],
-                                                                          N=sim.ensemble.N[i],
-                                                                          seed=self.seed+sim.type_map[i]-1)]
-        cmds += ['mass * 1.0',
-                 'velocity all create {temp} {seed}'.format(temp=sim.ensemble.T,
-                                                            seed=self.seed)]
-
-        cmds += self.attach_potentials(sim)
+        if self.T is not None:
+            cmds += ['velocity all create {temp} {seed}'.format(temp=self.T, seed=self.seed)]
 
         return cmds
 
@@ -380,7 +247,22 @@ class MinimizeEnergy(LAMMPSOperation):
 
         return cmds
 
-class AddLangevinIntegrator(LAMMPSOperation):
+class AddMDIntegrator(LAMMPSOperation):
+    """Adds an integrator (for equations of motion) to the simulation.
+
+    Parameters
+    ----------
+    dt : float
+        Time step size for each simulation iteration.
+
+    """
+    def __init__(self, dt):
+        self.dt = dt
+
+    def to_commands(self, sim):
+        return ['timestep {}'.format(self.dt)]
+
+class AddLangevinIntegrator(AddMDIntegrator):
     """Langevin dynamics for a NVE ensemble.
 
     Parameters
@@ -401,7 +283,9 @@ class AddLangevinIntegrator(LAMMPSOperation):
         for all types.
 
     """
-    def __init__(self, dt, friction, seed):
+    def __init__(self, dt, T, friction, seed):
+        super().__init__(dt)
+        self.T = T
         self.friction = friction
         self.seed = seed
 
@@ -409,8 +293,10 @@ class AddLangevinIntegrator(LAMMPSOperation):
         self._fix_nve = self.new_fix_id()
 
     def to_commands(self, sim):
+        cmds = super().to_commands(sim)
+
         # obtain per-type mass (arrays 1-indexed using lammps convention)
-        Ntypes = len(sim.ensemble.types)
+        Ntypes = len(sim.types)
         mass = sim.lammps.numpy.extract_atom('mass')
         if mass is None or mass.shape != (Ntypes+1,):
             raise ValueError('Per-type masses not set.')
@@ -418,11 +304,11 @@ class AddLangevinIntegrator(LAMMPSOperation):
 
         # obtain per-type friction factor
         friction = numpy.zeros_like(mass)
-        for t in sim.ensemble.types:
+        for t in sim.types:
             try:
-                friction[sim.type_map[t]] = self.friction[t]
+                friction[sim[sim.initializer].lammps_types[t]] = self.friction[t]
             except TypeError:
-                friction[sim.type_map[t]] = self.friction
+                friction[sim[sim.initializer].lammps_types[t]] = self.friction
             except KeyError:
                 raise KeyError('The friction factor for type {} is not set.'.format(t))
 
@@ -435,12 +321,12 @@ class AddLangevinIntegrator(LAMMPSOperation):
         else:
             scale_str = ''
 
-        cmds = ['fix {idx} {group_idx} nve'.format(idx=self._fix_nve,
+        cmds += ['fix {idx} {group_idx} nve'.format(idx=self._fix_nve,
                                                    group_idx='all'),
                 'fix {idx} {group_idx} langevin {t_start} {t_stop} {damp} {seed} {scaling}'.format(idx=self._fix_langevin,
                                                                                                   group_idx='all',
-                                                                                                  t_start=sim.ensemble.T,
-                                                                                                  t_stop=sim.ensemble.T,
+                                                                                                  t_start=self.T,
+                                                                                                  t_stop=self.T,
                                                                                                   damp=damp_ref,
                                                                                                   seed=self.seed,
                                                                                                   scaling=scale_str)
@@ -471,7 +357,7 @@ class RemoveLangevinIntegrator(LAMMPSOperation):
 
         return cmds
 
-class AddVerletIntegrator(LAMMPSOperation):
+class AddVerletIntegrator(AddMDIntegrator):
     """Family of Verlet integration modes.
 
     This method supports:
@@ -497,6 +383,7 @@ class AddVerletIntegrator(LAMMPSOperation):
 
     """
     def __init__(self, dt, thermostat=None, barostat=None):
+        super().__init__(dt)
         self.thermostat = thermostat
         self.barostat = barostat
 
@@ -504,12 +391,13 @@ class AddVerletIntegrator(LAMMPSOperation):
         self._extra_fixes = []
 
     def to_commands(self, sim):
+        cmds = super().to_commands(sim)
         fix_berendsen_temp = False
         fix_berendsen_pres = False
 
         if ((self.thermostat is None or isinstance(self.thermostat, simulate.BerendsenThermostat)) and
             (self.barostat is None or isinstance(self.barostat, simulate.BerendsenBarostat))):
-            cmds = ['fix {idx} {group_idx} nve'.format(idx=self._fix,
+            cmds += ['fix {idx} {group_idx} nve'.format(idx=self._fix,
                                                        group_idx='all')]
             if isinstance(self.thermostat, simulate.BerendsenThermostat):
                 fix_berendsen_temp = True
@@ -517,7 +405,7 @@ class AddVerletIntegrator(LAMMPSOperation):
                 fix_berendsen_pres = True
         elif (isinstance(self.thermostat, simulate.NoseHooverThermostat) and
              (self.barostat is None or isinstance(self.barostat, simulate.BerendsenBarostat))):
-            cmds = ['fix {idx} {group_idx} nvt temp {Tstart} {Tstop} {Tdamp}'.format(idx=self._fix,
+            cmds += ['fix {idx} {group_idx} nvt temp {Tstart} {Tstop} {Tdamp}'.format(idx=self._fix,
                                                                                      group_idx='all',
                                                                                      Tstart=self.thermostat.T,
                                                                                      Tstop=self.thermostat.T,
@@ -526,7 +414,7 @@ class AddVerletIntegrator(LAMMPSOperation):
                 fix_berendsen_pres = True
         elif ((self.thermostat is None or isinstance(self.thermostat, simulate.BerendsenThermostat)) and
               isinstance(self.barostat, simulate.MTKBarostat)):
-            cmds = ['fix {idx} {group_idx} nph iso {Pstart} {Pstop} {Pdamp}'.format(idx=self._fix,
+            cmds += ['fix {idx} {group_idx} nph iso {Pstart} {Pstop} {Pdamp}'.format(idx=self._fix,
                                                                                     group_idx='all',
                                                                                     Pstart=self.barostat.P,
                                                                                     Pstop=self.barostat.P,
@@ -534,7 +422,7 @@ class AddVerletIntegrator(LAMMPSOperation):
             if isinstance(self.thermostat, simulate.BerendsenThermostat):
                 fix_berendsen_temp = True
         elif isinstance(self.thermostat, simulate.NoseHooverThermostat) and isinstance(self.barostat, simulate.MTKBarostat):
-            cmds = ['fix {idx} {group_idx} npt temp {Tstart} {Tstop} {Tdamp} iso {Pstart} {Pstop} {Pdamp}'.format(idx=self._fix,
+            cmds += ['fix {idx} {group_idx} npt temp {Tstart} {Tstop} {Tdamp} iso {Pstart} {Pstop} {Pdamp}'.format(idx=self._fix,
                                                                                                                   group_idx='all',
                                                                                                                   Tstart=self.thermostat.T,
                                                                                                                   Tstop=self.thermostat.T,
@@ -655,7 +543,7 @@ class AddEnsembleAnalyzer(LAMMPSOperation):
 
     def to_commands(self, sim):
         # check that IDs reserved for analysis do not yet exist
-        reserved_ids = (('fix','thermo_avg'),
+        reserved_ids = [('fix','thermo_avg'),
                         ('compute','rdf'),
                         ('fix','rdf_avg'),
                         ('variable','T'),
@@ -665,7 +553,11 @@ class AddEnsembleAnalyzer(LAMMPSOperation):
                         ('variable','Lz'),
                         ('variable','xy'),
                         ('variable','xz'),
-                        ('variable','yz'))
+                        ('variable','yz')]
+        for i in sim.types:
+            typeid = sim[sim.initializer].lammps_types[i]
+            reserved_ids.append(['group', 'type_{typeid}'.format(typeid=typeid)])
+            reserved_ids.append(['variable', 'N_{typeid}'.format(typeid=typeid)])
         for category,name in reserved_ids:
             if sim.lammps.has_id(category,'ensemble_'+name):
                 raise RuntimeError('Only one AddEnsembleAnalyzer operation can be used with LAMMPS.')
@@ -682,11 +574,19 @@ class AddEnsembleAnalyzer(LAMMPSOperation):
                 'variable ensemble_Lz equal lz',
                 'variable ensemble_xy equal xy',
                 'variable ensemble_xz equal xz',
-                'variable ensemble_yz equal yz',
+                'variable ensemble_yz equal yz']
+        N_vars = []
+        for i in sim.types:
+            typeid = sim[sim.initializer].lammps_types[i]
+            cmds += ['group ensemble_type_{typeid} type {typeid}'.format(typeid=typeid),
+                     'variable ensemble_N_{typeid} equal "count(ensemble_type_{typeid})"'.format(typeid=typeid)]
+            N_vars.append('v_ensemble_N_{typeid}'.format(typeid=typeid))
+        cmds += [
                 ('fix ensemble_thermo_avg all ave/time {every} 1 {every}'
                  ' v_ensemble_T v_ensemble_P'
                  ' v_ensemble_Lx v_ensemble_Ly v_ensemble_Lz'
                  ' v_ensemble_xy v_ensemble_xz v_ensemble_yz'
+                 + ' ' + ' '.join(N_vars) +
                  ' mode scalar ave running'
                  ' file {filename} overwrite format " %.16e"').format(every=self.check_thermo_every,
                                                                        filename=sim[self].thermo_file)
@@ -696,14 +596,14 @@ class AddEnsembleAnalyzer(LAMMPSOperation):
         rmax = sim.potentials.pair.r[-1]
         sim[self].num_bins = numpy.round(rmax/self.rdf_dr).astype(int)
         sim[self].rdf_file = sim.directory.file('lammps_rdf.dat')
-        sim[self].rdf_pairs = tuple(sim.ensemble.pairs)
+        sim[self].rdf_pairs = tuple(sim.pairs)
         # string format lammps arguments based on pairs
         # _pairs is the list of all pairs by LAMMPS type id, in ensemble order
         # _computes is the RDF values for each pair, with the r bin centers prepended
         _pairs = []
         _computes = ['c_ensemble_rdf[1]']
         for idx,(i,j) in enumerate(sim[self].rdf_pairs):
-            _pairs.append('{} {}'.format(sim.type_map[i],sim.type_map[j]))
+            _pairs.append('{} {}'.format(sim[sim.initializer].lammps_types[i],sim[sim.initializer].lammps_types[j]))
             _computes.append('c_ensemble_rdf[{}]'.format(2*(idx+1)))
         cmds += ['compute ensemble_rdf all rdf {bins} {pairs}'.format(bins=sim[self].num_bins,pairs=' '.join(_pairs)),
                  ('fix ensemble_rdf_avg all ave/time {every} 1 {every}'
@@ -729,23 +629,27 @@ class AddEnsembleAnalyzer(LAMMPSOperation):
             Ensemble with averaged thermodynamic properties and rdf.
 
         """
-        ens = sim.ensemble.copy()
-
         # extract thermo properties
         # we skip the first 2 rows, which are LAMMPS junk, and slice out the timestep from col. 0
         thermo = mpi.world.loadtxt(sim[self].thermo_file,skiprows=2)[1:]
-        ens.T = thermo[0]
-        ens.P = thermo[1]
-        ens.V = TriclinicBox(Lx=thermo[2],Ly=thermo[3],Lz=thermo[4],
-                             xy=thermo[5],xz=thermo[6],yz=thermo[7],
-                             convention=TriclinicBox.Convention.LAMMPS)
+
+        num_types = len(sim.types)
+        N = {i: Ni for i,Ni in zip(sim.types, thermo[8:8+num_types])}
+
+        V = TriclinicBox(Lx=thermo[2],Ly=thermo[3],Lz=thermo[4],
+                         xy=thermo[5],xz=thermo[6],yz=thermo[7],
+                         convention=TriclinicBox.Convention.LAMMPS)
+        ens = ensemble.Ensemble(N=N,
+                                T=thermo[0],
+                                P=thermo[1],
+                                V=V)
 
         # extract rdfs
         # LAMMPS injects a column for the row index, so we start at column 1 for r
         # we skip the first 4 rows, which are LAMMPS junk, and slice out the first column
         rdf = mpi.world.loadtxt(sim[self].rdf_file,skiprows=4)[:,1:]
         for i,pair in enumerate(sim[self].rdf_pairs):
-            ens.rdf[pair] = RDF(rdf[:,0],rdf[:,i+1])
+            ens.rdf[pair] = ensemble.RDF(rdf[:,0],rdf[:,i+1])
 
         return ens
 
@@ -766,16 +670,18 @@ class LAMMPS(simulate.Simulation):
         If the :mod:`lammps` package is not found.
 
     """
-    def __init__(self, operations=None, quiet=True, **options):
+    def __init__(self, initializer, operations=None, dimension=3, quiet=True):
         if not _lammps_found:
             raise ImportError('LAMMPS not found.')
 
-        super().__init__(operations,**options)
+        super().__init__(initializer, operations)
+        self.dimension = dimension
         self.quiet = quiet
 
-    def _new_instance(self, ensemble, potentials, directory):
-        sim = super()._new_instance(ensemble,potentials,directory)
+    def _new_instance(self, initializer, potentials, directory):
+        sim = super()._new_instance(initializer, potentials, directory)
 
+        # add the lammps engine to the instance
         if self.quiet:
             # create lammps instance with all output disabled
             launch_args = ['-echo','none',
@@ -786,20 +692,112 @@ class LAMMPS(simulate.Simulation):
             launch_args = ['-echo','screen',
                            '-log', sim.directory.file('log.lammps'),
                            '-nocite']
-
         sim.lammps = lammps.lammps(cmdargs=launch_args)
         if sim.lammps.version() < 20210929:
             raise ImportError('Only LAMMPS 29 Sep 2021 or newer is supported.')
-        # lammps uses 1-indexed ints for types, so build mapping in both direction
-        sim.type_map = {}
-        sim.typeid_map = {}
-        for i,t in enumerate(sim.ensemble.types):
-            sim.type_map[t] = i+1
-            sim.typeid_map[sim.type_map[t]] = t
-        # by default, the dimension of a LAMMPS simulation is 3
-        sim.dimension = 3
+
+        # run the initializer
+        sim.dimension = self.dimension
+        initializer(sim)
+        sim.types = sim[initializer].lammps_types.keys()
+
+        # attach the potentials
+        self._attach_potentials(sim)
 
         return sim
+
+    def _attach_potentials(self, sim):
+        """Adds tabulated pair potentials to the simulation object.
+
+        Parameters
+        ----------
+        sim: :class:`~relentless.simulate.simulate.Simulation`
+            The simulation object.
+
+        Returns
+        -------
+        array_like
+            The LAMMPS commands for attaching pair potentials.
+
+        Raises
+        ------
+        ValueError
+            If there are not at least two points in the tabulated potential.
+        ValueError
+            If the pair potentials do not have equally spaced ``r``.
+
+        """
+        # lammps requires r > 0
+        flags = sim.potentials.pair.r > 0
+        r = sim.potentials.pair.r[flags]
+        Nr = len(r)
+        if Nr == 1:
+            raise ValueError('LAMMPS requires at least two points in the tabulated potential.')
+
+        # check that all r are equally spaced
+        dr = r[1:]-r[:-1]
+        if not numpy.all(numpy.isclose(dr,dr[0])):
+            raise ValueError('LAMMPS requires equally spaced r in pair potentials.')
+
+        def pair_map(sim,pair):
+            # Map lammps type indexes as a pair, lowest type first
+            i,j = pair
+            id_i = sim[sim.initializer].lammps_types[i]
+            id_j = sim[sim.initializer].lammps_types[j]
+            if id_i > id_j:
+                id_i,id_j = id_j,id_i
+
+            return id_i,id_j
+
+        # write all potentials into a file
+        file_ = sim.directory.file('lammps_pair_table.dat')
+        if mpi.world.rank_is_root:
+            with open(file_,'w') as fw:
+                fw.write('# LAMMPS tabulated pair potentials\n')
+                rcut = {}
+                for i,j in sim.pairs:
+                    id_i,id_j = pair_map(sim,(i,j))
+                    fw.write(('# pair ({i},{j})\n'
+                              '\n'
+                              'TABLE_{id_i}_{id_j}\n').format(i=i,
+                                                              j=j,
+                                                              id_i=id_i,
+                                                              id_j=id_j)
+                            )
+                    fw.write('N {N} R {rmin} {rmax}\n\n'.format(N=Nr,
+                                                                rmin=r[0],
+                                                                rmax=r[-1]))
+
+                    u = sim.potentials.pair.energy((i,j))[flags]
+                    f = sim.potentials.pair.force((i,j))[flags]
+                    for idx in range(Nr):
+                        fw.write('{idx} {r} {u} {f}\n'.format(idx=idx+1,r=r[idx],u=u[idx],f=f[idx]))
+
+                    # find r where potential and force are zero
+                    nonzero_r = numpy.flatnonzero(numpy.logical_and(~numpy.isclose(u,0),~numpy.isclose(f,0)))
+                    if len(nonzero_r) > 1:
+                        # cutoff at last nonzero r (cannot be first r)
+                        rcut[(i,j)] = r[nonzero_r[-1]]
+                    else:
+                        # if first or second r is nonzero, cutoff at second
+                        rcut[(i,j)] = r[1]
+        else:
+            rcut = None
+        rcut = mpi.world.bcast(rcut)
+
+        # process all lammps commands
+        cmds = ['neighbor {skin} multi'.format(skin=sim.potentials.pair.neighbor_buffer)]
+        cmds += ['pair_style table linear {N}'.format(N=Nr)]
+
+        for i,j in sim.pairs:
+            # get lammps type indexes, lowest type first
+            id_i,id_j = pair_map(sim,(i,j))
+            cmds += ['pair_coeff {id_i} {id_j} {filename} TABLE_{id_i}_{id_j} {cutoff}'.format(id_i=id_i,
+                                                                                               id_j=id_j,
+                                                                                               filename=file_,
+                                                                                               cutoff=rcut[(i,j)])]
+
+        sim.lammps.commands_list(cmds)
 
     # initialization
     InitializeFromFile = InitializeFromFile

@@ -69,8 +69,6 @@ class Ensemble:
         Extent of the system (defaults to ``None``).
     P : float
         Pressure of the system (defaults to ``None``).
-    kB : float
-        Boltzmann constant (defaults to ``1.0``).
 
     Raises
     ------
@@ -80,9 +78,8 @@ class Ensemble:
         If all values of ``N`` are not integers or ``None``.
 
     """
-    def __init__(self, T, N, V=None, P=None, kB=1.0):
+    def __init__(self, T, N, V=None, P=None):
         # T
-        self.kB = kB
         self.T = T
 
         # N
@@ -90,9 +87,6 @@ class Ensemble:
         for t in types:
             if not isinstance(t,str):
                 raise TypeError('Particle type must be a string')
-            N_i = N.get(t)
-            if N_i is not None and not isinstance(N_i,int):
-                raise TypeError('N for type {} must be an integer.'.format(t))
         self._N = FixedKeyDict(keys=types)
         self.N.update(N)
 
@@ -111,16 +105,6 @@ class Ensemble:
     @T.setter
     def T(self, value):
         self._T = value
-
-    @property
-    def kT(self):
-        """float: The thermal energy."""
-        return self.kB*self.T
-
-    @property
-    def beta(self):
-        r"""float: The inverse temperature/thermal energy."""
-        return 1./self.kT
 
     @property
     def V(self):
@@ -188,7 +172,6 @@ class Ensemble:
                       'data':self.V.to_json()
                      },
                 'P': self.P,
-                'kB': self.kB,
                 'rdf': {}
                }
 
@@ -227,7 +210,6 @@ class Ensemble:
                   'N': data['N'],
                   'V': ExtentType.from_json(data['V']['data']),
                   'P': data['P'],
-                  'kB': data['kB']
                  }
         ens = Ensemble(**thermo)
 

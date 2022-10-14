@@ -90,9 +90,10 @@ class test_RelativeEntropy(unittest.TestCase):
         gs = numpy.exp(-lj.energy(('1','1'),rs))
         self.target.rdf['1','1'] = relentless.ensemble.RDF(r=rs, g=gs)
 
-        self.thermo = relentless.simulate.dilute.AddEnsembleAnalyzer(
+        init = relentless.simulate.InitializeRandomly(seed=42, N=self.target.N, V=self.target.V, T=self.target.T)
+        self.thermo = relentless.simulate.AddEnsembleAnalyzer(
             check_thermo_every=1, check_rdf_every=1, rdf_dr=0.1)
-        self.simulation = relentless.simulate.dilute.Dilute(operations=[self.thermo])
+        self.simulation = relentless.simulate.dilute.Dilute(init, operations=[self.thermo])
 
     def relent_grad(self, var, ext=False):
         rs = numpy.linspace(0,3.6,1001)[1:]
@@ -147,7 +148,7 @@ class test_RelativeEntropy(unittest.TestCase):
 
         res = relent.compute((self.epsilon, self.sigma))
 
-        sim = self.simulation.run(self.target, self.potentials, self.directory.name)
+        sim = self.simulation.run(self.potentials, self.directory.name)
         ensemble = self.thermo.extract_ensemble(sim)
         res_grad = relent.compute_gradient(ensemble, (self.epsilon, self.sigma))
 
@@ -169,7 +170,7 @@ class test_RelativeEntropy(unittest.TestCase):
 
         res = relent.compute((self.epsilon,self.sigma))
 
-        sim = self.simulation.run(self.target, self.potentials, self.directory.name)
+        sim = self.simulation.run(self.potentials, self.directory.name)
         ensemble = self.thermo.extract_ensemble(sim)
         res_grad = relent.compute_gradient(ensemble, (self.epsilon, self.sigma))
 
@@ -197,7 +198,7 @@ class test_RelativeEntropy(unittest.TestCase):
         self.assertAlmostEqual(x["('1', '1')"]['sigma'], self.sigma.value)
         self.assertAlmostEqual(x["('1', '1')"]['rmax'], 2.7)
 
-        sim = self.simulation.run(self.target, self.potentials, self.directory.name)
+        sim = self.simulation.run(self.potentials, self.directory.name)
         sim_ens = self.thermo.extract_ensemble(sim)
         with open(d.file('ensemble.json')) as g:
             y = json.load(g)
@@ -205,7 +206,6 @@ class test_RelativeEntropy(unittest.TestCase):
         self.assertAlmostEqual(y['N'], {'1':50})
         self.assertAlmostEqual(y['V']['data'], {'L':10.})
         self.assertAlmostEqual(y['P'], sim_ens.P)
-        self.assertAlmostEqual(y['kB'], 1.0)
         numpy.testing.assert_allclose(y['rdf']["('1', '1')"], sim_ens.rdf['1','1'].table.tolist())
 
     def tearDown(self):

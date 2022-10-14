@@ -75,32 +75,28 @@ class test_HOOMD(unittest.TestCase):
         ens,pot = self.ens_pot()
         f = self.create_gsd()
         op = relentless.simulate.InitializeFromFile(filename=f.file.name)
-        h = relentless.simulate.HOOMD(operations=op)
-        sim = h.run(ensemble=ens, potentials=pot, directory=self.directory)
-        self.assertIsInstance(sim[op].neighbor_list, hoomd.md.nlist.tree)
-        self.assertIsInstance(sim[op].pair_potential, hoomd.md.pair.table)
+        h = relentless.simulate.HOOMD(op)
+        sim = h.run(potentials=pot, directory=self.directory)
 
         # InitializeRandomly
         ens,pot = self.ens_pot()
-        op = relentless.simulate.InitializeRandomly(seed=1)
-        h = relentless.simulate.HOOMD(operations=op)
-        sim = h.run(ensemble=ens, potentials=pot, directory=self.directory)
-        self.assertIsInstance(sim[op].neighbor_list, hoomd.md.nlist.tree)
-        self.assertIsInstance(sim[op].pair_potential, hoomd.md.pair.table)
+        op = relentless.simulate.InitializeRandomly(seed=1, N=ens.N, V=ens.V, T=ens.T)
+        h = relentless.simulate.HOOMD(op)
+        sim = h.run(potentials=pot, directory=self.directory)
 
     def test_minimization(self):
         """Test running energy minimization simulation operation."""
         # MinimizeEnergy
         ens,pot = self.ens_pot()
-        init = relentless.simulate.InitializeRandomly(seed=1)
+        init = relentless.simulate.InitializeRandomly(seed=1, N=ens.N, V=ens.V, T=ens.T)
 
         emin = relentless.simulate.MinimizeEnergy(energy_tolerance=1e-7,
                                                   force_tolerance=1e-7,
                                                   max_iterations=1000,
                                                   options={'max_displacement':0.5,
                                                            'steps_per_iteration':50})
-        h = relentless.simulate.HOOMD(operations=[init,emin])
-        h.run(ensemble=ens, potentials=pot, directory=self.directory)
+        h = relentless.simulate.HOOMD(init, operations=[emin])
+        h.run(potentials=pot, directory=self.directory)
         self.assertEqual(emin.options['max_displacement'],0.5)
         self.assertEqual(emin.options['steps_per_iteration'],50)
 
@@ -110,31 +106,32 @@ class test_HOOMD(unittest.TestCase):
                                                       force_tolerance=1e-7,
                                                       max_iterations=1000,
                                                       options={})
-            h = relentless.simulate.HOOMD(operations=[init,emin])
-            h.run(ensemble=ens, potentials=pot, directory=self.directory)
+            h = relentless.simulate.HOOMD(init, operations=[emin])
+            h.run(potentials=pot, directory=self.directory)
 
         #check default value for max_evaluations
         emin = relentless.simulate.MinimizeEnergy(energy_tolerance=1e-7,
                                                   force_tolerance=1e-7,
                                                   max_iterations=1000,
                                                   options={'max_displacement':0.5})
-        h = relentless.simulate.HOOMD(operations=[init,emin])
-        h.run(ensemble=ens, potentials=pot, directory=self.directory)
+        h = relentless.simulate.HOOMD(init, operations=[emin])
+        h.run(potentials=pot, directory=self.directory)
         self.assertEqual(emin.options['steps_per_iteration'], 100)
 
     def test_integrators(self):
         """Test adding and removing integrator operations."""
-        init = relentless.simulate.InitializeRandomly(seed=1)
-        h = relentless.simulate.HOOMD(operations=init)
+        ens,pot = self.ens_pot()
+        init = relentless.simulate.InitializeRandomly(seed=1, N=ens.N, V=ens.V, T=ens.T)
+        h = relentless.simulate.HOOMD(init)
 
         # BrownianIntegrator
-        ens,pot = self.ens_pot()
         brn = relentless.simulate.AddBrownianIntegrator(dt=0.5,
+                                                        T=ens.T,
                                                         friction=1.0,
                                                         seed=2)
         brn_r = relentless.simulate.RemoveBrownianIntegrator(add_op=brn)
-        h.operations = [init,brn]
-        sim = h.run(ensemble=ens, potentials=pot, directory=self.directory)
+        h.operations = [brn]
+        sim = h.run(potentials=pot, directory=self.directory)
         self.assertTrue(sim[brn].integrator.enabled)
         brn_r(sim)
         self.assertIsNone(sim[brn].integrator)
@@ -142,22 +139,24 @@ class test_HOOMD(unittest.TestCase):
         # LangevinIntegrator
         ens,pot = self.ens_pot()
         lgv = relentless.simulate.AddLangevinIntegrator(dt=0.5,
+                                                        T=ens.T,
                                                         friction=1.0,
                                                         seed=2)
         lgv_r = relentless.simulate.RemoveLangevinIntegrator(add_op=lgv)
-        h.operations = [init,lgv]
-        sim = h.run(ensemble=ens, potentials=pot, directory=self.directory)
+        h.operations = [lgv]
+        sim = h.run(potentials=pot, directory=self.directory)
         self.assertTrue(sim[lgv].integrator.enabled)
         lgv_r(sim)
         self.assertIsNone(sim[lgv].integrator)
 
         ens,pot = self.ens_pot()
         lgv = relentless.simulate.AddLangevinIntegrator(dt=0.5,
+                                                        T=ens.T,
                                                         friction={'A':1.5,'B':2.5},
                                                         seed=2)
         lgv_r = relentless.simulate.RemoveLangevinIntegrator(add_op=lgv)
-        h.operations = [init,lgv]
-        sim = h.run(ensemble=ens, potentials=pot, directory=self.directory)
+        h.operations = [lgv]
+        sim = h.run(potentials=pot, directory=self.directory)
         self.assertTrue(sim[lgv].integrator.enabled)
         lgv_r(sim)
         self.assertIsNone(sim[lgv].integrator)
@@ -166,8 +165,8 @@ class test_HOOMD(unittest.TestCase):
         ens,pot = self.ens_pot()
         vrl = relentless.simulate.AddVerletIntegrator(dt=0.5)
         vrl_r = relentless.simulate.RemoveVerletIntegrator(add_op=vrl)
-        h.operations = [init, vrl]
-        sim = h.run(ensemble=ens, potentials=pot, directory=self.directory)
+        h.operations = [vrl]
+        sim = h.run(potentials=pot, directory=self.directory)
         self.assertTrue(sim[vrl].integrator.enabled)
         vrl_r(sim)
         self.assertIsNone(sim[vrl].integrator)
@@ -176,8 +175,8 @@ class test_HOOMD(unittest.TestCase):
         tb = relentless.simulate.BerendsenThermostat(T=1, tau=0.5)
         vrl = relentless.simulate.AddVerletIntegrator(dt=0.5, thermostat=tb)
         vrl_r = relentless.simulate.RemoveVerletIntegrator(add_op=vrl)
-        h.operations = [init, vrl]
-        sim = h.run(ensemble=ens, potentials=pot, directory=self.directory)
+        h.operations = [vrl]
+        sim = h.run(potentials=pot, directory=self.directory)
         self.assertTrue(sim[vrl].integrator.enabled)
         vrl_r(sim)
         self.assertIsNone(sim[vrl].integrator)
@@ -186,8 +185,8 @@ class test_HOOMD(unittest.TestCase):
         tn = relentless.simulate.NoseHooverThermostat(T=1, tau=0.5)
         vrl = relentless.simulate.AddVerletIntegrator(dt=0.5, thermostat=tn)
         vrl_r = relentless.simulate.RemoveVerletIntegrator(add_op=vrl)
-        h.operations = [init, vrl]
-        sim = h.run(ensemble=ens, potentials=pot, directory=self.directory)
+        h.operations = [vrl]
+        sim = h.run(potentials=pot, directory=self.directory)
         self.assertTrue(sim[vrl].integrator.enabled)
         vrl_r(sim)
         self.assertIsNone(sim[vrl].integrator)
@@ -196,8 +195,8 @@ class test_HOOMD(unittest.TestCase):
         bm = relentless.simulate.MTKBarostat(P=1, tau=0.5)
         vrl = relentless.simulate.AddVerletIntegrator(dt=0.5, barostat=bm)
         vrl_r = relentless.simulate.RemoveVerletIntegrator(add_op=vrl)
-        h.operations = [init, vrl]
-        sim = h.run(ensemble=ens, potentials=pot, directory=self.directory)
+        h.operations = [vrl]
+        sim = h.run(potentials=pot, directory=self.directory)
         self.assertTrue(sim[vrl].integrator.enabled)
         vrl_r(sim)
         self.assertIsNone(sim[vrl].integrator)
@@ -205,8 +204,8 @@ class test_HOOMD(unittest.TestCase):
         #VerletIntegrator - NPT
         vrl = relentless.simulate.AddVerletIntegrator(dt=0.5, thermostat=tn, barostat=bm)
         vrl_r = relentless.simulate.RemoveVerletIntegrator(add_op=vrl)
-        h.operations = [init, vrl]
-        sim = h.run(ensemble=ens, potentials=pot, directory=self.directory)
+        h.operations = [vrl]
+        sim = h.run(potentials=pot, directory=self.directory)
         self.assertTrue(sim[vrl].integrator.enabled)
         vrl_r(sim)
         self.assertIsNone(sim[vrl].integrator)
@@ -214,40 +213,39 @@ class test_HOOMD(unittest.TestCase):
         # VerletIntegrator - incorrect
         with self.assertRaises(TypeError):
             vrl = relentless.simulate.AddVerletIntegrator(dt=0.5, thermostat=tb, barostat=bm)
-            h.operations = [init, vrl]
-            sim = h.run(ensemble=ens, potentials=pot, directory=self.directory)
+            h.operations = [vrl]
+            sim = h.run(potentials=pot, directory=self.directory)
 
     def test_run(self):
         """Test run simulation operations."""
-        init = relentless.simulate.InitializeRandomly(seed=1)
-        h = relentless.simulate.HOOMD(operations=init)
+        ens,pot = self.ens_pot()
+        init = relentless.simulate.InitializeRandomly(seed=1, N=ens.N, V=ens.V, T=ens.T)
+        h = relentless.simulate.HOOMD(init)
 
         # Run
-        ens,pot = self.ens_pot()
         run = relentless.simulate.Run(steps=1000)
-        h.operations = [init,run]
-        sim = h.run(ensemble=ens, potentials=pot, directory=self.directory)
+        h.operations = [run]
+        sim = h.run(potentials=pot, directory=self.directory)
 
         # RunUpTo
-        ens,pot = self.ens_pot()
         run = relentless.simulate.RunUpTo(step=999)
-        h.operations = [init,run]
-        sim = h.run(ensemble=ens, potentials=pot, directory=self.directory)
+        h.operations = [run]
+        sim = h.run(potentials=pot, directory=self.directory)
 
     def test_analyzer(self):
         """Test ensemble analyzer simulation operation."""
         ens,pot = self.ens_pot()
-        init = relentless.simulate.InitializeRandomly(seed=1)
+        init = relentless.simulate.InitializeRandomly(seed=1, N=ens.N, V=ens.V, T=ens.T)
         lgv = relentless.simulate.AddLangevinIntegrator(dt=0.1,
+                                                        T=ens.T,
                                                         friction=0.9,
                                                         seed=2)
         analyzer = relentless.simulate.AddEnsembleAnalyzer(check_thermo_every=5,
                                                            check_rdf_every=5,
                                                            rdf_dr=1.0)
         run = relentless.simulate.Run(steps=500)
-        op = [init,lgv,analyzer,run]
-        h = relentless.simulate.HOOMD(operations=op)
-        sim = h.run(ensemble=ens, potentials=pot, directory=self.directory)
+        h = relentless.simulate.HOOMD(init, operations=[lgv,analyzer,run])
+        sim = h.run(potentials=pot, directory=self.directory)
         thermo = sim[analyzer].thermo_callback
 
         # extract ensemble
@@ -299,9 +297,8 @@ class test_HOOMD(unittest.TestCase):
                                                            check_rdf_every=1,
                                                            rdf_dr=0.1)
         run = relentless.simulate.Run(steps=1)
-        op = [init,ig,analyzer,run]
-        h = relentless.simulate.HOOMD(operations=op)
-        sim = h.run(ensemble=ens, potentials=pot, directory=self.directory)
+        h = relentless.simulate.HOOMD(init, operations=[ig,analyzer,run])
+        sim = h.run(potentials=pot, directory=self.directory)
 
         ens_ = analyzer.extract_ensemble(sim)
         for i,j in ens_.rdf:

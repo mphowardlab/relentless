@@ -41,20 +41,22 @@ class Simulation:
 
     Parameters
     ----------
+    initializer : :class:`SimulationOperation`
+        Operation to initialize the simulation.
     operations : array_like
         Sequence of :class:`SimulationOperation`\s to call.
     options : kwargs
         Optional arguments to attach to each instance of a simulation.
 
     """
-    def __init__(self, operations=None, **options):
+    def __init__(self, initializer, operations=None):
+        self.initializer = initializer
         if operations is not None:
             self.operations = operations
         else:
             self.operations = []
-        self.options = options
 
-    def run(self, ensemble, potentials, directory):
+    def run(self, potentials, directory):
         """Run the simulation operations.
 
         A new simulation instance is created to perform the run. It is intended
@@ -62,9 +64,6 @@ class Simulation:
 
         Parameters
         ----------
-        ensemble : :class:`~relentless.ensemble.Ensemble`
-            Simulation ensemble. Must include values for ``N`` and ``V`` even if
-            these variables fluctuate.
         potentials : :class:`Potentials`
             The interaction potentials.
         directory : str or :class:`~relentless.data.Directory`
@@ -81,13 +80,23 @@ class Simulation:
             If all operations are not :class:`SimulationOperation`\s.
 
         """
-        if not all([isinstance(op,SimulationOperation) for op in self.operations]):
-            raise TypeError('All operations must be SimulationOperations.')
-
-        sim = self._new_instance(ensemble, potentials, directory)
+        # initialize the instance
+        sim = self._new_instance(self.initializer, potentials, directory)
+        # then run the remaining operations
         for op in self.operations:
             op(sim)
         return sim
+
+    @property
+    def initializer(self):
+        """:class:`SimulationOperation`: Initialization operation."""
+        return self._initializer
+
+    @initializer.setter
+    def initializer(self, op):
+        if not isinstance(op, SimulationOperation):
+            return TypeError('Initializer must be SimulationOperation')
+        self._initializer = op
 
     @property
     def operations(self):
@@ -97,16 +106,18 @@ class Simulation:
     @operations.setter
     def operations(self, ops):
         try:
-            self._operations = list(ops)
+            ops_ = list(ops)
         except TypeError:
-            self._operations = [ops]
+            ops_ = [ops]
+        if not all([isinstance(op, SimulationOperation) for op in ops_]):
+            raise TypeError('All operations must be SimulationOperations.')
+        self._operations = ops_
 
-    def _new_instance(self, ensemble, potentials, directory):
+    def _new_instance(self, initializer, potentials, directory):
         return SimulationInstance(type(self),
-                                  ensemble,
+                                  initializer,
                                   potentials,
-                                  directory,
-                                  **self.options)
+                                  directory)
 
     # initialization
     InitializeFromFile = NotImplementedOperation
@@ -137,9 +148,6 @@ class SimulationInstance:
     ----------
     backend : type
         Type of the simulation class.
-    ensemble : :class:`~relentless.ensemble.Ensemble`
-        Simulation ensemble. Must include values for ``N`` and ``V`` even if
-        these variables fluctuate.
     potentials : :class:`Potentials`
         The interaction potentials.
     directory : str or :class:`~relentless.data.Directory`
@@ -148,24 +156,46 @@ class SimulationInstance:
         Optional arguments to forward.
 
     """
-    def __init__(self, backend, ensemble, potentials, directory, **options):
+    def __init__(self, backend, initializer, potentials, directory, **options):
         self.backend = backend
-        self.ensemble = ensemble
         self.potentials = potentials
 
         if directory is not None:
             directory = data.Directory.cast(directory)
         self.directory = directory
 
+        # properties of simulation, to be set
+        self.dimension = None
+        self._types = None
+        self._pairs = None
+
         for opt,val in options.items():
             setattr(self,opt,val)
         self._opdata = {}
+
+        # finish running the setup with the initializer
+        if not isinstance(initializer, SimulationOperation):
+            raise TypeError('Initializer must be a SimulationOperation')
+        self.initializer = initializer
 
     def __getitem__(self, op):
         op_ = op._op if isinstance(op, GenericOperation) else op
         if not op_ in self._opdata:
             self._opdata[op_] = op_.Data()
         return self._opdata[op_]
+
+    @property
+    def types(self):
+        return self._types
+
+    @types.setter
+    def types(self, value):
+        self._types = tuple(value)
+        self._pairs = tuple((i,j) for i in self._types for j in self._types if j >= i)
+
+    @property
+    def pairs(self):
+        return self._pairs
 
 class Potentials:
     """Set of interaction potentials.
@@ -184,14 +214,17 @@ class Potentials:
     pair_potentials : array_like
         The pair potentials to be combined and tabulated. (Defaults to ``None``,
         resulting in an empty :class:`PairPotentialTabulator` object).
+    kB : float
+        Boltzmann constant in your units.
 
     """
-    def __init__(self, pair_potentials=None):
+    def __init__(self, pair_potentials=None, kB=1.0):
         self._pair = PairPotentialTabulator(rmin=0.0,
                                             rmax=None,
                                             num=None,
                                             neighbor_buffer=0.0,
                                             potentials=pair_potentials)
+        self.kB = kB
 
     @property
     def pair(self):
@@ -653,8 +686,8 @@ class GenericOperation(SimulationOperation):
     def __setattr__(self, name, value):
         super().__setattr__(name, value)
         if name not in ('_op','_backend','_args','_kwargs','_forward_attr'):
+            self._forward_attr.add(name)
             if self._op is not None:
-                self._forward_attr.add(name)
                 setattr(self._op, name, value)
 
 ## initializers
@@ -669,8 +702,8 @@ class InitializeFromFile(GenericOperation):
         Options for file reading.
 
     """
-    def __init__(self, filename, **options):
-        super().__init__(filename, **options)
+    def __init__(self, filename):
+        super().__init__(filename)
 
 class InitializeRandomly(GenericOperation):
     """Initialize a randomly generated simulation box and pair potentials.
@@ -683,8 +716,8 @@ class InitializeRandomly(GenericOperation):
         Options for random initialization.
 
     """
-    def __init__(self, seed, **options):
-        super().__init__(seed, **options)
+    def __init__(self, seed, N, V, T=None, masses=None):
+        super().__init__(seed, N, V, T, masses)
 
 ## integrators
 class MinimizeEnergy(GenericOperation):
@@ -712,6 +745,8 @@ class AddBrownianIntegrator(GenericOperation):
     ----------
     dt : float
         Time step size for each simulation iteration
+    T : float
+        Temperature.
     friction : float
         Sets drag coefficient for each particle type.
     seed : int
@@ -720,8 +755,8 @@ class AddBrownianIntegrator(GenericOperation):
         Options used in integrator function.
 
     """
-    def __init__(self, dt, friction, seed, **options):
-        super().__init__(dt, friction, seed, **options)
+    def __init__(self, dt, T, friction, seed, **options):
+        super().__init__(dt, T, friction, seed, **options)
 
 class RemoveBrownianIntegrator(GenericOperation):
     """Remove a Brownian dynamics integrator.
@@ -742,6 +777,8 @@ class AddLangevinIntegrator(GenericOperation):
     ----------
     dt : float
         Time step size for each simulation iteration
+    T : float
+        Temperature.
     friction : float or dict
         Sets drag coefficient for each particle type (shared or per-type).
     seed : int
@@ -750,8 +787,8 @@ class AddLangevinIntegrator(GenericOperation):
         Options used in integrator function.
 
     """
-    def __init__(self, dt, friction, seed, **options):
-        super().__init__(dt, friction, seed, **options)
+    def __init__(self, dt, T, friction, seed, **options):
+        super().__init__(dt, T, friction, seed, **options)
 
 class RemoveLangevinIntegrator(GenericOperation):
     """Remove a Langevin dynamics integrator.

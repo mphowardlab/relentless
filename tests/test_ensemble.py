@@ -41,49 +41,41 @@ class test_Ensemble(unittest.TestCase):
         ens = relentless.ensemble.Ensemble(T=10, P=2.0, N={'A':1,'B':2})
         self.assertCountEqual(ens.types, ('A','B'))
         self.assertCountEqual(ens.rdf.pairs, (('A','B'),('A','A'),('B','B')))
-        self.assertAlmostEqual(ens.kB, 1.0)
         self.assertAlmostEqual(ens.T, 10)
         self.assertAlmostEqual(ens.P, 2.0)
         self.assertEqual(ens.V, None)
         self.assertEqual(dict(ens.N), {'A':1,'B':2})
-        self.assertAlmostEqual(ens.beta, 0.1)
 
-        # V and N set, non-default value of kB
+        # V and N set
         v_obj = relentless.extent.Cube(L=3.0)
-        ens = relentless.ensemble.Ensemble(T=20, V=v_obj, N={'A':1,'B':2}, kB=2.0)
+        ens = relentless.ensemble.Ensemble(T=20, V=v_obj, N={'A':1,'B':2})
         self.assertCountEqual(ens.types, ('A','B'))
         self.assertCountEqual(ens.rdf.pairs, (('A','B'),('A','A'),('B','B')))
-        self.assertAlmostEqual(ens.kB, 2.0)
         self.assertAlmostEqual(ens.T, 20)
         self.assertEqual(ens.P, None)
         self.assertIs(ens.V,v_obj)
         self.assertAlmostEqual(ens.V.extent, 27.0)
         self.assertEqual(dict(ens.N), {'A':1,'B':2})
-        self.assertAlmostEqual(ens.beta, 0.025)
 
         # one N is None
         ens = relentless.ensemble.Ensemble(T=100, V=v_obj, N={'A':None, 'B':2})
         self.assertCountEqual(ens.types, ('A','B'))
         self.assertCountEqual(ens.rdf.pairs, (('A','B'),('A','A'),('B','B')))
-        self.assertAlmostEqual(ens.kB, 1.0)
         self.assertAlmostEqual(ens.T, 100)
         self.assertEqual(ens.P, None)
         self.assertIs(ens.V,v_obj)
         self.assertAlmostEqual(ens.V.extent, 27.0)
         self.assertEqual(dict(ens.N), {'A':None,'B':2})
-        self.assertAlmostEqual(ens.beta, 0.01)
 
         # test creation with single type
         ens = relentless.ensemble.Ensemble(T=100, V=v_obj, N={'A':10})
         self.assertCountEqual(ens.types, ('A',))
         self.assertCountEqual(ens.rdf.pairs, (('A','A'),))
-        self.assertAlmostEqual(ens.kB, 1.0)
         self.assertAlmostEqual(ens.T, 100)
         self.assertEqual(ens.P, None)
         self.assertIs(ens.V,v_obj)
         self.assertAlmostEqual(ens.V.extent, 27.0)
         self.assertEqual(dict(ens.N), {'A':10})
-        self.assertAlmostEqual(ens.beta, 0.01)
 
         # test setting rdf
         ens = relentless.ensemble.Ensemble(T=100, V=v_obj, N={'A':1,'B':2})
@@ -101,9 +93,6 @@ class test_Ensemble(unittest.TestCase):
                                                                            [2,9],
                                                                            [3,3]]))
 
-        # test setting N as a float
-        with self.assertRaises(TypeError):
-            ens = relentless.ensemble.Ensemble(T=10, P=1.0, N={'A':1.0})
         # test setting N with non-string type
         with self.assertRaises(TypeError):
             ens = relentless.ensemble.Ensemble(T=10, P=1.0, N={1:2})
