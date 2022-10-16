@@ -339,7 +339,7 @@ class test_LAMMPS(unittest.TestCase):
         self.assertIsNotNone(ens_.P)
         self.assertNotEqual(ens_.P, 0)
         self.assertIsNotNone(ens_.V)
-        self.assertNotEqual(ens_.V.volume, 0)
+        self.assertNotEqual(ens_.V.extent, 0)
         for i,j in ens_.rdf:
             self.assertEqual(ens_.rdf[i,j].table.shape, (len(pot.pair.r)-1,2))
 

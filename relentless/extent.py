@@ -9,7 +9,6 @@ The following three-dimensional box types have been implemented:
 .. autosummary::
     :nosignatures:
 
-    Parallelepiped
     TriclinicBox
     Cuboid
     Cube
@@ -19,7 +18,6 @@ The following two-dimensional box types have been implemented:
 .. autosummary::
     :nosignatures:
 
-    Parallelogram
     ObliqueArea
     Rectangle
     Square
@@ -56,15 +54,11 @@ and define the required methods.
     :members:
 .. autoclass:: Area
     :members:
-.. autoclass:: Parallelepiped
-    :members:
 .. autoclass:: TriclinicBox
     :members:
 .. autoclass:: Cuboid
     :members:
 .. autoclass:: Cube
-    :members:
-.. autoclass:: Parallelogram
     :members:
 .. autoclass:: ObliqueArea
     :members:
@@ -88,12 +82,25 @@ class Extent(abc.ABC):
     Extent must be specified so that the object can be saved to disk.
 
     """
+    @classmethod
+    @abc.abstractmethod
+    def from_json(cls, data):
+        r"""Deserialize from a dictionary.
+
+        Returns
+        -------
+        :class:`Extent`
+            The object reconstructed from the ``data``.
+
+        """
+        pass
+
     @property
     @abc.abstractmethod
     def extent(self):
         r"""float: Extent of the region."""
         pass
-    
+
     @abc.abstractmethod
     def to_json(self):
         r"""Serialize as a dictionary.
@@ -108,19 +115,6 @@ class Extent(abc.ABC):
         """
         pass
 
-    @classmethod
-    @abc.abstractmethod
-    def from_json(cls, data):
-        r"""Deserialize from a dictionary.
-
-        Returns
-        -------
-        :class:`Extent`
-            The object reconstructed from the ``data``.
-
-        """
-        pass
-
 class Volume(Extent):
     r"""Three-dimensional region of space.
 
@@ -130,113 +124,24 @@ class Volume(Extent):
     Volume must be specified so that the object can be saved to disk.
 
     """
-    @property
-    def volume(self):
-        r"""float: Volume of the region."""
-        pass
+    pass
 
-class Area(Extent):
-    r"""Two-dimensional region of space.
-
-    An Area can be any 2d region of space; typically, it is a simulation "box."
-    Any deriving class must implement the volume method that computes the scalar
-    area of the region. Additionally, methods to serialize and deserialize a
-    Area must be specified so that the object can be saved to disk.
-
-    """
-    @property
-    def area(self):
-        r"""float: Area of the region."""
-        pass
-
-class Parallelepiped(Volume):
-    r"""Parallelepiped box defined by three vectors.
-
-    The three vectors :math:`\mathbf{a}`, :math:`\mathbf{b}`, and :math:`\mathbf{c}`
-    must form a right-hand basis so that the box volume :math:`V` is positive:
-
-    .. math::
-
-        V = (\mathbf{a} \times \mathbf{b}) \cdot \mathbf{c} > 0
-
-    Parameters
-    ----------
-    a : array_like
-        First vector defining the parallelepiped.
-    b : array_like
-        Second vector defining the parallelepiped.
-    c : array_like
-        Third vector defining the parallelepiped.
-
-    Raises
-    ------
-    TypeError
-        If ``a``, ``b``, and ``c`` are not all 3-element vectors.
-    ValueError
-        If the volume is not positive.
-
-    """
-    def __init__(self, a, b, c):
-        self.a = numpy.asarray(a,dtype=numpy.float64)
-        self.b = numpy.asarray(b,dtype=numpy.float64)
-        self.c = numpy.asarray(c,dtype=numpy.float64)
-        if not (self.a.shape==(3,) and self.b.shape==(3,) and self.c.shape==(3,)):
-            raise TypeError('a, b, and c must be 3-element vectors.')
-        if self.extent <= 0:
-            raise ValueError('The volume must be positive.')
-
-    @property
-    def extent(self):
-        return numpy.dot(numpy.cross(self.a,self.b),self.c)
-
-    def to_json(self):
-        r"""Serialize as a dictionary.
-
-        The dictionary contains the three box vectors ``a``, ``b``, and ``c`` as tuples.
-
-        Returns
-        -------
-        dict
-            The serialized Parallelepiped.
-
-        """
-        return {'a': tuple(self.a),
-                'b': tuple(self.b),
-                'c': tuple(self.c)
-               }
-
-    @classmethod
-    def from_json(cls, data):
-        r"""Deserialize from a dictionary.
-
-        Parameters
-        ----------
-        data : dict
-            The serialized equivalent of the Parallelepiped object. The keys
-            of ``data`` should be ``('a','b','c')``, and the data for each
-            is the 3-element box vector.
-
-        Returns
-        -------
-        :class:`Parallelepiped`
-            A new Parallelepiped object constructed from the data.
-
-        """
-        return Parallelepiped(**data)
-
-class TriclinicBox(Parallelepiped):
+class TriclinicBox(Volume):
     r"""Triclinic box.
 
-    A TriclinicBox is a special type of :class:`Parallelepiped`. The box is
-    defined by an orthorhombic box oriented along the Cartesian axes and having
-    three vectors of length :math:`L_x`, :math:`L_y`, and :math:`L_z`, respectively.
-    The box is then tilted by factors :math:`xy`, :math:`xz`, and :math:`yz`, which
+    A TriclinicBox is defined by three edge vectors **a**, **b**, and **c** that form
+    a right-hand basis. These vectors are defined by deformation of an orthorhombic
+    box oriented along the Cartesian axes and having three vectors of length
+    :math:`L_x`, :math:`L_y`, and :math:`L_z`, respectively. The box is then
+    tilted by factors :math:`xy`, :math:`xz`, and :math:`yz`, which
     are upper off-diagonal elements of the matrix of box vectors. As a result,
-    the :math:`\mathbf{a}` vector is always aligned along the :math:`x` axis, while
+    the **a** vector is always aligned along the :math:`x` axis, while
     the other two vectors may be tilted.
 
     The tilt factors can be defined using one of two :class:`TriclinicBox.Convention`\s.
     By default, the LAMMPS convention is applied to calculate the basis vectors.
+
+    The box is centered at the origin :math:`(0,0,0)`.
 
     Parameters
     ----------
@@ -252,6 +157,8 @@ class TriclinicBox(Parallelepiped):
         Second tilt factor.
     yz : float
         Third tilt factor.
+    convention : :class:`TriclinicBox.Convention`
+        Convention for defining the tilt factors.
 
     Raises
     ------
@@ -298,55 +205,29 @@ class TriclinicBox(Parallelepiped):
         HOOMD = 2
 
     def __init__(self, Lx, Ly, Lz, xy, xz, yz, convention=Convention.LAMMPS):
-        if Lx<=0 or Ly<=0 or Lz<= 0:
+        if Lx <= 0 or Ly <= 0 or Lz <= 0:
             raise ValueError('All side lengths must be positive.')
-        self._convention = convention
-        if self.convention is TriclinicBox.Convention.LAMMPS:
+
+        if convention is TriclinicBox.Convention.LAMMPS:
             a = (Lx,0,0)
             b = (xy,Ly,0)
             c = (xz,yz,Lz)
-        elif self.convention is TriclinicBox.Convention.HOOMD:
+        elif convention is TriclinicBox.Convention.HOOMD:
             a = (Lx,0,0)
             b = (xy*Ly,Ly,0)
             c = (xz*Lz,yz*Lz,Lz)
         else:
-            raise ValueError('Triclinic convention must be TriclinicBox.Convention.LAMMPS or TriclinicBox.Convention.HOOMD')
-        super().__init__(a,b,c)
+            raise ValueError('Triclinic convention must be LAMMPS or HOOMD')
 
-    @property
-    def convention(self):
-        r""":class:`TriclinicBox.Convention`: Convention for tilt factors."""
-        return self._convention
+        self.a = numpy.array(a, dtype=numpy.float64)
+        self.b = numpy.array(b, dtype=numpy.float64)
+        self.c = numpy.array(c, dtype=numpy.float64)
 
-    def to_json(self):
-        r"""Serialize as a dictionary.
-
-        The dictionary contains the three box lengths ``Lx``, ``Ly``, and ``Lz``,
-        the three tilt factors ``xy``, ``xz``, and ``yz``, and the ``convention``
-        for the tilt factors.
-
-        Returns
-        -------
-        dict
-            The serialized TriclinicBox.
-
-        """
-        if self._convention is TriclinicBox.Convention.LAMMPS:
-            xy = self.b[0]
-            xz = self.c[0]
-            yz = self.c[1]
-        elif self._convention is TriclinicBox.Convention.HOOMD:
-            xy = self.b[0]/self.b[1]
-            xz = self.c[0]/self.c[2]
-            yz = self.c[1]/self.c[2]
-        return {'Lx': self.a[0],
-                'Ly': self.b[1],
-                'Lz': self.c[2],
-                'xy': xy,
-                'xz': xz,
-                'yz': yz,
-                'convention': self._convention.name
-               }
+        box_vec = self.a + self.b + self.c
+        self._low = -0.5*box_vec
+        self._high = 0.5*box_vec
+        self._extent = numpy.dot(numpy.cross(self.a, self.b), self.c)
+        self._convention = convention
 
     @classmethod
     def from_json(cls, data):
@@ -380,6 +261,183 @@ class TriclinicBox(Parallelepiped):
             return ValueError('Only LAMMPS and HOOMD conventions are supported.')
         return TriclinicBox(**data_)
 
+    @property
+    def convention(self):
+        r""":class:`TriclinicBox.Convention`: Convention for tilt factors."""
+        return self._convention
+
+    @property
+    def extent(self):
+        return self._extent
+
+    @property
+    def low(self):
+        return self._low
+
+    @property
+    def high(self):
+        return self._high
+
+    def as_array(self, convention=None):
+        """Convert to array of lengths and tilt factors.
+
+        Parameters
+        ----------
+        convention : :class:`TriclinicBox.Convention`
+            Convention to use for the tilt factors. Default of ``None``
+            will use the convention for the box.
+
+        Returns
+        -------
+        numpy.ndarray
+            An array containing ``(Lx,Ly,Lz,xy,xz,yz)`` according to the
+            ``convention``.
+
+        """
+        if convention is None:
+            convention = self._convention
+
+        Lx = self.a[0]
+        Ly = self.b[1]
+        Lz = self.c[2]
+        if convention is TriclinicBox.Convention.LAMMPS:
+            xy = self.b[0]
+            xz = self.c[0]
+            yz = self.c[1]
+        elif convention is TriclinicBox.Convention.HOOMD:
+            xy = self.b[0]/self.b[1]
+            xz = self.c[0]/self.c[2]
+            yz = self.c[1]/self.c[2]
+        else:
+            raise TypeError('Convention must be LAMMPS or HOOMD')
+
+        return numpy.array([Lx,Ly,Lz,xy,xz,yz])
+
+    def coordinate_to_fraction(self, r):
+        r"""Make fractional coordinates from Cartesian coordinates.
+
+        The Cartesian coordinates **r** are projected onto the three
+        (potentially nonorthogonal) basis vectors defining the box to yield
+        fractional coordinates **x** such that:
+
+        .. math::
+
+            \mathbf{r} = \mathbf{r}_{\rm low} + (\mathbf{a}\quad\mathbf{b}\quad\mathbf{c}) \cdot \mathbf{x}
+
+        where :math:`\mathbf{r}_{\rm low}` is the lower bound of the box, i.e., :attr:`low`.
+
+        Parameters
+        ----------
+        r : array_like
+            Cartesian coordinates (or array of).
+
+        Returns
+        -------
+        numpy.ndarray
+            Fractional coordinates **x** corresponding to **r**.
+
+        """
+        Lx,Ly,Lz,xy,xz,yz = self.as_array(TriclinicBox.Convention.LAMMPS)
+
+        # get difference from lower bound
+        dx = -self.low + r
+        is_1d = False
+        if len(dx.shape) == 1:
+            dx = dx[numpy.newaxis,...]
+            is_1d = True
+
+        # make fractional coordinate
+        x = numpy.zeros_like(dx)
+        x[:,0] = (1.0/Lx)*dx[...,0] + (-xy/(Lx*Ly))*dx[...,1] + ((yz*xy-Ly*xz)/(Lx*Ly*Lz))*dx[...,2]
+        x[:,1] = (1.0/Ly)*dx[...,1] + (-yz/(Ly*Lz))*dx[...,2]
+        x[:,2] = (1.0/Lz)*dx[...,2]
+        if is_1d:
+            x = x[0]
+
+        return x
+
+    def fraction_to_coordinate(self, x):
+        r"""Make Cartesian coordinates from fractional coordinates.
+
+        The fractional coordinates **x** are converted to Cartesian coordinates **r**
+        using the basis vectors of the box. See :meth:`coordinate_to_fraction`
+        for the definition of these coordinates.
+
+        Parameters
+        ----------
+        r : array_like
+            Fractional coordinates (or array of).
+
+        Returns
+        -------
+        numpy.ndarray
+            Cartesian coordinates **r** corresponding to **x**.
+
+        """
+        Lx,Ly,Lz,xy,xz,yz = self.as_array(TriclinicBox.Convention.LAMMPS)
+
+        # make real coordinate
+        r = numpy.array(x)
+        is_1d = False
+        if len(r.shape) == 1:
+            r = r[numpy.newaxis,...]
+            is_1d = True
+        r[:,0] = Lx*r[...,0] + xy*r[...,1] + xz*r[...,2]
+        r[:,1] = Ly*r[...,1] + yz*r[...,2]
+        r[:,2] = Lz*r[...,2]
+        r += self.low
+        if is_1d:
+            r = r[0]
+
+        return r
+
+    def to_json(self):
+        r"""Serialize as a dictionary.
+
+        The dictionary contains the three box lengths ``Lx``, ``Ly``, and ``Lz``,
+        the three tilt factors ``xy``, ``xz``, and ``yz``, and the ``convention``
+        for the tilt factors.
+
+        Returns
+        -------
+        dict
+            The serialized TriclinicBox.
+
+        """
+        Lx,Ly,Lz,xy,xz,yz = self.as_array()
+        return {'Lx': Lx,
+                'Ly': Ly,
+                'Lz': Lz,
+                'xy': xy,
+                'xz': xz,
+                'yz': yz,
+                'convention': self._convention.name
+               }
+
+    def wrap(self, positions):
+        """Wrap positions subject to periodic boundary conditions.
+
+        Three-dimensional periodic boundary conditions are applied to ensure
+        the ``positions`` lie within the box. This is achieved by converting
+        to fractional coordinates, bounding the fractional coordinates within
+        :math:`[0,1)`, then converting back to Cartesian coordinates.
+
+        Parameters
+        ----------
+        positions : array_like
+            Position vector(s).
+
+        Returns
+        -------
+        numpy.ndarray
+            Wrapped position(s).
+
+        """
+        x = self.coordinate_to_fraction(positions)
+        x -= numpy.round(x-0.5)
+        r = self.fraction_to_coordinate(x)
+        return r
+
 class Cuboid(TriclinicBox):
     r"""Orthorhombic box.
 
@@ -401,22 +459,6 @@ class Cuboid(TriclinicBox):
     def __init__(self, Lx, Ly, Lz):
         super().__init__(Lx,Ly,Lz,0,0,0)
 
-    def to_json(self):
-        r"""Serialize as a dictionary.
-
-        The dictionary contains the three box lengths ``Lx``, ``Ly``, and ``Lz``.
-
-        Returns
-        -------
-        dict
-            The serialized Cuboid.
-
-        """
-        return {'Lx': self.a[0],
-                'Ly': self.b[1],
-                'Lz': self.c[2],
-               }
-
     @classmethod
     def from_json(cls, data):
         r"""Deserialize from a dictionary.
@@ -436,6 +478,22 @@ class Cuboid(TriclinicBox):
         """
         return Cuboid(**data)
 
+    def to_json(self):
+        r"""Serialize as a dictionary.
+
+        The dictionary contains the three box lengths ``Lx``, ``Ly``, and ``Lz``.
+
+        Returns
+        -------
+        dict
+            The serialized Cuboid.
+
+        """
+        return {'Lx': self.a[0],
+                'Ly': self.b[1],
+                'Lz': self.c[2],
+               }
+
 class Cube(Cuboid):
     r"""Cubic box.
 
@@ -450,19 +508,6 @@ class Cube(Cuboid):
     """
     def __init__(self, L):
         super().__init__(L,L,L)
-
-    def to_json(self):
-        r"""Serialize as a dictionary.
-
-        The dictionary contains the box length ``L``.
-
-        Returns
-        -------
-        dict
-            The serialized Cube.
-
-        """
-        return {'L': self.a[0]}
 
     @classmethod
     def from_json(cls, data):
@@ -482,86 +527,40 @@ class Cube(Cuboid):
         """
         return Cube(**data)
 
-class Parallelogram(Area):
-    r"""Parallelogram box defined by two vectors.
-
-    The two vectors :math:`\mathbf{a}` and :math:`\mathbf{b}`
-    must form a right-hand basis so that the box volume :math:`A` is positive:
-
-    .. math::
-
-        A = |(\mathbf{a} \times \mathbf{b})| > 0
-
-    Parameters
-    ----------
-    a : array_like
-        First vector defining the parallelogram.
-    b : array_like
-        Second vector defining the parallelogram.
-
-    Raises
-    ------
-    TypeError
-        If ``a`` and ``b`` are not both 2-element vectors.
-    ValueError
-        If the area is not positive.
-
-    """
-    def __init__(self, a, b):
-        self.a = numpy.asarray(a,dtype=numpy.float64)
-        self.b = numpy.asarray(b,dtype=numpy.float64)
-        if not (self.a.shape==(2,) and self.b.shape==(2,)):
-            raise TypeError('a and b must be 2-element vectors.')
-        if self.extent <= 0:
-            raise ValueError('The area must be positive.')
-
-    @property
-    def extent(self):
-        return numpy.linalg.norm(numpy.cross(self.a,self.b))
-
     def to_json(self):
         r"""Serialize as a dictionary.
 
-        The dictionary contains the two box vectors ``a`` and ``b`` as tuples.
+        The dictionary contains the box length ``L``.
 
         Returns
         -------
         dict
-            The serialized Parallelogram.
+            The serialized Cube.
 
         """
-        return {'a': tuple(self.a),
-                'b': tuple(self.b)
-               }
+        return {'L': self.a[0]}
 
-    @classmethod
-    def from_json(cls, data):
-        r"""Deserialize from a dictionary.
+class Area(Extent):
+    r"""Two-dimensional region of space.
 
-        Parameters
-        ----------
-        data : dict
-            The serialized equivalent of the Parallelogram object. The keys
-            of ``data`` should be ``('a','b')``, and the data for each
-            is the 2-element box vector.
+    An Area can be any 2d region of space; typically, it is a simulation "box."
+    Any deriving class must implement the volume method that computes the scalar
+    area of the region. Additionally, methods to serialize and deserialize a
+    Area must be specified so that the object can be saved to disk.
 
-        Returns
-        -------
-        :class:`Parallelogram`
-            A new Parallelogram object constructed from the data.
+    """
+    pass
 
-        """
-        return Parallelogram(**data)
 
-class ObliqueArea(Parallelogram):
+class ObliqueArea(Area):
     r"""Oblique area.
 
-    A ObliqueArea is a special type of :class:`Parallelogram`. The box is
-    defined by an area oriented along the Cartesian axes and having
-    two vectors of length :math:`L_x` and :math:`L_y`, respectively.
-    The box is then tilted by factor :math:`xy`, which
-    is upper off-diagonal elements of the matrix of box vectors. As a result,
-    the :math:`\mathbf{a}` vector is always aligned along the :math:`x` axis, while
+    An ObliqueArea is defined by two edge vectors **a** and **b** that form
+    a right-hand basis. These vectors are defined by deformation of a rectangle
+    oriented along the Cartesian axes and having two edge lengths :math:`L_x`
+    and :math:`L_y`, respectively. The box is then tilted by a factor :math:`xy`,
+    which is the upper off-diagonal element of the matrix of box vectors. As a result,
+    the **a** vector is always aligned along the :math:`x` axis, while
     the other vector may be tilted.
 
     The tilt factors can be defined using one of two :class:`ObliqueArea.Convention`\s.
@@ -575,7 +574,8 @@ class ObliqueArea(Parallelogram):
         Length along the :math:`y` axis.
     xy : float
         Tilt factor.
-
+    convention : :class:`ObliqueArea.Convention`
+        Convention for the tilt factor.
 
     Raises
     ------
@@ -586,7 +586,7 @@ class ObliqueArea(Parallelogram):
         ``ObliqueArea.Convention.HOOMD``.
 
     """
-    
+
     class Convention(Enum):
         r"""Convention by which the tilt factors are applied to the basis vectors.
 
@@ -620,46 +620,26 @@ class ObliqueArea(Parallelogram):
         HOOMD = 2
 
     def __init__(self, Lx, Ly, xy, convention=Convention.LAMMPS):
-        if Lx<=0 or Ly<=0:
+        if Lx <= 0 or Ly <= 0:
             raise ValueError('All side lengths must be positive.')
-        self._convention = convention
-        if self.convention is ObliqueArea.Convention.LAMMPS:
+        if convention is ObliqueArea.Convention.LAMMPS:
             a = (Lx,0)
             b = (xy,Ly)
-        elif self.convention is ObliqueArea.Convention.HOOMD:
+        elif convention is ObliqueArea.Convention.HOOMD:
             a = (Lx,0)
             b = (xy*Ly,Ly)
         else:
             raise ValueError('Triclinic convention must be ObliqueArea.Convention.LAMMPS or ObliqueArea.Convention.HOOMD')
-        super().__init__(a,b)
+        self._convention = convention
 
-    @property
-    def convention(self):
-        r""":class:`ObliqueArea.Convention`: Convention for tilt factors."""
-        return self._convention
+        self.a = numpy.asarray(a, dtype=numpy.float64)
+        self.b = numpy.asarray(b, dtype=numpy.float64)
 
-    def to_json(self):
-        r"""Serialize as a dictionary.
-
-        The dictionary contains the two box lengths ``Lx`` and ``Ly``,
-        the tilt factor ``xy``, and the ``convention``
-        for the tilt factors.
-
-        Returns
-        -------
-        dict
-            The serialized ObliqueArea.
-
-        """
-        if self._convention is ObliqueArea.Convention.LAMMPS:
-            xy = self.b[0]
-        elif self._convention is ObliqueArea.Convention.HOOMD:
-            xy = self.b[0]/self.b[1]
-        return {'Lx': self.a[0],
-                'Ly': self.b[1],
-                'xy': xy,
-                'convention': self._convention.name
-               }
+        box_vec = self.a + self.b
+        self._low = -0.5*box_vec
+        self._high = 0.5*box_vec
+        self._extent = numpy.linalg.norm(numpy.cross(self.a,self.b))
+        self._convention = convention
 
     @classmethod
     def from_json(cls, data):
@@ -693,6 +673,172 @@ class ObliqueArea(Parallelogram):
             return ValueError('Only LAMMPS and HOOMD conventions are supported.')
         return ObliqueArea(**data_)
 
+    @property
+    def convention(self):
+        r""":class:`ObliqueArea.Convention`: Convention for tilt factors."""
+        return self._convention
+
+    @property
+    def extent(self):
+        return self._extent
+
+    @property
+    def low(self):
+        return self._low
+
+    @property
+    def high(self):
+        return self._high
+
+    def as_array(self, convention=None):
+        """Convert to array of lengths and tilt factor.
+
+        Parameters
+        ----------
+        convention : :class:`ObliqueArea.Convention`
+            Convention to use for the tilt factor. Default of ``None``
+            will use the convention for the box.
+
+        Returns
+        -------
+        numpy.ndarray
+            An array containing ``(Lx,Ly,xy)`` according to the
+            ``convention``.
+
+        """
+        if convention is None:
+            convention = self._convention
+
+        Lx = self.a[0]
+        Ly = self.b[1]
+        if convention is ObliqueArea.Convention.LAMMPS:
+            xy = self.b[0]
+        elif convention is ObliqueArea.Convention.HOOMD:
+            xy = self.b[0]/self.b[1]
+        else:
+            raise TypeError('Convention must be HOOMD or LAMMPS')
+        return numpy.array([Lx,Ly,xy])
+
+    def coordinate_to_fraction(self, r):
+        r"""Make fractional coordinates from Cartesian coordinates.
+
+        The Cartesian coordinates **r** are projected onto the two
+        (potentially nonorthogonal) basis vectors defining the box to yield
+        fractional coordinates **x** such that:
+
+        .. math::
+
+            \mathbf{r} = \mathbf{r}_{\rm low} + (\mathbf{a}\quad\mathbf{b}) \cdot \mathbf{x}
+
+        where :math:`\mathbf{r}_{\rm low}` is the lower bound of the box, i.e., :attr:`low`.
+
+        Parameters
+        ----------
+        r : array_like
+            Cartesian coordinates (or array of).
+
+        Returns
+        -------
+        numpy.ndarray
+            Fractional coordinates **x** corresponding to **r**.
+
+        """
+        Lx,Ly,xy = self.as_array(ObliqueArea.Convention.LAMMPS)
+
+        # get difference from lower bound
+        dx = -self.low + r
+        is_1d = False
+        if len(dx.shape) == 1:
+            dx = dx[numpy.newaxis,...]
+            is_1d = True
+
+        # make fractional coordinate
+        x = numpy.zeros_like(dx)
+        x[:,0] = (1.0/Lx)*dx[...,0] + (-xy/(Lx*Ly))*dx[...,1]
+        x[:,1] = (1.0/Ly)*dx[...,1]
+        if is_1d:
+            x = x[0]
+
+        return x
+
+    def fraction_to_coordinate(self, x):
+        r"""Make Cartesian coordinates from fractional coordinates.
+
+        The fractional coordinates **x** are converted to Cartesian coordinates **r**
+        using the basis vectors of the box. See :meth:`coordinate_to_fraction`
+        for the definition of these coordinates.
+
+        Parameters
+        ----------
+        r : array_like
+            Fractional coordinates (or array of).
+
+        Returns
+        -------
+        numpy.ndarray
+            Cartesian coordinates **r** corresponding to **x**.
+
+        """
+        Lx,Ly,xy = self.as_array(ObliqueArea.Convention.LAMMPS)
+
+        # make real coordinate
+        r = numpy.array(x)
+        is_1d = False
+        if len(r.shape) == 1:
+            r = r[numpy.newaxis,...]
+            is_1d = True
+        r[:,0] = Lx*r[...,0] + xy*r[...,1]
+        r[:,1] = Ly*r[...,1]
+        r += self.low
+        if is_1d:
+            r = r[0]
+
+        return r
+
+    def to_json(self):
+        r"""Serialize as a dictionary.
+
+        The dictionary contains the two box lengths ``Lx`` and ``Ly``,
+        the tilt factor ``xy``, and the ``convention``
+        for the tilt factors.
+
+        Returns
+        -------
+        dict
+            The serialized ObliqueArea.
+
+        """
+        Lx,Ly,xy = self.as_array()
+        return {'Lx': Lx,
+                'Ly': Ly,
+                'xy': xy,
+                'convention': self._convention.name
+               }
+
+    def wrap(self, positions):
+        """Wrap positions subject to periodic boundary conditions.
+
+        Two-dimensional periodic boundary conditions are applied to ensure
+        the ``positions`` lie within the box. This is achieved by converting
+        to fractional coordinates, bounding the fractional coordinates within
+        :math:`[0,1)`, then converting back to Cartesian coordinates.
+
+        Parameters
+        ----------
+        positions : array_like
+            Position vector(s).
+
+        Returns
+        -------
+        numpy.ndarray
+            Wrapped position(s).
+
+        """
+        x = self.coordinate_to_fraction(positions)
+        x -= numpy.round(x-0.5)
+        r = self.fraction_to_coordinate(x)
+        return r
+
 class Rectangle(ObliqueArea):
     r"""Rectangle box.
 
@@ -711,21 +857,6 @@ class Rectangle(ObliqueArea):
     """
     def __init__(self, Lx, Ly):
         super().__init__(Lx,Ly,0)
-
-    def to_json(self):
-        r"""Serialize as a dictionary.
-
-        The dictionary contains the two box lengths ``Lx`` and ``Ly``.
-
-        Returns
-        -------
-        dict
-            The serialized Rectangle.
-
-        """
-        return {'Lx': self.a[0],
-                'Ly': self.b[1],
-               }
 
     @classmethod
     def from_json(cls, data):
@@ -746,6 +877,21 @@ class Rectangle(ObliqueArea):
         """
         return Rectangle(**data)
 
+    def to_json(self):
+        r"""Serialize as a dictionary.
+
+        The dictionary contains the two box lengths ``Lx`` and ``Ly``.
+
+        Returns
+        -------
+        dict
+            The serialized Rectangle.
+
+        """
+        return {'Lx': self.a[0],
+                'Ly': self.b[1],
+               }
+
 class Square(Rectangle):
     r"""Square box.
 
@@ -760,19 +906,6 @@ class Square(Rectangle):
     """
     def __init__(self, L):
         super().__init__(L,L)
-
-    def to_json(self):
-        r"""Serialize as a dictionary.
-
-        The dictionary contains the box length ``L``.
-
-        Returns
-        -------
-        dict
-            The serialized Square.
-
-        """
-        return {'L': self.a[0]}
 
     @classmethod
     def from_json(cls, data):
@@ -791,3 +924,16 @@ class Square(Rectangle):
 
         """
         return Square(**data)
+
+    def to_json(self):
+        r"""Serialize as a dictionary.
+
+        The dictionary contains the box length ``L``.
+
+        Returns
+        -------
+        dict
+            The serialized Square.
+
+        """
+        return {'L': self.a[0]}
