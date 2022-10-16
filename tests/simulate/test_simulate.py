@@ -198,17 +198,31 @@ class test_PairPotentialTabulator(unittest.TestCase):
         f = t.force(('1','1'))
         numpy.testing.assert_allclose(f, numpy.array([18,12,6,0,-6,-12,-18]))
 
-@parameterized_class([{'box_geom': 'orthorhombic'}, {'box_geom': 'triclinic'}],
-    class_name_func=lambda cls, num, params_dict: "{}_{}".format(cls.__name__,params_dict['box_geom']))
+@parameterized_class([
+    {'box_geom': 'orthorhombic', 'dim': 3},
+    {'box_geom': 'triclinic', 'dim': 3},
+    {'box_geom': 'orthorhombic', 'dim': 2},
+    {'box_geom': 'triclinic', 'dim': 2}],
+    class_name_func=lambda cls, num, params_dict: "{}_{}_{}d".format(cls.__name__,params_dict['box_geom'],params_dict['dim']))
 class test_InitializeRandomly(unittest.TestCase):
     def setUp(self):
         if self.box_geom == 'orthorhombic':
-            self.V = relentless.extent.Cuboid(Lx=10, Ly=20, Lz=30)
+            if self.dim == 3:
+                self.V = relentless.extent.Cuboid(Lx=10, Ly=20, Lz=30)
+            elif self.dim == 2:
+                self.V = relentless.extent.Rectangle(Lx=20, Ly=30)
         elif self.box_geom == 'triclinic':
-            self.V = relentless.extent.TriclinicBox(Lx=10, Ly=20, Lz=30, xy=1, xz=2, yz=-1)
+            if self.dim == 3:
+                self.V = relentless.extent.TriclinicBox(Lx=10, Ly=20, Lz=30, xy=1, xz=2, yz=-1)
+            elif self.dim == 2:
+                self.V = relentless.extent.ObliqueArea(Lx=20, Ly=30, xy=3)
+        self.tol = 1.e-8
 
     def test_packing_one_type(self):
-        N = {'A': 150}
+        if self.dim == 3:
+            N = {'A': 150}
+        else:
+            N = {'A': 50}
         d = {'A': 1.2}
         rs, types = relentless.simulate.InitializeRandomly._pack_particles(42, N, self.V, d)
 
@@ -218,13 +232,15 @@ class test_InitializeRandomly(unittest.TestCase):
         self.assertTrue(numpy.all(xs >= 0))
         self.assertTrue(numpy.all(xs < 1))
 
-        tol = 1.e-8
         for i,r in enumerate(rs):
             dr = numpy.linalg.norm(rs[i+1:]-r, axis=1)
-            self.assertTrue(numpy.all(dr > d['A']-tol))
+            self.assertTrue(numpy.all(dr > d['A']-self.tol))
 
     def test_packing_two_types(self):
-        N = {'A': 100, 'B': 25}
+        if self.dim == 3:
+            N = {'A': 100, 'B': 25}
+        else:
+            N = {'A': 20, 'B': 5}
         d = {'A': 1.0, 'B': 3.0}
         rs, types = relentless.simulate.InitializeRandomly._pack_particles(42, N, self.V, d)
 
@@ -233,26 +249,25 @@ class test_InitializeRandomly(unittest.TestCase):
         self.assertEqual(numpy.sum(~mask), N['B'])
 
         xs = self.V.coordinate_to_fraction(rs)
-        self.assertTrue(numpy.all(xs >= 0))
-        self.assertTrue(numpy.all(xs < 1))
+        self.assertTrue(numpy.all(xs > -self.tol))
+        self.assertTrue(numpy.all(xs < 1.+self.tol))
 
         rAs = rs[mask]
         rBs = rs[~mask]
-        tol = 1.e-8
         for i,rB in enumerate(rBs):
             dr = numpy.linalg.norm(rBs[i+1:]-rB, axis=1)
-            self.assertTrue(numpy.all(dr > d['B']-tol))
+            self.assertTrue(numpy.all(dr > d['B']-self.tol))
 
         for i,rA in enumerate(rAs):
             dr = numpy.linalg.norm(rAs[i+1:]-rA, axis=1)
-            self.assertTrue(numpy.all(dr > d['A']-tol))
+            self.assertTrue(numpy.all(dr > d['A']-self.tol))
 
         for i,rA in enumerate(rAs):
             dr = numpy.linalg.norm(rBs-rA,axis=1)
             dAB = 0.5*(d['A']+d['B'])
             if numpy.any(dr < dAB):
                 print(dr[dr<dAB])
-            self.assertTrue(numpy.all(dr > dAB-tol))
+            self.assertTrue(numpy.all(dr > dAB-self.tol))
 
 if __name__ == '__main__':
     unittest.main()
