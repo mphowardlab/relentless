@@ -1,4 +1,5 @@
 """Unit tests for simulate module."""
+from parameterized import parameterized_class
 import tempfile
 import unittest
 
@@ -196,6 +197,62 @@ class test_PairPotentialTabulator(unittest.TestCase):
         t.fmax = 20
         f = t.force(('1','1'))
         numpy.testing.assert_allclose(f, numpy.array([18,12,6,0,-6,-12,-18]))
+
+@parameterized_class([{'box_geom': 'orthorhombic'}, {'box_geom': 'triclinic'}],
+    class_name_func=lambda cls, num, params_dict: "{}_{}".format(cls.__name__,params_dict['box_geom']))
+class test_InitializeRandomly(unittest.TestCase):
+    def setUp(self):
+        if self.box_geom == 'orthorhombic':
+            self.V = relentless.extent.Cuboid(Lx=10, Ly=20, Lz=30)
+        elif self.box_geom == 'triclinic':
+            self.V = relentless.extent.TriclinicBox(Lx=10, Ly=20, Lz=30, xy=1, xz=2, yz=-1)
+
+    def test_packing_one_type(self):
+        N = {'A': 150}
+        d = {'A': 1.2}
+        rs, types = relentless.simulate.InitializeRandomly._pack_particles(42, N, self.V, d)
+
+        self.assertTrue(all(typei == 'A' for typei in types))
+
+        xs = self.V.coordinate_to_fraction(rs)
+        self.assertTrue(numpy.all(xs >= 0))
+        self.assertTrue(numpy.all(xs < 1))
+
+        tol = 1.e-8
+        for i,r in enumerate(rs):
+            dr = numpy.linalg.norm(rs[i+1:]-r, axis=1)
+            self.assertTrue(numpy.all(dr > d['A']-tol))
+
+    def test_packing_two_types(self):
+        N = {'A': 100, 'B': 25}
+        d = {'A': 1.0, 'B': 3.0}
+        rs, types = relentless.simulate.InitializeRandomly._pack_particles(42, N, self.V, d)
+
+        mask = numpy.array([typei == 'A' for typei in types])
+        self.assertEqual(numpy.sum(mask), N['A'])
+        self.assertEqual(numpy.sum(~mask), N['B'])
+
+        xs = self.V.coordinate_to_fraction(rs)
+        self.assertTrue(numpy.all(xs >= 0))
+        self.assertTrue(numpy.all(xs < 1))
+
+        rAs = rs[mask]
+        rBs = rs[~mask]
+        tol = 1.e-8
+        for i,rB in enumerate(rBs):
+            dr = numpy.linalg.norm(rBs[i+1:]-rB, axis=1)
+            self.assertTrue(numpy.all(dr > d['B']-tol))
+
+        for i,rA in enumerate(rAs):
+            dr = numpy.linalg.norm(rAs[i+1:]-rA, axis=1)
+            self.assertTrue(numpy.all(dr > d['A']-tol))
+
+        for i,rA in enumerate(rAs):
+            dr = numpy.linalg.norm(rBs-rA,axis=1)
+            dAB = 0.5*(d['A']+d['B'])
+            if numpy.any(dr < dAB):
+                print(dr[dr<dAB])
+            self.assertTrue(numpy.all(dr > dAB-tol))
 
 if __name__ == '__main__':
     unittest.main()

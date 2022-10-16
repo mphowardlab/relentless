@@ -6,9 +6,13 @@ See :mod:`relentless.simulate` for module level documentation.
 
 """
 import abc
+import itertools
+
 import numpy
+import scipy.spatial
 
 from relentless import data
+from relentless import extent
 
 class SimulationOperation(abc.ABC):
     """Operation to be performed by a :class:`Simulation`."""
@@ -740,6 +744,76 @@ class InitializeRandomly(GenericOperation):
     """
     def __init__(self, seed, N, V, T=None, masses=None):
         super().__init__(seed, N, V, T, masses)
+
+    @classmethod
+    def _pack_particles(cls, seed, N, V, diameters):
+        # seed the rng
+        rng = numpy.random.default_rng(seed)
+
+        # get the orthorhombic bounding box
+        if isinstance(V, extent.TriclinicBox):
+            Lx,Ly,Lz,xy,xz,yz = V.as_array(extent.TriclinicBox.Convention.HOOMD)
+            aabb = numpy.array([Lx/numpy.sqrt(1.+xy**2+(xy*yz-xz)**2), Ly/numpy.sqrt(1.+yz**2), Lz])
+        elif isinstance(V, extent.ObliqueArea):
+            Lx,Ly,xy = V.as_array(extent.ObliqueArea.Convention.HOOMD)
+            aabb = numpy.array([Lx/numpy.sqrt(1.+xy**2), Ly])
+        else:
+            raise TypeError('Random initialization currently only supported in triclinic/oblique extents')
+
+        dimension = len(aabb)
+        positions = numpy.zeros((sum(N.values()), dimension), dtype=numpy.float64)
+        types = []
+        trees = {}
+        Nadded = 0
+        # insert the particles, big to small
+        sorted_N = sorted(N.items(), key=lambda x : x[1], reverse=True)
+        for i,Ni in sorted_N:
+            # generate site coordinates, on orthorhombic lattices
+            di = diameters[i]
+            if dimension == 3:
+                # fcc lattice
+                a = numpy.sqrt(2.)*di
+                lattice = a*numpy.array([1.,1.,1.])
+                unitcell = a*numpy.array([[0.,0.,0.],[0.5,0.5,0.],[0.5,0.,0.5],[0.,0.5,0.5]])
+            elif dimension == 2:
+                a = di
+                b = numpy.sqrt(3.)*di
+                lattice = numpy.array([a,b])
+                unitcell = numpy.array([[0.,0.],[0.5*a,0.5*b]])
+            else:
+                raise ValueError('Only 3d and 2d packings are supported')
+            num_lattice = numpy.floor((aabb-di)/lattice).astype(int)
+            sites = numpy.zeros((numpy.prod(num_lattice)*unitcell.shape[0], dimension), dtype=numpy.float64)
+            first = 0
+            for coord in itertools.product(*[numpy.arange(n) for n in num_lattice]):
+                sites[first:first+unitcell.shape[0]] = coord*lattice + unitcell
+                first += unitcell.shape[0]
+            sites += 0.5*di
+
+            # eliminate overlaps using kd-tree collision detection
+            if len(trees) > 0:
+                mask = numpy.ones(sites.shape[0], dtype=bool)
+                for j,treej in trees.items():
+                    dj = diameters[j]
+                    num_overlap = treej.query_ball_point(sites, 0.5*(di+dj), return_length=True)
+                    mask[num_overlap > 0] = False
+                sites = sites[mask]
+
+            # randomly draw positions from available sites
+            if Ni > sites.shape[0]:
+                raise RuntimeError('Failed to randomly pack this box')
+            ri = sites[rng.choice(sites.shape[0], Ni, replace=False)]
+            # also make tree from positions if we have more than 1 type, using pbcs
+            if len(N) > 1:
+                trees[i] = scipy.spatial.KDTree(ri)
+            positions[Nadded:Nadded+Ni] = ri
+            types += [i]*Ni
+            Nadded += Ni
+
+        # wrap the particles back into the real box
+        positions = V.wrap(positions)
+
+        return positions,types
 
 ## integrators
 class MinimizeEnergy(GenericOperation):

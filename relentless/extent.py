@@ -434,7 +434,7 @@ class TriclinicBox(Volume):
 
         """
         x = self.coordinate_to_fraction(positions)
-        x -= numpy.round(x-0.5)
+        x -= numpy.floor(x)
         r = self.fraction_to_coordinate(x)
         return r
 
