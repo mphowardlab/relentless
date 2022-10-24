@@ -11,7 +11,7 @@ operations. It is best to interface with these operations using the frontend in
 """
 import numpy
 
-from relentless.ensemble import RDF
+from relentless import ensemble
 from relentless import extent
 from . import simulate
 
@@ -22,6 +22,36 @@ class NullOperation(simulate.SimulationOperation):
 
     def __call__(self, sim):
         pass
+
+class InitializeRandomly(simulate.SimulationOperation):
+    """Initializes a "randomly" generated simulation.
+
+    Since this is a dilute system, there is not actual particle configuration.
+    Instead, this operation sets up a canonical (NVT) ensemble that is
+    consistent with the specified conditions.
+
+    Parameters
+    ----------
+    seed : int
+        The seed to randomly initialize the particle locations.
+    N : dict
+        Number of particles of each type.
+    V : :class:`~relentless.extent.Extent`
+        Simulation extent.
+    T : float
+        Temperature.
+    masses : dict
+        Masses of each particle type. These are not actually used by this
+        operation, so default of ``None`` is the same as specifying something.
+
+    """
+    def __init__(self, seed, N, V, T, masses=None):
+        self.N = N
+        self.V = V
+        self.T = T
+
+    def __call__(self, sim):
+        sim[self].ensemble = ensemble.Ensemble(T=self.T, N=self.N, V=self.V)
 
 class AddEnsembleAnalyzer(simulate.SimulationOperation):
     r"""Analyzer for the simulation ensemble.
@@ -53,20 +83,19 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
         pass
 
     def __call__(self, sim):
-        ens = sim.ensemble.copy()
-
+        ens = sim[sim.initializer].ensemble.copy()
+        kT = sim.potentials.kB*ens.T
         # pair distribution function
         for pair in ens.pairs:
             u = sim.potentials.pair.energy(pair)
-            ens.rdf[pair] = RDF(sim.potentials.pair.r,
-                                numpy.exp(-sim.ensemble.beta*u))
+            ens.rdf[pair] = ensemble.RDF(sim.potentials.pair.r, numpy.exp(-u/kT))
 
         # compute pressure
         ens.P = 0.
-        for a in ens.types:
+        for a in sim.types:
             rho_a = ens.N[a]/ens.V.extent
-            ens.P += ens.kT*rho_a
-            for b in ens.types:
+            ens.P += kT*rho_a
+            for b in sim.types:
                 rho_b = ens.N[b]/ens.V.extent
                 r = sim.potentials.pair.r
                 u = sim.potentials.pair.energy((a,b))
@@ -83,9 +112,9 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
                 f = f[first_finite:]
                 gr = gr[first_finite:]
 
-                if isinstance(ens.V, extent.Volume):
+                if sim.dimension == 3:
                     geo_prefactor = 4*numpy.pi*r**2
-                elif isinstance(ens.V, extent.Area): 
+                elif sim.dimension == 2: 
                     geo_prefactor = 2*numpy.pi*r
                 else:
                     raise ValueError('Geometric integration factor unknown for extent type')
@@ -135,9 +164,24 @@ class Dilute(simulate.Simulation):
     physics of the dilute simulation.
 
     """
+
+    def _new_instance(self, initializer, potentials, directory):
+        sim = super()._new_instance(initializer, potentials, directory)
+
+        # initialize
+        initializer(sim)
+        ens = sim[initializer].ensemble
+        if isinstance(ens.V, extent.Volume):
+            sim.dimension = 3
+        elif isinstance(ens.V, extent.Area):
+            sim.dimension = 2
+        sim.types = ens.types
+
+        return sim
+
     # initialization
-    InitializeFromFile = NullOperation
-    InitializeRandomly = NullOperation
+    # InitializeFromFile = simulate.NotImplementedOperation
+    InitializeRandomly = InitializeRandomly
 
     # energy minimization
     MinimizeEnergy = NullOperation

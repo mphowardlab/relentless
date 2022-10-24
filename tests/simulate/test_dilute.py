@@ -2,8 +2,6 @@
 import tempfile
 import unittest
 
-import numpy
-
 import relentless
 
 from ..potential.test_pair import LinPot
@@ -17,12 +15,16 @@ class test_Dilute(unittest.TestCase):
 
     def test_run(self):
         """Test run method."""
-        analyzer = relentless.simulate.dilute.AddEnsembleAnalyzer(
+        init = relentless.simulate.InitializeRandomly(
+                seed=42,
+                N={'A':2,'B':3},
+                V=relentless.extent.Cube(L=2.0),
+                T=1.0)
+        analyzer = relentless.simulate.AddEnsembleAnalyzer(
             check_thermo_every=1, check_rdf_every=1, rdf_dr=0.1)
-        ens = relentless.ensemble.Ensemble(T=1.0, V=relentless.extent.Cube(L=2.0), N={'A':2,'B':3})
 
         # set up potentials
-        pot = LinPot(ens.types,params=('m',))
+        pot = LinPot(('A','B'),params=('m',))
         for pair in pot.coeff:
             pot.coeff[pair]['m'] = 2.0
         pots = relentless.simulate.Potentials()
@@ -30,16 +32,20 @@ class test_Dilute(unittest.TestCase):
         pots.pair.rmax = 3.0
         pots.pair.num = 4
 
-        d = relentless.simulate.dilute.Dilute(operations=analyzer)
-        sim = d.run(ensemble=ens, potentials=pots, directory=self.directory)
+        d = relentless.simulate.Dilute(init, operations=[analyzer])
+        sim = d.run(potentials=pots, directory=self.directory)
         ens_ = analyzer.extract_ensemble(sim)
         self.assertAlmostEqual(ens_.P, -207.5228556)
 
     def test_inf_potential(self):
         """Test potential with infinite value."""
-        analyzer = relentless.simulate.dilute.AddEnsembleAnalyzer(
+        init = relentless.simulate.InitializeRandomly(
+                seed=42,
+                N={'A':2,'B':3},
+                V=relentless.extent.Cube(L=2.0),
+                T=1.0)
+        analyzer = relentless.simulate.AddEnsembleAnalyzer(
             check_thermo_every=1, check_rdf_every=1, rdf_dr=0.1)
-        ens = relentless.ensemble.Ensemble(T=1.0, V=relentless.extent.Cube(L=2.0), N={'A':2,'B':3})
 
         # test with potential that has infinite potential at low r
         pot = relentless.potential.LennardJones(types=('A','B'))
@@ -50,10 +56,10 @@ class test_Dilute(unittest.TestCase):
         pots.pair.rmax = 3.0
         pots.pair.num = 100
 
-        d = relentless.simulate.dilute.Dilute(operations=analyzer)
+        d = relentless.simulate.Dilute(init, operations=[analyzer])
         warned = False
         try:
-            sim = d.run(ensemble=ens, potentials=pots, directory=self.directory)
+            sim = d.run(potentials=pots, directory=self.directory)
         except RuntimeWarning:
             warned = True
         self.assertFalse(warned)   # no warning should be raised
