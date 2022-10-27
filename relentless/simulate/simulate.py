@@ -6,6 +6,7 @@ See :mod:`relentless.simulate` for module level documentation.
 
 """
 import abc
+from enum import Enum
 import itertools
 
 import numpy
@@ -727,6 +728,20 @@ class InitializeFromFile(GenericOperation):
 class InitializeRandomly(GenericOperation):
     """Initialize a randomly generated simulation box.
 
+    If ``diameters`` is ``None``, the particles are randomly placed in the box.
+    This can work pretty well for low densities, particularly if
+    :class:`MinimizeEnergy` is used to remove overlaps before starting to run a
+    simulation. However, it will typically fail for higher densities, where
+    there are many overlaps that are hard to resolve.
+
+    If ``diameters`` is specified for each particle type, the particles will
+    be randomly packed into sites of a close-packed lattice. The insertion
+    order is from big to small. No particles are allowed to overlap based on
+    the diameters, which typically means the initially state will be more
+    favorable than using random initialization. However, the packing procedure
+    can fail if there is not enough room in the box to fit particles using
+    lattice sites.
+
     Parameters
     ----------
     seed : int
@@ -740,16 +755,16 @@ class InitializeRandomly(GenericOperation):
     masses : dict
         Masses of each particle type. Defaults to None, which means particles
         have unit mass.
+    diameters : dict
+        Diameter of each particle type. Defaults to None, which means particles
+        are randomly inserted without checking their sizes.
 
     """
-    def __init__(self, seed, N, V, T=None, masses=None):
+    def __init__(self, seed, N, V, T=None, masses=None, diameters=None):
         super().__init__(seed, N, V, T, masses)
 
     @classmethod
-    def _pack_particles(cls, seed, N, V, diameters):
-        # seed the rng
-        rng = numpy.random.default_rng(seed)
-
+    def _make_orthorhombic(cls, V):
         # get the orthorhombic bounding box
         if isinstance(V, extent.TriclinicBox):
             Lx,Ly,Lz,xy,xz,yz = V.as_array(extent.TriclinicBox.Convention.HOOMD)
@@ -759,7 +774,26 @@ class InitializeRandomly(GenericOperation):
             aabb = numpy.array([Lx/numpy.sqrt(1.+xy**2), Ly])
         else:
             raise TypeError('Random initialization currently only supported in triclinic/oblique extents')
+        return aabb
 
+    @classmethod
+    def _random_particles(cls, seed, N, V):
+        rng = numpy.random.default_rng(seed)
+        aabb = cls._make_orthorhombic(V)
+
+        positions = aabb*rng.uniform(size=(sum(N.values()), len(aabb)))
+        positions = V.wrap(positions)
+
+        types = []
+        for i,Ni in N.items():
+            types.extend([i]*Ni)
+
+        return positions, types
+
+    @classmethod
+    def _pack_particles(cls, seed, N, V, diameters):
+        rng = numpy.random.default_rng(seed)
+        aabb = cls._make_orthorhombic(V)
         dimension = len(aabb)
         positions = numpy.zeros((sum(N.values()), dimension), dtype=numpy.float64)
         types = []

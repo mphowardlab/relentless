@@ -38,11 +38,12 @@ class test_LAMMPS(unittest.TestCase):
         # setup potentials
         pot = LinPot(ens.types,params=('m',))
         for pair in pot.coeff:
-            pot.coeff[pair]['m'] = -2.0
+            pot.coeff[pair].update({'m': -2.0, 'rmax': 1.0})
         pots = relentless.simulate.Potentials()
         pots.pair.potentials.append(pot)
-        pots.pair.rmax = 10.0
-        pots.pair.num = 11
+        pots.pair.rmin = 1e-6
+        pots.pair.rmax = 2.0
+        pots.pair.num = 3
 
         return (ens,pots)
 
@@ -118,6 +119,11 @@ class test_LAMMPS(unittest.TestCase):
         h = relentless.simulate.LAMMPS(op, dimension=self.dim)
         h.run(potentials=pot, directory=self.directory)
 
+        # T + diameters
+        op = relentless.simulate.InitializeRandomly(seed=1, N=ens.N, V=ens.V, diameters={'A': 1., 'B': 2.})
+        h = relentless.simulate.LAMMPS(op, dimension=self.dim)
+        h.run(potentials=pot, directory=self.directory)
+
         # no T + mass
         m = {i: idx+1 for idx,i in enumerate(ens.N)}
         op = relentless.simulate.InitializeRandomly(seed=1, N=ens.N, V=ens.V, masses=m)
@@ -190,7 +196,7 @@ class test_LAMMPS(unittest.TestCase):
         self.assertFalse(sim.lammps.has_id('fix',str(lgv._fix_langevin)))
 
         # single-type friction
-        init_1 = relentless.simulate.InitializeRandomly(seed=1, N={'1':2}, V=relentless.extent.Cube(L=10.0), T=2.0)
+        init_1 = relentless.simulate.InitializeRandomly(seed=1, N={'1':2}, V=ens.V, T=ens.T)
         lgv = relentless.simulate.AddLangevinIntegrator(dt=0.5,
                                                         T=ens.T,
                                                         friction={'1':3.0},
@@ -320,7 +326,7 @@ class test_LAMMPS(unittest.TestCase):
     def test_analyzer(self):
         """Test ensemble analyzer simulation operation."""
         ens,pot = self.ens_pot()
-        init = relentless.simulate.InitializeRandomly(seed=1, N=ens.N, V=ens.V, T=ens.T)
+        init = relentless.simulate.InitializeRandomly(seed=1, N=ens.N, V=ens.V, T=ens.T, diameters={'1': 1, '2': 1})
         analyzer = relentless.simulate.AddEnsembleAnalyzer(check_thermo_every=5,
                                                            check_rdf_every=5,
                                                            rdf_dr=1.0)

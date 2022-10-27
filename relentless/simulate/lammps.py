@@ -19,9 +19,12 @@ To implement your own LAMMPS operation, create an operation that derives from
 
 """
 import abc
+import tempfile
 
+import lammpsio
 import numpy
 
+from relentless import data
 from relentless import ensemble
 from relentless import mpi
 from relentless import extent
@@ -144,8 +147,19 @@ class InitializeFromFile(Initialize):
 class InitializeRandomly(Initialize):
     """Initialize a randomly generated simulation box.
 
-    The initialization is done using LAMMPS's ``create_atoms`` method, which
-    may produce poor initial structures at high densities.
+    If ``diameters`` is ``None``, the particles are randomly placed in the box.
+    This can work pretty well for low densities, particularly if
+    :class:`MinimizeEnergy` is used to remove overlaps before starting to run a
+    simulation. However, it will typically fail for higher densities, where
+    there are many overlaps that are hard to resolve.
+
+    If ``diameters`` is specified for each particle type, the particles will
+    be randomly packed into sites of a close-packed lattice. The insertion
+    order is from big to small. No particles are allowed to overlap based on
+    the diameters, which typically means the initially state will be more
+    favorable than using random initialization. However, the packing procedure
+    can fail if there is not enough room in the box to fit particles using
+    lattice sites.
 
     Parameters
     ----------
@@ -153,65 +167,92 @@ class InitializeRandomly(Initialize):
         The seed to randomly initialize the particle locations.
     N : dict
         Number of particles of each type.
-    V : :class:`~relentless.extent.TriclinicBox` or :class:`~relentless.extent.ObliqueArea`
+    V : :class:`~relentless.extent.Extent`
         Simulation extent.
     T : float
-        Temperature.
+        Temperature. Defaults to None, which means system is not thermalized.
     masses : dict
-        Mass of each particle type.
+        Masses of each particle type. Defaults to None, which means particles
+        have unit mass.
+    diameters : dict
+        Diameter of each particle type. Defaults to None, which means particles
+        are randomly inserted without checking their sizes.
 
     """
-    def __init__(self, seed, N, V, T=None, masses=None):
+    def __init__(self, seed, N, V, T=None, masses=None, diameters=None):
         super().__init__({i: idx+1 for idx,i in enumerate(N.keys())})
         self.seed = seed
         self.N = N
         self.V = V
         self.T = T
         self.masses = masses
+        self.diameters = diameters
 
     def initialize(self, sim):
-        if not isinstance(self.V, (extent.TriclinicBox, extent.ObliqueArea)):
+        if not isinstance(self.V, (extent.TriclinicBox,extent.ObliqueArea)):
             raise TypeError('LAMMPS boxes must be derived from TriclinicBox or ObliqueArea')
+        elif ((sim.dimension == 3 and not isinstance(self.V, extent.TriclinicBox)) or
+            (sim.dimension == 2 and not isinstance(self.V, extent.ObliqueArea))):
+            raise TypeError('Mismatch between extent type and dimension')
 
         # make box
         if sim.dimension == 3:
-            Lx = self.V.a[0]
-            Ly = self.V.b[1]
-            Lz = self.V.c[2]
-            xy = self.V.b[0]
-            xz = self.V.c[0]
-            yz = self.V.c[1]
-            dL = self.V.a + self.V.b + self.V.c
+            Lx,Ly,Lz,xy,xz,yz = self.V.as_array(extent.TriclinicBox.Convention.LAMMPS)
+            lo = self.V.low
         elif sim.dimension == 2:
-            Lx = self.V.a[0]
-            Ly = self.V.b[1]
-            Lz = 0.2 # LAMMPS wants Lz to be a tiny number
-            xy = self.V.b[0]
+            Lx,Ly,xy = self.V.as_array(extent.ObliqueArea.Convention.LAMMPS)
+            Lz = 1.0
             xz = 0.0
             yz = 0.0
-            dL = numpy.array((self.V.a[0]+self.V.b[0],self.V.a[1]+self.V.b[1],Lz))
+            lo = numpy.array([self.V.low[0],self.V.low[1],-0.5*Lz])
         else:
             raise ValueError('LAMMPS only supports 2d and 3d simulations')
-        lo = -0.5*dL
         hi = lo + [Lx,Ly,Lz]
-        box_size = numpy.array([lo[0],hi[0],lo[1],hi[1],lo[2],hi[2],xy,xz,yz])
-        if not numpy.all(numpy.isclose(box_size[-3:],0)):
-            cmds = ['region box prism {} {} {} {} {} {} {} {} {}'.format(*box_size)]
+        tilt = numpy.array([xy,xz,yz])
+        if not numpy.all(numpy.isclose(tilt,0)):
+            box = lammpsio.Box(lo,hi,tilt)
         else:
-            cmds = ['region box block {} {} {} {} {} {}'.format(*box_size[:-3])]
-        types = tuple(self.N.keys())
-        cmds += ['create_box {N} box'.format(N=len(types))]
+            box = lammpsio.Box(lo,hi)
+        snap = lammpsio.Snapshot(N=sum(self.N.values()), box=box)
 
-        # use lammps random initialization routines
-        for i in types:
-            cmds += ['create_atoms {typeid} random {N} {seed} box'.format(typeid=self.lammps_types[i],
-                                                                          N=self.N[i],
-                                                                          seed=self.seed+self.lammps_types[i]-1),
-                     'mass {typeid} {mass}'.format(typeid=self.lammps_types[i],
-                                                   mass=self.masses[i] if self.masses is not None else 1.0)]
+        # generate the positions and types
+        if self.diameters is not None:
+            positions, all_types = simulate.InitializeRandomly._pack_particles(self.seed, self.N, self.V)
+        else:
+            positions, all_types = simulate.InitializeRandomly._random_particles(self.seed, self.N, self.V)
 
+        # set the positions
+        snap.position[:,:sim.dimension] = positions
+
+        # set the typeids
+        snap.typeid = [self.lammps_types[i] for i in all_types]
+
+        # set masses, defaulting to unit mass
+        if self.masses is not None:
+            snap.mass = [self.masses[i] for i in all_types]
+        else:
+            snap.mass[:] = 1.0
+
+        # set velocities, defaulting to zeros
         if self.T is not None:
-            cmds += ['velocity all create {temp} {seed}'.format(temp=self.T, seed=self.seed)]
+            rng = numpy.random.default_rng(self.seed+1)
+            # Maxwell-Boltzmann = normal with variance kT/m per component
+            vel = rng.normal(scale=numpy.sqrt(sim.potentials.kB*self.T),
+                             size=(snap.N,sim.dimension))
+            vel /= numpy.sqrt(snap.mass[:,None])
+
+            # zero the linear momentum
+            v_cm = numpy.sum(snap.mass[:,None]*vel, axis=0)/numpy.sum(snap.mass)
+            vel -= v_cm
+        else:
+            vel = numpy.zeros((snap.N, sim.dimension))
+        snap.velocity[:,:sim.dimension] = vel
+
+        init_file = sim.directory.file('init.data')
+        lammpsio.DataFile.create(init_file,
+                                 snap,
+                                 self.atom_style)
+        cmds = ['read_data {}'.format(init_file)]
 
         return cmds
 
@@ -701,6 +742,16 @@ class LAMMPS(simulate.Simulation):
         super().__init__(initializer, operations)
         self.dimension = dimension
         self.quiet = quiet
+
+    def run(self, potentials, directory):
+        # lammps always needs a directory, so use a temp one if we don't have it
+        if directory is None:
+            with tempfile.TemporaryDirectory() as directory_:
+                sim = super().run(potentials, directory_)
+        else:
+            sim = super().run(potentials, directory)
+
+        return sim
 
     def _new_instance(self, initializer, potentials, directory):
         sim = super()._new_instance(initializer, potentials, directory)
