@@ -23,8 +23,13 @@ class test_LAMMPS(unittest.TestCase):
     """Unit tests for relentless.LAMMPS"""
 
     def setUp(self):
-        self._tmp = tempfile.TemporaryDirectory()
-        self.directory = relentless.data.Directory(self._tmp.name)
+        if relentless.mpi.world.rank_is_root:
+            self._tmp = tempfile.TemporaryDirectory()
+            directory = self._tmp.name
+        else:
+            directory = None
+        directory = relentless.mpi.world.bcast(directory)
+        self.directory = relentless.data.Directory(directory)
 
     # mock (NVT) ensemble and potential for testing
     def ens_pot(self):
@@ -344,7 +349,10 @@ class test_LAMMPS(unittest.TestCase):
             self.assertEqual(ens_.rdf[i,j].table.shape, (len(pot.pair.r)-1,2))
 
     def tearDown(self):
-        self._tmp.cleanup()
+        if relentless.mpi.world.rank_is_root:
+            self._tmp.cleanup()
+            del self._tmp
+        del self.directory
 
 if __name__ == '__main__':
     unittest.main()

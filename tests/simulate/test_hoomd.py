@@ -27,8 +27,13 @@ _has_modules = (relentless.simulate.hoomd._hoomd_found and
 class test_HOOMD(unittest.TestCase):
     """Unit tests for relentless.HOOMD"""
     def setUp(self):
-        self._tmp = tempfile.TemporaryDirectory()
-        self.directory = relentless.data.Directory(self._tmp.name)
+        if relentless.mpi.world.rank_is_root:
+            self._tmp = tempfile.TemporaryDirectory()
+            directory = self._tmp.name
+        else:
+            directory = None
+        directory = relentless.mpi.world.bcast(directory)
+        self.directory = relentless.data.Directory(directory)
 
     # mock (NVT) ensemble and potential for testing
     def ens_pot(self):
@@ -323,7 +328,10 @@ class test_HOOMD(unittest.TestCase):
             self.assertEqual(ens_.rdf[i,j].table[0,1], 0.0)
 
     def tearDown(self):
-        self._tmp.cleanup()
+        if relentless.mpi.world.rank_is_root:
+            self._tmp.cleanup()
+            del self._tmp
+        del self.directory
 
 if __name__ == '__main__':
     unittest.main()

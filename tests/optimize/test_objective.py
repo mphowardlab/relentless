@@ -25,9 +25,10 @@ class QuadraticObjective(relentless.optimize.ObjectiveFunction):
                 grad[x] = 0.
 
         # optionally write output
-        if directory is not None:
+        if relentless.mpi.world.rank_is_root and directory is not None:
             with open(directory.file('x.log'),'w') as f:
                 f.write(str(self.x.value) + '\n')
+        relentless.mpi.world.barrier()
 
         return relentless.optimize.ObjectiveFunctionResult(variables, val, grad, directory)
 
@@ -35,7 +36,13 @@ class test_ObjectiveFunction(unittest.TestCase):
     """Unit tests for relentless.optimize.ObjectiveFunction"""
 
     def setUp(self):
-        self.directory = tempfile.TemporaryDirectory()
+        if relentless.mpi.world.rank_is_root:
+            self._tmp = tempfile.TemporaryDirectory()
+            directory = self._tmp.name
+        else:
+            directory = None
+        directory = relentless.mpi.world.bcast(directory)
+        self.directory = relentless.data.Directory(directory)
 
     def test_compute(self):
         """Test compute method"""
@@ -57,7 +64,7 @@ class test_ObjectiveFunction(unittest.TestCase):
     def test_directory(self):
         x = relentless.variable.DesignVariable(value=1.0)
         q = QuadraticObjective(x=x)
-        d = relentless.data.Directory(self.directory.name)
+        d = self.directory
         res = q.compute(x, d)
 
         with open(d.file('x.log')) as f:
@@ -65,14 +72,22 @@ class test_ObjectiveFunction(unittest.TestCase):
         self.assertAlmostEqual(x,1.0)
 
     def tearDown(self):
-        self.directory.cleanup()
+        if relentless.mpi.world.rank_is_root:
+            self._tmp.cleanup()
+            del self._tmp
         del self.directory
 
 class test_RelativeEntropy(unittest.TestCase):
     """Unit tests for relentless.optimize.RelativeEntropy"""
 
     def setUp(self):
-        self.directory = tempfile.TemporaryDirectory()
+        if relentless.mpi.world.rank_is_root:
+            self._tmp = tempfile.TemporaryDirectory()
+            directory = self._tmp.name
+        else:
+            directory = None
+        directory = relentless.mpi.world.bcast(directory)
+        self.directory = relentless.data.Directory(directory)
 
         lj = relentless.potential.LennardJones(types=('1',))
         self.epsilon = relentless.variable.DesignVariable(value=1.0)
@@ -148,7 +163,7 @@ class test_RelativeEntropy(unittest.TestCase):
 
         res = relent.compute((self.epsilon, self.sigma))
 
-        sim = self.simulation.run(self.potentials, self.directory.name)
+        sim = self.simulation.run(self.potentials, self.directory)
         ensemble = self.thermo.extract_ensemble(sim)
         res_grad = relent.compute_gradient(ensemble, (self.epsilon, self.sigma))
 
@@ -170,7 +185,7 @@ class test_RelativeEntropy(unittest.TestCase):
 
         res = relent.compute((self.epsilon,self.sigma))
 
-        sim = self.simulation.run(self.potentials, self.directory.name)
+        sim = self.simulation.run(self.potentials, self.directory)
         ensemble = self.thermo.extract_ensemble(sim)
         res_grad = relent.compute_gradient(ensemble, (self.epsilon, self.sigma))
 
@@ -189,19 +204,16 @@ class test_RelativeEntropy(unittest.TestCase):
                                                      self.potentials,
                                                      self.thermo)
 
-        d = relentless.data.Directory(self.directory.name)
-        res = relent.compute((self.epsilon,self.sigma),d)
+        res = relent.compute((self.epsilon,self.sigma), self.directory)
 
-        with open(d.file('pair_potential.0.json')) as f:
-            x = json.load(f)
+        x = relentless.mpi.world.load_json(self.directory.file('pair_potential.0.json'))
         self.assertAlmostEqual(x["('1', '1')"]['epsilon'], self.epsilon.value)
         self.assertAlmostEqual(x["('1', '1')"]['sigma'], self.sigma.value)
         self.assertAlmostEqual(x["('1', '1')"]['rmax'], 2.7)
 
-        sim = self.simulation.run(self.potentials, self.directory.name)
+        sim = self.simulation.run(self.potentials, self.directory)
         sim_ens = self.thermo.extract_ensemble(sim)
-        with open(d.file('ensemble.json')) as g:
-            y = json.load(g)
+        y = relentless.mpi.world.load_json(self.directory.file('ensemble.json'))
         self.assertAlmostEqual(y['T'], 1.5)
         self.assertAlmostEqual(y['N'], {'1':50})
         self.assertAlmostEqual(y['V']['data'], {'L':10.})
@@ -209,7 +221,9 @@ class test_RelativeEntropy(unittest.TestCase):
         numpy.testing.assert_allclose(y['rdf']["('1', '1')"], sim_ens.rdf['1','1'].table.tolist())
 
     def tearDown(self):
-        self.directory.cleanup()
+        if relentless.mpi.world.rank_is_root:
+            self._tmp.cleanup()
+            del self._tmp
         del self.directory
 
 if __name__ == '__main__':
