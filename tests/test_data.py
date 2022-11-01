@@ -8,8 +8,13 @@ import relentless
 
 class test_Directory(unittest.TestCase):
     def setUp(self):
-        self.f = tempfile.TemporaryDirectory()
-        self.real_f = os.path.realpath(self.f.name)
+        if relentless.mpi.world.rank_is_root:
+            self._tmp = tempfile.TemporaryDirectory()
+            directory = self._tmp.name
+        else:
+            directory = None
+        self.f = relentless.mpi.world.bcast(directory)
+        self.real_f = os.path.realpath(self.f)
 
     """Unit tests for core.data.Directory."""
     def test_init(self):
@@ -17,7 +22,7 @@ class test_Directory(unittest.TestCase):
         cwd = os.getcwd()
 
         # test creation with existing path
-        d = relentless.data.Directory(self.f.name)
+        d = relentless.data.Directory(self.f)
         self.assertEqual(d.path, self.real_f)
         self.assertEqual(d._start, [])
         # enter and exit
@@ -27,7 +32,7 @@ class test_Directory(unittest.TestCase):
         self.assertEqual(d._start, [])
 
         # test creation with non-existent path (absolute)
-        foo = os.path.join(self.f.name,'foo')
+        foo = os.path.join(self.f,'foo')
         real_foo = os.path.realpath(foo)
         d1 = relentless.data.Directory(foo)
         self.assertEqual(d1.path, real_foo)
@@ -39,7 +44,7 @@ class test_Directory(unittest.TestCase):
         self.assertEqual(d1._start, [])
 
         # test creation with non-existent path (recursive)
-        foobar = os.path.join(self.f.name,'bar','foobar')
+        foobar = os.path.join(self.f,'bar','foobar')
         real_foobar = os.path.realpath(foobar)
         d2 = relentless.data.Directory(foobar)
         self.assertEqual(d2.path, real_foobar)
@@ -51,10 +56,17 @@ class test_Directory(unittest.TestCase):
         self.assertEqual(d2._start, [])
 
         # test creation with invalid directory path
-        x = tempfile.NamedTemporaryFile(dir=self.f.name)
+        if relentless.mpi.world.rank_is_root:
+            x = tempfile.NamedTemporaryFile(dir=self.f)
+            x_name = x.name
+        else:
+            x = None
+            x_name = None
+        x_name = relentless.mpi.world.bcast(x_name)
         with self.assertRaises(OSError):
-            d3 = relentless.data.Directory(x.name)
-        x.close()
+            d3 = relentless.data.Directory(x_name)
+        if x is not None:
+            x.close()
 
         # test unsuccessfully changing directories (by redundancy)
         with d:
@@ -78,14 +90,16 @@ class test_Directory(unittest.TestCase):
             self.assertEqual(d2._start, [cwd])
             with d1:
                 self.assertEqual(d1._start, [d2.path])
-                shutil.rmtree(foobar)
+                if relentless.mpi.world.rank_is_root:
+                    shutil.rmtree(foobar)
+                relentless.mpi.world.barrier()
             self.assertEqual(d1._start, [])
             self.assertEqual(os.getcwd(), d1.path) # no exit
 
     def test_context(self):
         """Test context methods for Directory."""
         # create nested directory structure
-        d = relentless.data.Directory(self.f.name)
+        d = relentless.data.Directory(self.f)
         d1 = d.directory('foo')
         d2 = d.directory('bar')
         d3 = d1.directory(os.path.join('bar','foobar'))
@@ -99,10 +113,12 @@ class test_Directory(unittest.TestCase):
         x1 = d1.file('ham.txt')
         x2 = d1.file('eggs.txt')
         x3 = d3.file('baz.txt')
-        open(x,'w').close()
-        open(x1,'w').close()
-        open(x2,'w').close()
-        open(x3,'w').close()
+        if relentless.mpi.world.rank_is_root:
+            open(x,'w').close()
+            open(x1,'w').close()
+            open(x2,'w').close()
+            open(x3,'w').close()
+        relentless.mpi.world.barrier()
         self.assertEqual(os.path.abspath(x), os.path.join(d.path,'spam.txt'))
         self.assertEqual(os.path.abspath(x1), os.path.join(d1.path,'ham.txt'))
         self.assertEqual(os.path.abspath(x2), os.path.join(d1.path,'eggs.txt'))
@@ -122,22 +138,24 @@ class test_Directory(unittest.TestCase):
 
     def test_path(self):
         # set path by constructor
-        foo = os.path.join(self.f.name,'foo')
+        foo = os.path.join(self.f,'foo')
         real_foo = os.path.realpath(foo)
         d = relentless.data.Directory(foo)
         self.assertEqual(d.path, real_foo)
         self.assertTrue(os.path.exists(foo))
 
     def test_move_contents(self):
-        foo = os.path.join(self.f.name,'foo')
-        bar = os.path.join(self.f.name,'bar')
-        baz = os.path.join(self.f.name,'baz')
+        foo = os.path.join(self.f,'foo')
+        bar = os.path.join(self.f,'bar')
+        baz = os.path.join(self.f,'baz')
 
         dfoo = relentless.data.Directory(foo)
         dbar = relentless.data.Directory(bar)
 
         # create a file and directory in foo, it is not yet in bar
-        open(dfoo.file('spam.txt'),'w').close()
+        if relentless.mpi.world.rank_is_root:
+            open(dfoo.file('spam.txt'),'w').close()
+        relentless.mpi.world.barrier()
         dfoo.directory('fizz')
         self.assertTrue(os.path.isfile(os.path.join(foo,'spam.txt')))
         self.assertTrue(os.path.isdir(os.path.join(foo,'fizz')))
@@ -161,15 +179,17 @@ class test_Directory(unittest.TestCase):
         self.assertTrue(os.path.isdir(os.path.join(baz,'fizz')))
 
     def test_copy_contents(self):
-        foo = os.path.join(self.f.name,'foo')
-        bar = os.path.join(self.f.name,'bar')
-        baz = os.path.join(self.f.name,'baz')
+        foo = os.path.join(self.f,'foo')
+        bar = os.path.join(self.f,'bar')
+        baz = os.path.join(self.f,'baz')
 
         dfoo = relentless.data.Directory(foo)
         dbar = relentless.data.Directory(bar)
 
         # create a file and directory in foo, it is not yet in bar
-        open(dfoo.file('spam.txt'),'w').close()
+        if relentless.mpi.world.rank_is_root:
+            open(dfoo.file('spam.txt'),'w').close()
+        relentless.mpi.world.barrier()
         dfoo.directory('fizz')
         self.assertTrue(os.path.isfile(os.path.join(foo,'spam.txt')))
         self.assertTrue(os.path.isdir(os.path.join(foo,'fizz')))
@@ -193,9 +213,10 @@ class test_Directory(unittest.TestCase):
         self.assertTrue(os.path.isdir(os.path.join(baz,'fizz')))
 
     def tearDown(self):
-        self.f.cleanup()
+        if relentless.mpi.world.rank_is_root:
+            self._tmp.cleanup()
+            del self._tmp
         self.real_f = None
-        del self.f
 
 if __name__ == '__main__':
     unittest.main()

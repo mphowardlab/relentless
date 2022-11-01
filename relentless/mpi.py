@@ -37,7 +37,9 @@ see its documentation for more details.
     :members:
 
 """
+import json
 import os
+
 import numpy
 try:
     from mpi4py import MPI
@@ -313,6 +315,50 @@ class Communicator:
         else:
             dat = None
         dat = self.bcast_numpy(dat,root)
+
+        return dat
+
+    def load_json(self, filename, root=None):
+        """Load a JSON file and broadcast.
+
+        Data is loaded from file using :func:`json.load` on the ``root`` rank,
+        then broadcast to all ranks. This function can be called with essentially
+        no overhead in single-processor calculations, but prevents oversubscribing
+        file handles when running under MPI.
+
+        Parameters
+        ----------
+        filename : str
+            Name of the file to load.
+        root : int
+            Rank to broadcast from. If ``None`` (default), broadcast from the
+            :attr:`root` of the communicator.
+
+        Returns
+        -------
+        dict
+            The data from ``filename``.
+
+        Example
+        -------
+        Load a file:
+
+        .. code::
+
+            comm = relentless.mpi.Communicator()
+            dat = comm.load_json("ensemble.json")
+
+
+        """
+        if root is None:
+            root = self.root
+
+        if self.rank == root:
+            with open(filename) as f:
+                dat = json.load(f)
+        else:
+            dat = None
+        dat = self.bcast(dat, root)
 
         return dat
 
