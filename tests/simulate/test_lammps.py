@@ -10,6 +10,7 @@ try:
     import lammps
 except ImportError:
     pass
+import lammpsio
 import numpy
 
 import relentless
@@ -54,50 +55,19 @@ class test_LAMMPS(unittest.TestCase):
 
     def create_file(self):
         file_ = self.directory.file('test.data')
-        
-        if self.dim == 3:
-            zlo = '-5.0'
-            zhi = '5.0'
-            z1 = '-4.0'
-            z2 = '-2.0'
-            z3 = '0.0'
-            z4 = '2.0'
-            z5 = '4.0'
-        elif self.dim == 2: 
-            zlo = '-0.1'
-            zhi = '0.1'
-            z1 = '0.0'
-            z2 = '0.0'
-            z3 = '0.0'
-            z4 = '0.0'
-            z5 = '0.0'
-        else:
-            raise ValueError('LAMMPS supports 2d and 3d simulations')
 
         if relentless.mpi.world.rank_is_root:
-            with open(file_,'w') as f:
-                f.write(('LAMMPS test data\n'
-                        '\n'
-                        '5 atoms\n'
-                        '2 atom types\n'
-                        '\n'
-                        '-5.0 5.0 xlo xhi\n'
-                        '-5.0 5.0 ylo yhi\n'
-                        '{} {} zlo zhi\n'
-                        '\n'
-                        'Atoms\n'
-                        '\n'
-                        '1 1 -4.0 -4.0 {}\n'
-                        '2 1 -2.0 -2.0 {}\n'
-                        '3 2 0.0 0.0 {}\n'
-                        '4 2 2.0 2.0 {}\n'
-                        '5 2 4.0 4.0 {}\n'
-                        '\n'
-                        'Masses\n'
-                        '\n'
-                        '1 0.3\n'
-                        '2 0.1').format(zlo, zhi, z1, z2, z3, z4, z5))
+            low = [-5, -5, -5 if self.dim == 3 else -0.1]
+            high = [5, 5, 5 if self.dim == 3 else 0.1]
+            snap = lammpsio.Snapshot(N=5, box=lammpsio.Box(low, high))
+            snap.position[:,:2] = [[-4,-4],[-2,-2],[0,0],[2,2],[4,4]]
+            if self.dim == 3:
+                snap.position[:,2] = [-4, -2, 0, 2, 4]
+            snap.typeid = [1,1,2,2,2]
+            snap.mass = [0.3, 0.3, 0.1, 0.1, 0.1]
+            lammpsio.DataFile.create(file_, snap)
         relentless.mpi.world.barrier()
+
         return file_
 
     def test_initialize(self):

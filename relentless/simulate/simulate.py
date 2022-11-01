@@ -6,7 +6,6 @@ See :mod:`relentless.simulate` for module level documentation.
 
 """
 import abc
-from enum import Enum
 import itertools
 
 import numpy
@@ -807,21 +806,24 @@ class InitializeRandomly(GenericOperation):
             if dimension == 3:
                 # fcc lattice
                 a = numpy.sqrt(2.)*di
-                lattice = a*numpy.array([1.,1.,1.])
-                unitcell = a*numpy.array([[0.,0.,0.],[0.5,0.5,0.],[0.5,0.,0.5],[0.,0.5,0.5]])
+                lattice = numpy.array([a,a,a])
+                cell_coord = numpy.array([[0.,0.,0.],[0.5,0.5,0.],[0.5,0.,0.5],[0.,0.5,0.5]])
             elif dimension == 2:
                 a = di
                 b = numpy.sqrt(3.)*di
                 lattice = numpy.array([a,b])
-                unitcell = numpy.array([[0.,0.],[0.5*a,0.5*b]])
+                cell_coord = numpy.array([[0.,0.],[0.5,0.5]])
             else:
                 raise ValueError('Only 3d and 2d packings are supported')
+            # this part generates a cartesian mesh of unit cells that fit within a box, such that no particle
+            # can cross the outside of the aabb. then, it loops through all the cells and puts the particles in
+            # place. everything is based on fractional coordinates, so it gets scaled by the lattice.
             num_lattice = numpy.floor((aabb-di)/lattice).astype(int)
-            sites = numpy.zeros((numpy.prod(num_lattice)*unitcell.shape[0], dimension), dtype=numpy.float64)
+            sites = numpy.zeros((numpy.prod(num_lattice)*cell_coord.shape[0], dimension), dtype=numpy.float64)
             first = 0
-            for coord in itertools.product(*[numpy.arange(n) for n in num_lattice]):
-                sites[first:first+unitcell.shape[0]] = coord*lattice + unitcell
-                first += unitcell.shape[0]
+            for cell_origin in itertools.product(*[numpy.arange(n) for n in num_lattice]):
+                sites[first:first+cell_coord.shape[0]] = lattice*(cell_origin + cell_coord)
+                first += cell_coord.shape[0]
             sites += 0.5*di
 
             # eliminate overlaps using kd-tree collision detection
