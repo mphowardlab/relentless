@@ -57,29 +57,32 @@ class test_HOOMD(unittest.TestCase):
 
     # mock gsd file for testing
     def create_gsd(self):
-        with gsd.hoomd.open(name=self.directory.file('test.gsd'), mode='wb') as f:
-            s = gsd.hoomd.Snapshot()
-            s.particles.N = 5
-            s.particles.types = ['A','B']
-            s.particles.typeid = [0,0,1,1,1]
-            if self.dim == 3:
-                s.particles.position = numpy.random.uniform(low=-5.0,high=5.0,size=(5,3))
-                s.configuration.box = [20,20,20,0,0,0]
-            elif self.dim == 2:
-                s.particles.position = numpy.random.uniform(low=-5.0,high=5.0,size=(5,3))
-                s.particles.position[:, 2] = 0
-                s.configuration.box = [20,20,0,0,0,0]
-            else:
-                raise ValueError('HOOMD supports 2d and 3d simulations')
-            f.append(s)
-        return f
+        filename = self.directory.file('test.gsd')
+        if relentless.mpi.world.rank_is_root:
+            with gsd.hoomd.open(name=filename, mode='wb') as f:
+                s = gsd.hoomd.Snapshot()
+                s.particles.N = 5
+                s.particles.types = ['A','B']
+                s.particles.typeid = [0,0,1,1,1]
+                if self.dim == 3:
+                    s.particles.position = numpy.random.uniform(low=-5.0,high=5.0,size=(5,3))
+                    s.configuration.box = [20,20,20,0,0,0]
+                elif self.dim == 2:
+                    s.particles.position = numpy.random.uniform(low=-5.0,high=5.0,size=(5,3))
+                    s.particles.position[:, 2] = 0
+                    s.configuration.box = [20,20,0,0,0,0]
+                else:
+                    raise ValueError('HOOMD supports 2d and 3d simulations')
+                f.append(s)
+        relentless.mpi.world.barrier()
+        return filename
 
     def test_initialize(self):
         """Test running initialization simulation operations."""
         # InitializeFromFile
         ens,pot = self.ens_pot()
         f = self.create_gsd()
-        op = relentless.simulate.InitializeFromFile(filename=f.file.name)
+        op = relentless.simulate.InitializeFromFile(filename=f)
         h = relentless.simulate.HOOMD(op)
         sim = h.run(potentials=pot, directory=self.directory)
 
@@ -194,16 +197,6 @@ class test_HOOMD(unittest.TestCase):
         vrl_r(sim)
         self.assertIsNone(sim[vrl].integrator)
 
-        # VerletIntegrator - NVE (Berendsen)
-        tb = relentless.simulate.BerendsenThermostat(T=1, tau=0.5)
-        vrl = relentless.simulate.AddVerletIntegrator(dt=0.5, thermostat=tb)
-        vrl_r = relentless.simulate.RemoveVerletIntegrator(add_op=vrl)
-        h.operations = [vrl]
-        sim = h.run(potentials=pot, directory=self.directory)
-        self.assertTrue(sim[vrl].integrator.enabled)
-        vrl_r(sim)
-        self.assertIsNone(sim[vrl].integrator)
-
         # VerletIntegrator - NVT
         tn = relentless.simulate.NoseHooverThermostat(T=1, tau=0.5)
         vrl = relentless.simulate.AddVerletIntegrator(dt=0.5, thermostat=tn)
@@ -233,11 +226,22 @@ class test_HOOMD(unittest.TestCase):
         vrl_r(sim)
         self.assertIsNone(sim[vrl].integrator)
 
-        # VerletIntegrator - incorrect
-        with self.assertRaises(TypeError):
-            vrl = relentless.simulate.AddVerletIntegrator(dt=0.5, thermostat=tb, barostat=bm)
+        if relentless.mpi.world.size == 1:
+            # VerletIntegrator - NVE (Berendsen)
+            tb = relentless.simulate.BerendsenThermostat(T=1, tau=0.5)
+            vrl = relentless.simulate.AddVerletIntegrator(dt=0.5, thermostat=tb)
+            vrl_r = relentless.simulate.RemoveVerletIntegrator(add_op=vrl)
             h.operations = [vrl]
             sim = h.run(potentials=pot, directory=self.directory)
+            self.assertTrue(sim[vrl].integrator.enabled)
+            vrl_r(sim)
+            self.assertIsNone(sim[vrl].integrator)
+
+            # VerletIntegrator - incorrect
+            with self.assertRaises(TypeError):
+                vrl = relentless.simulate.AddVerletIntegrator(dt=0.5, thermostat=tb, barostat=bm)
+                h.operations = [vrl]
+                sim = h.run(potentials=pot, directory=self.directory)
 
     def test_run(self):
         """Test run simulation operations."""
@@ -293,28 +297,32 @@ class test_HOOMD(unittest.TestCase):
     def test_self_interactions(self):
         """Test if self-interactions are excluded from rdf computation."""
         if self.dim == 3:
-            Lz = 8.
+            Lz = 20.
             z = 1.
             box_type = relentless.extent.Cube
-        elif self.dim ==2:
-            Lz = 0.
+        elif self.dim == 2:
+            Lz = 1.
             z = 0.
             box_type = relentless.extent.Square   
         else:
             raise ValueError('HOOMD supports 2d and 3d simulations')
-  
-        with gsd.hoomd.open(name=self.directory.file('mock.gsd'), mode='wb') as f:
-            s = gsd.hoomd.Snapshot()
-            s.particles.N = 4
-            s.particles.types = ['A','B']
-            s.particles.typeid = [0,1,0,1]
-            s.particles.position = [[-1,-1,-z],[1,1,z],[1,-1,z],[-1,1,-z]]
-            s.configuration.box = [8,8,Lz,0,0,0]
-            f.append(s)
+ 
+        filename = self.directory.file('mock.gsd')
+        if relentless.mpi.world.rank_is_root:
+            with gsd.hoomd.open(name=filename, mode='wb') as f:
+                s = gsd.hoomd.Snapshot()
+                s.particles.N = 4
+                s.particles.types = ['A','B']
+                s.particles.typeid = [0,1,0,1]
+                s.particles.position = [[-1,-1,-z],[1,1,z],[1,-1,z],[-1,1,-z]]
+                s.configuration.box = [20,20,Lz,0,0,0]
+                s.configuration.dimensions = self.dim
+                f.append(s)
+        relentless.mpi.world.barrier()
 
-        ens = relentless.ensemble.Ensemble(T=2.0, V=box_type(L=8.0), N={'A':2,'B':2})
+        ens = relentless.ensemble.Ensemble(T=2.0, V=box_type(L=20), N={'A':2,'B':2})
         _,pot = self.ens_pot()
-        init = relentless.simulate.InitializeFromFile(filename=f.file.name)
+        init = relentless.simulate.InitializeFromFile(filename=filename)
         ig = relentless.simulate.AddVerletIntegrator(dt=0.0)
         analyzer = relentless.simulate.AddEnsembleAnalyzer(check_thermo_every=1,
                                                            check_rdf_every=1,

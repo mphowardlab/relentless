@@ -72,29 +72,31 @@ class test_LAMMPS(unittest.TestCase):
             z5 = '0.0'
         else:
             raise ValueError('LAMMPS supports 2d and 3d simulations')
-        
-        with open(file_,'w') as f:
-            f.write(('LAMMPS test data\n'
-                    '\n'
-                    '5 atoms\n'
-                    '2 atom types\n'
-                    '\n'
-                    '-5.0 5.0 xlo xhi\n'
-                    '-5.0 5.0 ylo yhi\n'
-                    '{} {} zlo zhi\n'
-                    '\n'
-                    'Atoms\n'
-                    '\n'
-                    '1 1 -4.0 -4.0 {}\n'
-                    '2 1 -2.0 -2.0 {}\n'
-                    '3 2 0.0 0.0 {}\n'
-                    '4 2 2.0 2.0 {}\n'
-                    '5 2 4.0 4.0 {}\n'
-                    '\n'
-                    'Masses\n'
-                    '\n'
-                    '1 0.3\n'
-                    '2 0.1').format(zlo, zhi, z1, z2, z3, z4, z5))
+
+        if relentless.mpi.world.rank_is_root:
+            with open(file_,'w') as f:
+                f.write(('LAMMPS test data\n'
+                        '\n'
+                        '5 atoms\n'
+                        '2 atom types\n'
+                        '\n'
+                        '-5.0 5.0 xlo xhi\n'
+                        '-5.0 5.0 ylo yhi\n'
+                        '{} {} zlo zhi\n'
+                        '\n'
+                        'Atoms\n'
+                        '\n'
+                        '1 1 -4.0 -4.0 {}\n'
+                        '2 1 -2.0 -2.0 {}\n'
+                        '3 2 0.0 0.0 {}\n'
+                        '4 2 2.0 2.0 {}\n'
+                        '5 2 4.0 4.0 {}\n'
+                        '\n'
+                        'Masses\n'
+                        '\n'
+                        '1 0.3\n'
+                        '2 0.1').format(zlo, zhi, z1, z2, z3, z4, z5))
+        relentless.mpi.world.barrier()
         return file_
 
     def test_initialize(self):
