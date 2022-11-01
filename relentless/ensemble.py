@@ -30,6 +30,7 @@ import numpy
 from .collections import FixedKeyDict,PairMatrix
 from .math import Interpolator
 from . import extent
+from . import mpi
 
 class RDF(Interpolator):
     r"""Radial distribution function.
@@ -201,8 +202,7 @@ class Ensemble:
             An new Ensemble object.
 
         """
-        with open(filename) as f:
-            data = json.load(f)
+        data = mpi.world.load_json(filename)
 
         # create initial ensemble
         ExtentType = getattr(extent,data['V']['__name__'])

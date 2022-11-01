@@ -10,8 +10,13 @@ class test_Dilute(unittest.TestCase):
     """Unit tests for relentless.simulate.Dilute"""
 
     def setUp(self):
-        self._tmp = tempfile.TemporaryDirectory()
-        self.directory = relentless.data.Directory(self._tmp.name)
+        if relentless.mpi.world.rank_is_root:
+            self._tmp = tempfile.TemporaryDirectory()
+            directory = self._tmp.name
+        else:
+            directory = None
+        directory = relentless.mpi.world.bcast(directory)
+        self.directory = relentless.data.Directory(directory)
 
     def test_run(self):
         """Test run method."""
@@ -67,7 +72,10 @@ class test_Dilute(unittest.TestCase):
         self.assertAlmostEqual(ens_.P, -1.1987890)
 
     def tearDown(self):
-        self._tmp.cleanup()
+        if relentless.mpi.world.rank_is_root:
+            self._tmp.cleanup()
+            del self._tmp
+        del self.directory
 
 if __name__ == '__main__':
     unittest.main()

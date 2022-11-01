@@ -65,7 +65,7 @@ class Directory:
             dir_error = not os.path.isdir(path)
         else:
             dir_error = None
-        mpi.world.bcast(dir_error)
+        dir_error = mpi.world.bcast(dir_error)
         if dir_error:
             raise OSError('The specified path is not a valid directory')
         self._path = path

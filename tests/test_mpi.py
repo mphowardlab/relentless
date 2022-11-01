@@ -51,7 +51,7 @@ class test_Communicator(unittest.TestCase):
         # broadcast from specified root
         if self.comm.size >= 2:
             root = 1
-            if self.comm.rank_is_root:
+            if self.comm.rank == root:
                 x = 7
             else:
                 x = None
@@ -72,7 +72,7 @@ class test_Communicator(unittest.TestCase):
         # float array from specified root
         if self.comm.size >= 2:
             root = 1
-            if self.comm.rank_is_root:
+            if self.comm.rank == root:
                 x = numpy.array([3.,4.],dtype=numpy.float64)
             else:
                 x = None

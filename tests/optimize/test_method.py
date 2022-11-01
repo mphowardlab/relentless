@@ -11,7 +11,13 @@ class test_LineSearch(unittest.TestCase):
     """Unit tests for relentless.optimize.LineSearch"""
 
     def setUp(self):
-        self.directory = tempfile.TemporaryDirectory()
+        if relentless.mpi.world.rank_is_root:
+            self._tmp = tempfile.TemporaryDirectory()
+            directory = self._tmp.name
+        else:
+            directory = None
+        directory = relentless.mpi.world.bcast(directory)
+        self.directory = relentless.data.Directory(directory)
 
     def test_init(self):
         """Test creation with data."""
@@ -45,7 +51,7 @@ class test_LineSearch(unittest.TestCase):
         self.assertEqual(q.x.value, -3.0)
 
         # use directory for output, check result of first iteration
-        d = relentless.data.Directory(self.directory.name)
+        d = self.directory
         res_new = l.find(q, res_1, res_2, d)
         self.assertAlmostEqual(res_new.variables[x], 1.0)
         self.assertAlmostEqual(res_new.gradient[x], 0.0)
@@ -85,14 +91,22 @@ class test_LineSearch(unittest.TestCase):
             l.find(objective=q, start=res_1, end=res_3)
 
     def tearDown(self):
-        self.directory.cleanup()
+        if relentless.mpi.world.rank_is_root:
+            self._tmp.cleanup()
+            del self._tmp
         del self.directory
 
 class test_SteepestDescent(unittest.TestCase):
     """Unit tests for relentless.optimize.SteepestDescent"""
 
     def setUp(self):
-        self.directory = tempfile.TemporaryDirectory()
+        if relentless.mpi.world.rank_is_root:
+            self._tmp = tempfile.TemporaryDirectory()
+            directory = self._tmp.name
+        else:
+            directory = None
+        directory = relentless.mpi.world.bcast(directory)
+        self.directory = relentless.data.Directory(directory)
 
     def test_init(self):
         """Test creation with data."""
@@ -189,7 +203,7 @@ class test_SteepestDescent(unittest.TestCase):
         o = relentless.optimize.SteepestDescent(stop=t, max_iter=1, step_size=0.25)
 
         # optimize with output
-        d = relentless.data.Directory(self.directory.name)
+        d = self.directory
         o.optimize(q, x, d)
 
         # 0/ holds the initial value
@@ -216,7 +230,7 @@ class test_SteepestDescent(unittest.TestCase):
         o.line_search = relentless.optimize.LineSearch(tolerance=1e-5, max_iter=1)
 
         # optimize with output
-        d = relentless.data.Directory(self.directory.name)
+        d = self.directory
         o.optimize(q, x, d)
 
         # 0/ holds the initial value
@@ -244,7 +258,9 @@ class test_SteepestDescent(unittest.TestCase):
             self.assertAlmostEqual(float(f.readline()), 1.0)
 
     def tearDown(self):
-        self.directory.cleanup()
+        if relentless.mpi.world.rank_is_root:
+            self._tmp.cleanup()
+            del self._tmp
         del self.directory
 
 class test_FixedStepDescent(unittest.TestCase):
