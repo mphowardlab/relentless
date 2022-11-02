@@ -268,10 +268,10 @@ class test_HOOMD(unittest.TestCase):
         """Test ensemble analyzer simulation operation."""
         ens,pot = self.ens_pot()
         init = relentless.simulate.InitializeRandomly(seed=1, N=ens.N, V=ens.V, T=ens.T, diameters={'A': 1, 'B': 1})
-        lgv = relentless.simulate.AddLangevinIntegrator(dt=0.1,
+        lgv = relentless.simulate.AddLangevinIntegrator(dt=0.001,
                                                         T=ens.T,
-                                                        friction=0.9,
-                                                        seed=2)
+                                                        friction=1.0,
+                                                        seed=1)
         analyzer = relentless.simulate.AddEnsembleAnalyzer(check_thermo_every=5,
                                                            check_rdf_every=5,
                                                            rdf_dr=1.0)

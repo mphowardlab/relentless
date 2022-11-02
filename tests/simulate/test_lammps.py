@@ -308,7 +308,7 @@ class test_LAMMPS(unittest.TestCase):
                                                            check_rdf_every=5,
                                                            rdf_dr=1.0)
         run = relentless.simulate.Run(steps=500)
-        lgv = relentless.simulate.AddLangevinIntegrator(dt=0.005,
+        lgv = relentless.simulate.AddLangevinIntegrator(dt=0.001,
                                                         T=ens.T,
                                                         friction=1.0,
                                                         seed=1)

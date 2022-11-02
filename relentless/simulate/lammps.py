@@ -19,7 +19,6 @@ To implement your own LAMMPS operation, create an operation that derives from
 
 """
 import abc
-import tempfile
 
 import lammpsio
 import numpy
@@ -194,63 +193,66 @@ class InitializeRandomly(Initialize):
             (sim.dimension == 2 and not isinstance(self.V, extent.ObliqueArea))):
             raise TypeError('Mismatch between extent type and dimension')
 
-        # make box
-        if sim.dimension == 3:
-            Lx,Ly,Lz,xy,xz,yz = self.V.as_array(extent.TriclinicBox.Convention.LAMMPS)
-            lo = self.V.low
-        elif sim.dimension == 2:
-            Lx,Ly,xy = self.V.as_array(extent.ObliqueArea.Convention.LAMMPS)
-            Lz = 1.0
-            xz = 0.0
-            yz = 0.0
-            lo = numpy.array([self.V.low[0],self.V.low[1],-0.5*Lz])
-        else:
-            raise ValueError('LAMMPS only supports 2d and 3d simulations')
-        hi = lo + [Lx,Ly,Lz]
-        tilt = numpy.array([xy,xz,yz])
-        if not numpy.all(numpy.isclose(tilt,0)):
-            box = lammpsio.Box(lo,hi,tilt)
-        else:
-            box = lammpsio.Box(lo,hi)
-        snap = lammpsio.Snapshot(N=sum(self.N.values()), box=box)
-
-        # generate the positions and types
-        if self.diameters is not None:
-            positions, all_types = simulate.InitializeRandomly._pack_particles(self.seed, self.N, self.V, self.diameters)
-        else:
-            positions, all_types = simulate.InitializeRandomly._random_particles(self.seed, self.N, self.V)
-
-        # set the positions
-        snap.position[:,:sim.dimension] = positions
-
-        # set the typeids
-        snap.typeid = [self.lammps_types[i] for i in all_types]
-
-        # set masses, defaulting to unit mass
-        if self.masses is not None:
-            snap.mass = [self.masses[i] for i in all_types]
-        else:
-            snap.mass[:] = 1.0
-
-        # set velocities, defaulting to zeros
-        if self.T is not None:
-            rng = numpy.random.default_rng(self.seed+1)
-            # Maxwell-Boltzmann = normal with variance kT/m per component
-            vel = rng.normal(scale=numpy.sqrt(sim.potentials.kB*self.T),
-                             size=(snap.N,sim.dimension))
-            vel /= numpy.sqrt(snap.mass[:,None])
-
-            # zero the linear momentum
-            v_cm = numpy.sum(snap.mass[:,None]*vel, axis=0)/numpy.sum(snap.mass)
-            vel -= v_cm
-        else:
-            vel = numpy.zeros((snap.N, sim.dimension))
-        snap.velocity[:,:sim.dimension] = vel
-
         init_file = sim.directory.file('init.data')
-        lammpsio.DataFile.create(init_file,
-                                 snap,
-                                 self.atom_style)
+        if mpi.world.rank_is_root:
+            # make box
+            if sim.dimension == 3:
+                Lx,Ly,Lz,xy,xz,yz = self.V.as_array(extent.TriclinicBox.Convention.LAMMPS)
+                lo = self.V.low
+            elif sim.dimension == 2:
+                Lx,Ly,xy = self.V.as_array(extent.ObliqueArea.Convention.LAMMPS)
+                Lz = 1.0
+                xz = 0.0
+                yz = 0.0
+                lo = numpy.array([self.V.low[0],self.V.low[1],-0.5*Lz])
+            else:
+                raise ValueError('LAMMPS only supports 2d and 3d simulations')
+            hi = lo + [Lx,Ly,Lz]
+            tilt = numpy.array([xy,xz,yz])
+            if not numpy.all(numpy.isclose(tilt,0)):
+                box = lammpsio.Box(lo,hi,tilt)
+            else:
+                box = lammpsio.Box(lo,hi)
+            snap = lammpsio.Snapshot(N=sum(self.N.values()), box=box)
+
+            # generate the positions and types
+            if self.diameters is not None:
+                positions, all_types = simulate.InitializeRandomly._pack_particles(self.seed, self.N, self.V, self.diameters)
+            else:
+                positions, all_types = simulate.InitializeRandomly._random_particles(self.seed, self.N, self.V)
+
+            # set the positions
+            snap.position[:,:sim.dimension] = positions
+
+            # set the typeids
+            snap.typeid = [self.lammps_types[i] for i in all_types]
+
+            # set masses, defaulting to unit mass
+            if self.masses is not None:
+                snap.mass = [self.masses[i] for i in all_types]
+            else:
+                snap.mass[:] = 1.0
+
+            # set velocities, defaulting to zeros
+            if self.T is not None:
+                rng = numpy.random.default_rng(self.seed+1)
+                # Maxwell-Boltzmann = normal with variance kT/m per component
+                vel = rng.normal(scale=numpy.sqrt(sim.potentials.kB*self.T),
+                                 size=(snap.N,sim.dimension))
+                vel /= numpy.sqrt(snap.mass[:,None])
+
+                # zero the linear momentum
+                v_cm = numpy.sum(snap.mass[:,None]*vel, axis=0)/numpy.sum(snap.mass)
+                vel -= v_cm
+            else:
+                vel = numpy.zeros((snap.N, sim.dimension))
+            snap.velocity[:,:sim.dimension] = vel
+
+            lammpsio.DataFile.create(init_file,
+                                     snap,
+                                     self.atom_style)
+        mpi.world.barrier()
+
         cmds = ['read_data {}'.format(init_file)]
 
         return cmds
@@ -741,16 +743,6 @@ class LAMMPS(simulate.Simulation):
         super().__init__(initializer, operations)
         self.dimension = dimension
         self.quiet = quiet
-
-    def run(self, potentials, directory):
-        # lammps always needs a directory, so use a temp one if we don't have it
-        if directory is None:
-            with tempfile.TemporaryDirectory() as directory_:
-                sim = super().run(potentials, directory_)
-        else:
-            sim = super().run(potentials, directory)
-
-        return sim
 
     def _new_instance(self, initializer, potentials, directory):
         sim = super()._new_instance(initializer, potentials, directory)
