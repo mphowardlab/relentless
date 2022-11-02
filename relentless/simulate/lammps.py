@@ -663,9 +663,7 @@ class AddEnsembleAnalyzer(LAMMPSOperation):
 
         # thermodynamic properties
         sim[self].thermo_file = sim.directory.file('lammps_thermo.dat')
-        cmds = ['thermo {every}'.format(every=self.check_thermo_every),
-                'thermo_style custom temp press lx ly lz xy xz yz',
-                'thermo_modify norm no flush no',
+        cmds = [
                 'variable {} equal temp'.format(var_ids['T']),
                 'variable {} equal press'.format(var_ids['P']),
                 'variable {} equal lx'.format(var_ids['Lx']),
