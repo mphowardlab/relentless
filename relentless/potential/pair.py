@@ -445,7 +445,7 @@ class PairPotential(potential.Potential):
                 # rmin deriv
                 flags = r < params['rmin']
                 deriv[flags] += -self._force(params['rmin'], **params)*dp_dvar
-            if p=='rmax':
+            elif p=='rmax':
                 # rmax deriv
                 if params['shift']:
                     flags = r <= params['rmax']
