@@ -96,15 +96,14 @@ class Initialize(LAMMPSOperation):
     Parameters
     ----------
     lammps_types : dict
-        Mapping of type names (`str`) to LAMMPS type integers.
-    units : str
-        The LAMMPS style of units used in the simulation (defaults to ``lj``).
+        Mapping of type names (`str`) to LAMMPS type integers. None
+        means mapping is not specified.
 
     """
-    def __init__(self, lammps_types=None, units='lj', atom_style='atomic'):
+    def __init__(self, lammps_types):
         self.lammps_types = lammps_types
-        self.units = units
-        self.atom_style = atom_style
+        self.units = 'lj'
+        self.atom_style = 'atomic'
 
     def __call__(self, sim):
         super().__call__(sim)
@@ -136,7 +135,7 @@ class InitializeFromFile(Initialize):
 
     """
     def __init__(self, filename):
-        super().__init__()
+        super().__init__(None)
         self.filename = filename
 
     def initialize(self, sim):
@@ -170,16 +169,16 @@ class InitializeRandomly(Initialize):
     V : :class:`~relentless.extent.Extent`
         Simulation extent.
     T : float
-        Temperature. Defaults to None, which means system is not thermalized.
+        Temperature. None means system is not thermalized.
     masses : dict
-        Masses of each particle type. Defaults to None, which means particles
+        Masses of each particle type. None means particles
         have unit mass.
     diameters : dict
-        Diameter of each particle type. Defaults to None, which means particles
+        Diameter of each particle type. None means particles
         are randomly inserted without checking their sizes.
 
     """
-    def __init__(self, seed, N, V, T=None, masses=None, diameters=None):
+    def __init__(self, seed, N, V, T, masses, diameters):
         super().__init__({i: idx+1 for idx,i in enumerate(N.keys())})
         self.seed = seed
         self.N = N
@@ -217,7 +216,7 @@ class InitializeRandomly(Initialize):
 
         # generate the positions and types
         if self.diameters is not None:
-            positions, all_types = simulate.InitializeRandomly._pack_particles(self.seed, self.N, self.V)
+            positions, all_types = simulate.InitializeRandomly._pack_particles(self.seed, self.N, self.V, self.diameters)
         else:
             positions, all_types = simulate.InitializeRandomly._random_particles(self.seed, self.N, self.V)
 
@@ -426,9 +425,9 @@ class AddVerletIntegrator(AddMDIntegrator):
     dt : float
         Time step size for each simulation iteration.
     thermostat : :class:`~relentless.simulate.simulate.Thermostat`
-        Thermostat used for integration (defaults to ``None``).
+        Thermostat used for integration. None means no thermostat.
     barostat : :class:`~relentless.simulate.simulate.Barostat`
-        Barostat used for integration (defaults to ``None``).
+        Barostat used for integration. None means no barostat.
 
     Raises
     ------
@@ -436,7 +435,7 @@ class AddVerletIntegrator(AddMDIntegrator):
         If an appropriate combination of thermostat and barostat is not set.
 
     """
-    def __init__(self, dt, thermostat=None, barostat=None):
+    def __init__(self, dt, thermostat, barostat):
         super().__init__(dt)
         self.thermostat = thermostat
         self.barostat = barostat

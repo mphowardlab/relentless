@@ -760,7 +760,7 @@ class InitializeRandomly(GenericOperation):
 
     """
     def __init__(self, seed, N, V, T=None, masses=None, diameters=None):
-        super().__init__(seed, N, V, T, masses)
+        super().__init__(seed, N, V, T, masses, diameters)
 
     @classmethod
     def _make_orthorhombic(cls, V):

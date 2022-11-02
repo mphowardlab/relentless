@@ -97,7 +97,7 @@ class test_LAMMPS(unittest.TestCase):
         h.run(potentials=pot, directory=self.directory)
 
         # T + diameters
-        op = relentless.simulate.InitializeRandomly(seed=1, N=ens.N, V=ens.V, diameters={'A': 1., 'B': 2.})
+        op = relentless.simulate.InitializeRandomly(seed=1, N=ens.N, V=ens.V, diameters={'1': 1., '2': 2.})
         h = relentless.simulate.LAMMPS(op, dimension=self.dim)
         h.run(potentials=pot, directory=self.directory)
 

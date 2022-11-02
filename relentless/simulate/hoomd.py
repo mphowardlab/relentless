@@ -113,16 +113,16 @@ class InitializeRandomly(Initialize):
     V : :class:`~relentless.extent.Extent`
         Simulation extent.
     T : float
-        Temperature. Defaults to None, which means system is not thermalized.
+        Temperature. None means system is not thermalized.
     masses : dict
-        Masses of each particle type. Defaults to None, which means particles
+        Masses of each particle type. None means particles
         have unit mass.
     diameters : dict
-        Diameter of each particle type. Defaults to None, which means particles
+        Diameter of each particle type. None means particles
         are randomly inserted without checking their sizes.
 
     """
-    def __init__(self, seed, N, V, T=None, masses=None, diameters=None):
+    def __init__(self, seed, N, V, T, masses, diameters):
         super().__init__()
         self.seed = seed
         self.N = N
@@ -153,7 +153,7 @@ class InitializeRandomly(Initialize):
             if mpi.world.rank == 0:
                 # generate the positions and types
                 if self.diameters is not None:
-                    positions, all_types = simulate.InitializeRandomly._pack_particles(self.seed, self.N, self.V)
+                    positions, all_types = simulate.InitializeRandomly._pack_particles(self.seed, self.N, self.V, self.diameters)
                 else:
                     positions, all_types = simulate.InitializeRandomly._random_particles(self.seed, self.N, self.V)
 
@@ -414,9 +414,9 @@ class AddVerletIntegrator(AddMDIntegrator):
     dt : float
         Time step.
     thermostat : :class:`~relentless.simulate.simulate.Thermostat`
-        Thermostat for temperature control (defaults to ``None``).
+        Thermostat for temperature control. None means no thermostat.
     barostat : :class:`~relentless.simulate.simulate.Barostat`
-        Barostat for pressure control (defaults to ``None``).
+        Barostat for pressure control. None means no barostat.
 
     Raises
     ------
@@ -424,7 +424,7 @@ class AddVerletIntegrator(AddMDIntegrator):
         If an appropriate combination of thermostat and barostat is not set.
 
     """
-    def __init__(self, dt, thermostat=None, barostat=None):
+    def __init__(self, dt, thermostat, barostat):
         super().__init__(dt)
         self.thermostat = thermostat
         self.barostat = barostat
