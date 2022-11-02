@@ -37,7 +37,10 @@ except ImportError:
 
 class LAMMPSOperation(simulate.SimulationOperation):
     """LAMMPS simulation operation."""
+    _compute_counter = 1
     _fix_counter = 1
+    _group_counter = 1
+    _variable_counter = 1
 
     def __call__(self, sim):
         """Evaluate the LAMMPS simulation operation.
@@ -56,6 +59,20 @@ class LAMMPSOperation(simulate.SimulationOperation):
         sim.lammps.commands_list(cmds)
 
     @classmethod
+    def new_compute_id(cls):
+        """Make a unique new compute ID.
+
+        Returns
+        -------
+        int
+            The compute ID.
+
+        """
+        idx = int(LAMMPSOperation._compute_counter)
+        LAMMPSOperation._compute_counter += 1
+        return 'c{}'.format(idx)
+
+    @classmethod
     def new_fix_id(cls):
         """Make a unique new fix ID.
 
@@ -67,7 +84,35 @@ class LAMMPSOperation(simulate.SimulationOperation):
         """
         idx = int(LAMMPSOperation._fix_counter)
         LAMMPSOperation._fix_counter += 1
-        return idx
+        return 'f{}'.format(idx)
+
+    @classmethod
+    def new_group_id(cls):
+        """Make a unique new fix ID.
+
+        Returns
+        -------
+        int
+            The fix ID.
+
+        """
+        idx = int(LAMMPSOperation._group_counter)
+        LAMMPSOperation._group_counter += 1
+        return 'g{}'.format(idx)
+
+    @classmethod
+    def new_variable_id(cls):
+        """Make a unique new variable ID.
+
+        Returns
+        -------
+        int
+            The variable ID.
+
+        """
+        idx = int(LAMMPSOperation._variable_counter)
+        LAMMPSOperation._variable_counter += 1
+        return 'v{}'.format(idx)
 
     @abc.abstractmethod
     def to_commands(self, sim):
@@ -597,54 +642,54 @@ class AddEnsembleAnalyzer(LAMMPSOperation):
         self.rdf_dr = rdf_dr
 
     def to_commands(self, sim):
-        # check that IDs reserved for analysis do not yet exist
-        reserved_ids = [('fix','thermo_avg'),
-                        ('compute','rdf'),
-                        ('fix','rdf_avg'),
-                        ('variable','T'),
-                        ('variable','P'),
-                        ('variable','Lx'),
-                        ('variable','Ly'),
-                        ('variable','Lz'),
-                        ('variable','xy'),
-                        ('variable','xz'),
-                        ('variable','yz')]
+        fix_ids = {'thermo_avg': self.new_fix_id(),
+                   'rdf_avg': self.new_fix_id()}
+        compute_ids = {'rdf': self.new_compute_id()}
+        var_ids = {'T': self.new_variable_id(),
+                   'P': self.new_variable_id(),
+                   'Lx': self.new_variable_id(),
+                   'Ly': self.new_variable_id(),
+                   'Lz': self.new_variable_id(),
+                   'xy': self.new_variable_id(),
+                   'xz': self.new_variable_id(),
+                   'yz': self.new_variable_id()}
+
+        group_ids = {}
         for i in sim.types:
             typeid = sim[sim.initializer].lammps_types[i]
-            reserved_ids.append(['group', 'type_{typeid}'.format(typeid=typeid)])
-            reserved_ids.append(['variable', 'N_{typeid}'.format(typeid=typeid)])
-        for category,name in reserved_ids:
-            if sim.lammps.has_id(category,'ensemble_'+name):
-                raise RuntimeError('Only one AddEnsembleAnalyzer operation can be used with LAMMPS.')
+            typekey = 'N_{}'.format(typeid)
+            group_ids[typekey] = self.new_group_id()
+            var_ids[typekey] = self.new_variable_id()
 
         # thermodynamic properties
         sim[self].thermo_file = sim.directory.file('lammps_thermo.dat')
         cmds = ['thermo {every}'.format(every=self.check_thermo_every),
                 'thermo_style custom temp press lx ly lz xy xz yz',
                 'thermo_modify norm no flush no',
-                'variable ensemble_T equal temp',
-                'variable ensemble_P equal press',
-                'variable ensemble_Lx equal lx',
-                'variable ensemble_Ly equal ly',
-                'variable ensemble_Lz equal lz',
-                'variable ensemble_xy equal xy',
-                'variable ensemble_xz equal xz',
-                'variable ensemble_yz equal yz']
+                'variable {} equal temp'.format(var_ids['T']),
+                'variable {} equal press'.format(var_ids['P']),
+                'variable {} equal lx'.format(var_ids['Lx']),
+                'variable {} equal ly'.format(var_ids['Ly']),
+                'variable {} equal lz'.format(var_ids['Lz']),
+                'variable {} equal xy'.format(var_ids['xy']),
+                'variable {} equal xz'.format(var_ids['xz']),
+                'variable {} equal yz'.format(var_ids['yz'])]
         N_vars = []
         for i in sim.types:
             typeid = sim[sim.initializer].lammps_types[i]
-            cmds += ['group ensemble_type_{typeid} type {typeid}'.format(typeid=typeid),
-                     'variable ensemble_N_{typeid} equal "count(ensemble_type_{typeid})"'.format(typeid=typeid)]
-            N_vars.append('v_ensemble_N_{typeid}'.format(typeid=typeid))
+            typekey = 'N_{}'.format(typeid)
+            cmds += ['group {gid} type {typeid}'.format(gid=group_ids[typekey], typeid=typeid),
+                     'variable {vid} equal "count({gid})"'.format(vid=var_ids[typekey], gid=group_ids[typekey])]
+            N_vars.append('v_{'  + typekey + '}')
         cmds += [
-                ('fix ensemble_thermo_avg all ave/time {every} 1 {every}'
-                 ' v_ensemble_T v_ensemble_P'
-                 ' v_ensemble_Lx v_ensemble_Ly v_ensemble_Lz'
-                 ' v_ensemble_xy v_ensemble_xz v_ensemble_yz'
+                ('fix {fixid} all ave/time {every} 1 {every}'
+                 ' v_{T} v_{P} v_{Lx} v_{Ly} v_{Lz} v_{xy} v_{xz} v_{yz}'
                  + ' ' + ' '.join(N_vars) +
                  ' mode scalar ave running'
-                 ' file {filename} overwrite format " %.16e"').format(every=self.check_thermo_every,
-                                                                       filename=sim[self].thermo_file)
+                 ' file {filename} overwrite format " %.16e"').format(fixid=fix_ids['thermo_avg'],
+                                                                      every=self.check_thermo_every,
+                                                                      filename=sim[self].thermo_file,
+                                                                      **var_ids)
                 ]
 
         # pair distribution function
@@ -656,16 +701,17 @@ class AddEnsembleAnalyzer(LAMMPSOperation):
         # _pairs is the list of all pairs by LAMMPS type id, in ensemble order
         # _computes is the RDF values for each pair, with the r bin centers prepended
         _pairs = []
-        _computes = ['c_ensemble_rdf[1]']
+        _computes = ['c_{}[1]'.format(compute_ids['rdf'])]
         for idx,(i,j) in enumerate(sim[self].rdf_pairs):
             _pairs.append('{} {}'.format(sim[sim.initializer].lammps_types[i],sim[sim.initializer].lammps_types[j]))
-            _computes.append('c_ensemble_rdf[{}]'.format(2*(idx+1)))
-        cmds += ['compute ensemble_rdf all rdf {bins} {pairs}'.format(bins=sim[self].num_bins,pairs=' '.join(_pairs)),
-                 ('fix ensemble_rdf_avg all ave/time {every} 1 {every}'
+            _computes.append('c_{}[{}]'.format(compute_ids['rdf'], 2*(idx+1)))
+        cmds += ['compute {rdf} all rdf {bins} {pairs}'.format(rdf=compute_ids['rdf'],bins=sim[self].num_bins,pairs=' '.join(_pairs)),
+                 ('fix {fixid} all ave/time {every} 1 {every}'
                   ' {computes} mode vector ave running off 1'
-                  ' file {filename} overwrite format " %.16e"').format(every=self.check_rdf_every,
-                                                                         computes=' '.join(_computes),
-                                                                         filename=sim[self].rdf_file)
+                  ' file {filename} overwrite format " %.16e"').format(fixid=fix_ids['rdf_avg'],
+                                                                       every=self.check_rdf_every,
+                                                                       computes=' '.join(_computes),
+                                                                       filename=sim[self].rdf_file)
                 ]
 
         return cmds
