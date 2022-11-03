@@ -241,7 +241,7 @@ class test_InitializeRandomly(unittest.TestCase):
             N = {'A': 100, 'B': 25}
         else:
             N = {'A': 20, 'B': 5}
-        d = {'A': 1.0, 'B': 3.0}
+        d = {'A': 1.0, 'B': relentless.variable.DesignVariable(3.0)}
         rs, types = relentless.simulate.InitializeRandomly._pack_particles(42, N, self.V, d)
 
         mask = numpy.array([typei == 'A' for typei in types])
@@ -256,7 +256,7 @@ class test_InitializeRandomly(unittest.TestCase):
         rBs = rs[~mask]
         for i,rB in enumerate(rBs):
             dr = numpy.linalg.norm(rBs[i+1:]-rB, axis=1)
-            self.assertTrue(numpy.all(dr > d['B']-self.tol))
+            self.assertTrue(numpy.all(dr > d['B'].value-self.tol))
 
         for i,rA in enumerate(rAs):
             dr = numpy.linalg.norm(rAs[i+1:]-rA, axis=1)
@@ -264,7 +264,7 @@ class test_InitializeRandomly(unittest.TestCase):
 
         for i,rA in enumerate(rAs):
             dr = numpy.linalg.norm(rBs-rA,axis=1)
-            dAB = 0.5*(d['A']+d['B'])
+            dAB = 0.5*(d['A']+d['B'].value)
             if numpy.any(dr < dAB):
                 print(dr[dr<dAB])
             self.assertTrue(numpy.all(dr > dAB-self.tol))

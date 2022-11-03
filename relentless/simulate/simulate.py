@@ -13,6 +13,7 @@ import scipy.spatial
 
 from relentless import data
 from relentless import extent
+from relentless import variable
 
 class SimulationOperation(abc.ABC):
     """Operation to be performed by a :class:`Simulation`."""
@@ -756,7 +757,9 @@ class InitializeRandomly(GenericOperation):
         have unit mass.
     diameters : dict
         Diameter of each particle type. Defaults to None, which means particles
-        are randomly inserted without checking their sizes.
+        are randomly inserted without checking their sizes. The value of a
+        diameter can be a :class:`~variable.Variable`, which will be
+        evaluated at the time the operation is called.
 
     """
     def __init__(self, seed, N, V, T=None, masses=None, diameters=None):
@@ -803,6 +806,8 @@ class InitializeRandomly(GenericOperation):
         for i,Ni in sorted_N:
             # generate site coordinates, on orthorhombic lattices
             di = diameters[i]
+            if isinstance(di, variable.Variable):
+                di = di.value
             if dimension == 3:
                 # fcc lattice
                 a = numpy.sqrt(2.)*di
