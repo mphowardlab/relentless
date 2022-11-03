@@ -751,7 +751,7 @@ class HOOMD(simulate.Simulation):
         HOOMD requires that tabulated pair potentials be finite. A common place to have an
         infinite value is at :math:`r=0`, since potentials like :class:`~relentless.potential.LennardJones`
         diverge there. You should make sure to exclude these values from the tabulated potentials,
-        e.g., setting :attr`~relentless.simulate.PairPotentialTabulator.rmin` to a small value larger than 0.
+        e.g., setting :attr:`~relentless.simulate.PairPotentialTabulator.rmin` to a small value larger than 0.
 
     Raises
     ------

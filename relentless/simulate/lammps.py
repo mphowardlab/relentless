@@ -719,7 +719,7 @@ class LAMMPS(simulate.Simulation):
     .. warning::
 
         LAMMPS requires that tabulated pair potentials do not include an entry for
-        :math:`r = 0`. Make sure to set :attr`~relentless.simulate.PairPotentialTabulator.rmin`
+        :math:`r = 0`. Make sure to set :attr:`~relentless.simulate.PairPotentialTabulator.rmin`
         to a small value larger than 0.
 
     Parameters
