@@ -758,7 +758,7 @@ class InitializeRandomly(GenericOperation):
     diameters : dict
         Diameter of each particle type. Defaults to None, which means particles
         are randomly inserted without checking their sizes. The value of a
-        diameter can be a :class:`~variable.Variable`, which will be
+        diameter can be a :class:`~relentless.variable.Variable`, which will be
         evaluated at the time the operation is called.
 
     """

@@ -716,7 +716,6 @@ class LAMMPS(simulate.Simulation):
     LAMMPS must be built with its `Python interface <https://docs.lammps.org/Python_head.html>`_
     and must be version 29 Sep 2021 or newer.
 
-
     .. warning::
 
         LAMMPS requires that tabulated pair potentials do not include an entry for
