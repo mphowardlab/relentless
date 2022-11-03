@@ -5,35 +5,6 @@ import numpy
 
 import relentless
 
-class test_Parallelepiped(unittest.TestCase):
-    """Unit tests for relentless.extent.Parallelepiped"""
-
-    def test_init(self):
-        """Test creation from data."""
-        # test valid construction
-        p = relentless.extent.Parallelepiped(a=(1,2,1),b=(3,4,5),c=(9,9,0))
-        numpy.testing.assert_allclose(p.a, numpy.array([1,2,1]))
-        numpy.testing.assert_allclose(p.b, numpy.array([3,4,5]))
-        numpy.testing.assert_allclose(p.c, numpy.array([9,9,0]))
-        self.assertAlmostEqual(p.extent, 36)
-
-        # test invalid construction
-        with self.assertRaises(TypeError):
-            p = relentless.extent.Parallelepiped(a=(1,2,1),b=(3,4,5),c=(9,9))
-        with self.assertRaises(ValueError):
-            p = relentless.extent.Parallelepiped(a=(-1,-2,-1),b=(3,-4,5),c=(2,4,1))
-
-    def test_to_from_json(self):
-        """Test to_json and from_json methods."""
-        p = relentless.extent.Parallelepiped(a=(1,2,1),b=(3,4,5),c=(9,9,0))
-        data = p.to_json()
-        p_ = relentless.extent.Parallelepiped.from_json(data)
-        self.assertIsInstance(p_, relentless.extent.Parallelepiped)
-        numpy.testing.assert_allclose(p.a, p_.a)
-        numpy.testing.assert_allclose(p.b, p_.b)
-        numpy.testing.assert_allclose(p.c, p_.c)
-        self.assertAlmostEqual(p.extent, p_.extent)
-
 class test_TriclinicBox(unittest.TestCase):
     """Unit tests for relentless.extent.TriclinicBox"""
 
@@ -61,6 +32,36 @@ class test_TriclinicBox(unittest.TestCase):
         with self.assertRaises(ValueError):
             t = relentless.extent.TriclinicBox(Lx=-1,Ly=2,Lz=3,xy=1,xz=0.75,yz=2.25,
                                                convention=relentless.extent.TriclinicBox.Convention.LAMMPS)
+
+    def test_coordinate_transform(self):
+        t = relentless.extent.TriclinicBox(Lx=1, Ly=2, Lz=3, xy=1, xz=0.75, yz=2.25)
+
+        # check upper/lower bounds
+        numpy.testing.assert_allclose(t.coordinate_to_fraction(t.low), [0,0,0])
+        numpy.testing.assert_allclose(t.coordinate_to_fraction(t.high), [1,1,1])
+
+        # origin should be at center of box
+        x = t.coordinate_to_fraction([0,0,0])
+        numpy.testing.assert_allclose(x, [0.5,0.5,0.5])
+        r = t.fraction_to_coordinate(x)
+        numpy.testing.assert_allclose(r, [0,0,0])
+
+        # do a few made up coordinates, and ensure there & back works
+        r = [[-1,0.5,-0.25],[3,-2,1], [100,-200,300]]
+        r_2 = t.fraction_to_coordinate(t.coordinate_to_fraction(r))
+        numpy.testing.assert_allclose(r_2, r)
+
+        # go the other way
+        x = [[0.2,0.3,0.4],[0,1,0.9],[-1,100,-3]]
+        x_2 = t.fraction_to_coordinate(t.coordinate_to_fraction(x))
+        numpy.testing.assert_allclose(x_2, x)
+
+        # make some fractions and wrap them back in
+        x = [[0.1,0.2,0.3],[1.1,-0.1,1.2],[3.1,-1.1,-2.2]]
+        r = t.fraction_to_coordinate(x)
+        r = t.wrap(r)
+        x = t.coordinate_to_fraction(r)
+        numpy.testing.assert_allclose(x, [[0.1,0.2,0.3],[0.1,0.9,0.2],[0.1,0.9,0.8]])
 
     def test_to_from_json(self):
         """Test to_json and from_json methods."""
@@ -140,33 +141,6 @@ class test_Cube(unittest.TestCase):
         numpy.testing.assert_allclose(c.c, c_.c)
         self.assertAlmostEqual(c.extent, c_.extent)
 
-class test_Parallelogram(unittest.TestCase):
-    """Unit tests for relentless.extent.Parallelogram"""
-
-    def test_init(self):
-        """Test creation from data."""
-        # test valid construction
-        p = relentless.extent.Parallelogram(a=(2,5),b=(1,4))
-        numpy.testing.assert_allclose(p.a, numpy.array([2,5]))
-        numpy.testing.assert_allclose(p.b, numpy.array([1,4]))
-        self.assertAlmostEqual(p.extent, 3)
-
-        # test invalid construction
-        with self.assertRaises(TypeError):
-            p = relentless.extent.Parallelogram(a=(1,2,1),b=(3,4))
-        with self.assertRaises(ValueError):
-            p = relentless.extent.Parallelogram(a=(1,2),b=(2,4))
-
-    def test_to_from_json(self):
-        """Test to_json and from_json methods."""
-        p = relentless.extent.Parallelogram(a=(1,2),b=(3,4))
-        data = p.to_json()
-        p_ = relentless.extent.Parallelogram.from_json(data)
-        self.assertIsInstance(p_, relentless.extent.Parallelogram)
-        numpy.testing.assert_allclose(p.a, p_.a)
-        numpy.testing.assert_allclose(p.b, p_.b)
-        self.assertAlmostEqual(p.extent, p_.extent)
-
 class test_ObliqueArea(unittest.TestCase):
     """Unit tests for relentless.extent.ObliqueArea"""
 
@@ -191,6 +165,36 @@ class test_ObliqueArea(unittest.TestCase):
         with self.assertRaises(ValueError):
             t = relentless.extent.ObliqueArea(Lx=-1,Ly=2,xy=1,
                                                convention=relentless.extent.TriclinicBox.Convention.LAMMPS)
+
+    def test_coordinate_transform(self):
+        t = relentless.extent.ObliqueArea(Lx=1, Ly=2, xy=1)
+
+        # check upper/lower bounds
+        numpy.testing.assert_allclose(t.coordinate_to_fraction(t.low), [0,0])
+        numpy.testing.assert_allclose(t.coordinate_to_fraction(t.high), [1,1])
+
+        # origin should be at center of box
+        x = t.coordinate_to_fraction([0,0])
+        numpy.testing.assert_allclose(x, [0.5,0.5])
+        r = t.fraction_to_coordinate(x)
+        numpy.testing.assert_allclose(r, [0,0])
+
+        # do a few made up coordinates, and ensure there & back works
+        r = [[-1,0.5],[3,-2], [100,-200]]
+        r_2 = t.fraction_to_coordinate(t.coordinate_to_fraction(r))
+        numpy.testing.assert_allclose(r_2, r)
+
+        # go the other way
+        x = [[0.2,0.3],[0,1],[-1,100]]
+        x_2 = t.fraction_to_coordinate(t.coordinate_to_fraction(x))
+        numpy.testing.assert_allclose(x_2, x)
+
+        # make some fractions and wrap them back in
+        x = [[0.1,0.2],[1.1,-0.1],[3.1,-2.2]]
+        r = t.fraction_to_coordinate(x)
+        r = t.wrap(r)
+        x = t.coordinate_to_fraction(r)
+        numpy.testing.assert_allclose(x, [[0.1,0.2],[0.1,0.9],[0.1,0.8]])
 
     def test_to_from_json(self):
         """Test to_json and from_json methods."""

@@ -10,6 +10,7 @@ try:
     import lammps
 except ImportError:
     pass
+import lammpsio
 import numpy
 
 import relentless
@@ -43,60 +44,30 @@ class test_LAMMPS(unittest.TestCase):
         # setup potentials
         pot = LinPot(ens.types,params=('m',))
         for pair in pot.coeff:
-            pot.coeff[pair]['m'] = -2.0
+            pot.coeff[pair].update({'m': -2.0, 'rmax': 1.0})
         pots = relentless.simulate.Potentials()
         pots.pair.potentials.append(pot)
-        pots.pair.rmax = 10.0
-        pots.pair.num = 11
+        pots.pair.rmin = 1e-6
+        pots.pair.rmax = 2.0
+        pots.pair.num = 3
 
         return (ens,pots)
 
     def create_file(self):
         file_ = self.directory.file('test.data')
-        
-        if self.dim == 3:
-            zlo = '-5.0'
-            zhi = '5.0'
-            z1 = '-4.0'
-            z2 = '-2.0'
-            z3 = '0.0'
-            z4 = '2.0'
-            z5 = '4.0'
-        elif self.dim == 2: 
-            zlo = '-0.1'
-            zhi = '0.1'
-            z1 = '0.0'
-            z2 = '0.0'
-            z3 = '0.0'
-            z4 = '0.0'
-            z5 = '0.0'
-        else:
-            raise ValueError('LAMMPS supports 2d and 3d simulations')
 
         if relentless.mpi.world.rank_is_root:
-            with open(file_,'w') as f:
-                f.write(('LAMMPS test data\n'
-                        '\n'
-                        '5 atoms\n'
-                        '2 atom types\n'
-                        '\n'
-                        '-5.0 5.0 xlo xhi\n'
-                        '-5.0 5.0 ylo yhi\n'
-                        '{} {} zlo zhi\n'
-                        '\n'
-                        'Atoms\n'
-                        '\n'
-                        '1 1 -4.0 -4.0 {}\n'
-                        '2 1 -2.0 -2.0 {}\n'
-                        '3 2 0.0 0.0 {}\n'
-                        '4 2 2.0 2.0 {}\n'
-                        '5 2 4.0 4.0 {}\n'
-                        '\n'
-                        'Masses\n'
-                        '\n'
-                        '1 0.3\n'
-                        '2 0.1').format(zlo, zhi, z1, z2, z3, z4, z5))
+            low = [-5, -5, -5 if self.dim == 3 else -0.1]
+            high = [5, 5, 5 if self.dim == 3 else 0.1]
+            snap = lammpsio.Snapshot(N=5, box=lammpsio.Box(low, high))
+            snap.position[:,:2] = [[-4,-4],[-2,-2],[0,0],[2,2],[4,4]]
+            if self.dim == 3:
+                snap.position[:,2] = [-4, -2, 0, 2, 4]
+            snap.typeid = [1,1,2,2,2]
+            snap.mass = [0.3, 0.3, 0.1, 0.1, 0.1]
+            lammpsio.DataFile.create(file_, snap)
         relentless.mpi.world.barrier()
+
         return file_
 
     def test_initialize(self):
@@ -122,6 +93,11 @@ class test_LAMMPS(unittest.TestCase):
         # no T
         ens,pot = self.ens_pot()
         op = relentless.simulate.InitializeRandomly(seed=1, N=ens.N, V=ens.V)
+        h = relentless.simulate.LAMMPS(op, dimension=self.dim)
+        h.run(potentials=pot, directory=self.directory)
+
+        # T + diameters
+        op = relentless.simulate.InitializeRandomly(seed=1, N=ens.N, V=ens.V, diameters={'1': 1., '2': 2.})
         h = relentless.simulate.LAMMPS(op, dimension=self.dim)
         h.run(potentials=pot, directory=self.directory)
 
@@ -197,7 +173,7 @@ class test_LAMMPS(unittest.TestCase):
         self.assertFalse(sim.lammps.has_id('fix',str(lgv._fix_langevin)))
 
         # single-type friction
-        init_1 = relentless.simulate.InitializeRandomly(seed=1, N={'1':2}, V=relentless.extent.Cube(L=10.0), T=2.0)
+        init_1 = relentless.simulate.InitializeRandomly(seed=1, N={'1':2}, V=ens.V, T=ens.T)
         lgv = relentless.simulate.AddLangevinIntegrator(dt=0.5,
                                                         T=ens.T,
                                                         friction={'1':3.0},
@@ -327,12 +303,12 @@ class test_LAMMPS(unittest.TestCase):
     def test_analyzer(self):
         """Test ensemble analyzer simulation operation."""
         ens,pot = self.ens_pot()
-        init = relentless.simulate.InitializeRandomly(seed=1, N=ens.N, V=ens.V, T=ens.T)
+        init = relentless.simulate.InitializeRandomly(seed=1, N=ens.N, V=ens.V, T=ens.T, diameters={'1': 1, '2': 1})
         analyzer = relentless.simulate.AddEnsembleAnalyzer(check_thermo_every=5,
                                                            check_rdf_every=5,
                                                            rdf_dr=1.0)
         run = relentless.simulate.Run(steps=500)
-        lgv = relentless.simulate.AddLangevinIntegrator(dt=0.005,
+        lgv = relentless.simulate.AddLangevinIntegrator(dt=0.001,
                                                         T=ens.T,
                                                         friction=1.0,
                                                         seed=1)
@@ -346,7 +322,7 @@ class test_LAMMPS(unittest.TestCase):
         self.assertIsNotNone(ens_.P)
         self.assertNotEqual(ens_.P, 0)
         self.assertIsNotNone(ens_.V)
-        self.assertNotEqual(ens_.V.volume, 0)
+        self.assertNotEqual(ens_.V.extent, 0)
         for i,j in ens_.rdf:
             self.assertEqual(ens_.rdf[i,j].table.shape, (len(pot.pair.r)-1,2))
 

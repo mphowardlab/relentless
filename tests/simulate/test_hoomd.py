@@ -47,11 +47,11 @@ class test_HOOMD(unittest.TestCase):
         # setup potentials
         pot = LinPot(ens.types,params=('m',))
         for pair in pot.coeff:
-            pot.coeff[pair]['m'] = -2.0
+            pot.coeff[pair].update({'m': -2.0, 'rmax': 1.0})
         pots = relentless.simulate.Potentials()
         pots.pair.potentials.append(pot)
-        pots.pair.rmax = 3.0
-        pots.pair.num = 4
+        pots.pair.rmax = 2.0
+        pots.pair.num = 3
 
         return (ens,pots)
 
@@ -96,6 +96,11 @@ class test_HOOMD(unittest.TestCase):
         # no T
         ens,pot = self.ens_pot()
         op = relentless.simulate.InitializeRandomly(seed=1, N=ens.N, V=ens.V)
+        h = relentless.simulate.HOOMD(op)
+        h.run(potentials=pot, directory=self.directory)
+
+        # T + diameters
+        op = relentless.simulate.InitializeRandomly(seed=1, N=ens.N, V=ens.V, diameters={'A': 1., 'B': 2.})
         h = relentless.simulate.HOOMD(op)
         h.run(potentials=pot, directory=self.directory)
 
@@ -262,11 +267,11 @@ class test_HOOMD(unittest.TestCase):
     def test_analyzer(self):
         """Test ensemble analyzer simulation operation."""
         ens,pot = self.ens_pot()
-        init = relentless.simulate.InitializeRandomly(seed=1, N=ens.N, V=ens.V, T=ens.T)
-        lgv = relentless.simulate.AddLangevinIntegrator(dt=0.1,
+        init = relentless.simulate.InitializeRandomly(seed=1, N=ens.N, V=ens.V, T=ens.T, diameters={'A': 1, 'B': 1})
+        lgv = relentless.simulate.AddLangevinIntegrator(dt=0.001,
                                                         T=ens.T,
-                                                        friction=0.9,
-                                                        seed=2)
+                                                        friction=1.0,
+                                                        seed=1)
         analyzer = relentless.simulate.AddEnsembleAnalyzer(check_thermo_every=5,
                                                            check_rdf_every=5,
                                                            rdf_dr=1.0)

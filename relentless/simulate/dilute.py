@@ -42,10 +42,13 @@ class InitializeRandomly(simulate.SimulationOperation):
         Temperature.
     masses : dict
         Masses of each particle type. These are not actually used by this
-        operation, so default of ``None`` is the same as specifying something.
+        operation, so None is the same as specifying something.
+    diameters : dict
+        Diameter of each particle type. These are not actually used by this
+        operation, so None is the same as specifying something.
 
     """
-    def __init__(self, seed, N, V, T, masses=None):
+    def __init__(self, seed, N, V, T, masses, diameters):
         self.N = N
         self.V = V
         self.T = T

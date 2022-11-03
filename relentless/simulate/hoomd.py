@@ -90,9 +90,19 @@ class InitializeFromFile(Initialize):
 class InitializeRandomly(Initialize):
     """Initialize a randomly generated simulation box.
 
-    Particles are randomly placed in the box according to the specification.
-    No checks are performed for overlaps, so this can produce very poor starting
-    states for denser systems.
+    If ``diameters`` is ``None``, the particles are randomly placed in the box.
+    This can work pretty well for low densities, particularly if
+    :class:`MinimizeEnergy` is used to remove overlaps before starting to run a
+    simulation. However, it will typically fail for higher densities, where
+    there are many overlaps that are hard to resolve.
+
+    If ``diameters`` is specified for each particle type, the particles will
+    be randomly packed into sites of a close-packed lattice. The insertion
+    order is from big to small. No particles are allowed to overlap based on
+    the diameters, which typically means the initially state will be more
+    favorable than using random initialization. However, the packing procedure
+    can fail if there is not enough room in the box to fit particles using
+    lattice sites.
 
     Parameters
     ----------
@@ -100,101 +110,84 @@ class InitializeRandomly(Initialize):
         The seed to randomly initialize the particle locations.
     N : dict
         Number of particles of each type.
-    V : :class:`~relentless.extent.TriclinicBox` or :class:`~relentless.extent.ObliqueArea`
+    V : :class:`~relentless.extent.Extent`
         Simulation extent.
     T : float
-        Temperature.
+        Temperature. None means system is not thermalized.
     masses : dict
-        Mass of each particle type.
+        Masses of each particle type. None means particles
+        have unit mass.
+    diameters : dict
+        Diameter of each particle type. None means particles
+        are randomly inserted without checking their sizes.
 
     """
-    def __init__(self, seed, N, V, T=None, masses=None):
+    def __init__(self, seed, N, V, T, masses, diameters):
         super().__init__()
         self.seed = seed
         self.N = N
         self.V = V
         self.T = T
         self.masses = masses
+        self.diameters = diameters
 
     def initialize(self, sim):
-        if not isinstance(self.V, (extent.TriclinicBox, extent.ObliqueArea)):
-            raise TypeError('HOOMD boxes must be derived from TriclinicBox or ObliqueArea')
+        with sim.hoomd:
+            # make the box and snapshot
+            if isinstance(self.V, extent.TriclinicBox):
+                box_array = self.V.as_array(extent.TriclinicBox.Convention.HOOMD)
+                box = hoomd.data.boxdim(*box_array, dimensions=3)
+            elif isinstance(self.V, extent.ObliqueArea):
+                Lx,Ly,xy = self.V.as_array(extent.ObliqueArea.Convention.HOOMD)
+                box = hoomd.data.boxdim(Lx=Lx, Ly=Ly, Lz=1, xy=xy, xz=0, yz=0, dimensions=2)
+            else:
+                raise ValueError('HOOMD supports 2d and 3d simulations')
 
-        # if setting seed, preserve the current RNG state
-        if self.seed is not None:
-            old_state = numpy.random.get_state()
-            numpy.random.seed(self.seed)
-        else:
-            old_state = None
+            types = tuple(self.N.keys())
+            typeids = {i: typeid for typeid,i in enumerate(types)}
+            snap = hoomd.data.make_snapshot(N=sum(self.N.values()),
+                                            box=box,
+                                            particle_types=list(types))
 
-        try:
-            # randomly place the particles
-            with sim.hoomd:
-                # make the box and snapshot
-                if isinstance(self.V, extent.TriclinicBox):
-                    box_ = hoomd.data.boxdim(Lx=self.V.a[0],
-                                             Ly=self.V.b[1],
-                                             Lz=self.V.c[2],
-                                             xy=self.V.b[0]/self.V.b[1],
-                                             xz=self.V.c[0]/self.V.c[2],
-                                             yz=self.V.c[1]/self.V.c[2],
-                                             dimensions=3)
-                    box = freud.Box.from_box([box_.Lx, box_.Ly, box_.Lz, box_.xy, box_.xz, box_.yz], dimensions=3)
-                elif isinstance(self.V, extent.ObliqueArea):
-                    box_ = hoomd.data.boxdim(Lx=self.V.a[0],
-                                             Ly=self.V.b[1],
-                                             Lz=1,
-                                             xy=self.V.b[0]/self.V.b[1],
-                                             xz=0,
-                                             yz=0,
-                                             dimensions=2)
-                    box = freud.Box.from_box([box_.Lx, box_.Ly, 0, box_.xy, 0, 0], dimensions=2)
+            # randomly place particles in fractional coordinates
+            if mpi.world.rank == 0:
+                # generate the positions and types
+                if self.diameters is not None:
+                    positions, all_types = simulate.InitializeRandomly._pack_particles(self.seed, self.N, self.V, self.diameters)
                 else:
-                    raise ValueError('HOOMD supports 2d and 3d simulations')
+                    positions, all_types = simulate.InitializeRandomly._random_particles(self.seed, self.N, self.V)
 
-                types = tuple(self.N.keys())
-                snap = hoomd.data.make_snapshot(N=sum(self.N.values()),
-                                                box=box_,
-                                                particle_types=list(types))
+                # set the positions
+                snap.particles.position[:,:box.dimensions] = positions
 
-                # randomly place particles in fractional coordinates
-                if mpi.world.rank == 0:
-                    # draw positions
-                    rs = numpy.zeros((snap.particles.N, 3))
-                    rs[:,:box.dimensions] = numpy.random.uniform(size=(snap.particles.N, box.dimensions))
-                    snap.particles.position[:] = box.make_absolute(rs)
+                # set the typeids
+                snap.particles.typeid[:] = [typeids[i] for i in all_types]
 
-                    # set types of each
-                    snap.particles.typeid[:] = numpy.repeat(numpy.arange(len(types)), tuple(self.N.values()))
+                # set masses, defaulting to unit mass
+                if self.masses is not None:
+                    snap.particles.mass[:] = [self.masses[i] for i in all_types]
+                else:
+                    snap.particles.mass[:] = 1.0
 
-                    # set masses, defaulting to unit mass
-                    if self.masses is not None:
-                        snap.particles.mass[:] = numpy.repeat([self.masses[t] for t in types], tuple(self.N.values()))
-                    else:
-                        snap.particles.mass[:] = 1.0
+                # set velocities, defaulting to zeros
+                vel = numpy.zeros((snap.particles.N, 3))
+                if self.T is not None:
+                    rng = numpy.random.default_rng(self.seed+1)
+                    # Maxwell-Boltzmann = normal with variance kT/m per component
+                    v_mb = rng.normal(scale=numpy.sqrt(sim.potentials.kB*self.T),
+                                      size=(snap.particles.N,box.dimensions))
+                    v_mb /= numpy.sqrt(snap.particles.mass[:,None])
 
-                    # set velocities, defaulting to zeros
-                    vel = numpy.zeros((snap.particles.N, 3))
-                    if self.T is not None:
-                        # Maxwell-Boltzmann = normal with variance kT/m per component
-                        v_mb = numpy.random.normal(scale=numpy.sqrt(sim.potentials.kB*self.T),
-                                                    size=(snap.particles.N,box.dimensions))
-                        v_mb /= numpy.sqrt(snap.particles.mass[:,None])
+                    # zero the linear momentum
+                    p_mb = numpy.sum(snap.particles.mass[:,None]*v_mb, axis=0)
+                    v_cm = p_mb/numpy.sum(snap.particles.mass)
+                    v_mb -= v_cm
 
-                        # zero the linear momentum
-                        p_mb = numpy.sum(snap.particles.mass[:,None]*v_mb, axis=0)
-                        v_cm = p_mb/numpy.sum(snap.particles.mass)
-                        v_mb -= v_cm
+                    vel[:,:box.dimensions] = v_mb
+                snap.particles.velocity[:] = vel
 
-                        vel[:,:box.dimensions] = v_mb
-                    snap.particles.velocity[:] = vel
-
-                # read snapshot
-                return hoomd.init.read_snapshot(snap)
-        finally:
-            # always restore old state if it exists
-            if old_state is not None:
-                numpy.random.set_state(old_state)
+            # read snapshot
+            return hoomd.init.read_snapshot(snap)
 
 ## integrators
 class MinimizeEnergy(simulate.SimulationOperation):
@@ -421,9 +414,9 @@ class AddVerletIntegrator(AddMDIntegrator):
     dt : float
         Time step.
     thermostat : :class:`~relentless.simulate.simulate.Thermostat`
-        Thermostat for temperature control (defaults to ``None``).
+        Thermostat for temperature control. None means no thermostat.
     barostat : :class:`~relentless.simulate.simulate.Barostat`
-        Barostat for pressure control (defaults to ``None``).
+        Barostat for pressure control. None means no barostat.
 
     Raises
     ------
@@ -431,7 +424,7 @@ class AddVerletIntegrator(AddMDIntegrator):
         If an appropriate combination of thermostat and barostat is not set.
 
     """
-    def __init__(self, dt, thermostat=None, barostat=None):
+    def __init__(self, dt, thermostat, barostat):
         super().__init__(dt)
         self.thermostat = thermostat
         self.barostat = barostat
