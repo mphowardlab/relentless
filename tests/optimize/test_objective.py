@@ -211,9 +211,14 @@ class test_RelativeEntropy(unittest.TestCase):
         self.assertAlmostEqual(x["('1', '1')"]['sigma'], self.sigma.value)
         self.assertAlmostEqual(x["('1', '1')"]['rmax'], 2.7)
 
+        z = relentless.mpi.world.load_json(self.directory.file('result.json'))
+        self.assertDictEqual(z['variables'], {self.epsilon.name: self.epsilon.value, self.sigma.name: self.sigma.value})
+        self.assertIsNone(z['value'])
+        self.assertDictEqual(z['gradient'], {self.epsilon.name: res.gradient[self.epsilon], self.sigma.name: res.gradient[self.sigma]})
+
+        y = relentless.mpi.world.load_json(self.directory.file('ensemble.json'))
         sim = self.simulation.run(self.potentials, self.directory)
         sim_ens = self.thermo.extract_ensemble(sim)
-        y = relentless.mpi.world.load_json(self.directory.file('ensemble.json'))
         self.assertAlmostEqual(y['T'], 1.5)
         self.assertAlmostEqual(y['N'], {'1':50})
         self.assertAlmostEqual(y['V']['data'], {'L':10.})
