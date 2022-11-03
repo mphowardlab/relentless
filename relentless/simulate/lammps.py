@@ -716,6 +716,12 @@ class LAMMPS(simulate.Simulation):
     LAMMPS must be built with its `Python interface <https://docs.lammps.org/Python_head.html>`_
     and must be version 29 Sep 2021 or newer.
 
+    .. warning::
+
+        LAMMPS requires that tabulated pair potentials do not include an entry for
+        :math:`r = 0`. Make sure to set :attr:`~relentless.simulate.PairPotentialTabulator.rmin`
+        to a small value larger than 0.
+
     Parameters
     ----------
     initializer : :class:`~relentless.simulate.SimulationOperation`
@@ -788,9 +794,9 @@ class LAMMPS(simulate.Simulation):
             If the pair potentials do not have equally spaced ``r``.
 
         """
-        # lammps requires r > 0
-        flags = sim.potentials.pair.r > 0
-        r = sim.potentials.pair.r[flags]
+        if sim.potentials.pair.rmin == 0:
+            raise ValueError('LAMMPS requires rmin > 0 for pair potentials')
+        r = sim.potentials.pair.r
         Nr = len(r)
         if Nr == 1:
             raise ValueError('LAMMPS requires at least two points in the tabulated potential.')
@@ -829,8 +835,8 @@ class LAMMPS(simulate.Simulation):
                                                                 rmin=r[0],
                                                                 rmax=r[-1]))
 
-                    u = sim.potentials.pair.energy((i,j))[flags]
-                    f = sim.potentials.pair.force((i,j))[flags]
+                    u = sim.potentials.pair.energy((i,j))
+                    f = sim.potentials.pair.force((i,j))
                     for idx in range(Nr):
                         fw.write('{idx} {r} {u} {f}\n'.format(idx=idx+1,r=r[idx],u=u[idx],f=f[idx]))
 

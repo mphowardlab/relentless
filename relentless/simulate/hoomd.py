@@ -746,6 +746,13 @@ class HOOMD(simulate.Simulation):
     both `pip` and `conda-forge`. Please refer to the package documentation for
     details of how to install these.
 
+    .. warning::
+
+        HOOMD requires that tabulated pair potentials be finite. A common place to have an
+        infinite value is at :math:`r=0`, since potentials like :class:`~relentless.potential.pair.LennardJones`
+        diverge there. You should make sure to exclude these values from the tabulated potentials,
+        e.g., setting :attr:`~relentless.simulate.PairPotentialTabulator.rmin` to a small value larger than 0.
+
     Raises
     ------
     ImportError
@@ -813,6 +820,8 @@ class HOOMD(simulate.Simulation):
                 r = sim.potentials.pair.r
                 u = sim.potentials.pair.energy((i,j))
                 f = sim.potentials.pair.force((i,j))
+                if numpy.any(numpy.isinf(u)) or numpy.any(numpy.isinf(f)):
+                    raise ValueError('Pair potential/force is infinite at evaluated r')
                 pair_potential.pair_coeff.set(i,j,
                                               func=_table_eval,
                                               rmin=r[0],
