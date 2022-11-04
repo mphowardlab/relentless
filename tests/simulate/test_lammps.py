@@ -307,12 +307,15 @@ class test_LAMMPS(unittest.TestCase):
         analyzer = relentless.simulate.AddEnsembleAnalyzer(check_thermo_every=5,
                                                            check_rdf_every=5,
                                                            rdf_dr=1.0)
+        analyzer2 = relentless.simulate.AddEnsembleAnalyzer(check_thermo_every=10,
+                                                           check_rdf_every=10,
+                                                           rdf_dr=0.5)
         run = relentless.simulate.Run(steps=500)
         lgv = relentless.simulate.AddLangevinIntegrator(dt=0.001,
                                                         T=ens.T,
                                                         friction=1.0,
                                                         seed=1)
-        h = relentless.simulate.LAMMPS(init, operations=[lgv,analyzer,run], dimension=self.dim)
+        h = relentless.simulate.LAMMPS(init, operations=[lgv,analyzer,analyzer2,run], dimension=self.dim)
         sim = h.run(potentials=pot, directory=self.directory)
 
         # extract ensemble
@@ -324,7 +327,23 @@ class test_LAMMPS(unittest.TestCase):
         self.assertIsNotNone(ens_.V)
         self.assertNotEqual(ens_.V.extent, 0)
         for i,j in ens_.rdf:
-            self.assertEqual(ens_.rdf[i,j].table.shape, (len(pot.pair.r)-1,2))
+            # shape is determined by rmax for potential and rdf_dr
+            self.assertEqual(ens_.rdf[i,j].table.shape, (2,2))
+
+        # extract ensemble from second analyzer, answers should be slightly different
+        # for any quantities that fluctuate
+        ens2_ = analyzer2.extract_ensemble(sim)
+        self.assertIsNotNone(ens2_.T)
+        self.assertNotEqual(ens2_.T, 0)
+        self.assertNotEqual(ens2_.T, ens_.T)
+        self.assertIsNotNone(ens2_.P)
+        self.assertNotEqual(ens2_.P, 0)
+        self.assertNotEqual(ens2_.P, ens_.P)
+        self.assertIsNotNone(ens2_.V)
+        self.assertNotEqual(ens2_.V.extent, 0)
+        self.assertEqual(ens2_.V.extent, ens_.V.extent)
+        for i,j in ens2_.rdf:
+            self.assertEqual(ens2_.rdf[i,j].table.shape, (4,2))
 
     def tearDown(self):
         if relentless.mpi.world.rank_is_root:
