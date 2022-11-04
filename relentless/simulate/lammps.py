@@ -19,6 +19,7 @@ To implement your own LAMMPS operation, create an operation that derives from
 
 """
 import abc
+import uuid
 
 import lammpsio
 import numpy
@@ -238,7 +239,6 @@ class InitializeRandomly(Initialize):
             (sim.dimension == 2 and not isinstance(self.V, extent.ObliqueArea))):
             raise TypeError('Mismatch between extent type and dimension')
 
-        init_file = sim.directory.file('init.data')
         if mpi.world.rank_is_root:
             # make box
             if sim.dimension == 3:
@@ -293,10 +293,13 @@ class InitializeRandomly(Initialize):
                 vel = numpy.zeros((snap.N, sim.dimension))
             snap.velocity[:,:sim.dimension] = vel
 
+            init_file = sim.directory.file(str(uuid.uuid4().hex))
             lammpsio.DataFile.create(init_file,
                                      snap,
                                      self.atom_style)
-        mpi.world.barrier()
+        else:
+            init_file = None
+        init_file = mpi.world.bcast(init_file)
 
         cmds = ['read_data {}'.format(init_file)]
 
@@ -661,8 +664,16 @@ class AddEnsembleAnalyzer(LAMMPSOperation):
             group_ids[typekey] = self.new_group_id()
             var_ids[typekey] = self.new_variable_id()
 
+        # generate temporary file names
+        if mpi.world.rank_is_root:
+            file_ = {'thermo': sim.directory.file(str(uuid.uuid4().hex)),
+                     'rdf': sim.directory.file(str(uuid.uuid4().hex))}
+        else:
+            file_ = None
+        file_ = mpi.world.bcast(file_)
+
         # thermodynamic properties
-        sim[self].thermo_file = sim.directory.file('lammps_thermo.dat')
+        sim[self].thermo_file = file_['thermo']
         cmds = [
                 'variable {} equal temp'.format(var_ids['T']),
                 'variable {} equal press'.format(var_ids['P']),
@@ -693,7 +704,7 @@ class AddEnsembleAnalyzer(LAMMPSOperation):
         # pair distribution function
         rmax = sim.potentials.pair.r[-1]
         sim[self].num_bins = numpy.round(rmax/self.rdf_dr).astype(int)
-        sim[self].rdf_file = sim.directory.file('lammps_rdf.dat')
+        sim[self].rdf_file = file_['rdf']
         sim[self].rdf_pairs = tuple(sim.pairs)
         # string format lammps arguments based on pairs
         # _pairs is the list of all pairs by LAMMPS type id, in ensemble order
@@ -861,9 +872,9 @@ class LAMMPS(simulate.Simulation):
             return id_i,id_j
 
         # write all potentials into a file
-        file_ = sim.directory.file('lammps_pair_table.dat')
         if mpi.world.rank_is_root:
-            with open(file_,'w') as fw:
+            file_ = sim.directory.file(str(uuid.uuid4().hex))
+            with open(file_, 'w') as fw:
                 fw.write('# LAMMPS tabulated pair potentials\n')
                 rcut = {}
                 for i,j in sim.pairs:
@@ -894,7 +905,9 @@ class LAMMPS(simulate.Simulation):
                         rcut[(i,j)] = r[1]
         else:
             rcut = None
+            file_ = None
         rcut = mpi.world.bcast(rcut)
+        file_ = mpi.world.bcast(file_)
 
         # process all lammps commands
         cmds = ['neighbor {skin} multi'.format(skin=sim.potentials.pair.neighbor_buffer)]
