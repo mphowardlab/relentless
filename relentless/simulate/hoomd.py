@@ -304,7 +304,7 @@ class RunBrownianDynamics(_MDIntegrator):
         Seed used to randomly generate a uniform force.
 
     """
-    def __init__(self, steps, timestep, T, friction, seed):
+    def __init__(self, steps, timestep, T, friction, seed, analyzers):
         super().__init__(steps, timestep, analyzers)
         self.T = T
         self.friction = friction
@@ -355,7 +355,7 @@ class RunLangevinDynamics(_MDIntegrator):
         Seed used to randomly generate a uniform force.
 
     """
-    def __init__(self, steps, timestep, T, friction, seed):
+    def __init__(self, steps, timestep, T, friction, seed, analyzers):
         super().__init__(steps, timestep, analyzers)
         self.T = T
         self.friction = friction
@@ -414,7 +414,7 @@ class RunMolecularDynamics(_MDIntegrator):
         If an appropriate combination of thermostat and barostat is not set.
 
     """
-    def __init__(self, steps, timestep, thermostat, barostat):
+    def __init__(self, steps, timestep, thermostat, barostat, analyzers):
         super().__init__(steps, timestep, analyzers)
         self.thermostat = thermostat
         self.barostat = barostat
