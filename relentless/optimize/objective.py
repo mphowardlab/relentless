@@ -187,9 +187,9 @@ class ObjectiveFunctionResult:
             The name of the file to save data in.
 
         """
-        data = {'variables': {x.name: v for x,v in self.variables.items()},
+        data = {'variables': {x.name: v for x, v in self.variables.items()},
                 'value': self.value,
-                'gradient': {x.name: self.gradient[x] for x in self.variables},
+                'gradient': {x.name: v for x, v in self.gradient.items()},
                 'directory': self.directory.path if self.directory is not None else None
                 }
 

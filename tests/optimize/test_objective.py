@@ -215,6 +215,7 @@ class test_RelativeEntropy(unittest.TestCase):
         self.assertDictEqual(z['variables'], {self.epsilon.name: self.epsilon.value, self.sigma.name: self.sigma.value})
         self.assertIsNone(z['value'])
         self.assertDictEqual(z['gradient'], {self.epsilon.name: res.gradient[self.epsilon], self.sigma.name: res.gradient[self.sigma]})
+        self.assertEqual(z['directory'], self.directory.path)
 
         y = relentless.mpi.world.load_json(self.directory.file('ensemble.json'))
         sim = self.simulation.run(self.potentials, self.directory)
