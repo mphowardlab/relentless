@@ -208,21 +208,21 @@ class test_HOOMD(unittest.TestCase):
         """Test ensemble analyzer simulation operation."""
         ens,pot = self.ens_pot()
         init = relentless.simulate.InitializeRandomly(seed=1, N=ens.N, V=ens.V, T=ens.T, diameters={'A': 1, 'B': 1})
-        analyzer = relentless.simulate.AddEnsembleAnalyzer(check_thermo_every=5,
-                                                           check_rdf_every=5,
-                                                           rdf_dr=1.0)
+        analyzer = relentless.simulate.EnsembleAverage(check_thermo_every=5,
+                                                       check_rdf_every=10,
+                                                       rdf_dr=1.0)
         lgv = relentless.simulate.RunLangevinDynamics(
                 steps=500,
                 timestep=0.001,
                 T=ens.T,
                 friction=1.0,
-                seed=1)
-        h = relentless.simulate.HOOMD(init, [analyzer,lgv])
+                seed=1,
+                analyzers=analyzer)
+        h = relentless.simulate.HOOMD(init, lgv)
         sim = h.run(pot, self.directory)
-        thermo = sim[analyzer].thermo_callback
 
         # extract ensemble
-        ens_ = analyzer.extract_ensemble(sim)
+        ens_ = sim[analyzer].ensemble
         self.assertIsNotNone(ens_.T)
         self.assertNotEqual(ens_.T, 0)
         self.assertIsNotNone(ens_.P)
@@ -231,14 +231,8 @@ class test_HOOMD(unittest.TestCase):
         self.assertNotEqual(ens_.V.extent, 0)
         for i,j in ens_.rdf:
             self.assertEqual(ens_.rdf[i,j].table.shape, (len(pot.pair.r)-1,2))
-        self.assertEqual(thermo.num_samples, 100)
-
-        # reset callback
-        thermo.reset()
-        self.assertEqual(thermo.num_samples, 0)
-        self.assertIsNone(thermo.T)
-        self.assertIsNone(thermo.P)
-        self.assertIsNone(thermo.V)
+        self.assertEqual(sim[analyzer].num_thermo_samples, 100)
+        self.assertEqual(sim[analyzer].num_rdf_samples, 50)
 
     def test_self_interactions(self):
         """Test if self-interactions are excluded from rdf computation."""
@@ -269,14 +263,14 @@ class test_HOOMD(unittest.TestCase):
         ens = relentless.ensemble.Ensemble(T=2.0, V=box_type(L=20), N={'A':2,'B':2})
         _,pot = self.ens_pot()
         init = relentless.simulate.InitializeFromFile(filename=filename)
-        analyzer = relentless.simulate.AddEnsembleAnalyzer(check_thermo_every=1,
-                                                           check_rdf_every=1,
-                                                           rdf_dr=0.1)
-        ig = relentless.simulate.RunMolecularDynamics(steps=1, timestep=0.0)
-        h = relentless.simulate.HOOMD(init, [analyzer,ig])
+        analyzer = relentless.simulate.EnsembleAverage(check_thermo_every=1,
+                                                       check_rdf_every=1,
+                                                       rdf_dr=0.1)
+        ig = relentless.simulate.RunMolecularDynamics(steps=1, timestep=0.0, analyzers=analyzer)
+        h = relentless.simulate.HOOMD(init, ig)
         sim = h.run(pot, self.directory)
 
-        ens_ = analyzer.extract_ensemble(sim)
+        ens_ = sim[analyzer].ensemble
         for i,j in ens_.rdf:
             self.assertEqual(ens_.rdf[i,j].table[0,1], 0.0)
 

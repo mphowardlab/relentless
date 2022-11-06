@@ -106,9 +106,10 @@ class test_RelativeEntropy(unittest.TestCase):
         self.target.rdf['1','1'] = relentless.ensemble.RDF(r=rs, g=gs)
 
         init = relentless.simulate.InitializeRandomly(seed=42, N=self.target.N, V=self.target.V, T=self.target.T)
-        self.thermo = relentless.simulate.AddEnsembleAnalyzer(
+        self.thermo = relentless.simulate.EnsembleAverage(
             check_thermo_every=1, check_rdf_every=1, rdf_dr=0.1)
-        self.simulation = relentless.simulate.dilute.Dilute(init, operations=[self.thermo])
+        md = relentless.simulate.RunMolecularDynamics(steps=100, timestep=1e-3, analyzers=self.thermo)
+        self.simulation = relentless.simulate.dilute.Dilute(init, operations=md)
 
     def relent_grad(self, var, ext=False):
         rs = numpy.linspace(0,3.6,1001)[1:]
@@ -164,7 +165,7 @@ class test_RelativeEntropy(unittest.TestCase):
         res = relent.compute((self.epsilon, self.sigma))
 
         sim = self.simulation.run(self.potentials, self.directory)
-        ensemble = self.thermo.extract_ensemble(sim)
+        ensemble = sim[self.thermo].ensemble
         res_grad = relent.compute_gradient(ensemble, (self.epsilon, self.sigma))
 
         grad_eps = self.relent_grad(self.epsilon)
@@ -186,7 +187,7 @@ class test_RelativeEntropy(unittest.TestCase):
         res = relent.compute((self.epsilon,self.sigma))
 
         sim = self.simulation.run(self.potentials, self.directory)
-        ensemble = self.thermo.extract_ensemble(sim)
+        ensemble = sim[self.thermo].ensemble
         res_grad = relent.compute_gradient(ensemble, (self.epsilon, self.sigma))
 
         grad_eps = self.relent_grad(self.epsilon, ext=True)
@@ -219,7 +220,7 @@ class test_RelativeEntropy(unittest.TestCase):
 
         y = relentless.mpi.world.load_json(self.directory.file('ensemble.json'))
         sim = self.simulation.run(self.potentials, self.directory)
-        sim_ens = self.thermo.extract_ensemble(sim)
+        sim_ens = sim[self.thermo].ensemble
         self.assertAlmostEqual(y['T'], 1.5)
         self.assertAlmostEqual(y['N'], {'1':50})
         self.assertAlmostEqual(y['V']['data'], {'L':10.})

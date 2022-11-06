@@ -223,23 +223,24 @@ class test_LAMMPS(unittest.TestCase):
         """Test ensemble analyzer simulation operation."""
         ens,pot = self.ens_pot()
         init = relentless.simulate.InitializeRandomly(seed=1, N=ens.N, V=ens.V, T=ens.T, diameters={'1': 1, '2': 1})
-        analyzer = relentless.simulate.AddEnsembleAnalyzer(check_thermo_every=5,
-                                                           check_rdf_every=5,
-                                                           rdf_dr=1.0)
-        analyzer2 = relentless.simulate.AddEnsembleAnalyzer(check_thermo_every=10,
-                                                           check_rdf_every=10,
-                                                           rdf_dr=0.5)
+        analyzer = relentless.simulate.EnsembleAverage(check_thermo_every=5,
+                                                       check_rdf_every=5,
+                                                       rdf_dr=1.0)
+        analyzer2 = relentless.simulate.EnsembleAverage(check_thermo_every=10,
+                                                        check_rdf_every=10,
+                                                        rdf_dr=0.5)
         lgv = relentless.simulate.RunLangevinDynamics(
                 steps=500,
                 timestep=0.001,
                 T=ens.T,
                 friction=1.0,
-                seed=1)
-        h = relentless.simulate.LAMMPS(init, operations=[analyzer,analyzer2,lgv], dimension=self.dim)
+                seed=1,
+                analyzers=[analyzer,analyzer2])
+        h = relentless.simulate.LAMMPS(init, operations=lgv, dimension=self.dim)
         sim = h.run(potentials=pot, directory=self.directory)
 
         # extract ensemble
-        ens_ = analyzer.extract_ensemble(sim)
+        ens_ = sim[analyzer].ensemble
         self.assertIsNotNone(ens_.T)
         self.assertNotEqual(ens_.T, 0)
         self.assertIsNotNone(ens_.P)
@@ -252,7 +253,7 @@ class test_LAMMPS(unittest.TestCase):
 
         # extract ensemble from second analyzer, answers should be slightly different
         # for any quantities that fluctuate
-        ens2_ = analyzer2.extract_ensemble(sim)
+        ens2_ = sim[analyzer2].ensemble
         self.assertIsNotNone(ens2_.T)
         self.assertNotEqual(ens2_.T, 0)
         self.assertNotEqual(ens2_.T, ens_.T)

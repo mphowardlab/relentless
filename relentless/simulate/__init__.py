@@ -49,7 +49,7 @@ from .simulate import (
     )
 
 from .analyze import (
-    AddEnsembleAnalyzer,
+    EnsembleAverage,
     )
 
 from .initialize import (

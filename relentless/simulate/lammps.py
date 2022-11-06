@@ -362,15 +362,44 @@ class _MDIntegrator(LAMMPSOperation):
         Simulation time step.
 
     """
-    def __init__(self, steps, timestep):
+    def __init__(self, steps, timestep, analyzers):
         self.steps = steps
         self.timestep = timestep
+        self.analyzers = analyzers
+
+    def __call__(self, sim):
+        for analyzer in self.analyzers:
+            analyzer(sim)
+
+        super().__call__(sim)
+
+        for analyzer in self.analyzers:
+            analyzer.finalize(sim)
+
+    @property
+    def analyzers(self):
+        return self._analyzers
+
+    @analyzers.setter
+    def analyzers(self, ops):
+        if ops is not None:
+            try:
+                ops_ = list(ops)
+            except TypeError:
+                ops_ = [ops]
+        else:
+            ops_ = []
+
+        self._analyzers = ops_
 
     def _run_commands(self, sim):
         cmds = ['run {N}'.format(N=self.steps)]
+
+        # wrap with fixes
         if sim.dimension == 2:
             fix_2d = self.new_fix_id()
             cmds = ['fix {} all enforce2d'.format(fix_2d)] + cmds + ['unfix {}'.format(fix_2d)]
+
         return cmds
 
 class RunLangevinDynamics(_MDIntegrator):
@@ -392,8 +421,8 @@ class RunLangevinDynamics(_MDIntegrator):
         Seed used to randomly generate a uniform force.
 
     """
-    def __init__(self, steps, timestep, T, friction, seed):
-        super().__init__(steps, timestep)
+    def __init__(self, steps, timestep, T, friction, seed, analyzers):
+        super().__init__(steps, timestep, analyzers)
         self.T = T
         self.friction = friction
         self.seed = seed
@@ -470,8 +499,8 @@ class RunMolecularDynamics(_MDIntegrator):
         If an appropriate combination of thermostat and barostat is not set.
 
     """
-    def __init__(self, steps, timestep, thermostat, barostat):
-        super().__init__(steps, timestep)
+    def __init__(self, steps, timestep, thermostat, barostat, analyzers):
+        super().__init__(steps, timestep, analyzers)
         self.thermostat = thermostat
         self.barostat = barostat
 
@@ -527,7 +556,7 @@ class RunMolecularDynamics(_MDIntegrator):
         cmds += ['unfix {}'.format(idx) for idx in fix_ids.values()]
         return cmds
 
-class AddEnsembleAnalyzer(LAMMPSOperation):
+class EnsembleAverage(simulate.AnalysisOperation, LAMMPSOperation):
     """Analyzes the simulation ensemble and rdf at specified timestep intervals.
 
     Parameters
@@ -632,43 +661,27 @@ class AddEnsembleAnalyzer(LAMMPSOperation):
 
         return cmds
 
-    def extract_ensemble(self, sim):
-        """Creates an ensemble with the averaged thermodynamic properties and rdf.
+    def finalize(self, sim):
+        # extract thermo properties
+        # we skip the first 2 rows, which are LAMMPS junk, and slice out the timestep from col. 0
+        thermo = mpi.world.loadtxt(sim[self].thermo_file,skiprows=2)[1:]
+        N = {i: Ni for i,Ni in zip(sim.types, thermo[8:8+len(sim.types)])}
+        V = extent.TriclinicBox(Lx=thermo[2],Ly=thermo[3],Lz=thermo[4],
+                        xy=thermo[5],xz=thermo[6],yz=thermo[7],
+                        convention=extent.TriclinicBox.Convention.LAMMPS)
+        ens = ensemble.Ensemble(N=N,
+                                T=thermo[0],
+                                P=thermo[1],
+                                V=V)
 
-        Parameters
-        ----------
-        sim : :class:`~relentless.simulate.simulate.Simulation`
-            The simulation object.
+        # extract rdfs
+        # LAMMPS injects a column for the row index, so we start at column 1 for r
+        # we skip the first 4 rows, which are LAMMPS junk, and slice out the first column
+        rdf = mpi.world.loadtxt(sim[self].rdf_file,skiprows=4)[:,1:]
+        for i,pair in enumerate(sim[self].rdf_pairs):
+            ens.rdf[pair] = ensemble.RDF(rdf[:,0],rdf[:,i+1])
 
-        Returns
-        -------
-        :class:`~relentless.ensemble.Ensemble`
-            Ensemble with averaged thermodynamic properties and rdf.
-
-        """
-        if not hasattr(sim[self], 'ensemble'):
-            # extract thermo properties
-            # we skip the first 2 rows, which are LAMMPS junk, and slice out the timestep from col. 0
-            thermo = mpi.world.loadtxt(sim[self].thermo_file,skiprows=2)[1:]
-            N = {i: Ni for i,Ni in zip(sim.types, thermo[8:8+len(sim.types)])}
-            V = extent.TriclinicBox(Lx=thermo[2],Ly=thermo[3],Lz=thermo[4],
-                            xy=thermo[5],xz=thermo[6],yz=thermo[7],
-                            convention=extent.TriclinicBox.Convention.LAMMPS)
-            ens = ensemble.Ensemble(N=N,
-                                    T=thermo[0],
-                                    P=thermo[1],
-                                    V=V)
-
-            # extract rdfs
-            # LAMMPS injects a column for the row index, so we start at column 1 for r
-            # we skip the first 4 rows, which are LAMMPS junk, and slice out the first column
-            rdf = mpi.world.loadtxt(sim[self].rdf_file,skiprows=4)[:,1:]
-            for i,pair in enumerate(sim[self].rdf_pairs):
-                ens.rdf[pair] = ensemble.RDF(rdf[:,0],rdf[:,i+1])
-
-            sim[self].ensemble = ens
-
-        return sim[self].ensemble
+        sim[self].ensemble = ens
 
 class LAMMPS(simulate.Simulation):
     """Simulation using LAMMPS.
@@ -714,19 +727,6 @@ class LAMMPS(simulate.Simulation):
         super().__init__(initializer, operations)
         self.dimension = dimension
         self.quiet = quiet
-
-    def run(self, potentials, directory):
-        sim = super().run(potentials,directory)
-
-        # hack: extract the ensemble right away after the run, in case directory
-        # does not persist. this should probably be generalized into a post-op
-        # function that all operations can call, but the analyzer is the only
-        # case where it is needed for now. Will generalize later.
-        for op in self.operations:
-            if hasattr(op, 'extract_ensemble'):
-                op.extract_ensemble(sim)
-
-        return sim
 
     def _new_instance(self, initializer, potentials, directory):
         sim = super()._new_instance(initializer, potentials, directory)
@@ -856,4 +856,4 @@ class LAMMPS(simulate.Simulation):
     RunMolecularDynamics = RunMolecularDynamics
 
     # analyze
-    AddEnsembleAnalyzer = AddEnsembleAnalyzer
+    EnsembleAverage = EnsembleAverage

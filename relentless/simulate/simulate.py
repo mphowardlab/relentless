@@ -20,10 +20,98 @@ class SimulationOperation(abc.ABC):
     def __call__(self, sim):
         pass
 
+class GenericOperation(SimulationOperation):
+    """Generic simulation operation adapter.
+
+    Translates a generic simulation operation into an implemented operation
+    for a valid :class:`Simulation` backend. The backend must be an attribute
+    of the :class:`GenericOperation`.
+
+    Parameters
+    ----------
+    args : args
+        Positional arguments for simulation operation.
+    kwargs : kwargs
+        Keyword arguments for simulation operation.
+
+    """
+    def __init__(self, *args, **kwargs):
+        self._op = None
+        self._backend = None
+        self._args = args
+        self._kwargs = kwargs
+        self._forward_attr = set()
+
+    def __call__(self, sim):
+        """Evaluates the generic simulation operation.
+
+        Parameters
+        ----------
+        sim : :class:`Simulation`
+            Simulation object.
+
+        Returns
+        -------
+        :class:`object`
+            The result of the generic simulation operation function.
+
+        Raises
+        ------
+        TypeError
+            If the specified simulation backend is not registered (using :meth:`add_backend()`).
+        TypeError
+            If the specified operation is not found in the simulation backend.
+
+        """
+        self._ensure_op(sim)
+        return self._op(sim)
+
+    def _ensure_op(self, sim):
+        if self._op is None or self._backend != sim.backend:
+            backend = sim.backend
+            if not issubclass(backend, Simulation):
+                raise TypeError('Backend must be a Simulation.')
+
+            op_name = type(self).__name__
+            BackendOp = getattr(backend, op_name, None)
+            if BackendOp is NotImplementedOperation or BackendOp is None:
+                raise NotImplementedError('{}.{} operation not implemented.'.format(backend.__name__,op_name))
+
+            self._op = BackendOp(*self._args,**self._kwargs)
+            for attr in self._forward_attr:
+                value = getattr(self, attr)
+                setattr(self._op, attr, value)
+            self._backend = backend
+
+    def __getattr__(self, name):
+        if self._op is not None:
+            if not hasattr(self._op, name):
+                raise AttributeError('Operation does not have attribute')
+            return getattr(self._op, name)
+        else:
+            raise AttributeError('Backend operation not initialized yet')
+
+    def __setattr__(self, name, value):
+        super().__setattr__(name, value)
+        if name not in ('_op','_backend','_args','_kwargs','_forward_attr'):
+            self._forward_attr.add(name)
+            if self._op is not None:
+                setattr(self._op, name, value)
+
 class NotImplementedOperation(SimulationOperation):
     """Operation not implemented by a :class:`Simulation`."""
     def __call__(self, sim):
         raise NotImplementedError('Operation not implemented')
+
+class AnalysisOperation(SimulationOperation):
+    @abc.abstractmethod
+    def finalize(self, sim):
+        pass
+
+class GenericAnalysisOperation(AnalysisOperation, GenericOperation):
+    def finalize(self, sim):
+        self._ensure_op(sim)
+        self._op.finalize(sim)
 
 class Simulation:
     """Simulation engine.
@@ -83,6 +171,8 @@ class Simulation:
         sim = self._new_instance(self.initializer, potentials, directory)
         # then run the remaining operations
         for op in self.operations:
+            if isinstance(op, AnalysisOperation):
+                raise TypeError('Analysis operations should be attached to another operation')
             op(sim)
         return sim
 
@@ -534,79 +624,3 @@ class PairPotentialTabulator(PotentialTabulator):
         d = super().derivative(pair, var)
         d -= d[-1]
         return d
-
-class GenericOperation(SimulationOperation):
-    """Generic simulation operation adapter.
-
-    Translates a generic simulation operation into an implemented operation
-    for a valid :class:`Simulation` backend. The backend must be an attribute
-    of the :class:`GenericOperation`.
-
-    Parameters
-    ----------
-    args : args
-        Positional arguments for simulation operation.
-    kwargs : kwargs
-        Keyword arguments for simulation operation.
-
-    """
-    def __init__(self, *args, **kwargs):
-        self._op = None
-        self._backend = None
-        self._args = args
-        self._kwargs = kwargs
-        self._forward_attr = set()
-
-    def __call__(self, sim):
-        """Evaluates the generic simulation operation.
-
-        Parameters
-        ----------
-        sim : :class:`Simulation`
-            Simulation object.
-
-        Returns
-        -------
-        :class:`object`
-            The result of the generic simulation operation function.
-
-        Raises
-        ------
-        TypeError
-            If the specified simulation backend is not registered (using :meth:`add_backend()`).
-        TypeError
-            If the specified operation is not found in the simulation backend.
-
-        """
-        if self._op is None or self._backend != sim.backend:
-            backend = sim.backend
-            if not issubclass(backend, Simulation):
-                raise TypeError('Backend must be a Simulation.')
-
-            op_name = type(self).__name__
-            BackendOp = getattr(backend, op_name, None)
-            if BackendOp is NotImplementedOperation or BackendOp is None:
-                raise NotImplementedError('{}.{} operation not implemented.'.format(backend.__name__,op_name))
-
-            self._op = BackendOp(*self._args,**self._kwargs)
-            for attr in self._forward_attr:
-                value = getattr(self, attr)
-                setattr(self._op, attr, value)
-            self._backend = backend
-
-        return self._op(sim)
-
-    def __getattr__(self, name):
-        if self._op is not None:
-            if not hasattr(self._op, name):
-                raise AttributeError('Operation does not have attribute')
-            return getattr(self._op, name)
-        else:
-            raise AttributeError('Backend operation not initialized yet')
-
-    def __setattr__(self, name, value):
-        super().__setattr__(name, value)
-        if name not in ('_op','_backend','_args','_kwargs','_forward_attr'):
-            self._forward_attr.add(name)
-            if self._op is not None:
-                setattr(self._op, name, value)

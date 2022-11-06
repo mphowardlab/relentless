@@ -39,8 +39,8 @@ class RunBrownianDynamics(simulate.GenericOperation):
         Seed used to randomly generate a uniform force.
 
     """
-    def __init__(self, steps, timestep, T, friction, seed):
-        super().__init__(steps, timestep, T, friction, seed)
+    def __init__(self, steps, timestep, T, friction, seed, analyzers=None):
+        super().__init__(steps, timestep, T, friction, seed, analyzers)
 
 class RunLangevinDynamics(simulate.GenericOperation):
     """Perform a Langevin dynamics simulation.
@@ -61,8 +61,8 @@ class RunLangevinDynamics(simulate.GenericOperation):
         Seed used to randomly generate a uniform force.
 
     """
-    def __init__(self, steps, timestep, T, friction, seed):
-        super().__init__(steps, timestep, T, friction, seed)
+    def __init__(self, steps, timestep, T, friction, seed, analyzers=None):
+        super().__init__(steps, timestep, T, friction, seed, analyzers)
 
 class RunMolecularDynamics(simulate.GenericOperation):
     """Perform a molecular dynamics simulation.
@@ -101,8 +101,8 @@ class RunMolecularDynamics(simulate.GenericOperation):
         Barostat used for integration (defaults to ``None``).
 
     """
-    def __init__(self, steps, timestep, thermostat=None, barostat=None):
-        super().__init__(steps, timestep, thermostat, barostat)
+    def __init__(self, steps, timestep, thermostat=None, barostat=None, analyzers=None):
+        super().__init__(steps, timestep, thermostat, barostat, analyzers)
 
 class Thermostat:
     """Thermostat.

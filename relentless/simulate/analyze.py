@@ -1,6 +1,6 @@
 from . import simulate
 
-class AddEnsembleAnalyzer(simulate.GenericOperation):
+class EnsembleAverage(simulate.GenericAnalysisOperation):
     """Analyze the simulation ensemble.
 
     Parameters
@@ -15,19 +15,3 @@ class AddEnsembleAnalyzer(simulate.GenericOperation):
     """
     def __init__(self, check_thermo_every, check_rdf_every, rdf_dr):
         super().__init__(check_thermo_every, check_rdf_every, rdf_dr)
-
-    def extract_ensemble(self, sim):
-        """Create an ensemble with the averaged thermodynamic properties and rdf.
-
-        Parameters
-        ----------
-        sim : :class:`~relentless.simulate.simulate.Simulation`
-            The simulation object.
-
-        Returns
-        -------
-        :class:`~relentless.ensemble.Ensemble`
-            Ensemble with averaged thermodynamic properties and rdf.
-
-        """
-        return self._op.extract_ensemble(sim)

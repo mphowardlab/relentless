@@ -264,9 +264,26 @@ class _MDIntegrator(simulate.SimulationOperation):
         Simulation time step.
 
     """
-    def __init__(self, steps, timestep):
+    def __init__(self, steps, timestep, analyzers):
         self.steps = steps
         self.timestep = timestep
+        self.analyzers = analyzers
+
+    @property
+    def analyzers(self):
+        return self._analyzers
+
+    @analyzers.setter
+    def analyzers(self, ops):
+        if ops is not None:
+            try:
+                ops_ = list(ops)
+            except TypeError:
+                ops_ = [ops]
+        else:
+            ops_ = []
+
+        self._analyzers = ops_
 
 class RunBrownianDynamics(_MDIntegrator):
     """Perform a Brownian dynamics simulation.
@@ -288,7 +305,7 @@ class RunBrownianDynamics(_MDIntegrator):
 
     """
     def __init__(self, steps, timestep, T, friction, seed):
-        super().__init__(steps, timestep)
+        super().__init__(steps, timestep, analyzers)
         self.T = T
         self.friction = friction
         self.seed = seed
@@ -307,7 +324,14 @@ class RunBrownianDynamics(_MDIntegrator):
                     gamma = self.friction
                 bd.set_gamma(t,gamma)
 
+            # run + analysis
+            for analyzer in self.analyzers:
+                analyzer(sim)
+
             hoomd.run(self.steps)
+
+            for analyzer in self.analyzers:
+                analyzer.finalize(sim)
 
             bd.disable()
             del bd, ig
@@ -332,7 +356,7 @@ class RunLangevinDynamics(_MDIntegrator):
 
     """
     def __init__(self, steps, timestep, T, friction, seed):
-        super().__init__(steps, timestep)
+        super().__init__(steps, timestep, analyzers)
         self.T = T
         self.friction = friction
         self.seed = seed
@@ -351,7 +375,14 @@ class RunLangevinDynamics(_MDIntegrator):
                     gamma = self.friction
                 ld.set_gamma(t,gamma)
 
+            # run + analysis
+            for analyzer in self.analyzers:
+                analyzer(sim)
+
             hoomd.run(self.steps)
+
+            for analyzer in self.analyzers:
+                analyzer.finalize(sim)
 
             ld.disable()
             del ld, ig
@@ -384,7 +415,7 @@ class RunMolecularDynamics(_MDIntegrator):
 
     """
     def __init__(self, steps, timestep, thermostat, barostat):
-        super().__init__(steps, timestep)
+        super().__init__(steps, timestep, analyzers)
         self.thermostat = thermostat
         self.barostat = barostat
 
@@ -418,13 +449,21 @@ class RunMolecularDynamics(_MDIntegrator):
             else:
                 raise TypeError('An appropriate combination of thermostat and barostat must be set.')
 
+
+            # run + analysis
+            for analyzer in self.analyzers:
+                analyzer(sim)
+
             hoomd.run(self.steps)
+
+            for analyzer in self.analyzers:
+                analyzer.finalize(sim)
 
             ig_method.disable()
             del ig_method, ig
 
 ## analyzers
-class AddEnsembleAnalyzer(simulate.SimulationOperation):
+class EnsembleAverage(simulate.AnalysisOperation):
     """Analyzer for the simulation ensemble.
 
     The simulation ensemble is analyzed online while it is running. The
@@ -458,8 +497,8 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
             sim[self].logger = hoomd.analyze.log(filename=None,
                                                  quantities= quantities_logged,
                                                  period=self.check_thermo_every)
-            sim[self].thermo_callback = AddEnsembleAnalyzer.ThermodynamicsCallback(sim[self].logger)
-            hoomd.analyze.callback(callback=sim[self].thermo_callback,
+            sim[self].thermo_callback = self.ThermodynamicsCallback(sim[self].logger)
+            sim[self].hoomd_thermo_callback = hoomd.analyze.callback(callback=sim[self].thermo_callback,
                                    period=self.check_thermo_every)
 
             # pair distribution function
@@ -468,11 +507,11 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
             bins = numpy.round(rmax/self.rdf_dr).astype(int)
             for pair in rdf_params:
                 rdf_params[pair] = {'bins': bins, 'rmax': rmax}
-            sim[self].rdf_callback = AddEnsembleAnalyzer.RDFCallback(sim[sim.initializer].system,rdf_params)
-            hoomd.analyze.callback(callback=sim[self].rdf_callback,
+            sim[self].rdf_callback = self.RDFCallback(sim[sim.initializer].system,rdf_params)
+            sim[self].hoomd_rdf_callback = hoomd.analyze.callback(callback=sim[self].rdf_callback,
                                    period=self.check_rdf_every)
 
-    def extract_ensemble(self, sim):
+    def finalize(self, sim):
         """Extract the average ensemble from a simulation instance.
 
         Parameters
@@ -495,7 +534,17 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
         for pair in rdf_recorder.rdf:
             ens.rdf[pair] = rdf_recorder.rdf[pair]
 
-        return ens
+        sim[self].ensemble = ens
+        sim[self].num_thermo_samples = thermo_recorder.num_samples
+        sim[self].num_rdf_samples = rdf_recorder.num_samples
+
+        # disable and delete
+        sim[self].logger.disable()
+        sim[self].hoomd_thermo_callback.disable()
+        sim[self].hoomd_rdf_callback.disable()
+        del sim[self].logger
+        del sim[self].hoomd_thermo_callback, sim[self].thermo_callback
+        del sim[self].hoomd_rdf_callback, sim[self].rdf_callback
 
     class ThermodynamicsCallback:
         """HOOMD callback for averaging thermodynamic properties.
@@ -761,4 +810,4 @@ class HOOMD(simulate.Simulation):
     RunMolecularDynamics = RunMolecularDynamics
 
     # analyze
-    AddEnsembleAnalyzer = AddEnsembleAnalyzer
+    EnsembleAverage = EnsembleAverage
