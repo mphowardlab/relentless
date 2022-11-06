@@ -123,7 +123,7 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
                     raise ValueError('Geometric integration factor unknown for extent type')
                 y = (geo_prefactor/6.)*rho_a*rho_b*f*gr*r
                 ens.P += numpy.trapz(y,x=r)
-    
+
         sim[self].ensemble = ens
 
     def extract_ensemble(self, sim):
@@ -182,24 +182,15 @@ class Dilute(simulate.Simulation):
 
         return sim
 
-    # initialization
-    # InitializeFromFile = simulate.NotImplementedOperation
+    # initialize
+    InitializeFromFile = simulate.NotImplementedOperation
     InitializeRandomly = InitializeRandomly
 
-    # energy minimization
+    # md
     MinimizeEnergy = NullOperation
+    RunBrownianDynamics = NullOperation
+    RunLangevinDynamics = NullOperation
+    RunMolecularDynamics = NullOperation
 
-    # md integrators
-    AddBrownianIntegrator = NullOperation
-    RemoveBrownianIntegrator = NullOperation
-    AddLangevinIntegrator = NullOperation
-    RemoveLangevinIntegrator = NullOperation
-    AddVerletIntegrator = NullOperation
-    RemoveVerletIntegrator = NullOperation
-
-    # run commands
-    Run = NullOperation
-    RunUpTo = NullOperation
-
-    # analysis
+    # analyze
     AddEnsembleAnalyzer = AddEnsembleAnalyzer

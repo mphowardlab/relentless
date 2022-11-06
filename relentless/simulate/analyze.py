@@ -1,0 +1,33 @@
+from . import simulate
+
+class AddEnsembleAnalyzer(simulate.GenericOperation):
+    """Analyze the simulation ensemble.
+
+    Parameters
+    ----------
+    check_thermo_every : int
+        Interval of time steps at which to log thermodynamic properties of the simulation.
+    check_rdf_every : int
+        Interval of time steps at which to log the rdf of the simulation.
+    rdf_dr : float
+        The width (in units ``r``) of a bin in the histogram of the rdf.
+
+    """
+    def __init__(self, check_thermo_every, check_rdf_every, rdf_dr):
+        super().__init__(check_thermo_every, check_rdf_every, rdf_dr)
+
+    def extract_ensemble(self, sim):
+        """Create an ensemble with the averaged thermodynamic properties and rdf.
+
+        Parameters
+        ----------
+        sim : :class:`~relentless.simulate.simulate.Simulation`
+            The simulation object.
+
+        Returns
+        -------
+        :class:`~relentless.ensemble.Ensemble`
+            Ensemble with averaged thermodynamic properties and rdf.
+
+        """
+        return self._op.extract_ensemble(sim)
