@@ -54,6 +54,8 @@ To implement your own objective function, create a class that derives from
 
 """
 import abc
+import json
+import tempfile
 
 import numpy
 import scipy.integrate
@@ -176,6 +178,25 @@ class ObjectiveFunctionResult:
             value = data.Directory.cast(value)
         self._directory = value
 
+    def save(self, filename):
+        r"""Save the result as a JSON file.
+
+        Parameters
+        ----------
+        filename : str
+            The name of the file to save data in.
+
+        """
+        data = {'variables': {x.name: v for x, v in self.variables.items()},
+                'value': self.value,
+                'gradient': {x.name: v for x, v in self.gradient.items()},
+                'directory': self.directory.path if self.directory is not None else None
+                }
+
+        # dump data to json file
+        with open(filename,'w') as f:
+            json.dump(data, f, indent=4)
+
     def _assert_keys_match(self, vars, grad):
         """Assert that the keys of the variables and gradient match.
 
@@ -292,21 +313,48 @@ class RelativeEntropy(ObjectiveFunction):
             The result, which has unknown value ``None`` and known gradient.
 
         """
-        # run simulation and use result to compute gradient
-        sim = self.simulation.run(self.potentials, directory)
-        sim_ens = self.thermo.extract_ensemble(sim)
-        gradient = self.compute_gradient(sim_ens, variables)
+        # a directory is needed for the simulation, so create one if we don't have one
+        if directory is None:
+            # create directory and synchronize
+            if mpi.world.rank_is_root:
+                tmp = tempfile.TemporaryDirectory()
+                directory = tmp.name
+            else:
+                tmp = None
+            directory = mpi.world.bcast(directory)
+            directory_is_tmp = True
+        else:
+            tmp = None
+            directory_is_tmp = False
+        directory = data.Directory.cast(directory)
 
-        # optionally write output to directory
-        if directory is not None:
-            directory = data.Directory.cast(directory)
+        # write the pair potential parameters *before* the run
+        if not directory_is_tmp:
             if mpi.world.rank_is_root:
                 for n,p in enumerate(self.potentials.pair.potentials):
                     p.save(directory.file('pair_potential.{}.json'.format(n)))
-                sim_ens.save(directory.file('ensemble.json'))
 
+        # run simulation and use result to compute gradient
+        try:
+            sim = self.simulation.run(self.potentials, directory)
+            sim_ens = self.thermo.extract_ensemble(sim)
+        finally:
+            if tmp is not None:
+                tmp.cleanup()
+
+        # compute gradient and result
         # relative entropy *value* is None
-        return ObjectiveFunctionResult(variables, None, gradient, directory)
+        gradient = self.compute_gradient(sim_ens, variables)
+        result = ObjectiveFunctionResult(
+                variables, None, gradient, directory if not directory_is_tmp else None)
+
+        # optionally write ensemble and result *after* the simulation
+        if not directory_is_tmp:
+            if mpi.world.rank_is_root:
+                sim_ens.save(directory.file('ensemble.json'))
+                result.save(directory.file('result.json'))
+
+        return result
 
     def compute_gradient(self, ensemble, variables):
         """Computes the relative entropy gradient for an ensemble.
