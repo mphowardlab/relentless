@@ -221,7 +221,7 @@ class Simulation:
     RunMolecularDynamics = NotImplementedOperation
 
     # analysis
-    AddEnsembleAnalyzer = NotImplementedOperation
+    EnsembleAverage = NotImplementedOperation
 
 class SimulationInstance:
     """Specific instance of a simulation and its data.

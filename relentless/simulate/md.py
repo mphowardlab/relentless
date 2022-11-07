@@ -37,6 +37,8 @@ class RunBrownianDynamics(simulate.GenericOperation):
         Sets drag coefficient for each particle type.
     seed : int
         Seed used to randomly generate a uniform force.
+    analyzers : :class:`~relentless.simulate.AnalysisOperation` or list
+        Analysis operations to perform with run (defaults to ``None``).
 
     """
     def __init__(self, steps, timestep, T, friction, seed, analyzers=None):
@@ -59,6 +61,8 @@ class RunLangevinDynamics(simulate.GenericOperation):
         Sets drag coefficient for each particle type (shared or per-type).
     seed : int
         Seed used to randomly generate a uniform force.
+    analyzers : :class:`~relentless.simulate.AnalysisOperation` or list
+        Analysis operations to perform with run (defaults to ``None``).
 
     """
     def __init__(self, steps, timestep, T, friction, seed, analyzers=None):
@@ -99,6 +103,8 @@ class RunMolecularDynamics(simulate.GenericOperation):
         Thermostat used for integration (defaults to ``None``).
     barostat : :class:`Barostat`
         Barostat used for integration (defaults to ``None``).
+    analyzers : :class:`~relentless.simulate.AnalysisOperation` or list
+        Analysis operations to perform with run (defaults to ``None``).
 
     """
     def __init__(self, steps, timestep, thermostat=None, barostat=None, analyzers=None):

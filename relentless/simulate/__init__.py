@@ -15,17 +15,28 @@ It also helps document workflows that can be shared and reproduced by others.
 .. code::
 
     # generic simulation operations
+    avg = relentless.simulate.EnsembleAverage(
+            check_thermo_every=5,
+            check_rdf_every=5,
+            rdf_dr=0.1)
     ops = [relentless.simulate.InitializeRandomly(seed=1),
-           relentless.simulate.AddLangevinIntegrator(dt=0.1, friction=0.8, seed=2),
-           relentless.simulate.Run(steps=1e3),
-           relentless.simulate.AddEnsembleAnalyzer(check_thermo_every=5,
-                                                   check_rdf_every=5,
-                                                   rdf_dr=dr),
-           relentless.simulate.RunUpTo(step=1e4)]
+           relentless.simulate.RunLangevinDynamics(
+                steps=1e3,
+                timestep=0.001,
+                friction=0.8,
+                seed=2),
+            relentless.simulate.RunLangevinDynamics(
+                steps=1e4,
+                timestep=0.001,
+                friction=0.8,
+                seed=3,
+                analyzers=avg)
+            ]
 
-    # perform simulation using LAMMPS
+    # perform simulation using LAMMPS and save ensemble
     lmp = relentless.simulate.LAMMPS(ops)
-    lmp.run(...)
+    sim = lmp.run(potentials)
+    sim[avg].ensemble.save('ensemble.json')
 
 .. rubric:: How it works
 
@@ -40,12 +51,13 @@ To learn more about how to setup a simulation, read through the following:
 
 """
 from .simulate import (
+    AnalysisOperation,
+    PairPotentialTabulator,
+    PotentialTabulator,
+    Potentials,
     Simulation,
     SimulationInstance,
     SimulationOperation,
-    Potentials,
-    PotentialTabulator,
-    PairPotentialTabulator,
     )
 
 from .analyze import (
@@ -58,16 +70,16 @@ from .initialize import (
     )
 
 from .md import (
+    Barostat,
+    BerendsenBarostat,
+    BerendsenThermostat,
     MinimizeEnergy,
+    MTKBarostat,
+    NoseHooverThermostat,
     RunBrownianDynamics,
     RunLangevinDynamics,
     RunMolecularDynamics,
     Thermostat,
-    BerendsenThermostat,
-    NoseHooverThermostat,
-    Barostat,
-    BerendsenBarostat,
-    MTKBarostat,
     )
 
 from . import dilute

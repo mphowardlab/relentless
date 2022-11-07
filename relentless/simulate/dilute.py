@@ -58,7 +58,7 @@ class InitializeRandomly(simulate.SimulationOperation):
         sim[self].ensemble = ensemble.Ensemble(T=self.T, N=self.N, V=self.V)
 
 class RunBrownianDynamics(_MDIntegrator):
-    def __init__(self, steps, timestep, T, friction, seed, analyzers=None):
+    def __init__(self, steps, timestep, T, friction, seed, analyzers):
         super().__init__(steps, timestep, analyzers)
         self.T = T
 
@@ -72,7 +72,7 @@ class RunBrownianDynamics(_MDIntegrator):
             analyzer.finalize(sim)
 
 class RunLangevinDynamics(_MDIntegrator):
-    def __init__(self, steps, timestep, T, friction, seed, analyzers=None):
+    def __init__(self, steps, timestep, T, friction, seed, analyzers):
         super().__init__(steps, timestep, analyzers)
         self.T = T
 
@@ -215,7 +215,7 @@ class Dilute(simulate.Simulation):
         return sim
 
     # initialize
-    InitializeFromFile = simulate.NotImplementedOperation
+    # InitializeFromFile = simulate.NotImplementedOperation
     InitializeRandomly = InitializeRandomly
 
     # md

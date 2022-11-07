@@ -262,6 +262,8 @@ class _MDIntegrator(simulate.SimulationOperation):
         Number of simulation time steps.
     timestep : float
         Simulation time step.
+    analyzers : :class:`~relentless.simulate.AnalysisOperation` or list
+        Analysis operations to perform with run (defaults to ``None``).
 
     """
     def __init__(self, steps, timestep, analyzers):
@@ -302,6 +304,8 @@ class RunBrownianDynamics(_MDIntegrator):
         Sets drag coefficient for each particle type.
     seed : int
         Seed used to randomly generate a uniform force.
+    analyzers : :class:`~relentless.simulate.AnalysisOperation` or list
+        Analysis operations to perform with run (defaults to ``None``).
 
     """
     def __init__(self, steps, timestep, T, friction, seed, analyzers):
@@ -353,6 +357,8 @@ class RunLangevinDynamics(_MDIntegrator):
         Sets drag coefficient for each particle type (shared or per-type).
     seed : int
         Seed used to randomly generate a uniform force.
+    analyzers : :class:`~relentless.simulate.AnalysisOperation` or list
+        Analysis operations to perform with run (defaults to ``None``).
 
     """
     def __init__(self, steps, timestep, T, friction, seed, analyzers):
@@ -407,6 +413,8 @@ class RunMolecularDynamics(_MDIntegrator):
         Thermostat for temperature control. None means no thermostat.
     barostat : :class:`~relentless.simulate.Barostat`
         Barostat for pressure control. None means no barostat.
+    analyzers : :class:`~relentless.simulate.AnalysisOperation` or list
+        Analysis operations to perform with run (defaults to ``None``).
 
     Raises
     ------
