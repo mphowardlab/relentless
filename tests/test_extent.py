@@ -6,21 +6,21 @@ import numpy
 import relentless
 
 class test_TriclinicBox(unittest.TestCase):
-    """Unit tests for relentless.extent.TriclinicBox"""
+    """Unit tests for relentless.model.TriclinicBox"""
 
     def test_init(self):
         """Test creation from data."""
         # test valid construction, LAMMPS convention
-        t = relentless.extent.TriclinicBox(Lx=1,Ly=2,Lz=3,xy=1,xz=0.75,yz=2.25,
-                                           convention=relentless.extent.TriclinicBox.Convention.LAMMPS)
+        t = relentless.model.TriclinicBox(Lx=1,Ly=2,Lz=3,xy=1,xz=0.75,yz=2.25,
+                                           convention=relentless.model.TriclinicBox.Convention.LAMMPS)
         numpy.testing.assert_allclose(t.a, numpy.array([1,0,0]))
         numpy.testing.assert_allclose(t.b, numpy.array([1,2,0]))
         numpy.testing.assert_allclose(t.c, numpy.array([0.75,2.25,3]))
         self.assertAlmostEqual(t.extent, 6)
 
         # test valid construction, HOOMD convention
-        t = relentless.extent.TriclinicBox(Lx=1,Ly=2,Lz=3,xy=0.5,xz=0.25,yz=0.75,
-                                           convention=relentless.extent.TriclinicBox.Convention.HOOMD)
+        t = relentless.model.TriclinicBox(Lx=1,Ly=2,Lz=3,xy=0.5,xz=0.25,yz=0.75,
+                                           convention=relentless.model.TriclinicBox.Convention.HOOMD)
         numpy.testing.assert_allclose(t.a, numpy.array([1,0,0]))
         numpy.testing.assert_allclose(t.b, numpy.array([1,2,0]))
         numpy.testing.assert_allclose(t.c, numpy.array([0.75,2.25,3]))
@@ -28,13 +28,13 @@ class test_TriclinicBox(unittest.TestCase):
 
         # test invalid constructions
         with self.assertRaises(ValueError):
-            t = relentless.extent.TriclinicBox(Lx=1,Ly=2,Lz=3,xy=1,xz=0.75,yz=2.25,convention='LAMMPS')
+            t = relentless.model.TriclinicBox(Lx=1,Ly=2,Lz=3,xy=1,xz=0.75,yz=2.25,convention='LAMMPS')
         with self.assertRaises(ValueError):
-            t = relentless.extent.TriclinicBox(Lx=-1,Ly=2,Lz=3,xy=1,xz=0.75,yz=2.25,
-                                               convention=relentless.extent.TriclinicBox.Convention.LAMMPS)
+            t = relentless.model.TriclinicBox(Lx=-1,Ly=2,Lz=3,xy=1,xz=0.75,yz=2.25,
+                                               convention=relentless.model.TriclinicBox.Convention.LAMMPS)
 
     def test_coordinate_transform(self):
-        t = relentless.extent.TriclinicBox(Lx=1, Ly=2, Lz=3, xy=1, xz=0.75, yz=2.25)
+        t = relentless.model.TriclinicBox(Lx=1, Ly=2, Lz=3, xy=1, xz=0.75, yz=2.25)
 
         # check upper/lower bounds
         numpy.testing.assert_allclose(t.coordinate_to_fraction(t.low), [0,0,0])
@@ -66,34 +66,34 @@ class test_TriclinicBox(unittest.TestCase):
     def test_to_from_json(self):
         """Test to_json and from_json methods."""
         # test LAMMPS convention
-        c = relentless.extent.TriclinicBox(Lx=3,Ly=4,Lz=5,xy=2,xz=3,yz=4,
-                                           convention=relentless.extent.TriclinicBox.Convention.LAMMPS)
+        c = relentless.model.TriclinicBox(Lx=3,Ly=4,Lz=5,xy=2,xz=3,yz=4,
+                                           convention=relentless.model.TriclinicBox.Convention.LAMMPS)
         data = c.to_json()
-        c_ = relentless.extent.TriclinicBox.from_json(data)
-        self.assertIsInstance(c_, relentless.extent.TriclinicBox)
+        c_ = relentless.model.TriclinicBox.from_json(data)
+        self.assertIsInstance(c_, relentless.model.TriclinicBox)
         numpy.testing.assert_allclose(c.a, c_.a)
         numpy.testing.assert_allclose(c.b, c_.b)
         numpy.testing.assert_allclose(c.c, c_.c)
         self.assertAlmostEqual(c.extent, c_.extent)
 
         # test HOOMD convention
-        c = relentless.extent.TriclinicBox(Lx=3,Ly=4,Lz=5,xy=2,xz=3,yz=4,
-                                           convention=relentless.extent.TriclinicBox.Convention.HOOMD)
+        c = relentless.model.TriclinicBox(Lx=3,Ly=4,Lz=5,xy=2,xz=3,yz=4,
+                                           convention=relentless.model.TriclinicBox.Convention.HOOMD)
         data = c.to_json()
-        c_ = relentless.extent.TriclinicBox.from_json(data)
-        self.assertIsInstance(c_, relentless.extent.TriclinicBox)
+        c_ = relentless.model.TriclinicBox.from_json(data)
+        self.assertIsInstance(c_, relentless.model.TriclinicBox)
         numpy.testing.assert_allclose(c.a, c_.a)
         numpy.testing.assert_allclose(c.b, c_.b)
         numpy.testing.assert_allclose(c.c, c_.c)
         self.assertAlmostEqual(c.extent, c_.extent)
 
 class test_Cuboid(unittest.TestCase):
-    """Unit tests for relentless.extent.Cuboid"""
+    """Unit tests for relentless.model.Cuboid"""
 
     def test_init(self):
         """Test creation from data."""
         # test valid construction
-        c = relentless.extent.Cuboid(Lx=3,Ly=4,Lz=5)
+        c = relentless.model.Cuboid(Lx=3,Ly=4,Lz=5)
         numpy.testing.assert_allclose(c.a, numpy.array([3,0,0]))
         numpy.testing.assert_allclose(c.b, numpy.array([0,4,0]))
         numpy.testing.assert_allclose(c.c, numpy.array([0,0,5]))
@@ -101,26 +101,26 @@ class test_Cuboid(unittest.TestCase):
 
         # test invalid construction
         with self.assertRaises(ValueError):
-            c = relentless.extent.Cuboid(Lx=-3,Ly=4,Lz=5)
+            c = relentless.model.Cuboid(Lx=-3,Ly=4,Lz=5)
 
     def test_to_from_json(self):
         """Test to_json and from_json methods."""
-        c = relentless.extent.Cuboid(Lx=3,Ly=4,Lz=5)
+        c = relentless.model.Cuboid(Lx=3,Ly=4,Lz=5)
         data = c.to_json()
-        c_ = relentless.extent.Cuboid.from_json(data)
-        self.assertIsInstance(c_, relentless.extent.Cuboid)
+        c_ = relentless.model.Cuboid.from_json(data)
+        self.assertIsInstance(c_, relentless.model.Cuboid)
         numpy.testing.assert_allclose(c.a, c_.a)
         numpy.testing.assert_allclose(c.b, c_.b)
         numpy.testing.assert_allclose(c.c, c_.c)
         self.assertAlmostEqual(c.extent, c_.extent)
 
 class test_Cube(unittest.TestCase):
-    """Unit tests for relentless.extent.Cube"""
+    """Unit tests for relentless.model.Cube"""
 
     def test_init(self):
         """Test creation from data."""
         # test valid construction
-        c = relentless.extent.Cube(L=3)
+        c = relentless.model.Cube(L=3)
         numpy.testing.assert_allclose(c.a, numpy.array([3,0,0]))
         numpy.testing.assert_allclose(c.b, numpy.array([0,3,0]))
         numpy.testing.assert_allclose(c.c, numpy.array([0,0,3]))
@@ -128,46 +128,46 @@ class test_Cube(unittest.TestCase):
 
         # test invalid construction
         with self.assertRaises(ValueError):
-            c = relentless.extent.Cube(L=-1)
+            c = relentless.model.Cube(L=-1)
 
     def test_to_from_json(self):
         """Test to_json and from_json methods."""
-        c = relentless.extent.Cube(L=3)
+        c = relentless.model.Cube(L=3)
         data = c.to_json()
-        c_ = relentless.extent.Cube.from_json(data)
-        self.assertIsInstance(c_, relentless.extent.Cube)
+        c_ = relentless.model.Cube.from_json(data)
+        self.assertIsInstance(c_, relentless.model.Cube)
         numpy.testing.assert_allclose(c.a, c_.a)
         numpy.testing.assert_allclose(c.b, c_.b)
         numpy.testing.assert_allclose(c.c, c_.c)
         self.assertAlmostEqual(c.extent, c_.extent)
 
 class test_ObliqueArea(unittest.TestCase):
-    """Unit tests for relentless.extent.ObliqueArea"""
+    """Unit tests for relentless.model.ObliqueArea"""
 
     def test_init(self):
         """Test creation from data."""
         # test valid construction, LAMMPS convention
-        t = relentless.extent.ObliqueArea(Lx=1,Ly=2,xy=1, convention=relentless.extent.ObliqueArea.Convention.LAMMPS)
+        t = relentless.model.ObliqueArea(Lx=1,Ly=2,xy=1, convention=relentless.model.ObliqueArea.Convention.LAMMPS)
         numpy.testing.assert_allclose(t.a, numpy.array([1,0]))
         numpy.testing.assert_allclose(t.b, numpy.array([1,2]))
         self.assertAlmostEqual(t.extent, 2)
 
         # test valid construction, HOOMD convention
-        t = relentless.extent.ObliqueArea(Lx=1,Ly=2,xy=0.5,
-                                           convention=relentless.extent.ObliqueArea.Convention.HOOMD)
+        t = relentless.model.ObliqueArea(Lx=1,Ly=2,xy=0.5,
+                                           convention=relentless.model.ObliqueArea.Convention.HOOMD)
         numpy.testing.assert_allclose(t.a, numpy.array([1,0]))
         numpy.testing.assert_allclose(t.b, numpy.array([1,2]))
         self.assertAlmostEqual(t.extent, 2)    
 
         # test invalid constructions
         with self.assertRaises(ValueError):
-            t = relentless.extent.ObliqueArea(Lx=1,Ly=2,xy=1,convention='LAMMPS')
+            t = relentless.model.ObliqueArea(Lx=1,Ly=2,xy=1,convention='LAMMPS')
         with self.assertRaises(ValueError):
-            t = relentless.extent.ObliqueArea(Lx=-1,Ly=2,xy=1,
-                                               convention=relentless.extent.TriclinicBox.Convention.LAMMPS)
+            t = relentless.model.ObliqueArea(Lx=-1,Ly=2,xy=1,
+                                               convention=relentless.model.TriclinicBox.Convention.LAMMPS)
 
     def test_coordinate_transform(self):
-        t = relentless.extent.ObliqueArea(Lx=1, Ly=2, xy=1)
+        t = relentless.model.ObliqueArea(Lx=1, Ly=2, xy=1)
 
         # check upper/lower bounds
         numpy.testing.assert_allclose(t.coordinate_to_fraction(t.low), [0,0])
@@ -199,71 +199,71 @@ class test_ObliqueArea(unittest.TestCase):
     def test_to_from_json(self):
         """Test to_json and from_json methods."""
         # test LAMMPS convention
-        c = relentless.extent.ObliqueArea(Lx=3,Ly=4,xy=2,
-                                           convention=relentless.extent.ObliqueArea.Convention.LAMMPS)
+        c = relentless.model.ObliqueArea(Lx=3,Ly=4,xy=2,
+                                           convention=relentless.model.ObliqueArea.Convention.LAMMPS)
         data = c.to_json()
-        c_ = relentless.extent.ObliqueArea.from_json(data)
-        self.assertIsInstance(c_, relentless.extent.ObliqueArea)
+        c_ = relentless.model.ObliqueArea.from_json(data)
+        self.assertIsInstance(c_, relentless.model.ObliqueArea)
         numpy.testing.assert_allclose(c.a, c_.a)
         numpy.testing.assert_allclose(c.b, c_.b)
         self.assertAlmostEqual(c.extent, c_.extent)
 
         # test HOOMD convention
-        c = relentless.extent.ObliqueArea(Lx=3,Ly=4,xy=2,
-                                           convention=relentless.extent.ObliqueArea.Convention.HOOMD)
+        c = relentless.model.ObliqueArea(Lx=3,Ly=4,xy=2,
+                                           convention=relentless.model.ObliqueArea.Convention.HOOMD)
         data = c.to_json()
-        c_ = relentless.extent.ObliqueArea.from_json(data)
-        self.assertIsInstance(c_, relentless.extent.ObliqueArea)
+        c_ = relentless.model.ObliqueArea.from_json(data)
+        self.assertIsInstance(c_, relentless.model.ObliqueArea)
         numpy.testing.assert_allclose(c.a, c_.a)
         numpy.testing.assert_allclose(c.b, c_.b)
         self.assertAlmostEqual(c.extent, c_.extent) 
 
 class test_Rectangle(unittest.TestCase):
-    """Unit tests for relentless.extent.Rectangle"""
+    """Unit tests for relentless.model.Rectangle"""
 
     def test_init(self):
         """Test creation from data."""
         # test valid construction
-        c = relentless.extent.Rectangle(Lx=3,Ly=4)
+        c = relentless.model.Rectangle(Lx=3,Ly=4)
         numpy.testing.assert_allclose(c.a, numpy.array([3,0]))
         numpy.testing.assert_allclose(c.b, numpy.array([0,4]))
         self.assertAlmostEqual(c.extent, 12)
 
         # test invalid construction
         with self.assertRaises(ValueError):
-            c = relentless.extent.Rectangle(Lx=-3,Ly=4)
+            c = relentless.model.Rectangle(Lx=-3,Ly=4)
 
     def test_to_from_json(self):
         """Test to_json and from_json methods."""
-        c = relentless.extent.Rectangle(Lx=3,Ly=4)
+        c = relentless.model.Rectangle(Lx=3,Ly=4)
         data = c.to_json()
-        c_ = relentless.extent.Rectangle.from_json(data)
-        self.assertIsInstance(c_, relentless.extent.Rectangle)
+        c_ = relentless.model.Rectangle.from_json(data)
+        self.assertIsInstance(c_, relentless.model.Rectangle)
         numpy.testing.assert_allclose(c.a, c_.a)
         numpy.testing.assert_allclose(c.b, c_.b)
         self.assertAlmostEqual(c.extent, c_.extent)
 
 class test_Square(unittest.TestCase):
-    """Unit tests for relentless.extent.Square"""
+    """Unit tests for relentless.model.Square"""
 
     def test_init(self):
         """Test creation from data."""
         # test valid construction
-        c = relentless.extent.Square(L=3)
+        c = relentless.model.Square(L=3)
         numpy.testing.assert_allclose(c.a, numpy.array([3,0]))
         numpy.testing.assert_allclose(c.b, numpy.array([0,3]))
         self.assertAlmostEqual(c.extent, 9)
 
         # test invalid construction
         with self.assertRaises(ValueError):
-            c = relentless.extent.Square(L=-1)
+            c = relentless.model.Square(L=-1)
 
     def test_to_from_json(self):
         """Test to_json and from_json methods."""
-        c = relentless.extent.Square(L=3)
+        c = relentless.model.Square(L=3)
         data = c.to_json()
-        c_ = relentless.extent.Square.from_json(data)
-        self.assertIsInstance(c_, relentless.extent.Square)
+        c_ = relentless.model.Square.from_json(data)
+        self.assertIsInstance(c_, relentless.model.Square)
         numpy.testing.assert_allclose(c.a, c_.a)
         numpy.testing.assert_allclose(c.b, c_.b)
         self.assertAlmostEqual(c.extent, c_.extent)

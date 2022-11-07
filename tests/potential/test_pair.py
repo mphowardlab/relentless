@@ -328,7 +328,7 @@ class test_PairPotential(unittest.TestCase):
     def test_derivative_values(self):
         """Test derivative method with different param values"""
         p = LinPot(types=('1',), params=('m',))
-        x = relentless.variable.DesignVariable(value=2.0)
+        x = relentless.model.DesignVariable(value=2.0)
         p.coeff['1','1']['m'] = x
 
         # test with no cutoffs
@@ -338,7 +338,7 @@ class test_PairPotential(unittest.TestCase):
         numpy.testing.assert_allclose(d, [0.25,0.75])
 
         # test with rmin set
-        rmin = relentless.variable.DesignVariable(value=0.5)
+        rmin = relentless.model.DesignVariable(value=0.5)
         p.coeff['1','1']['rmin'] = rmin
         d = p.derivative(pair=('1','1'), var=x, r=0.6)
         self.assertAlmostEqual(d, 0.6)
@@ -346,7 +346,7 @@ class test_PairPotential(unittest.TestCase):
         numpy.testing.assert_allclose(d, [0.5,0.75])
 
         # test with rmax set
-        rmax = relentless.variable.DesignVariable(value=1.5)
+        rmax = relentless.model.DesignVariable(value=1.5)
         p.coeff['1','1'].update(rmin=False, rmax=rmax)
         d = p.derivative(pair=('1','1'), var=x, r=1.0)
         self.assertAlmostEqual(d, 1.0)
@@ -382,9 +382,9 @@ class test_PairPotential(unittest.TestCase):
     def test_derivative_types(self):
         """Test derivative method with different param types."""
         q = LinPot(types=('1',), params=('m',))
-        x = relentless.variable.DesignVariable(value=4.0)
-        y = relentless.variable.DesignVariable(value=64.0)
-        z = relentless.variable.GeometricMean(x, y)
+        x = relentless.model.DesignVariable(value=4.0)
+        y = relentless.model.DesignVariable(value=64.0)
+        z = relentless.model.GeometricMean(x, y)
         q.coeff['1','1']['m'] = z
 
         # test with respect to dependent variable parameter
@@ -407,12 +407,12 @@ class test_PairPotential(unittest.TestCase):
         r = TwoVarPot(types=('1',), params=('x','y'))
 
         r.coeff['1','1']['x'] = x
-        r.coeff['1','1']['y'] = relentless.variable.SameAs(x)
+        r.coeff['1','1']['y'] = relentless.model.variable.SameAs(x)
         d = r.derivative(pair=('1','1'), var=x, r=4.0)
         self.assertAlmostEqual(d, 20.0)
 
         r.coeff['1','1']['y'] = x
-        r.coeff['1','1']['x'] = relentless.variable.SameAs(x)
+        r.coeff['1','1']['x'] = relentless.model.variable.SameAs(x)
         d = r.derivative(pair=('1','1'), var=x, r=4.0)
         self.assertAlmostEqual(d, 20.0)
 
@@ -586,11 +586,11 @@ class test_PairSpline(unittest.TestCase):
         for i,(r,k) in enumerate(s.knots(pair=('1','1'))):
             self.assertAlmostEqual(r.value, r_arr[i])
             self.assertAlmostEqual(k.value, u_arr_diff[i])
-            self.assertIsInstance(r, relentless.variable.IndependentVariable)
+            self.assertIsInstance(r, relentless.model.IndependentVariable)
             if i == s.num_knots-1:
-                self.assertIsInstance(k, relentless.variable.IndependentVariable)
+                self.assertIsInstance(k, relentless.model.IndependentVariable)
             else:
-                self.assertIsInstance(k, relentless.variable.DesignVariable)
+                self.assertIsInstance(k, relentless.model.DesignVariable)
                 dvars.append(k)
         self.assertCountEqual(s.design_variables, dvars)
 
@@ -602,11 +602,11 @@ class test_PairSpline(unittest.TestCase):
         for i,(r,k) in enumerate(s.knots(pair=('1','1'))):
             self.assertAlmostEqual(r.value, r_arr[i])
             self.assertAlmostEqual(k.value, u_arr[i])
-            self.assertIsInstance(r, relentless.variable.IndependentVariable)
+            self.assertIsInstance(r, relentless.model.IndependentVariable)
             if i == s.num_knots-1:
-                self.assertIsInstance(k, relentless.variable.IndependentVariable)
+                self.assertIsInstance(k, relentless.model.IndependentVariable)
             else:
-                self.assertIsInstance(k, relentless.variable.DesignVariable)
+                self.assertIsInstance(k, relentless.model.DesignVariable)
                 dvars.append(k)
         self.assertCountEqual(s.design_variables, dvars)
 
@@ -957,7 +957,7 @@ class test_Depletion(unittest.TestCase):
             d = dp._derivative(param='sigmaj', r=r_input, P=1, sigma_i=1, sigma_j=1, sigma_d=1)
 
         # test derivative outside of low/high bounds
-        P_var = relentless.variable.DesignVariable(value=1.0)
+        P_var = relentless.model.DesignVariable(value=1.0)
         dp.coeff['1','1'].update(P=P_var, sigma_i=1.5, sigma_j=2, sigma_d=2.5)
         r_input = numpy.array([1,5])
         d_actual = numpy.array([-25.7514468,0])

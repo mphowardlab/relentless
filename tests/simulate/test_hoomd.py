@@ -38,9 +38,9 @@ class test_HOOMD(unittest.TestCase):
     # mock (NVT) ensemble and potential for testing
     def ens_pot(self):
         if self.dim == 3:
-            ens = relentless.ensemble.Ensemble(T=2.0, V=relentless.extent.Cube(L=20.0), N={'A':2,'B':3})
+            ens = relentless.model.Ensemble(T=2.0, V=relentless.model.Cube(L=20.0), N={'A':2,'B':3})
         elif self.dim == 2:
-            ens = relentless.ensemble.Ensemble(T=2.0, V=relentless.extent.Square(L=20.0), N={'A':2,'B':3})
+            ens = relentless.model.Ensemble(T=2.0, V=relentless.model.Square(L=20.0), N={'A':2,'B':3})
         else:
             raise ValueError('HOOMD supports 2d and 3d simulations')
 
@@ -239,11 +239,11 @@ class test_HOOMD(unittest.TestCase):
         if self.dim == 3:
             Lz = 20.
             z = 1.
-            box_type = relentless.extent.Cube
+            box_type = relentless.model.Cube
         elif self.dim == 2:
             Lz = 1.
             z = 0.
-            box_type = relentless.extent.Square   
+            box_type = relentless.model.Square   
         else:
             raise ValueError('HOOMD supports 2d and 3d simulations')
  
@@ -260,7 +260,7 @@ class test_HOOMD(unittest.TestCase):
                 f.append(s)
         relentless.mpi.world.barrier()
 
-        ens = relentless.ensemble.Ensemble(T=2.0, V=box_type(L=20), N={'A':2,'B':2})
+        ens = relentless.model.Ensemble(T=2.0, V=box_type(L=20), N={'A':2,'B':2})
         _,pot = self.ens_pot()
         init = relentless.simulate.InitializeFromFile(filename=filename)
         analyzer = relentless.simulate.EnsembleAverage(check_thermo_every=1,

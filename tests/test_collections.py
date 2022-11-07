@@ -1,8 +1,6 @@
 """Unit tests for collections module."""
 import unittest
 
-import numpy
-
 import relentless
 
 class test_FixedKeyDict(unittest.TestCase):

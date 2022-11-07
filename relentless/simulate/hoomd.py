@@ -20,8 +20,8 @@ from packaging import version
 import numpy
 
 from relentless.collections import FixedKeyDict, PairMatrix
-from relentless import ensemble
-from relentless import extent
+from relentless.model import ensemble
+from relentless.model import extent
 from relentless.math import Interpolator
 from relentless import mpi
 

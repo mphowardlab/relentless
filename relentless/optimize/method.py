@@ -55,8 +55,7 @@ import numpy
 
 from relentless import data
 from relentless import math
-from relentless import mpi
-from relentless import variable
+from relentless.model import variable
 from .criteria import ConvergenceTest,Tolerance
 
 class Optimizer(abc.ABC):

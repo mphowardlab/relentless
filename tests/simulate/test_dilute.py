@@ -23,7 +23,7 @@ class test_Dilute(unittest.TestCase):
         init = relentless.simulate.InitializeRandomly(
                 seed=42,
                 N={'A':2,'B':3},
-                V=relentless.extent.Cube(L=2.0),
+                V=relentless.model.Cube(L=2.0),
                 T=1.0)
         analyzer = relentless.simulate.EnsembleAverage(
             check_thermo_every=1, check_rdf_every=1, rdf_dr=0.1)
@@ -48,7 +48,7 @@ class test_Dilute(unittest.TestCase):
         init = relentless.simulate.InitializeRandomly(
                 seed=42,
                 N={'A':2,'B':3},
-                V=relentless.extent.Cube(L=2.0),
+                V=relentless.model.Cube(L=2.0),
                 T=1.0)
         analyzer = relentless.simulate.EnsembleAverage(
             check_thermo_every=1, check_rdf_every=1, rdf_dr=0.1)

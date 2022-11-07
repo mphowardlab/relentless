@@ -3,9 +3,9 @@ import itertools
 import numpy
 import scipy.spatial
 
-from relentless import extent
+from relentless.model import extent
 from . import simulate
-from relentless import variable
+from relentless.model import variable
 
 ## initializers
 class InitializeFromFile(simulate.GenericOperation):
