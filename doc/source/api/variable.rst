@@ -1,1 +1,0 @@
-.. automodule:: relentless.model.variable

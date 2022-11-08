@@ -1,16 +1,31 @@
 """
-Potentials
-==========
+=========================================
+Potentials (`relentless.model.potential`)
+=========================================
 
-Potentials define the interactions between particles in a simulation. Currently,
-the following types of potentials are supported:
+.. currentmodule:: relentless.model.potential
 
-.. toctree::
-    :maxdepth: 1
+Pair potentials
+===============
 
-    pair
+.. autosummary::
+    :toctree: generated/
 
-.. automodule:: relentless.model.potential.potential
+    Depletion
+    LennardJones
+    PairSpline
+    Yukawa
+
+Developer classes
+=================
+
+.. autosummary::
+    :toctree: generated/
+
+    Potential
+    Parameters
+    PairPotential
+    PairParameters
 
 """
 from .potential import (

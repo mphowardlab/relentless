@@ -65,18 +65,11 @@ class Ensemble:
     T : float
         Temperature of the system.
     N : dict
-        The number of particles for each specified type.
-    V : :class:`~relentless.extent.Extent`
-        Extent of the system (defaults to ``None``).
-    P : float
-        Pressure of the system (defaults to ``None``).
-
-    Raises
-    ------
-    TypeError
-        If the types in ``N`` are not all strings.
-    TypeError
-        If all values of ``N`` are not integers or ``None``.
+        Number of particles for each type.
+    V : :class:`Extent`, optional
+        Extent of the system.
+    P : float, optional
+        Pressure of the system.
 
     """
     def __init__(self, T, N, V=None, P=None):

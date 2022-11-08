@@ -1,35 +1,14 @@
-.. include:: ../../README.rst
+==========
+relentless
+==========
+
+Overview
 
 .. toctree::
     :maxdepth: 1
-    :caption: Getting started
 
     guide/index
-    guide/install
-    guide/tutorial
-    guide/example
-
-.. toctree::
-    :maxdepth: 1
-    :caption: API
-
     api/index
-    api/mpi
-    api/ensemble
-    api/potential/index
-    api/simulate/index
-    api/optimize/index
-    api/variable
-    api/extent
-    api/devtools
-
-.. toctree::
-    :maxdepth: 1
-    :caption: Reference
-
-    release
-    license
-    credits
 
 Indices and tables
 ==================

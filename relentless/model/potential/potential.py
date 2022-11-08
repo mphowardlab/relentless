@@ -1,27 +1,3 @@
-"""
-.. rubric:: Developer notes
-
-To implement a new type of potential, create a class that derives from
-:class:`Potential` and implement the required functions. You may also need
-to implement a new parameter storage container that derives from :class:`Parameters`
-if a suitable one does not already exist.
-
-.. autosummary::
-    :nosignatures:
-
-    Potential
-    Parameters
-
-.. autoclass:: Potential
-    :member-order: bysource
-    :members: energy,
-        force,
-        derivative
-
-.. autoclass:: Parameters
-    :members:
-
-"""
 import abc
 import json
 

@@ -1,6 +1,9 @@
 """
-MPI communication
-=================
+====================================
+MPI communication (`relentless.mpi`)
+====================================
+
+.. currentmodule:: relentless.mpi
 
 Parallel execution using the Message Passing Interface (MPI) is supported.
 Typically, the calculations required to steer an optimization are simple, so the
@@ -29,12 +32,10 @@ other ranks. A convenience wrapper is given in :meth:`Communicator.loadtxt`;
 see its documentation for more details.
 
 .. autosummary::
+    :toctree: generated/
     :nosignatures:
 
     Communicator
-
-.. autoclass:: Communicator
-    :members:
 
 """
 import json

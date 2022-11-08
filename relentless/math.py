@@ -4,17 +4,6 @@ Math functions
 
 This module implements some convenience objects for mathematical operations.
 
-.. autosummary::
-    :nosignatures:
-
-    Interpolator
-    KeyedArray
-
-.. autoclass:: Interpolator
-    :members:
-.. autoclass:: KeyedArray
-    :members:
-
 """
 import numpy
 import scipy.interpolate

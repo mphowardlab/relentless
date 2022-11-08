@@ -1,54 +1,3 @@
-"""
-Algorithms
-==========
-
-An optimization algorithm seeks to determine the minima of a defined objective
-function, subject to design constraints.
-
-The following optimization algorithms have been implemented:
-
-.. autosummary::
-    :nosignatures:
-
-    FixedStepDescent
-    SteepestDescent
-
-.. rubric:: Developer notes
-
-To implement your own optimization algorithm, create a class that derives from
-:class:`Optimizer` and define the required properties and methods.
-
-.. autosummary::
-    :nosignatures:
-
-    Optimizer
-    LineSearch
-
-.. autoclass:: Optimizer
-    :member-order: bysource
-    :members: optimize,
-        stop
-
-.. autoclass:: LineSearch
-    :member-order: bysource
-    :members: find,
-        tolerance,
-        max_iter
-
-.. autoclass:: FixedStepDescent
-    :member-order: bysource
-    :members: descent_amount
-
-.. autoclass:: SteepestDescent
-    :member-order: bysource
-    :members: descent_amount,
-        optimize,
-        max_iter,
-        step_size,
-        scale,
-        line_search
-
-"""
 import abc
 
 import numpy
@@ -174,22 +123,10 @@ class LineSearch:
             Directory for writing output during search. Default of ``None``
             requests no output is written.
 
-        Raises
-        ------
-        ValueError
-            If the start and the end of the search interval are identical.
-        ValueError
-            If the defined search interval is not a descent direction.
-
         Returns
         -------
         :class:`~relentless.optimize.objective.ObjectiveFunctionResult`
             The objective function evaluated at the new, "optimal" location.
-
-        Raises
-        ------
-        ValueError
-            If the relative tolerance is not between 0 and 1.
 
         """
         if directory is not None:
