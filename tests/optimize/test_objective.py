@@ -89,7 +89,7 @@ class test_RelativeEntropy(unittest.TestCase):
         directory = relentless.mpi.world.bcast(directory)
         self.directory = relentless.data.Directory(directory)
 
-        lj = relentless.potential.LennardJones(types=('1',))
+        lj = relentless.model.potential.LennardJones(types=('1',))
         self.epsilon = relentless.model.DesignVariable(value=1.0)
         self.sigma = relentless.model.DesignVariable(value=0.9)
         lj.coeff['1','1'].update({'epsilon':self.epsilon, 'sigma':self.sigma, 'rmax':2.7})

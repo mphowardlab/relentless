@@ -1,11 +1,9 @@
 
-from . import ensemble
 from .ensemble import (
     Ensemble,
-    RDF
+    RDF,
     )
 
-from . import extent
 from .extent import (
     Area,
     Cube,
@@ -15,10 +13,11 @@ from .extent import (
     Rectangle,
     Square,
     TriclinicBox,
-    Volume
+    Volume,
     )
 
-from . import variable
+from . import potential
+
 from .variable import (
     ArithmeticMean,
     ConstantVariable,

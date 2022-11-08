@@ -55,7 +55,7 @@ class test_Dilute(unittest.TestCase):
         md = relentless.simulate.RunMolecularDynamics(steps=100, timestep=1e-3, analyzers=analyzer)
 
         # test with potential that has infinite potential at low r
-        pot = relentless.potential.LennardJones(types=('A','B'))
+        pot = relentless.model.potential.LennardJones(types=('A','B'))
         for pair in pot.coeff:
             pot.coeff[pair].update({'epsilon':1.0, 'sigma':1.0, 'rmax':3.0, 'shift':True})
         pots = relentless.simulate.Potentials()

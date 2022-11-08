@@ -7,7 +7,7 @@ import numpy
 
 import relentless
 
-class QuadPot(relentless.potential.Potential):
+class QuadPot(relentless.model.potential.Potential):
     """Quadratic potential function used to test relentless.simulate.PotentialTabulator"""
 
     def __init__(self, types, params):
@@ -97,7 +97,7 @@ class test_PotentialTabulator(unittest.TestCase):
         d = t.derivative('2',var)
         numpy.testing.assert_allclose(d, numpy.array([0,0,0,0,0,0]))
 
-class QuadPairPot(relentless.potential.PairPotential):
+class QuadPairPot(relentless.model.potential.PairPotential):
     """Quadratic pair potential function used to test relentless.simulate.PairPotentialTabulator"""
 
     def __init__(self, types, params):
