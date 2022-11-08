@@ -27,9 +27,10 @@ extensions = [
     'sphinx.ext.autosummary',
     'sphinx.ext.intersphinx',
     'sphinx.ext.mathjax',
-    'numpydoc',
+    'sphinx.ext.napoleon',
     'sphinx_design'
 ]
+
 
 templates_path = ['_templates']
 
@@ -41,8 +42,7 @@ default_role = "any"
 
 html_theme = 'pydata_sphinx_theme'
 html_theme_options = {
-    'show_nav_level': 1,
-    'navigation_depth': 1
+    'navigation_depth': 2
 }
 html_static_path = ['_static']
 html_css_files = ['theme_overrides.css']
@@ -52,9 +52,9 @@ html_css_files = ['theme_overrides.css']
 autosummary_generate = True
 
 autodoc_default_options = {
-    'inherited-members': None
+    'inherited-members': None,
+    'special-members': False
 }
-
 
 # -- Options for intersphinx -------------------------------------------------
 

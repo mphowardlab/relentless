@@ -79,20 +79,6 @@ class RunMolecularDynamics(simulate.GenericOperation):
     to the specific documentation for the engine you plan to use if you are
     unsure or obtain an error for your chosen combination.
 
-    .. rubric:: Thermostats
-    .. autosummary::
-        :nosignatures:
-
-        BerendsenThermostat
-        NoseHooverThermostat
-
-    .. rubric:: Barostats
-    .. autosummary::
-        :nosignatures:
-
-        BerendsenBarostat
-        MTKBarostat
-
     Parameters
     ----------
     steps : int

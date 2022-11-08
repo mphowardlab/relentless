@@ -1,8 +1,9 @@
 """
-Simulations
-===========
+===================================
+Simulations (`relentless.simulate`)
+===================================
 
-:mod:`relentless.simulate` implements a generalizable and human-readable
+`relentless.simulate` implements a generalizable and human-readable
 interface for performing molecular simulations. The simulations are used to
 evolve a system described by interactions in :mod:`relentless.potential` to
 generate statistical ensembles. This module implements code to translate one
@@ -38,16 +39,70 @@ It also helps document workflows that can be shared and reproduced by others.
     sim = lmp.run(potentials)
     sim[avg].ensemble.save('ensemble.json')
 
-.. rubric:: How it works
+Engines
+=======
 
-To learn more about how to setup a simulation, read through the following:
+.. autosummary::
+    :toctree: generated/
 
-.. toctree::
-    :maxdepth: 1
+    Dilute
+    HOOMD
+    LAMMPS
 
-    engines
-    operations
-    interactions
+Initializers
+============
+
+.. autosummary::
+    :toctree: generated/
+
+    InitializeFromFile
+    InitializeRandomly
+
+Molecular dynamics
+==================
+
+.. autosummary::
+    :toctree: generated/
+
+    RunMolecularDynamics
+
+Thermostats
+-----------
+
+.. autosummary::
+    :toctree: generated/
+
+    BerendsenThermostat
+    NoseHooverThermostat
+
+Barostats
+---------
+
+.. autosummary::
+    :toctree: generated/
+
+    BerendsenBarostat
+    MTKBarostat
+
+Other dynamics
+==============
+
+.. autosummary::
+    :toctree: generated/
+
+    RunBrownianDynamics
+    RunLangevinDynamics
+
+Analyzers
+=========
+
+.. autosummary::
+    :toctree: generated/
+
+    EnsembleAverage
+
+Developer classes
+=================
 
 """
 from .simulate import (

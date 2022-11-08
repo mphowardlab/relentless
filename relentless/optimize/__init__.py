@@ -13,29 +13,29 @@ Objectives
 
     RelativeEntropy
 
-Methods
-=======
+Optimization methods
+====================
 
 .. autosummary::
     :toctree: generated/
 
-    FixedStepDescent
     SteepestDescent
+    FixedStepDescent
     LineSearch
 
-Convergence
-===========
+Convergence criteria
+====================
 
 .. autosummary::
     :toctree: generated/
 
     Tolerance
+    ValueTest
+    GradientTest
     AllTest
     AndTest
     AnyTest
-    GradientTest
     OrTest
-    ValueTest
 
 Developer classes
 =================
@@ -48,6 +48,7 @@ Developer classes
     Optimizer
     ConvergenceTest
     LogicTest
+
 
 """
 from .criteria import (AllTest,
