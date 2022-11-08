@@ -10,7 +10,7 @@ the following types of potentials are supported:
 
     pair
 
-.. automodule:: relentless.potential.potential
+.. automodule:: relentless.model.potential.potential
 
 """
 from .potential import (

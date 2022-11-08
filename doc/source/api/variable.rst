@@ -1,1 +1,1 @@
-.. automodule:: relentless.variable
+.. automodule:: relentless.model.variable
