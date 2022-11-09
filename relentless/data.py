@@ -3,6 +3,8 @@
 Data management (`relentless.data`)
 ===================================
 
+.. currentmodule:: relentless.data
+
 .. autosummary::
     :toctree: generated/
 

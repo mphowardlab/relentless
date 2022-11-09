@@ -3,6 +3,8 @@
 Collections (`relentless.collections`)
 ======================================
 
+.. currentmodule:: relentless.collections
+
 .. autosummary::
     :toctree: generated/
 

@@ -3,6 +3,8 @@
 Math functions (`relentless.math`)
 ==================================
 
+.. currentmodule:: relentless.math
+
 .. autosummary::
     :toctree: generated/
 
