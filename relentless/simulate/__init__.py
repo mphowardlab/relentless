@@ -15,13 +15,12 @@ It also helps document workflows that can be shared and reproduced by others.
 .. rubric:: Example
 .. code::
 
-    # generic simulation operations
+    init = relentless.simulate.InitializeRandomly(seed=1)
     avg = relentless.simulate.EnsembleAverage(
             check_thermo_every=5,
             check_rdf_every=5,
             rdf_dr=0.1)
-    ops = [relentless.simulate.InitializeRandomly(seed=1),
-           relentless.simulate.RunLangevinDynamics(
+    ops = [relentless.simulate.RunLangevinDynamics(
                 steps=1e3,
                 timestep=0.001,
                 friction=0.8,
@@ -35,7 +34,7 @@ It also helps document workflows that can be shared and reproduced by others.
             ]
 
     # perform simulation using LAMMPS and save ensemble
-    lmp = relentless.simulate.LAMMPS(ops)
+    lmp = relentless.simulate.LAMMPS(init, ops)
     sim = lmp.run(potentials)
     sim[avg].ensemble.save('ensemble.json')
 

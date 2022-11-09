@@ -4,24 +4,6 @@ Extents
 An :class:`Extent` represents a region of space with a fixed, scalar volume or area. It corresponds
 to the "box" used in simulations. 
 
-The following three-dimensional box types have been implemented:
-
-.. autosummary::
-    :nosignatures:
-
-    TriclinicBox
-    Cuboid
-    Cube
-
-The following two-dimensional box types have been implemented:
-
-.. autosummary::
-    :nosignatures:
-
-    ObliqueArea
-    Rectangle
-    Square
-
 Examples
 --------
 Construct a simulation box with defined basis vectors and volume::
@@ -36,40 +18,8 @@ Construct a simulation box with defined basis vectors and volume::
     >>> print(v.extent)
     27.0
 
-.. rubric:: Developer notes
-
-To implement your own simulation box, create a class that derives from :class:`Volume`
-and define the required methods.
-
-.. autosummary::
-    :nosignatures:
-
-    Extent
-    Volume
-    Area
-
-.. autoclass:: Extent
-    :members:
-.. autoclass:: Volume
-    :members:
-.. autoclass:: Area
-    :members:
-.. autoclass:: TriclinicBox
-    :members:
-.. autoclass:: Cuboid
-    :members:
-.. autoclass:: Cube
-    :members:
-.. autoclass:: ObliqueArea
-    :members:
-.. autoclass:: Rectangle
-    :members:
-.. autoclass:: Square
-    :members:
-
 """
 import abc
-from enum import Enum
 
 import numpy
 
@@ -138,9 +88,6 @@ class TriclinicBox(Volume):
     the **a** vector is always aligned along the :math:`x` axis, while
     the other two vectors may be tilted.
 
-    The tilt factors can be defined using one of two :class:`TriclinicBox.Convention`\s.
-    By default, the LAMMPS convention is applied to calculate the basis vectors.
-
     The box is centered at the origin :math:`(0,0,0)`.
 
     Parameters
@@ -157,62 +104,44 @@ class TriclinicBox(Volume):
         Second tilt factor.
     yz : float
         Third tilt factor.
-    convention : :class:`TriclinicBox.Convention`
+    convention : {'LAMMPS', 'HOOMD'}
         Convention for defining the tilt factors.
 
-    Raises
-    ------
-    ValueError
-        If ``Lx``, ``Ly``, and ``Lz`` are not all positive.
-    ValueError
-        If the convention is not ``TriclinicBox.Convention.LAMMPS`` or
-        ``TriclinicBox.Convention.HOOMD``.
+    Notes
+    -----
+    .. rubric:: Convention
+
+    The tilt factors can be defined using one of two conventions. In the
+    `LAMMPS <https://lammps.sandia.gov/doc/Howto_triclinic.html>`_
+    convention, the basis vectors are:
+
+    .. math::
+
+        \mathbf{a} = (L_x,0,0)
+        \quad \mathbf{b} = (xy,L_y,0)
+        \quad \mathbf{c} = (xz,yz,L_z)
+
+    In the `HOOMD <https://hoomd-blue.readthedocs.io/en/stable/box.html>`_
+    simulation convention, the basis vectors are:
+
+    .. math::
+
+        \mathbf{a} = (L_x,0,0)
+        \quad \mathbf{b} = (xy \cdot L_y,L_y,0)
+        \quad \mathbf{c} = (xz \cdot L_z,yz \cdot L_z,L_z)
 
     """
 
-    class Convention(Enum):
-        r"""Convention by which the tilt factors are applied to the basis vectors.
-
-        In the `LAMMPS <https://lammps.sandia.gov/doc/Howto_triclinic.html>`_
-        simulation convention, specified using ``TriclinicBox.Convention.LAMMPS``,
-        the basis vectors are
-
-        .. math::
-
-            \mathbf{a} = (L_x,0,0)
-            \quad \mathbf{b} = (xy,L_y,0)
-            \quad \mathbf{c} = (xz,yz,L_z)
-
-        In the `HOOMD-blue <https://hoomd-blue.readthedocs.io/en/stable/box.html>`_
-        simulation convention, specified using ``TriclinicBox.Convention.HOOMD``,
-        the basis vectors are
-
-        .. math::
-
-            \mathbf{a} = (L_x,0,0)
-            \quad \mathbf{b} = (xy \cdot L_y,L_y,0)
-            \quad \mathbf{c} = (xz \cdot L_z,yz \cdot L_z,L_z)
-
-        Attributes
-        ----------
-        LAMMPS : int
-            LAMMPS convention for applying the tilt factors.
-        HOOMD : int
-            HOOMD convention for applying the tilt factors.
-
-        """
-        LAMMPS = 1
-        HOOMD = 2
-
-    def __init__(self, Lx, Ly, Lz, xy, xz, yz, convention=Convention.LAMMPS):
+    def __init__(self, Lx, Ly, Lz, xy, xz, yz, convention='LAMMPS'):
         if Lx <= 0 or Ly <= 0 or Lz <= 0:
             raise ValueError('All side lengths must be positive.')
 
-        if convention is TriclinicBox.Convention.LAMMPS:
+        convention = convention.upper()
+        if convention == 'LAMMPS':
             a = (Lx,0,0)
             b = (xy,Ly,0)
             c = (xz,yz,Lz)
-        elif convention is TriclinicBox.Convention.HOOMD:
+        elif convention == 'HOOMD':
             a = (Lx,0,0)
             b = (xy*Ly,Ly,0)
             c = (xz*Lz,yz*Lz,Lz)
@@ -252,19 +181,7 @@ class TriclinicBox(Volume):
             If the convention specified is not ``'LAMMPS'`` or ``'HOOMD'``.
 
         """
-        data_ = dict(data)
-        if data['convention']=='LAMMPS':
-            data_['convention'] = TriclinicBox.Convention.LAMMPS
-        elif data['convention']=='HOOMD':
-            data_['convention'] = TriclinicBox.Convention.HOOMD
-        else:
-            return ValueError('Only LAMMPS and HOOMD conventions are supported.')
-        return TriclinicBox(**data_)
-
-    @property
-    def convention(self):
-        r""":class:`TriclinicBox.Convention`: Convention for tilt factors."""
-        return self._convention
+        return TriclinicBox(**data)
 
     @property
     def extent(self):
@@ -283,7 +200,7 @@ class TriclinicBox(Volume):
 
         Parameters
         ----------
-        convention : :class:`TriclinicBox.Convention`
+        convention : {'LAMMPS','HOOMD'}, optional
             Convention to use for the tilt factors. Default of ``None``
             will use the convention for the box.
 
@@ -296,15 +213,16 @@ class TriclinicBox(Volume):
         """
         if convention is None:
             convention = self._convention
+        convention = convention.upper()
 
         Lx = self.a[0]
         Ly = self.b[1]
         Lz = self.c[2]
-        if convention is TriclinicBox.Convention.LAMMPS:
+        if convention =='LAMMPS':
             xy = self.b[0]
             xz = self.c[0]
             yz = self.c[1]
-        elif convention is TriclinicBox.Convention.HOOMD:
+        elif convention == 'HOOMD':
             xy = self.b[0]/self.b[1]
             xz = self.c[0]/self.c[2]
             yz = self.c[1]/self.c[2]
@@ -337,7 +255,7 @@ class TriclinicBox(Volume):
             Fractional coordinates **x** corresponding to **r**.
 
         """
-        Lx,Ly,Lz,xy,xz,yz = self.as_array(TriclinicBox.Convention.LAMMPS)
+        Lx,Ly,Lz,xy,xz,yz = self.as_array('LAMMPS')
 
         # get difference from lower bound
         dx = -self.low + r
@@ -374,7 +292,7 @@ class TriclinicBox(Volume):
             Cartesian coordinates **r** corresponding to **x**.
 
         """
-        Lx,Ly,Lz,xy,xz,yz = self.as_array(TriclinicBox.Convention.LAMMPS)
+        Lx,Ly,Lz,xy,xz,yz = self.as_array('LAMMPS')
 
         # make real coordinate
         r = numpy.array(x)
@@ -411,7 +329,7 @@ class TriclinicBox(Volume):
                 'xy': xy,
                 'xz': xz,
                 'yz': yz,
-                'convention': self._convention.name
+                'convention': self._convention
                }
 
     def wrap(self, positions):
@@ -563,9 +481,6 @@ class ObliqueArea(Area):
     the **a** vector is always aligned along the :math:`x` axis, while
     the other vector may be tilted.
 
-    The tilt factors can be defined using one of two :class:`ObliqueArea.Convention`\s.
-    By default, the LAMMPS convention is applied to calculate the basis vectors.
-
     Parameters
     ----------
     Lx : float
@@ -574,63 +489,45 @@ class ObliqueArea(Area):
         Length along the :math:`y` axis.
     xy : float
         Tilt factor.
-    convention : :class:`ObliqueArea.Convention`
+    convention : {'LAMMPS','HOOMD'}
         Convention for the tilt factor.
 
-    Raises
-    ------
-    ValueError
-        If ``Lx`` and ``Ly`` are not both positive.
-    ValueError
-        If the convention is not ``ObliqueArea.Convention.LAMMPS`` or
-        ``ObliqueArea.Convention.HOOMD``.
+    Notes
+    -----
+    .. rubric:: Convention
+
+    The tilt factors can be defined using one of two conventions. In the
+    `LAMMPS <https://lammps.sandia.gov/doc/Howto_triclinic.html>`_
+    convention, the basis vectors are:
+
+    .. math::
+
+        \mathbf{a} = (L_x,0,0)
+        \quad \mathbf{b} = (xy,L_y,0)
+
+    In the `HOOMD <https://hoomd-blue.readthedocs.io/en/stable/box.html>`_
+    simulation convention, the basis vectors are:
+
+    .. math::
+
+        \mathbf{a} = (L_x,0,0)
+        \quad \mathbf{b} = (xy \cdot L_y,L_y,0)
 
     """
 
-    class Convention(Enum):
-        r"""Convention by which the tilt factors are applied to the basis vectors.
-
-        In the `LAMMPS <https://lammps.sandia.gov/doc/Howto_triclinic.html>`_
-        simulation convention, specified using ``TriclinicBox.Convention.LAMMPS``,
-        the basis vectors are
-
-        .. math::
-
-            \mathbf{a} = (L_x,0,0)
-            \quad \mathbf{b} = (xy,L_y,0)
-
-        In the `HOOMD-blue <https://hoomd-blue.readthedocs.io/en/stable/box.html>`_
-        simulation convention, specified using ``TriclinicBox.Convention.HOOMD``,
-        the basis vectors are
-
-        .. math::
-
-            \mathbf{a} = (L_x,0,0)
-            \quad \mathbf{b} = (xy \cdot L_y,L_y,0)
-
-        Attributes
-        ----------
-        LAMMPS : int
-            LAMMPS convention for applying the tilt factors.
-        HOOMD : int
-            HOOMD convention for applying the tilt factors.
-
-        """
-        LAMMPS = 1
-        HOOMD = 2
-
-    def __init__(self, Lx, Ly, xy, convention=Convention.LAMMPS):
+    def __init__(self, Lx, Ly, xy, convention='LAMMPS'):
         if Lx <= 0 or Ly <= 0:
             raise ValueError('All side lengths must be positive.')
-        if convention is ObliqueArea.Convention.LAMMPS:
+
+        convention = convention.upper()
+        if convention == 'LAMMPS':
             a = (Lx,0)
             b = (xy,Ly)
-        elif convention is ObliqueArea.Convention.HOOMD:
+        elif convention == 'HOOMD':
             a = (Lx,0)
             b = (xy*Ly,Ly)
         else:
-            raise ValueError('Triclinic convention must be ObliqueArea.Convention.LAMMPS or ObliqueArea.Convention.HOOMD')
-        self._convention = convention
+            raise ValueError('Triclinic convention must be LAMMPS or HOOMD')
 
         self.a = numpy.asarray(a, dtype=numpy.float64)
         self.b = numpy.asarray(b, dtype=numpy.float64)
@@ -658,25 +555,8 @@ class ObliqueArea(Area):
         :class:`ObliqueArea`
             A new ObliqueArea object constructed from the data.
 
-        Raises
-        ------
-        ValueError
-            If the convention specified is not ``'LAMMPS'`` or ``'HOOMD'``.
-
         """
-        data_ = dict(data)
-        if data['convention']=='LAMMPS':
-            data_['convention'] = ObliqueArea.Convention.LAMMPS
-        elif data['convention']=='HOOMD':
-            data_['convention'] = ObliqueArea.Convention.HOOMD
-        else:
-            return ValueError('Only LAMMPS and HOOMD conventions are supported.')
-        return ObliqueArea(**data_)
-
-    @property
-    def convention(self):
-        r""":class:`ObliqueArea.Convention`: Convention for tilt factors."""
-        return self._convention
+        return ObliqueArea(**data)
 
     @property
     def extent(self):
@@ -695,8 +575,8 @@ class ObliqueArea(Area):
 
         Parameters
         ----------
-        convention : :class:`ObliqueArea.Convention`
-            Convention to use for the tilt factor. Default of ``None``
+        convention : {'LAMMPS','HOOMD'}, optional
+            Convention to use for the tilt factors. Default of ``None``
             will use the convention for the box.
 
         Returns
@@ -708,12 +588,13 @@ class ObliqueArea(Area):
         """
         if convention is None:
             convention = self._convention
+        convention = convention.upper()
 
         Lx = self.a[0]
         Ly = self.b[1]
-        if convention is ObliqueArea.Convention.LAMMPS:
+        if convention == 'LAMMPS':
             xy = self.b[0]
-        elif convention is ObliqueArea.Convention.HOOMD:
+        elif convention == 'HOOMD':
             xy = self.b[0]/self.b[1]
         else:
             raise TypeError('Convention must be HOOMD or LAMMPS')
@@ -743,7 +624,7 @@ class ObliqueArea(Area):
             Fractional coordinates **x** corresponding to **r**.
 
         """
-        Lx,Ly,xy = self.as_array(ObliqueArea.Convention.LAMMPS)
+        Lx,Ly,xy = self.as_array('LAMMPS')
 
         # get difference from lower bound
         dx = -self.low + r
@@ -779,7 +660,7 @@ class ObliqueArea(Area):
             Cartesian coordinates **r** corresponding to **x**.
 
         """
-        Lx,Ly,xy = self.as_array(ObliqueArea.Convention.LAMMPS)
+        Lx,Ly,xy = self.as_array('LAMMPS')
 
         # make real coordinate
         r = numpy.array(x)
@@ -812,7 +693,7 @@ class ObliqueArea(Area):
         return {'Lx': Lx,
                 'Ly': Ly,
                 'xy': xy,
-                'convention': self._convention.name
+                'convention': self._convention
                }
 
     def wrap(self, positions):

@@ -1,8 +1,13 @@
 """
-Math functions
-==============
+==================================
+Math functions (`relentless.math`)
+==================================
 
-This module implements some convenience objects for mathematical operations.
+.. autosummary::
+    :toctree: generated/
+
+    Interpolator
+    KeyedArray
 
 """
 import numpy
@@ -14,7 +19,7 @@ class Interpolator:
     r"""Interpolating function.
 
     Interpolates through a function :math:`y(x)` on the domain
-    :math:`a \le x \le b` using Akima splines. Outside this domain, `y` is
+    :math:`a \le x \le b` using Akima splines. Outside this domain, ``y`` is
     extrapolated as a constant, i.e., :math:`y(x < a) = y(a)` and
     :math:`y(x > b) = y(b)`\.
 

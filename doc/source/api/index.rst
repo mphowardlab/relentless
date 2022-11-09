@@ -4,19 +4,20 @@ API reference
 
 Overview of the API docs.
 
-API definition
---------------
-
-* `relentless.model`
-
-  - `relentless.model.potential`
-
 .. toctree::
     :maxdepth: 1
-    :hidden:
+    :caption: Basic
 
     model
     model.potential
     simulate
     optimize
+
+.. toctree::
+    :maxdepth: 1
+    :caption: Advanced
+
+    collections
+    data
+    math
     mpi

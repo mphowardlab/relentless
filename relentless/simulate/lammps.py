@@ -244,10 +244,10 @@ class InitializeRandomly(_Initialize):
         if mpi.world.rank_is_root:
             # make box
             if sim.dimension == 3:
-                Lx,Ly,Lz,xy,xz,yz = self.V.as_array(extent.TriclinicBox.Convention.LAMMPS)
+                Lx,Ly,Lz,xy,xz,yz = self.V.as_array('LAMMPS')
                 lo = self.V.low
             elif sim.dimension == 2:
-                Lx,Ly,xy = self.V.as_array(extent.ObliqueArea.Convention.LAMMPS)
+                Lx,Ly,xy = self.V.as_array('LAMMPS')
                 Lz = 1.0
                 xz = 0.0
                 yz = 0.0
@@ -672,7 +672,7 @@ class EnsembleAverage(simulate.AnalysisOperation, LAMMPSOperation):
         N = {i: Ni for i,Ni in zip(sim.types, thermo[8:8+len(sim.types)])}
         V = extent.TriclinicBox(Lx=thermo[2],Ly=thermo[3],Lz=thermo[4],
                         xy=thermo[5],xz=thermo[6],yz=thermo[7],
-                        convention=extent.TriclinicBox.Convention.LAMMPS)
+                        convention='LAMMPS')
         ens = ensemble.Ensemble(N=N,
                                 T=thermo[0],
                                 P=thermo[1],

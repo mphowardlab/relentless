@@ -13,8 +13,8 @@ Objectives
 
     RelativeEntropy
 
-Optimization methods
-====================
+Algorithms
+==========
 
 .. autosummary::
     :toctree: generated/

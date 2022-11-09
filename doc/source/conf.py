@@ -10,7 +10,6 @@ import os
 import sys
 sys.path.insert(0, os.path.abspath('../..'))
 
-
 # -- Project information -----------------------------------------------------
 
 project = 'relentless'
@@ -18,7 +17,6 @@ copyright = '2021, Auburn University'
 author = 'Michael P. Howard'
 version = '0.1.0'
 release = '0.1.0'
-
 
 # -- General configuration ---------------------------------------------------
 
@@ -31,7 +29,6 @@ extensions = [
     'sphinx_design'
 ]
 
-
 templates_path = ['_templates']
 
 exclude_patterns = []
@@ -41,9 +38,7 @@ default_role = "any"
 # -- Options for HTML output -------------------------------------------------
 
 html_theme = 'pydata_sphinx_theme'
-html_theme_options = {
-    'navigation_depth': 2
-}
+html_theme_options = {}
 html_static_path = ['_static']
 html_css_files = ['theme_overrides.css']
 

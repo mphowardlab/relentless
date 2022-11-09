@@ -15,7 +15,7 @@ Overview
             :color: secondary
             :click-parent:
             
-            User guide
+            Go to user guide
 
     .. grid-item-card::
 
@@ -26,7 +26,7 @@ Overview
             :color: secondary
             :click-parent:
             
-            API reference
+            Go to API reference
 
 .. toctree::
     :maxdepth: 1
