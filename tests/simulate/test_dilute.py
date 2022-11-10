@@ -25,8 +25,9 @@ class test_Dilute(unittest.TestCase):
                 N={'A':2,'B':3},
                 V=relentless.extent.Cube(L=2.0),
                 T=1.0)
-        analyzer = relentless.simulate.AddEnsembleAnalyzer(
+        analyzer = relentless.simulate.EnsembleAverage(
             check_thermo_every=1, check_rdf_every=1, rdf_dr=0.1)
+        md = relentless.simulate.RunMolecularDynamics(steps=100, timestep=1e-3, analyzers=analyzer)
 
         # set up potentials
         pot = LinPot(('A','B'),params=('m',))
@@ -37,9 +38,9 @@ class test_Dilute(unittest.TestCase):
         pots.pair.rmax = 3.0
         pots.pair.num = 4
 
-        d = relentless.simulate.Dilute(init, operations=[analyzer])
+        d = relentless.simulate.Dilute(init, operations=md)
         sim = d.run(potentials=pots, directory=self.directory)
-        ens_ = analyzer.extract_ensemble(sim)
+        ens_ = sim[analyzer].ensemble
         self.assertAlmostEqual(ens_.P, -207.5228556)
 
     def test_inf_potential(self):
@@ -49,8 +50,9 @@ class test_Dilute(unittest.TestCase):
                 N={'A':2,'B':3},
                 V=relentless.extent.Cube(L=2.0),
                 T=1.0)
-        analyzer = relentless.simulate.AddEnsembleAnalyzer(
+        analyzer = relentless.simulate.EnsembleAverage(
             check_thermo_every=1, check_rdf_every=1, rdf_dr=0.1)
+        md = relentless.simulate.RunMolecularDynamics(steps=100, timestep=1e-3, analyzers=analyzer)
 
         # test with potential that has infinite potential at low r
         pot = relentless.potential.LennardJones(types=('A','B'))
@@ -61,14 +63,14 @@ class test_Dilute(unittest.TestCase):
         pots.pair.rmax = 3.0
         pots.pair.num = 100
 
-        d = relentless.simulate.Dilute(init, operations=[analyzer])
+        d = relentless.simulate.Dilute(init, operations=md)
         warned = False
         try:
             sim = d.run(potentials=pots, directory=self.directory)
         except RuntimeWarning:
             warned = True
         self.assertFalse(warned)   # no warning should be raised
-        ens_ = analyzer.extract_ensemble(sim)
+        ens_ = sim[analyzer].ensemble
         self.assertAlmostEqual(ens_.P, -1.1987890)
 
     def tearDown(self):

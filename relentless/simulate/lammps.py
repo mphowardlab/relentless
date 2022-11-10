@@ -14,8 +14,6 @@ To implement your own LAMMPS operation, create an operation that derives from
 .. autoclass:: LAMMPSOperation
     :members:
     :special-members: __call__
-.. autoclass:: Initialize
-    :members:
 
 """
 import abc
@@ -28,7 +26,10 @@ from relentless import data
 from relentless import ensemble
 from relentless import mpi
 from relentless import extent
+
 from . import simulate
+from . import initialize
+from . import md
 
 try:
     import lammps
@@ -135,14 +136,13 @@ class LAMMPSOperation(simulate.SimulationOperation):
         pass
 
 ## initializers
-class Initialize(LAMMPSOperation):
+class _Initialize(LAMMPSOperation):
     """Initialize a simulation.
 
     Parameters
     ----------
     lammps_types : dict
-        Mapping of type names (`str`) to LAMMPS type integers. None
-        means mapping is not specified.
+        Mapping of type names (`str`) to LAMMPS type integers.
 
     """
     def __init__(self, lammps_types):
@@ -159,12 +159,11 @@ class Initialize(LAMMPSOperation):
                 'boundary p p p',
                 'dimension {dim}'.format(dim=sim.dimension),
                 'atom_style {style}'.format(style=self.atom_style)]
-        cmds += self.initialize(sim)
 
         return cmds
 
 
-class InitializeFromFile(Initialize):
+class InitializeFromFile(_Initialize):
     """Initialize a simulation from a LAMMPS data file.
 
     Because LAMMPS data files only contain the LAMMPS integer types for particles,
@@ -183,12 +182,15 @@ class InitializeFromFile(Initialize):
         super().__init__(None)
         self.filename = filename
 
-    def initialize(self, sim):
+    def to_commands(self, sim):
         if self.lammps_types is None:
             raise ValueError('lammps_types needs to be manually specified with a file')
-        return ['read_data {filename}'.format(filename=self.filename)]
 
-class InitializeRandomly(Initialize):
+        cmds = super().to_commands(sim)
+        cmds += ['read_data {filename}'.format(filename=self.filename)]
+        return cmds
+
+class InitializeRandomly(_Initialize):
     """Initialize a randomly generated simulation box.
 
     If ``diameters`` is ``None``, the particles are randomly placed in the box.
@@ -232,7 +234,7 @@ class InitializeRandomly(Initialize):
         self.masses = masses
         self.diameters = diameters
 
-    def initialize(self, sim):
+    def to_commands(self, sim):
         if not isinstance(self.V, (extent.TriclinicBox,extent.ObliqueArea)):
             raise TypeError('LAMMPS boxes must be derived from TriclinicBox or ObliqueArea')
         elif ((sim.dimension == 3 and not isinstance(self.V, extent.TriclinicBox)) or
@@ -262,9 +264,9 @@ class InitializeRandomly(Initialize):
 
             # generate the positions and types
             if self.diameters is not None:
-                positions, all_types = simulate.InitializeRandomly._pack_particles(self.seed, self.N, self.V, self.diameters)
+                positions, all_types = initialize.InitializeRandomly._pack_particles(self.seed, self.N, self.V, self.diameters)
             else:
-                positions, all_types = simulate.InitializeRandomly._random_particles(self.seed, self.N, self.V)
+                positions, all_types = initialize.InitializeRandomly._random_particles(self.seed, self.N, self.V)
 
             # set the positions
             snap.position[:,:sim.dimension] = positions
@@ -301,13 +303,12 @@ class InitializeRandomly(Initialize):
             init_file = None
         init_file = mpi.world.bcast(init_file)
 
-        cmds = ['read_data {}'.format(init_file)]
-
+        cmds = super().to_commands(sim)
+        cmds += ['read_data {}'.format(init_file)]
         return cmds
 
-## integrators
 class MinimizeEnergy(LAMMPSOperation):
-    """Run energy minimization until convergence.
+    """Perform energy minimization on a configuration.
 
     Valid **options** include:
 
@@ -348,56 +349,87 @@ class MinimizeEnergy(LAMMPSOperation):
 
         return cmds
 
-class AddMDIntegrator(LAMMPSOperation):
-    """Add an integrator (for equations of motion) to the simulation.
+class _MDIntegrator(LAMMPSOperation):
+    """Base LAMMPS molecular dynamics integrator.
 
     Parameters
     ----------
-    dt : float
-        Time step.
+    steps : int
+        Number of simulation time steps.
+    timestep : float
+        Simulation time step.
+    analyzers : :class:`~relentless.simulate.AnalysisOperation` or list
+        Analysis operations to perform with run (defaults to ``None``).
 
     """
-    def __init__(self, dt):
-        self.dt = dt
+    def __init__(self, steps, timestep, analyzers):
+        self.steps = steps
+        self.timestep = timestep
+        self.analyzers = analyzers
 
-    def to_commands(self, sim):
-        return ['timestep {}'.format(self.dt)]
+    def __call__(self, sim):
+        for analyzer in self.analyzers:
+            analyzer(sim)
 
-class AddLangevinIntegrator(AddMDIntegrator):
-    """Langevin dynamics for a NVE ensemble.
+        super().__call__(sim)
+
+        for analyzer in self.analyzers:
+            analyzer.finalize(sim)
+
+    @property
+    def analyzers(self):
+        return self._analyzers
+
+    @analyzers.setter
+    def analyzers(self, ops):
+        if ops is not None:
+            try:
+                ops_ = list(ops)
+            except TypeError:
+                ops_ = [ops]
+        else:
+            ops_ = []
+
+        self._analyzers = ops_
+
+    def _run_commands(self, sim):
+        cmds = ['run {N}'.format(N=self.steps)]
+
+        # wrap with fixes
+        if sim.dimension == 2:
+            fix_2d = self.new_fix_id()
+            cmds = ['fix {} all enforce2d'.format(fix_2d)] + cmds + ['unfix {}'.format(fix_2d)]
+
+        return cmds
+
+class RunLangevinDynamics(_MDIntegrator):
+    """Perform a Langevin dynamics simulation.
+
+    See :class:`relentless.simulate.RunLangevinDynamics` for details.
 
     Parameters
     ----------
-    dt : float
-        Time step size for each simulation iteration.
+    steps : int
+        Number of simulation time steps.
+    timestep : float
+        Simulation time step.
     T : float
         Temperature.
     friction : float or dict
-        Drag coefficient for each particle type (shared or per-type).
+        Sets drag coefficient for each particle type (shared or per-type).
     seed : int
         Seed used to randomly generate a uniform force.
-
-    Raises
-    ------
-    ValueError
-        If particle masses are not set for all types.
-    ValueError
-        If the friction factor is not set as a single value or per-type
-        for all types.
+    analyzers : :class:`~relentless.simulate.AnalysisOperation` or list
+        Analysis operations to perform with run (defaults to ``None``).
 
     """
-    def __init__(self, dt, T, friction, seed):
-        super().__init__(dt)
+    def __init__(self, steps, timestep, T, friction, seed, analyzers):
+        super().__init__(steps, timestep, analyzers)
         self.T = T
         self.friction = friction
         self.seed = seed
 
-        self._fix_langevin = self.new_fix_id()
-        self._fix_nve = self.new_fix_id()
-
     def to_commands(self, sim):
-        cmds = super().to_commands(sim)
-
         # obtain per-type mass (arrays 1-indexed using lammps convention)
         Ntypes = len(sim.types)
         mass = sim.lammps.numpy.extract_atom('mass')
@@ -424,44 +456,26 @@ class AddLangevinIntegrator(AddMDIntegrator):
         else:
             scale_str = ''
 
-        cmds += ['fix {idx} {group_idx} nve'.format(idx=self._fix_nve,
-                                                   group_idx='all'),
-                'fix {idx} {group_idx} langevin {t_start} {t_stop} {damp} {seed} {scaling}'.format(idx=self._fix_langevin,
-                                                                                                  group_idx='all',
-                                                                                                  t_start=self.T,
-                                                                                                  t_stop=self.T,
-                                                                                                  damp=damp_ref,
-                                                                                                  seed=self.seed,
-                                                                                                  scaling=scale_str)
-               ]
-
+        fix_ids = {'nve': self.new_fix_id(), 'langevin': self.new_fix_id()}
+        cmds = [
+                'timestep {}'.format(self.timestep),
+                'fix {idx} {group_idx} nve'.format(
+                        idx=fix_ids['nve'],
+                        group_idx='all'),
+                'fix {idx} {group_idx} langevin {t_start} {t_stop} {damp} {seed} {scaling}'.format(
+                        idx=fix_ids['langevin'],
+                        group_idx='all',
+                        t_start=self.T,
+                        t_stop=self.T,
+                        damp=damp_ref,
+                        seed=self.seed,
+                        scaling=scale_str)]
+        cmds += self._run_commands(sim)
+        cmds += ['unfix {}'.format(idx) for idx in fix_ids.values()]
         return cmds
 
-class RemoveLangevinIntegrator(LAMMPSOperation):
-    """Removes the Langevin integrator operation.
-
-    Parameters
-    ----------
-    add_op : :class:`AddLangevinIntegrator`
-        The integrator addition operation to be removed.
-
-    Raises
-    ------
-    TypeError
-        If the specified addition operation is not a Langevin integrator.
-
-    """
-    def __init__(self, add_op):
-        self.add_op = add_op
-
-    def to_commands(self, sim):
-        cmds = ['unfix {idx}'.format(idx=self.add_op._fix_langevin),
-                'unfix {idx}'.format(idx=self.add_op._fix_nve)]
-
-        return cmds
-
-class AddVerletIntegrator(AddMDIntegrator):
-    """Family of Verlet integration modes.
+class RunMolecularDynamics(_MDIntegrator):
+    """Perform a molecular dynamics simulation.
 
     This method supports:
 
@@ -472,12 +486,16 @@ class AddVerletIntegrator(AddMDIntegrator):
 
     Parameters
     ----------
-    dt : float
-        Time step size for each simulation iteration.
-    thermostat : :class:`~relentless.simulate.simulate.Thermostat`
-        Thermostat used for integration. None means no thermostat.
-    barostat : :class:`~relentless.simulate.simulate.Barostat`
-        Barostat used for integration. None means no barostat.
+    steps : int
+        Number of simulation time steps.
+    timestep : float
+        Simulation time step.
+    thermostat : :class:`~relentless.simulate.Thermostat`
+        Thermostat for temperature control. None means no thermostat.
+    barostat : :class:`~relentless.simulate.Barostat`
+        Barostat for pressure control. None means no barostat.
+    analyzers : :class:`~relentless.simulate.AnalysisOperation` or list
+        Analysis operations to perform with run (defaults to ``None``).
 
     Raises
     ------
@@ -485,47 +503,34 @@ class AddVerletIntegrator(AddMDIntegrator):
         If an appropriate combination of thermostat and barostat is not set.
 
     """
-    def __init__(self, dt, thermostat, barostat):
-        super().__init__(dt)
+    def __init__(self, steps, timestep, thermostat, barostat, analyzers):
+        super().__init__(steps, timestep, analyzers)
         self.thermostat = thermostat
         self.barostat = barostat
 
-        self._fix = self.new_fix_id()
-        self._extra_fixes = []
-
     def to_commands(self, sim):
-        cmds = super().to_commands(sim)
-        fix_berendsen_temp = False
-        fix_berendsen_pres = False
+        fix_ids = {'ig': self.new_fix_id()}
 
-        if ((self.thermostat is None or isinstance(self.thermostat, simulate.BerendsenThermostat)) and
-            (self.barostat is None or isinstance(self.barostat, simulate.BerendsenBarostat))):
-            cmds += ['fix {idx} {group_idx} nve'.format(idx=self._fix,
-                                                       group_idx='all')]
-            if isinstance(self.thermostat, simulate.BerendsenThermostat):
-                fix_berendsen_temp = True
-            if isinstance(self.barostat, simulate.BerendsenBarostat):
-                fix_berendsen_pres = True
-        elif (isinstance(self.thermostat, simulate.NoseHooverThermostat) and
-             (self.barostat is None or isinstance(self.barostat, simulate.BerendsenBarostat))):
-            cmds += ['fix {idx} {group_idx} nvt temp {Tstart} {Tstop} {Tdamp}'.format(idx=self._fix,
+        cmds = ['timestep {}'.format(self.timestep)]
+        if ((self.thermostat is None or isinstance(self.thermostat, md.BerendsenThermostat)) and
+            (self.barostat is None or isinstance(self.barostat, md.BerendsenBarostat))):
+            cmds += ['fix {idx} {group_idx} nve'.format(idx=fix_ids['ig'], group_idx='all')]
+        elif (isinstance(self.thermostat, md.NoseHooverThermostat) and
+             (self.barostat is None or isinstance(self.barostat, md.BerendsenBarostat))):
+            cmds += ['fix {idx} {group_idx} nvt temp {Tstart} {Tstop} {Tdamp}'.format(idx=fix_ids['ig'],
                                                                                      group_idx='all',
                                                                                      Tstart=self.thermostat.T,
                                                                                      Tstop=self.thermostat.T,
                                                                                      Tdamp=self.thermostat.tau)]
-            if isinstance(self.barostat, simulate.BerendsenBarostat):
-                fix_berendsen_pres = True
-        elif ((self.thermostat is None or isinstance(self.thermostat, simulate.BerendsenThermostat)) and
-              isinstance(self.barostat, simulate.MTKBarostat)):
-            cmds += ['fix {idx} {group_idx} nph iso {Pstart} {Pstop} {Pdamp}'.format(idx=self._fix,
+        elif ((self.thermostat is None or isinstance(self.thermostat, md.BerendsenThermostat)) and
+              isinstance(self.barostat, md.MTKBarostat)):
+            cmds += ['fix {idx} {group_idx} nph iso {Pstart} {Pstop} {Pdamp}'.format(idx=fix_ids['ig'],
                                                                                     group_idx='all',
                                                                                     Pstart=self.barostat.P,
                                                                                     Pstop=self.barostat.P,
                                                                                     Pdamp=self.barostat.tau)]
-            if isinstance(self.thermostat, simulate.BerendsenThermostat):
-                fix_berendsen_temp = True
-        elif isinstance(self.thermostat, simulate.NoseHooverThermostat) and isinstance(self.barostat, simulate.MTKBarostat):
-            cmds += ['fix {idx} {group_idx} npt temp {Tstart} {Tstop} {Tdamp} iso {Pstart} {Pstop} {Pdamp}'.format(idx=self._fix,
+        elif isinstance(self.thermostat, md.NoseHooverThermostat) and isinstance(self.barostat, md.MTKBarostat):
+            cmds += ['fix {idx} {group_idx} npt temp {Tstart} {Tstop} {Tdamp} iso {Pstart} {Pstop} {Pdamp}'.format(idx=fix_ids['ig'],
                                                                                                                   group_idx='all',
                                                                                                                   Tstart=self.thermostat.T,
                                                                                                                   Tstop=self.thermostat.T,
@@ -536,91 +541,26 @@ class AddVerletIntegrator(AddMDIntegrator):
         else:
             raise TypeError('An appropriate combination of thermostat and barostat must be set.')
 
-        if fix_berendsen_temp:
-            _fix_berendsen_t = self.new_fix_id()
-            self._extra_fixes.append(_fix_berendsen_t)
-            cmds += ['fix {idx} {group_idx} temp/berendsen {Tstart} {Tstop} {Tdamp}'.format(idx=_fix_berendsen_t,
+        if isinstance(self.thermostat, md.BerendsenThermostat):
+            fix_ids['berendsen_temp'] = self.new_fix_id()
+            cmds += ['fix {idx} {group_idx} temp/berendsen {Tstart} {Tstop} {Tdamp}'.format(idx=fix_ids['berendsen_temp'],
                                                                                             group_idx='all',
                                                                                             Tstart=self.thermostat.T,
                                                                                             Tstop=self.thermostat.T,
                                                                                             Tdamp=self.thermostat.tau)]
-        if fix_berendsen_pres:
-            _fix_berendsen_p = self.new_fix_id()
-            self._extra_fixes.append(_fix_berendsen_p)
-            cmds += ['fix {idx} {group_idx} press/berendsen iso {Pstart} {Pstop} {Pdamp}'.format(idx=_fix_berendsen_p,
+        if isinstance(self.barostat, md.BerendsenBarostat):
+            fix_ids['berendsen_press'] = self.new_fix_id()
+            cmds += ['fix {idx} {group_idx} press/berendsen iso {Pstart} {Pstop} {Pdamp}'.format(idx=fix_ids['berendsen_press'],
                                                                                                  group_idx='all',
                                                                                                  Pstart=self.barostat.P,
                                                                                                  Pstop=self.barostat.P,
                                                                                                  Pdamp=self.barostat.tau)]
 
+        cmds += self._run_commands(sim)
+        cmds += ['unfix {}'.format(idx) for idx in fix_ids.values()]
         return cmds
 
-class RemoveVerletIntegrator(LAMMPSOperation):
-    """Removes the Verlet integrator operation.
-
-    Parameters
-    ----------
-    add_op : :class:`AddVerletIntegrator`
-        The integrator addition operation to be removed.
-
-    Raises
-    ------
-    TypeError
-        If the specified addition operation is not a Verlet integrator.
-
-    """
-    def __init__(self, add_op):
-        self.add_op = add_op
-
-    def to_commands(self, sim):
-        cmds = ['unfix {idx}'.format(idx=self.add_op._fix)]
-        for _extra_fix in self.add_op._extra_fixes:
-            cmds += ['unfix {idx}'.format(idx=_extra_fix)]
-
-        return cmds
-
-class Run(LAMMPSOperation):
-    """Advances the simulation by a given number of time steps.
-
-    Parameters
-    ----------
-    steps : int
-        Number of steps to run.
-
-    """
-    def __init__(self, steps):
-        self.steps = steps
-
-    def to_commands(self, sim):
-        cmds = ['run {N}'.format(N=self.steps)]
-        if sim.dimension == 2:
-            fix_2d = self.new_fix_id()
-            cmds = ['fix {} all enforce2d'.format(fix_2d)] + cmds + ['unfix {}'.format(fix_2d)]
-
-        return cmds
-
-class RunUpTo(LAMMPSOperation):
-    """Advances the simulation up to a given time step number.
-
-    Parameters
-    ----------
-    step : int
-        Step number up to which to run.
-
-    """
-    def __init__(self, step):
-        self.step = step
-
-    def to_commands(self, sim):
-        cmds = ['run {N} upto'.format(N=self.step)]
-        if sim.dimension == 2:
-            fix_2d = self.new_fix_id()
-            cmds = ['fix {} all enforce2d'.format(fix_2d)] + cmds + ['unfix {}'.format(fix_2d)]
-
-        return cmds
-
-## analyzers
-class AddEnsembleAnalyzer(LAMMPSOperation):
+class EnsembleAverage(simulate.AnalysisOperation, LAMMPSOperation):
     """Analyzes the simulation ensemble and rdf at specified timestep intervals.
 
     Parameters
@@ -725,43 +665,27 @@ class AddEnsembleAnalyzer(LAMMPSOperation):
 
         return cmds
 
-    def extract_ensemble(self, sim):
-        """Creates an ensemble with the averaged thermodynamic properties and rdf.
+    def finalize(self, sim):
+        # extract thermo properties
+        # we skip the first 2 rows, which are LAMMPS junk, and slice out the timestep from col. 0
+        thermo = mpi.world.loadtxt(sim[self].thermo_file,skiprows=2)[1:]
+        N = {i: Ni for i,Ni in zip(sim.types, thermo[8:8+len(sim.types)])}
+        V = extent.TriclinicBox(Lx=thermo[2],Ly=thermo[3],Lz=thermo[4],
+                        xy=thermo[5],xz=thermo[6],yz=thermo[7],
+                        convention=extent.TriclinicBox.Convention.LAMMPS)
+        ens = ensemble.Ensemble(N=N,
+                                T=thermo[0],
+                                P=thermo[1],
+                                V=V)
 
-        Parameters
-        ----------
-        sim : :class:`~relentless.simulate.simulate.Simulation`
-            The simulation object.
+        # extract rdfs
+        # LAMMPS injects a column for the row index, so we start at column 1 for r
+        # we skip the first 4 rows, which are LAMMPS junk, and slice out the first column
+        rdf = mpi.world.loadtxt(sim[self].rdf_file,skiprows=4)[:,1:]
+        for i,pair in enumerate(sim[self].rdf_pairs):
+            ens.rdf[pair] = ensemble.RDF(rdf[:,0],rdf[:,i+1])
 
-        Returns
-        -------
-        :class:`~relentless.ensemble.Ensemble`
-            Ensemble with averaged thermodynamic properties and rdf.
-
-        """
-        if not hasattr(sim[self], 'ensemble'):
-            # extract thermo properties
-            # we skip the first 2 rows, which are LAMMPS junk, and slice out the timestep from col. 0
-            thermo = mpi.world.loadtxt(sim[self].thermo_file,skiprows=2)[1:]
-            N = {i: Ni for i,Ni in zip(sim.types, thermo[8:8+len(sim.types)])}
-            V = extent.TriclinicBox(Lx=thermo[2],Ly=thermo[3],Lz=thermo[4],
-                            xy=thermo[5],xz=thermo[6],yz=thermo[7],
-                            convention=extent.TriclinicBox.Convention.LAMMPS)
-            ens = ensemble.Ensemble(N=N,
-                                    T=thermo[0],
-                                    P=thermo[1],
-                                    V=V)
-
-            # extract rdfs
-            # LAMMPS injects a column for the row index, so we start at column 1 for r
-            # we skip the first 4 rows, which are LAMMPS junk, and slice out the first column
-            rdf = mpi.world.loadtxt(sim[self].rdf_file,skiprows=4)[:,1:]
-            for i,pair in enumerate(sim[self].rdf_pairs):
-                ens.rdf[pair] = ensemble.RDF(rdf[:,0],rdf[:,i+1])
-
-            sim[self].ensemble = ens
-
-        return sim[self].ensemble
+        sim[self].ensemble = ens
 
 class LAMMPS(simulate.Simulation):
     """Simulation using LAMMPS.
@@ -807,19 +731,6 @@ class LAMMPS(simulate.Simulation):
         super().__init__(initializer, operations)
         self.dimension = dimension
         self.quiet = quiet
-
-    def run(self, potentials, directory):
-        sim = super().run(potentials,directory)
-
-        # hack: extract the ensemble right away after the run, in case directory
-        # does not persist. this should probably be generalized into a post-op
-        # function that all operations can call, but the analyzer is the only
-        # case where it is needed for now. Will generalize later.
-        for op in self.operations:
-            if hasattr(op, 'extract_ensemble'):
-                op.extract_ensemble(sim)
-
-        return sim
 
     def _new_instance(self, initializer, potentials, directory):
         sim = super()._new_instance(initializer, potentials, directory)
@@ -939,22 +850,14 @@ class LAMMPS(simulate.Simulation):
 
         sim.lammps.commands_list(cmds)
 
-    # initialization
+    # initialize
     InitializeFromFile = InitializeFromFile
     InitializeRandomly = InitializeRandomly
 
-    # energy minimization
+    # md
     MinimizeEnergy = MinimizeEnergy
+    RunLangevinDynamics = RunLangevinDynamics
+    RunMolecularDynamics = RunMolecularDynamics
 
-    # md integrators
-    AddLangevinIntegrator = AddLangevinIntegrator
-    RemoveLangevinIntegrator = RemoveLangevinIntegrator
-    AddVerletIntegrator = AddVerletIntegrator
-    RemoveVerletIntegrator = RemoveVerletIntegrator
-
-    # run commands
-    Run = Run
-    RunUpTo = RunUpTo
-
-    # analysis
-    AddEnsembleAnalyzer = AddEnsembleAnalyzer
+    # analyze
+    EnsembleAverage = EnsembleAverage

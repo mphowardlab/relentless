@@ -337,7 +337,7 @@ class RelativeEntropy(ObjectiveFunction):
         # run simulation and use result to compute gradient
         try:
             sim = self.simulation.run(self.potentials, directory)
-            sim_ens = self.thermo.extract_ensemble(sim)
+            sim_ens = sim[self.thermo].ensemble
         finally:
             if tmp is not None:
                 tmp.cleanup()

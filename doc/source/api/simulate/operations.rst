@@ -12,15 +12,10 @@ operations will be translated by the engine. Each :class:`Simulation` *may*
     InitializeFromFile
     InitializeRandomly
     MinimizeEnergy
-    AddBrownianIntegrator
-    RemoveBrownianIntegrator
-    AddLangevinIntegrator
-    RemoveLangevinIntegrator
-    AddVerletIntegrator
-    RemoveVerletIntegrator
-    Run
-    RunUpTo
-    AddEnsembleAnalyzer
+    RunBrownianDynamics
+    RunLangevinDynamics
+    RunMolecularDynamics
+    EnsembleAverage
 
 .. autoclass:: InitializeFromFile
     :members:
@@ -28,23 +23,13 @@ operations will be translated by the engine. Each :class:`Simulation` *may*
     :members:
 .. autoclass:: MinimizeEnergy
     :members:
-.. autoclass:: AddBrownianIntegrator
+.. autoclass:: RunBrownianDynamics
     :members:
-.. autoclass:: RemoveBrownianIntegrator
+.. autoclass:: RunLangevinDynamics
     :members:
-.. autoclass:: AddLangevinIntegrator
+.. autoclass:: RunMolecularDynamics
     :members:
-.. autoclass:: RemoveLangevinIntegrator
-    :members:
-.. autoclass:: AddVerletIntegrator
-    :members:
-.. autoclass:: RemoveVerletIntegrator
-    :members:
-.. autoclass:: Run
-    :members:
-.. autoclass:: RunUpTo
-    :members:
-.. autoclass:: AddEnsembleAnalyzer
+.. autoclass:: EnsembleAverage
     :members:
 .. autoclass:: Thermostat
     :members:

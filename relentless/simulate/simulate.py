@@ -6,14 +6,10 @@ See :mod:`relentless.simulate` for module level documentation.
 
 """
 import abc
-import itertools
 
 import numpy
-import scipy.spatial
 
 from relentless import data
-from relentless import extent
-from relentless import variable
 
 class SimulationOperation(abc.ABC):
     """Operation to be performed by a :class:`Simulation`."""
@@ -24,10 +20,98 @@ class SimulationOperation(abc.ABC):
     def __call__(self, sim):
         pass
 
+class GenericOperation(SimulationOperation):
+    """Generic simulation operation adapter.
+
+    Translates a generic simulation operation into an implemented operation
+    for a valid :class:`Simulation` backend. The backend must be an attribute
+    of the :class:`GenericOperation`.
+
+    Parameters
+    ----------
+    args : args
+        Positional arguments for simulation operation.
+    kwargs : kwargs
+        Keyword arguments for simulation operation.
+
+    """
+    def __init__(self, *args, **kwargs):
+        self._op = None
+        self._backend = None
+        self._args = args
+        self._kwargs = kwargs
+        self._forward_attr = set()
+
+    def __call__(self, sim):
+        """Evaluates the generic simulation operation.
+
+        Parameters
+        ----------
+        sim : :class:`Simulation`
+            Simulation object.
+
+        Returns
+        -------
+        :class:`object`
+            The result of the generic simulation operation function.
+
+        Raises
+        ------
+        TypeError
+            If the specified simulation backend is not registered (using :meth:`add_backend()`).
+        TypeError
+            If the specified operation is not found in the simulation backend.
+
+        """
+        self._ensure_op(sim)
+        return self._op(sim)
+
+    def _ensure_op(self, sim):
+        if self._op is None or self._backend != sim.backend:
+            backend = sim.backend
+            if not issubclass(backend, Simulation):
+                raise TypeError('Backend must be a Simulation.')
+
+            op_name = type(self).__name__
+            BackendOp = getattr(backend, op_name, None)
+            if BackendOp is NotImplementedOperation or BackendOp is None:
+                raise NotImplementedError('{}.{} operation not implemented.'.format(backend.__name__,op_name))
+
+            self._op = BackendOp(*self._args,**self._kwargs)
+            for attr in self._forward_attr:
+                value = getattr(self, attr)
+                setattr(self._op, attr, value)
+            self._backend = backend
+
+    def __getattr__(self, name):
+        if self._op is not None:
+            if not hasattr(self._op, name):
+                raise AttributeError('Operation does not have attribute')
+            return getattr(self._op, name)
+        else:
+            raise AttributeError('Backend operation not initialized yet')
+
+    def __setattr__(self, name, value):
+        super().__setattr__(name, value)
+        if name not in ('_op','_backend','_args','_kwargs','_forward_attr'):
+            self._forward_attr.add(name)
+            if self._op is not None:
+                setattr(self._op, name, value)
+
 class NotImplementedOperation(SimulationOperation):
     """Operation not implemented by a :class:`Simulation`."""
     def __call__(self, sim):
         raise NotImplementedError('Operation not implemented')
+
+class AnalysisOperation(SimulationOperation):
+    @abc.abstractmethod
+    def finalize(self, sim):
+        pass
+
+class GenericAnalysisOperation(AnalysisOperation, GenericOperation):
+    def finalize(self, sim):
+        self._ensure_op(sim)
+        self._op.finalize(sim)
 
 class Simulation:
     """Simulation engine.
@@ -87,6 +171,8 @@ class Simulation:
         sim = self._new_instance(self.initializer, potentials, directory)
         # then run the remaining operations
         for op in self.operations:
+            if isinstance(op, AnalysisOperation):
+                raise TypeError('Analysis operations should be attached to another operation')
             op(sim)
         return sim
 
@@ -130,19 +216,12 @@ class Simulation:
     MinimizeEnergy = NotImplementedOperation
 
     # md integrators
-    AddBrownianIntegrator = NotImplementedOperation
-    RemoveBrownianIntegrator = NotImplementedOperation
-    AddLangevinIntegrator = NotImplementedOperation
-    RemoveLangevinIntegrator = NotImplementedOperation
-    AddVerletIntegrator = NotImplementedOperation
-    RemoveVerletIntegrator = NotImplementedOperation
-
-    # run commands
-    Run = NotImplementedOperation
-    RunUpTo = NotImplementedOperation
+    RunBrownianDynamics = NotImplementedOperation
+    RunLangevinDynamics = NotImplementedOperation
+    RunMolecularDynamics = NotImplementedOperation
 
     # analysis
-    AddEnsembleAnalyzer = NotImplementedOperation
+    EnsembleAverage = NotImplementedOperation
 
 class SimulationInstance:
     """Specific instance of a simulation and its data.
@@ -545,500 +624,3 @@ class PairPotentialTabulator(PotentialTabulator):
         d = super().derivative(pair, var)
         d -= d[-1]
         return d
-
-class Thermostat:
-    """Generic thermostat.
-
-    Controls the temperature of particles in the simulation by attempting to
-    equilibrate the system to the specified temperature.
-
-    Parameters
-    ----------
-    T : float
-        Thermostat target temperature.
-
-    """
-    def __init__(self, T):
-        self.T = T
-
-class BerendsenThermostat(Thermostat):
-    """Berendsen thermostat.
-
-    Parameters
-    ----------
-    T : float
-        Thermostat target temperature.
-    tau : float
-        Thermostat coupling constant.
-
-    """
-    def __init__(self, T, tau):
-        super().__init__(T)
-        self.tau = tau
-
-class NoseHooverThermostat(Thermostat):
-    """Nosé-Hoover thermostat.
-
-    Parameters
-    ----------
-    T : float
-        Thermostat target temperature.
-    tau : float
-        Thermostat coupling constant.
-
-    """
-    def __init__(self, T, tau):
-        super().__init__(T)
-        self.tau = tau
-
-class Barostat:
-    """Generic barostat.
-
-    Controls the pressure of particles in the simulation by attempting to
-    equilibrate the system to the specified pressure.
-
-    Parameters
-    ----------
-    P : float
-        Barostat target pressure.
-
-    """
-    def __init__(self, P):
-        self.P = P
-
-class BerendsenBarostat(Barostat):
-    """Berendsen barostat.
-
-    Parameters
-    ----------
-    P : float
-        Barostat target pressure.
-    tau : float
-        Barostat coupling constant.
-
-    """
-    def __init__(self, P, tau):
-        super().__init__(P)
-        self.tau = tau
-
-class MTKBarostat(Barostat):
-    """MTK barostat.
-
-    Parameters
-    ----------
-    P : float
-        Barostat target pressure.
-    tau : float
-        Barostat coupling constant.
-
-    """
-    def __init__(self, P, tau):
-        super().__init__(P)
-        self.tau = tau
-
-class GenericOperation(SimulationOperation):
-    """Generic simulation operation adapter.
-
-    Translates a generic simulation operation into an implemented operation
-    for a valid :class:`Simulation` backend. The backend must be an attribute
-    of the :class:`GenericOperation`.
-
-    Parameters
-    ----------
-    args : args
-        Positional arguments for simulation operation.
-    kwargs : kwargs
-        Keyword arguments for simulation operation.
-
-    """
-    def __init__(self, *args, **kwargs):
-        self._op = None
-        self._backend = None
-        self._args = args
-        self._kwargs = kwargs
-        self._forward_attr = set()
-
-    def __call__(self, sim):
-        """Evaluates the generic simulation operation.
-
-        Parameters
-        ----------
-        sim : :class:`Simulation`
-            Simulation object.
-
-        Returns
-        -------
-        :class:`object`
-            The result of the generic simulation operation function.
-
-        Raises
-        ------
-        TypeError
-            If the specified simulation backend is not registered (using :meth:`add_backend()`).
-        TypeError
-            If the specified operation is not found in the simulation backend.
-
-        """
-        if self._op is None or self._backend != sim.backend:
-            backend = sim.backend
-            if not issubclass(backend, Simulation):
-                raise TypeError('Backend must be a Simulation.')
-
-            op_name = type(self).__name__
-            BackendOp = getattr(backend, op_name, None)
-            if BackendOp is NotImplementedOperation or BackendOp is None:
-                raise NotImplementedError('{}.{} operation not implemented.'.format(backend.__name__,op_name))
-
-            self._op = BackendOp(*self._args,**self._kwargs)
-            for attr in self._forward_attr:
-                value = getattr(self, attr)
-                setattr(self._op, attr, value)
-            self._backend = backend
-
-        return self._op(sim)
-
-    def __getattr__(self, name):
-        if self._op is not None:
-            if not hasattr(self._op, name):
-                raise AttributeError('Operation does not have attribute')
-            return getattr(self._op, name)
-        else:
-            raise AttributeError('Backend operation not initialized yet')
-
-    def __setattr__(self, name, value):
-        super().__setattr__(name, value)
-        if name not in ('_op','_backend','_args','_kwargs','_forward_attr'):
-            self._forward_attr.add(name)
-            if self._op is not None:
-                setattr(self._op, name, value)
-
-## initializers
-class InitializeFromFile(GenericOperation):
-    """Initialize a simulation from a file.
-
-    Parameters
-    ----------
-    filename : str
-        The file from which to read the system data.
-
-    """
-    def __init__(self, filename):
-        super().__init__(filename)
-
-class InitializeRandomly(GenericOperation):
-    """Initialize a randomly generated simulation box.
-
-    If ``diameters`` is ``None``, the particles are randomly placed in the box.
-    This can work pretty well for low densities, particularly if
-    :class:`MinimizeEnergy` is used to remove overlaps before starting to run a
-    simulation. However, it will typically fail for higher densities, where
-    there are many overlaps that are hard to resolve.
-
-    If ``diameters`` is specified for each particle type, the particles will
-    be randomly packed into sites of a close-packed lattice. The insertion
-    order is from big to small. No particles are allowed to overlap based on
-    the diameters, which typically means the initially state will be more
-    favorable than using random initialization. However, the packing procedure
-    can fail if there is not enough room in the box to fit particles using
-    lattice sites.
-
-    Parameters
-    ----------
-    seed : int
-        The seed to randomly initialize the particle locations.
-    N : dict
-        Number of particles of each type.
-    V : :class:`~relentless.extent.Extent`
-        Simulation extent.
-    T : float
-        Temperature. Defaults to None, which means system is not thermalized.
-    masses : dict
-        Masses of each particle type. Defaults to None, which means particles
-        have unit mass.
-    diameters : dict
-        Diameter of each particle type. Defaults to None, which means particles
-        are randomly inserted without checking their sizes. The value of a
-        diameter can be a :class:`~relentless.variable.Variable`, which will be
-        evaluated at the time the operation is called.
-
-    """
-    def __init__(self, seed, N, V, T=None, masses=None, diameters=None):
-        super().__init__(seed, N, V, T, masses, diameters)
-
-    @classmethod
-    def _make_orthorhombic(cls, V):
-        # get the orthorhombic bounding box
-        if isinstance(V, extent.TriclinicBox):
-            Lx,Ly,Lz,xy,xz,yz = V.as_array(extent.TriclinicBox.Convention.HOOMD)
-            aabb = numpy.array([Lx/numpy.sqrt(1.+xy**2+(xy*yz-xz)**2), Ly/numpy.sqrt(1.+yz**2), Lz])
-        elif isinstance(V, extent.ObliqueArea):
-            Lx,Ly,xy = V.as_array(extent.ObliqueArea.Convention.HOOMD)
-            aabb = numpy.array([Lx/numpy.sqrt(1.+xy**2), Ly])
-        else:
-            raise TypeError('Random initialization currently only supported in triclinic/oblique extents')
-        return aabb
-
-    @classmethod
-    def _random_particles(cls, seed, N, V):
-        rng = numpy.random.default_rng(seed)
-        aabb = cls._make_orthorhombic(V)
-
-        positions = aabb*rng.uniform(size=(sum(N.values()), len(aabb)))
-        positions = V.wrap(positions)
-
-        types = []
-        for i,Ni in N.items():
-            types.extend([i]*Ni)
-
-        return positions, types
-
-    @classmethod
-    def _pack_particles(cls, seed, N, V, diameters):
-        rng = numpy.random.default_rng(seed)
-        aabb = cls._make_orthorhombic(V)
-        dimension = len(aabb)
-        positions = numpy.zeros((sum(N.values()), dimension), dtype=numpy.float64)
-        types = []
-        trees = {}
-        Nadded = 0
-        # insert the particles, big to small
-        sorted_N = sorted(N.items(), key=lambda x : x[1], reverse=True)
-        for i,Ni in sorted_N:
-            # generate site coordinates, on orthorhombic lattices
-            di = diameters[i]
-            if isinstance(di, variable.Variable):
-                di = di.value
-            if dimension == 3:
-                # fcc lattice
-                a = numpy.sqrt(2.)*di
-                lattice = numpy.array([a,a,a])
-                cell_coord = numpy.array([[0.,0.,0.],[0.5,0.5,0.],[0.5,0.,0.5],[0.,0.5,0.5]])
-            elif dimension == 2:
-                a = di
-                b = numpy.sqrt(3.)*di
-                lattice = numpy.array([a,b])
-                cell_coord = numpy.array([[0.,0.],[0.5,0.5]])
-            else:
-                raise ValueError('Only 3d and 2d packings are supported')
-            # this part generates a cartesian mesh of unit cells that fit within a box, such that no particle
-            # can cross the outside of the aabb. then, it loops through all the cells and puts the particles in
-            # place. everything is based on fractional coordinates, so it gets scaled by the lattice.
-            num_lattice = numpy.floor((aabb-di)/lattice).astype(int)
-            sites = numpy.zeros((numpy.prod(num_lattice)*cell_coord.shape[0], dimension), dtype=numpy.float64)
-            first = 0
-            for cell_origin in itertools.product(*[numpy.arange(n) for n in num_lattice]):
-                sites[first:first+cell_coord.shape[0]] = lattice*(cell_origin + cell_coord)
-                first += cell_coord.shape[0]
-            sites += 0.5*di
-
-            # eliminate overlaps using kd-tree collision detection
-            if len(trees) > 0:
-                mask = numpy.ones(sites.shape[0], dtype=bool)
-                for j,treej in trees.items():
-                    dj = diameters[j]
-                    num_overlap = treej.query_ball_point(sites, 0.5*(di+dj), return_length=True)
-                    mask[num_overlap > 0] = False
-                sites = sites[mask]
-
-            # randomly draw positions from available sites
-            if Ni > sites.shape[0]:
-                raise RuntimeError('Failed to randomly pack this box')
-            ri = sites[rng.choice(sites.shape[0], Ni, replace=False)]
-            # also make tree from positions if we have more than 1 type, using pbcs
-            if len(N) > 1:
-                trees[i] = scipy.spatial.KDTree(ri)
-            positions[Nadded:Nadded+Ni] = ri
-            types += [i]*Ni
-            Nadded += Ni
-
-        # wrap the particles back into the real box
-        positions = V.wrap(positions)
-
-        return positions,types
-
-## integrators
-class MinimizeEnergy(GenericOperation):
-    """Run an energy minimization until converged.
-
-    Parameters
-    ----------
-    energy_tolerance : float
-        Energy convergence criterion.
-    force_tolerance : float
-        Force convergence criterion.
-    max_iterations : int
-        Maximum number of iterations to run the minimization.
-    options : dict
-        Additional options for energy minimizer (defaults to ``None``).
-
-    """
-    def __init__(self, energy_tolerance, force_tolerance, max_iterations, options=None):
-        super().__init__(energy_tolerance, force_tolerance, max_iterations, options)
-
-class AddBrownianIntegrator(GenericOperation):
-    """Add a Brownian dynamics integration scheme.
-
-    Parameters
-    ----------
-    dt : float
-        Time step size for each simulation iteration
-    T : float
-        Temperature.
-    friction : float
-        Sets drag coefficient for each particle type.
-    seed : int
-        Seed used to randomly generate a uniform force.
-
-    """
-    def __init__(self, dt, T, friction, seed):
-        super().__init__(dt, T, friction, seed)
-
-class RemoveBrownianIntegrator(GenericOperation):
-    """Remove a Brownian dynamics integrator.
-
-    Parameters
-    ----------
-    add_op : :class:`AddBrownianIntegrator`
-        The integrator addition operation to be removed.
-
-    """
-    def __init__(self, add_op):
-        super().__init__(add_op)
-
-class AddLangevinIntegrator(GenericOperation):
-    """Add a Langevin dynamics integration scheme.
-
-    Parameters
-    ----------
-    dt : float
-        Time step size for each simulation iteration
-    T : float
-        Temperature.
-    friction : float or dict
-        Sets drag coefficient for each particle type (shared or per-type).
-    seed : int
-        Seed used to randomly generate a uniform force.
-
-    """
-    def __init__(self, dt, T, friction, seed):
-        super().__init__(dt, T, friction, seed)
-
-class RemoveLangevinIntegrator(GenericOperation):
-    """Remove a Langevin dynamics integrator.
-
-    Parameters
-    ----------
-    add_op : :class:`AddLangevinIntegrator`
-        The integrator addition operation to be removed.
-
-    """
-    def __init__(self, add_op):
-        super().__init__(add_op)
-
-class AddVerletIntegrator(GenericOperation):
-    """Add a Verlet-style integrator.
-
-    The Verlet-style integrator is used to implement classical molecular
-    dynamics equations of motion. The integrator may optionally accept a
-    :class:`Thermostat` and a :class:`Barostat` for temperature and pressure
-    control, respectively. Depending on the :class:`Simulation` engine, not
-    all combinations of ``thermostat`` and ``barostat`` may be allowed. Refer
-    to the specific documentation for the engine you plan to use if you are
-    unsure or obtain an error for your chosen combination.
-
-    .. rubric:: Thermostats
-    .. autosummary::
-        :nosignatures:
-
-        BerendsenThermostat
-        NoseHooverThermostat
-
-    .. rubric:: Barostats
-    .. autosummary::
-        :nosignatures:
-
-        BerendsenBarostat
-        MTKBarostat
-
-    Parameters
-    ----------
-    dt : float
-        Time step size for each simulation iteration.
-    thermostat : :class:`~relentless.simulate.simulate.Thermostat`
-        Thermostat used for integration (defaults to ``None``).
-    barostat : :class:`~relentless.simulate.simulate.Barostat`
-        Barostat used for integration (defaults to ``None``).
-
-    """
-    def __init__(self, dt, thermostat=None, barostat=None):
-        super().__init__(dt, thermostat, barostat)
-
-class RemoveVerletIntegrator(GenericOperation):
-    """Remove a Verlet-style integrator.
-
-    Parameters
-    ----------
-    add_op : :class:`AddVerletIntegrator`
-        The integrator addition operation to be removed.
-
-    """
-    def __init__(self, add_op):
-        super().__init__(add_op)
-
-# run commands
-class Run(GenericOperation):
-    """Advance the simulation by a given number of time steps.
-
-    Parameters
-    ----------
-    steps : int
-        Number of steps to run.
-
-    """
-    def __init__(self, steps):
-        super().__init__(steps)
-
-class RunUpTo(GenericOperation):
-    """Advance the simulation up to a given time step.
-
-    Parameters
-    ----------
-    step : int
-        Step number up to which to run.
-
-    """
-    def __init__(self, step):
-        super().__init__(step)
-
-# analyzers
-class AddEnsembleAnalyzer(GenericOperation):
-    """Analyze the simulation ensemble.
-
-    Parameters
-    ----------
-    check_thermo_every : int
-        Interval of time steps at which to log thermodynamic properties of the simulation.
-    check_rdf_every : int
-        Interval of time steps at which to log the rdf of the simulation.
-    rdf_dr : float
-        The width (in units ``r``) of a bin in the histogram of the rdf.
-
-    """
-    def __init__(self, check_thermo_every, check_rdf_every, rdf_dr):
-        super().__init__(check_thermo_every, check_rdf_every, rdf_dr)
-
-    def extract_ensemble(self, sim):
-        """Create an ensemble with the averaged thermodynamic properties and rdf.
-
-        Parameters
-        ----------
-        sim : :class:`~relentless.simulate.simulate.Simulation`
-            The simulation object.
-
-        Returns
-        -------
-        :class:`~relentless.ensemble.Ensemble`
-            Ensemble with averaged thermodynamic properties and rdf.
-
-        """
-        return self._op.extract_ensemble(sim)

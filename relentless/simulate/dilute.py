@@ -14,6 +14,7 @@ import numpy
 from relentless import ensemble
 from relentless import extent
 from . import simulate
+from .hoomd import _MDIntegrator
 
 class NullOperation(simulate.SimulationOperation):
     """Dummy operation that eats all arguments and doesn't do anything."""
@@ -56,7 +57,54 @@ class InitializeRandomly(simulate.SimulationOperation):
     def __call__(self, sim):
         sim[self].ensemble = ensemble.Ensemble(T=self.T, N=self.N, V=self.V)
 
-class AddEnsembleAnalyzer(simulate.SimulationOperation):
+class RunBrownianDynamics(_MDIntegrator):
+    def __init__(self, steps, timestep, T, friction, seed, analyzers):
+        super().__init__(steps, timestep, analyzers)
+        self.T = T
+
+    def __call__(self, sim):
+        for analyzer in self.analyzers:
+            analyzer(sim)
+
+        sim[sim.initializer].ensemble = self.T
+
+        for analyzer in self.analyzers:
+            analyzer.finalize(sim)
+
+class RunLangevinDynamics(_MDIntegrator):
+    def __init__(self, steps, timestep, T, friction, seed, analyzers):
+        super().__init__(steps, timestep, analyzers)
+        self.T = T
+
+    def __call__(self, sim):
+        for analyzer in self.analyzers:
+            analyzer(sim)
+
+        sim[sim.initializer].ensemble = self.T
+
+        for analyzer in self.analyzers:
+            analyzer.finalize(sim)
+
+class RunMolecularDynamics(_MDIntegrator):
+    def __init__(self, steps, timestep, thermostat, barostat, analyzers):
+        super().__init__(steps, timestep, analyzers)
+        self.thermostat = thermostat
+        self.barostat = barostat
+
+    def __call__(self, sim):
+        if self.barostat is not None:
+            raise ValueError('Dilute does not support constant pressure')
+
+        for analyzer in self.analyzers:
+            analyzer(sim)
+
+        if self.thermostat is not None:
+            sim[sim.initializer].ensemble = self.thermostat.T
+
+        for analyzer in self.analyzers:
+            analyzer.finalize(sim)
+
+class EnsembleAverage(simulate.AnalysisOperation):
     r"""Analyzer for the simulation ensemble.
 
     The temperature, volume, and number of particles are copied from the current
@@ -86,6 +134,9 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
         pass
 
     def __call__(self, sim):
+        pass
+
+    def finalize(self, sim):
         ens = sim[sim.initializer].ensemble.copy()
         kT = sim.potentials.kB*ens.T
         # pair distribution function
@@ -123,27 +174,8 @@ class AddEnsembleAnalyzer(simulate.SimulationOperation):
                     raise ValueError('Geometric integration factor unknown for extent type')
                 y = (geo_prefactor/6.)*rho_a*rho_b*f*gr*r
                 ens.P += numpy.trapz(y,x=r)
-    
+
         sim[self].ensemble = ens
-
-    def extract_ensemble(self, sim):
-        """Extract the average ensemble from the simulation.
-
-        The "average" ensemble is the result of the most recent
-        :meth:`__call__`.
-
-        Parameters
-        ----------
-        sim : :class:`~relentless.simulate.simulate.SimulationInstance`
-            The simulation.
-
-        Returns
-        -------
-        :class:`~relentless.ensemble.Ensemble`
-            Average ensemble from the simulation data.
-
-        """
-        return sim[self].ensemble
 
 class Dilute(simulate.Simulation):
     r"""Simulation of a dilute system.
@@ -182,24 +214,15 @@ class Dilute(simulate.Simulation):
 
         return sim
 
-    # initialization
+    # initialize
     # InitializeFromFile = simulate.NotImplementedOperation
     InitializeRandomly = InitializeRandomly
 
-    # energy minimization
+    # md
     MinimizeEnergy = NullOperation
+    RunBrownianDynamics = RunBrownianDynamics
+    RunLangevinDynamics = RunLangevinDynamics
+    RunMolecularDynamics = RunMolecularDynamics
 
-    # md integrators
-    AddBrownianIntegrator = NullOperation
-    RemoveBrownianIntegrator = NullOperation
-    AddLangevinIntegrator = NullOperation
-    RemoveLangevinIntegrator = NullOperation
-    AddVerletIntegrator = NullOperation
-    RemoveVerletIntegrator = NullOperation
-
-    # run commands
-    Run = NullOperation
-    RunUpTo = NullOperation
-
-    # analysis
-    AddEnsembleAnalyzer = AddEnsembleAnalyzer
+    # analyze
+    EnsembleAverage = EnsembleAverage
