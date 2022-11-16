@@ -15,7 +15,7 @@ except ImportError:
 import numpy
 
 import relentless
-from ..potential.test_pair import LinPot
+from tests.model.potential.test_pair import LinPot
 
 _has_modules = (relentless.simulate.hoomd._hoomd_found and
                 relentless.simulate.hoomd._freud_found and

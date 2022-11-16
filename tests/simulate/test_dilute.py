@@ -4,7 +4,7 @@ import unittest
 
 import relentless
 
-from ..potential.test_pair import LinPot
+from tests.model.potential.test_pair import LinPot
 
 class test_Dilute(unittest.TestCase):
     """Unit tests for relentless.simulate.Dilute"""

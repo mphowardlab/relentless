@@ -14,7 +14,7 @@ import lammpsio
 import numpy
 
 import relentless
-from ..potential.test_pair import LinPot
+from tests.model.potential.test_pair import LinPot
 
 @unittest.skipIf(not relentless.simulate.lammps._lammps_found,
                 "Compatible LAMMPS not installed")
