@@ -1,3 +1,16 @@
+html[data-theme="light"] {
+    --pst-color-primary: rgb(3, 36, 77);
+    --pst-color-secondary: rgb(221, 85, 12);
+    --pst-color-inline-code: var(--pst-color-secondary);
+    --pst-color-target: rgb(245, 245, 245);
+}
+html[data-theme="dark"] {
+    --pst-color-primary: rgb(73, 110, 156);
+    --pst-color-secondary: rgb(246, 128, 38);
+    --pst-color-inline-code: var(--pst-color-secondary);
+    --pst-color-target: rgb(33, 33, 33);
+}
+
 /* from SciPy docs */
 /* Remove parenthesis around module using fictive font and add them back.
    This is needed for better wrapping in the sidebar. */
