@@ -17,18 +17,25 @@ Thermodynamics
 Extents
 =======
 
+Three-dimensional
+-----------------
+
 .. autosummary::
     :toctree: generated/
 
-    Area
-    Cube
+    TriclinicBox
     Cuboid
-    Extent
+    Cube
+
+Two-dimensional
+---------------
+
+.. autosummary::
+    :toctree: generated/
+
     ObliqueArea
     Rectangle
     Square
-    TriclinicBox
-    Volume
 
 Variables
 =========
@@ -36,20 +43,33 @@ Variables
 .. autosummary::
     :toctree: generated/
 
-    Variable
-    IndependentVariable
     DesignVariable
-    ConstantVariable
-    DependentVariable
     ArithmeticMean
     GeometricMean
 
 Developer classes
 =================
 
+Extents
+-------
+
 .. autosummary::
     :toctree: generated/
 
+    Extent
+    Area
+    Volume
+
+Variables
+---------
+
+.. autosummary::
+    :toctree: generated/
+
+    Variable
+    IndependentVariable
+    ConstantVariable
+    DependentVariable
     variable.VariableGraph
 
 """

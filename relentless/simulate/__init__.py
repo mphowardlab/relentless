@@ -99,9 +99,39 @@ Analyzers
     :toctree: generated/
 
     EnsembleAverage
+    
+Running a simulation
+====================
+
+Results
+-------
+
+.. autosummary::
+    :toctree: generated/
+
+    SimulationInstance
+
+Defining interactions
+---------------------
+
+.. autosummary::
+    :toctree: generated/
+
+    Potentials
+    PotentialTabulator
+    PairPotentialTabulator
 
 Developer classes
 =================
+
+.. autosummary::
+    :toctree: generated/
+
+    Simulation
+    SimulationOperation
+    AnalysisOperation
+    Barostat
+    Thermostat
 
 """
 from .simulate import (
