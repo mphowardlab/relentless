@@ -16,7 +16,7 @@ class QuadraticObjective(relentless.optimize.ObjectiveFunction):
 
     def compute(self, variables, directory=None):
         val = (self.x.value-1)**2
-        variables = relentless.variable.graph.check_variables_and_types(variables, relentless.variable.Variable)
+        variables = relentless.model.variable.graph.check_variables_and_types(variables, relentless.model.Variable)
         grad = {}
         for x in variables:
             if x is self.x:
@@ -46,7 +46,7 @@ class test_ObjectiveFunction(unittest.TestCase):
 
     def test_compute(self):
         """Test compute method"""
-        x = relentless.variable.DesignVariable(value=4.0)
+        x = relentless.model.DesignVariable(value=4.0)
         q = QuadraticObjective(x=x)
 
         res = q.compute(x)
@@ -59,10 +59,10 @@ class test_ObjectiveFunction(unittest.TestCase):
 
         # test "invalid" variable
         with self.assertRaises(KeyError):
-            m = res.gradient[relentless.variable.SameAs(x)]
+            m = res.gradient[relentless.model.variable.SameAs(x)]
 
     def test_directory(self):
-        x = relentless.variable.DesignVariable(value=1.0)
+        x = relentless.model.DesignVariable(value=1.0)
         q = QuadraticObjective(x=x)
         d = self.directory
         res = q.compute(x, d)
@@ -89,9 +89,9 @@ class test_RelativeEntropy(unittest.TestCase):
         directory = relentless.mpi.world.bcast(directory)
         self.directory = relentless.data.Directory(directory)
 
-        lj = relentless.potential.LennardJones(types=('1',))
-        self.epsilon = relentless.variable.DesignVariable(value=1.0)
-        self.sigma = relentless.variable.DesignVariable(value=0.9)
+        lj = relentless.model.potential.LennardJones(types=('1',))
+        self.epsilon = relentless.model.DesignVariable(value=1.0)
+        self.sigma = relentless.model.DesignVariable(value=0.9)
         lj.coeff['1','1'].update({'epsilon':self.epsilon, 'sigma':self.sigma, 'rmax':2.7})
         self.potentials = relentless.simulate.Potentials(pair_potentials=lj)
         self.potentials.pair.rmax = 3.6
@@ -99,11 +99,11 @@ class test_RelativeEntropy(unittest.TestCase):
         self.potentials.pair.fmax = 100.
         self.potentials.pair.neighbor_buffer = 0.4
 
-        v_obj = relentless.extent.Cube(L=10.)
-        self.target = relentless.ensemble.Ensemble(T=1.5, V=v_obj, N={'1':50})
+        v_obj = relentless.model.Cube(L=10.)
+        self.target = relentless.model.Ensemble(T=1.5, V=v_obj, N={'1':50})
         rs = numpy.arange(0.05,5.0,0.1)
         gs = numpy.exp(-lj.energy(('1','1'),rs))
-        self.target.rdf['1','1'] = relentless.ensemble.RDF(r=rs, g=gs)
+        self.target.rdf['1','1'] = relentless.model.RDF(r=rs, g=gs)
 
         init = relentless.simulate.InitializeRandomly(seed=42, N=self.target.N, V=self.target.V, T=self.target.T)
         self.thermo = relentless.simulate.EnsembleAverage(
@@ -153,7 +153,7 @@ class test_RelativeEntropy(unittest.TestCase):
 
         # test invalid target ensemble
         with self.assertRaises(ValueError):
-            relent.target = relentless.ensemble.Ensemble(T=1.5, P=1, N={'1':50})
+            relent.target = relentless.model.Ensemble(T=1.5, P=1, N={'1':50})
 
     def test_compute(self):
         """Test compute and compute_gradient methods"""

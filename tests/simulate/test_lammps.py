@@ -14,7 +14,7 @@ import lammpsio
 import numpy
 
 import relentless
-from ..potential.test_pair import LinPot
+from tests.model.potential.test_pair import LinPot
 
 @unittest.skipIf(not relentless.simulate.lammps._lammps_found,
                 "Compatible LAMMPS not installed")
@@ -35,9 +35,9 @@ class test_LAMMPS(unittest.TestCase):
     # mock (NVT) ensemble and potential for testing
     def ens_pot(self):
         if self.dim == 3:
-            ens = relentless.ensemble.Ensemble(T=2.0, V=relentless.extent.Cube(L=10.0), N={'1':2,'2':3})
+            ens = relentless.model.Ensemble(T=2.0, V=relentless.model.Cube(L=10.0), N={'1':2,'2':3})
         elif self.dim == 2:
-            ens = relentless.ensemble.Ensemble(T=2.0, V=relentless.extent.Square(L=10.0), N={'1':2,'2':3})
+            ens = relentless.model.Ensemble(T=2.0, V=relentless.model.Square(L=10.0), N={'1':2,'2':3})
         else:
             raise ValueError('LAMMPS supports 2d and 3d simulations')
         ens.P = 2.5

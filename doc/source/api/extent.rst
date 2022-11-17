@@ -1,1 +1,1 @@
-.. automodule:: relentless.extent
+.. automodule:: relentless.model.extent

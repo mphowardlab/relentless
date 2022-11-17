@@ -56,7 +56,7 @@ import numpy
 
 from relentless import collections
 from relentless import math
-from relentless import variable
+from relentless.model import variable
 from . import potential
 
 class PairParameters(potential.Parameters):

@@ -28,7 +28,7 @@ import json
 import numpy
 
 from relentless import collections
-from relentless import variable
+from relentless.model import variable
 
 class Parameters:
     """Parameters for types.

@@ -11,8 +11,8 @@ operations. It is best to interface with these operations using the frontend in
 """
 import numpy
 
-from relentless import ensemble
-from relentless import extent
+from relentless.model import ensemble
+from relentless.model import extent
 from . import simulate
 from .hoomd import _MDIntegrator
 

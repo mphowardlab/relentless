@@ -1,1 +1,1 @@
-.. automodule:: relentless.ensemble
+.. automodule:: relentless.model.ensemble

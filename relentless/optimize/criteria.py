@@ -76,7 +76,7 @@ import abc
 import numpy
 
 from relentless import collections
-from relentless import variable
+from relentless.model import variable
 
 class ConvergenceTest(abc.ABC):
     r"""Abstract base class for optimization convergence tests.

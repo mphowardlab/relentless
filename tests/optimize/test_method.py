@@ -21,7 +21,7 @@ class test_LineSearch(unittest.TestCase):
 
     def test_init(self):
         """Test creation with data."""
-        x = relentless.variable.DesignVariable(value=3.0)
+        x = relentless.model.DesignVariable(value=3.0)
         q = QuadraticObjective(x=x)
 
         l = relentless.optimize.LineSearch(tolerance=1e-8, max_iter=1000)
@@ -37,7 +37,7 @@ class test_LineSearch(unittest.TestCase):
     def test_find(self):
         """Test find method."""
         l = relentless.optimize.LineSearch(tolerance=1e-8, max_iter=1000)
-        x = relentless.variable.DesignVariable(value=-3.0)
+        x = relentless.model.DesignVariable(value=-3.0)
         q = QuadraticObjective(x=x)
         res_1 = q.compute(x)
 
@@ -110,7 +110,7 @@ class test_SteepestDescent(unittest.TestCase):
 
     def test_init(self):
         """Test creation with data."""
-        x = relentless.variable.DesignVariable(value=3.0)
+        x = relentless.model.DesignVariable(value=3.0)
         q = QuadraticObjective(x=x)
         t = relentless.optimize.GradientTest(tolerance=1e-8, variables=x)
 
@@ -164,7 +164,7 @@ class test_SteepestDescent(unittest.TestCase):
 
     def test_run(self):
         """Test run method."""
-        x = relentless.variable.DesignVariable(value=3.0)
+        x = relentless.model.DesignVariable(value=3.0)
         q = QuadraticObjective(x=x)
         t = relentless.optimize.GradientTest(tolerance=1e-8, variables=x)
         o = relentless.optimize.SteepestDescent(stop=t, max_iter=1000, step_size=0.25)
@@ -197,7 +197,7 @@ class test_SteepestDescent(unittest.TestCase):
         self.assertAlmostEqual(x.value, 1.0)
 
     def test_directory(self):
-        x = relentless.variable.DesignVariable(value=1.5)
+        x = relentless.model.DesignVariable(value=1.5)
         q = QuadraticObjective(x=x)
         t = relentless.optimize.GradientTest(tolerance=1e-8, variables=x)
         o = relentless.optimize.SteepestDescent(stop=t, max_iter=1, step_size=0.25)
@@ -223,7 +223,7 @@ class test_SteepestDescent(unittest.TestCase):
             self.assertAlmostEqual(float(f.readline()), 1.25)
 
     def test_directory_line_search(self):
-        x = relentless.variable.DesignVariable(value=0.5)
+        x = relentless.model.DesignVariable(value=0.5)
         q = QuadraticObjective(x=x)
         t = relentless.optimize.GradientTest(tolerance=1e-8, variables=x)
         o = relentless.optimize.SteepestDescent(stop=t, max_iter=1, step_size=2.)
@@ -268,7 +268,7 @@ class test_FixedStepDescent(unittest.TestCase):
 
     def test_run(self):
         """Test run method."""
-        x = relentless.variable.DesignVariable(value=3.0)
+        x = relentless.model.DesignVariable(value=3.0)
         q = QuadraticObjective(x=x)
         t = relentless.optimize.GradientTest(tolerance=1e-8, variables=x)
         o = relentless.optimize.FixedStepDescent(stop=t, max_iter=1000, step_size=0.25)

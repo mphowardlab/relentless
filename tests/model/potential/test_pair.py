@@ -17,34 +17,34 @@ class test_PairParameters(unittest.TestCase):
         params = ('energy', 'mass')
 
         # test construction with tuple input
-        m = relentless.potential.PairParameters(types=('A','B'), params=('energy','mass'))
+        m = relentless.model.potential.PairParameters(types=('A','B'), params=('energy','mass'))
         self.assertEqual(m.types, types)
         self.assertEqual(m.params, params)
         self.assertCountEqual(m.pairs, pairs)
 
         # test construction with list input
-        m = relentless.potential.PairParameters(types=['A','B'], params=('energy','mass'))
+        m = relentless.model.potential.PairParameters(types=['A','B'], params=('energy','mass'))
         self.assertEqual(m.types, types)
         self.assertEqual(m.params, params)
         self.assertCountEqual(m.pairs, pairs)
 
         # test construction with mixed tuple/list input
-        m = relentless.potential.PairParameters(types=('A','B'), params=['energy','mass'])
+        m = relentless.model.potential.PairParameters(types=('A','B'), params=['energy','mass'])
         self.assertEqual(m.types, types)
         self.assertEqual(m.params, params)
         self.assertCountEqual(m.pairs, pairs)
 
         # test construction with int type parameters
         with self.assertRaises(TypeError):
-            m = relentless.potential.PairParameters(types=('A','B'), params=(1,2))
+            m = relentless.model.potential.PairParameters(types=('A','B'), params=(1,2))
 
         # test construction with mixed type parameters
         with self.assertRaises(TypeError):
-            m = relentless.potential.PairParameters(types=('A','B'), params=('1',2))
+            m = relentless.model.potential.PairParameters(types=('A','B'), params=('1',2))
 
     def test_param_types(self):
         """Test various get and set methods on pair parameter types"""
-        m = relentless.potential.PairParameters(types=('A','B'), params=('energy', 'mass'))
+        m = relentless.model.potential.PairParameters(types=('A','B'), params=('energy', 'mass'))
 
         self.assertEqual(m.shared['energy'], None)
         self.assertEqual(m.shared['mass'], None)
@@ -110,8 +110,8 @@ class test_PairParameters(unittest.TestCase):
         self.assertEqual(m['B']['energy'], 0.2)
         self.assertEqual(m['B']['mass'], 0.1)
 
-class LinPot(relentless.potential.PairPotential):
-    """Linear potential function used to test relentless.potential.PairPotential"""
+class LinPot(relentless.model.potential.PairPotential):
+    """Linear potential function used to test relentless.model.potential.PairPotential"""
 
     def __init__(self, types, params):
         super().__init__(types, params)
@@ -138,8 +138,8 @@ class LinPot(relentless.potential.PairPotential):
             d = d.item()
         return d
 
-class TwoVarPot(relentless.potential.PairPotential):
-    """Mock potential function used to test relentless.potential.PairPotential.derivative"""
+class TwoVarPot(relentless.model.potential.PairPotential):
+    """Mock potential function used to test relentless.model.potential.PairPotential.derivative"""
 
     def __init__(self, types, params):
         super().__init__(types, params)
@@ -162,7 +162,7 @@ class TwoVarPot(relentless.potential.PairPotential):
         return d
 
 class test_PairPotential(unittest.TestCase):
-    """Unit tests for relentless.potential.PairPotential"""
+    """Unit tests for relentless.model.potential.PairPotential"""
 
     def test_init(self):
         """Test creation from data"""
@@ -170,7 +170,7 @@ class test_PairPotential(unittest.TestCase):
         p = LinPot(types=('1',), params=('m',))
         p.coeff['1','1']['m'] = 3.5
 
-        coeff = relentless.potential.PairParameters(types=('1',), params=('m','rmin','rmax','shift'))
+        coeff = relentless.model.potential.PairParameters(types=('1',), params=('m','rmin','rmax','shift'))
         coeff['1','1']['m'] = 3.5
         coeff['1','1']['rmin'] = False
         coeff['1','1']['rmax'] = False
@@ -185,7 +185,7 @@ class test_PairPotential(unittest.TestCase):
         p.coeff['1','1']['m'] = 3.5
         p.coeff['1','1']['rmin'] = 0.0
 
-        coeff = relentless.potential.PairParameters(types=('1',), params=('m','rmin','rmax','shift'))
+        coeff = relentless.model.potential.PairParameters(types=('1',), params=('m','rmin','rmax','shift'))
         coeff['1','1']['m'] = 3.5
         coeff['1','1']['rmin'] = 0.0
         coeff['1','1']['rmax'] = False
@@ -200,7 +200,7 @@ class test_PairPotential(unittest.TestCase):
         p.coeff['1','1']['m'] = 3.5
         p.coeff['1','1']['rmax'] = 1.0
 
-        coeff = relentless.potential.PairParameters(types=('1',), params=('m','rmin','rmax','shift'))
+        coeff = relentless.model.potential.PairParameters(types=('1',), params=('m','rmin','rmax','shift'))
         coeff['1','1']['m'] = 3.5
         coeff['1','1']['rmin'] = False
         coeff['1','1']['rmax'] = 1.0
@@ -215,7 +215,7 @@ class test_PairPotential(unittest.TestCase):
         p.coeff['1','1']['m'] = 3.5
         p.coeff['1','1']['shift'] = True
 
-        coeff = relentless.potential.PairParameters(types=('1',), params=('m','rmin','rmax','shift'))
+        coeff = relentless.model.potential.PairParameters(types=('1',), params=('m','rmin','rmax','shift'))
         coeff['1','1']['m'] = 3.5
         coeff['1','1']['rmin'] = False
         coeff['1','1']['rmax'] = False
@@ -232,7 +232,7 @@ class test_PairPotential(unittest.TestCase):
         p.coeff['1','1']['rmax'] = 1.0
         p.coeff['1','1']['shift'] = True
 
-        coeff = relentless.potential.PairParameters(types=('1',), params=('m','rmin','rmax','shift'))
+        coeff = relentless.model.potential.PairParameters(types=('1',), params=('m','rmin','rmax','shift'))
         coeff['1','1']['m'] = 3.5
         coeff['1','1']['rmin'] = 0.0
         coeff['1','1']['rmax'] = 1.0
@@ -328,7 +328,7 @@ class test_PairPotential(unittest.TestCase):
     def test_derivative_values(self):
         """Test derivative method with different param values"""
         p = LinPot(types=('1',), params=('m',))
-        x = relentless.variable.DesignVariable(value=2.0)
+        x = relentless.model.DesignVariable(value=2.0)
         p.coeff['1','1']['m'] = x
 
         # test with no cutoffs
@@ -338,7 +338,7 @@ class test_PairPotential(unittest.TestCase):
         numpy.testing.assert_allclose(d, [0.25,0.75])
 
         # test with rmin set
-        rmin = relentless.variable.DesignVariable(value=0.5)
+        rmin = relentless.model.DesignVariable(value=0.5)
         p.coeff['1','1']['rmin'] = rmin
         d = p.derivative(pair=('1','1'), var=x, r=0.6)
         self.assertAlmostEqual(d, 0.6)
@@ -346,7 +346,7 @@ class test_PairPotential(unittest.TestCase):
         numpy.testing.assert_allclose(d, [0.5,0.75])
 
         # test with rmax set
-        rmax = relentless.variable.DesignVariable(value=1.5)
+        rmax = relentless.model.DesignVariable(value=1.5)
         p.coeff['1','1'].update(rmin=False, rmax=rmax)
         d = p.derivative(pair=('1','1'), var=x, r=1.0)
         self.assertAlmostEqual(d, 1.0)
@@ -382,9 +382,9 @@ class test_PairPotential(unittest.TestCase):
     def test_derivative_types(self):
         """Test derivative method with different param types."""
         q = LinPot(types=('1',), params=('m',))
-        x = relentless.variable.DesignVariable(value=4.0)
-        y = relentless.variable.DesignVariable(value=64.0)
-        z = relentless.variable.GeometricMean(x, y)
+        x = relentless.model.DesignVariable(value=4.0)
+        y = relentless.model.DesignVariable(value=64.0)
+        z = relentless.model.GeometricMean(x, y)
         q.coeff['1','1']['m'] = z
 
         # test with respect to dependent variable parameter
@@ -407,12 +407,12 @@ class test_PairPotential(unittest.TestCase):
         r = TwoVarPot(types=('1',), params=('x','y'))
 
         r.coeff['1','1']['x'] = x
-        r.coeff['1','1']['y'] = relentless.variable.SameAs(x)
+        r.coeff['1','1']['y'] = relentless.model.variable.SameAs(x)
         d = r.derivative(pair=('1','1'), var=x, r=4.0)
         self.assertAlmostEqual(d, 20.0)
 
         r.coeff['1','1']['y'] = x
-        r.coeff['1','1']['x'] = relentless.variable.SameAs(x)
+        r.coeff['1','1']['x'] = relentless.model.variable.SameAs(x)
         d = r.derivative(pair=('1','1'), var=x, r=4.0)
         self.assertAlmostEqual(d, 20.0)
 
@@ -449,12 +449,12 @@ class test_PairPotential(unittest.TestCase):
         temp.close()
 
 class test_LennardJones(unittest.TestCase):
-    """Unit tests for relentless.potential.LennardJones"""
+    """Unit tests for relentless.model.potential.LennardJones"""
 
     def test_init(self):
         """Test creation from data"""
-        lj = relentless.potential.LennardJones(types=('1',))
-        coeff = relentless.potential.PairParameters(types=('1',),
+        lj = relentless.model.potential.LennardJones(types=('1',))
+        coeff = relentless.model.potential.PairParameters(types=('1',),
                                                     params=('epsilon','sigma','rmin','rmax','shift'))
         for pair in coeff.pairs:
             coeff[pair]['rmin'] = False
@@ -465,7 +465,7 @@ class test_LennardJones(unittest.TestCase):
 
     def test_energy(self):
         """Test _energy method"""
-        lj = relentless.potential.LennardJones(types=('1',))
+        lj = relentless.model.potential.LennardJones(types=('1',))
 
         # test scalar r
         r_input = 0.5
@@ -485,7 +485,7 @@ class test_LennardJones(unittest.TestCase):
 
     def test_force(self):
         """Test _force method"""
-        lj = relentless.potential.LennardJones(types=('1',))
+        lj = relentless.model.potential.LennardJones(types=('1',))
 
         # test scalar r
         r_input = 0.5
@@ -505,7 +505,7 @@ class test_LennardJones(unittest.TestCase):
 
     def test_derivative(self):
         """Test _derivative method"""
-        lj = relentless.potential.LennardJones(types=('1',))
+        lj = relentless.model.potential.LennardJones(types=('1',))
 
         # w.r.t. epsilon
         # test scalar r
@@ -542,35 +542,35 @@ class test_LennardJones(unittest.TestCase):
             u = lj._derivative(param='simga', r=r_input, epsilon=1.0, sigma=1.0)
 
 class test_PairSpline(unittest.TestCase):
-    """Unit tests for relentless.potential.PairSpline"""
+    """Unit tests for relentless.model.potential.PairSpline"""
 
     def test_init(self):
         """Test creation from data"""
         # test diff mode
-        s = relentless.potential.PairSpline(types=('1',), num_knots=3)
+        s = relentless.model.potential.PairSpline(types=('1',), num_knots=3)
         self.assertEqual(s.num_knots, 3)
         self.assertEqual(s.mode, 'diff')
-        coeff = relentless.potential.PairParameters(types=('1',),
+        coeff = relentless.model.potential.PairParameters(types=('1',),
                                                     params=('r-0','r-1','r-2','knot-0','knot-1','knot-2','rmin','rmax','shift'))
         self.assertCountEqual(s.coeff.types, coeff.types)
         self.assertCountEqual(s.coeff.params, coeff.params)
 
         # test value mode
-        s = relentless.potential.PairSpline(types=('1',), num_knots=3, mode='value')
+        s = relentless.model.potential.PairSpline(types=('1',), num_knots=3, mode='value')
         self.assertEqual(s.num_knots, 3)
         self.assertEqual(s.mode, 'value')
-        coeff = relentless.potential.PairParameters(types=('1',),
+        coeff = relentless.model.potential.PairParameters(types=('1',),
                                                     params=('r-0','r-1','r-2','knot-0','knot-1','knot-2','rmin','rmax','shift'))
         self.assertCountEqual(s.coeff.types, coeff.types)
         self.assertCountEqual(s.coeff.params, coeff.params)
 
         # test invalid number of knots
         with self.assertRaises(ValueError):
-            s = relentless.potential.PairSpline(types=('1',), num_knots=1)
+            s = relentless.model.potential.PairSpline(types=('1',), num_knots=1)
 
         # test invalid mode
         with self.assertRaises(ValueError):
-            s = relentless.potential.PairSpline(types=('1',), num_knots=3, mode='val')
+            s = relentless.model.potential.PairSpline(types=('1',), num_knots=3, mode='val')
 
     def test_from_array(self):
         """Test from_array method and knots generator"""
@@ -579,34 +579,34 @@ class test_PairSpline(unittest.TestCase):
         u_arr_diff = [5,3,1]
 
         # test diff mode
-        s = relentless.potential.PairSpline(types=('1',), num_knots=3)
+        s = relentless.model.potential.PairSpline(types=('1',), num_knots=3)
         s.from_array(pair=('1','1'), r=r_arr, u=u_arr)
 
         dvars = []
         for i,(r,k) in enumerate(s.knots(pair=('1','1'))):
             self.assertAlmostEqual(r.value, r_arr[i])
             self.assertAlmostEqual(k.value, u_arr_diff[i])
-            self.assertIsInstance(r, relentless.variable.IndependentVariable)
+            self.assertIsInstance(r, relentless.model.IndependentVariable)
             if i == s.num_knots-1:
-                self.assertIsInstance(k, relentless.variable.IndependentVariable)
+                self.assertIsInstance(k, relentless.model.IndependentVariable)
             else:
-                self.assertIsInstance(k, relentless.variable.DesignVariable)
+                self.assertIsInstance(k, relentless.model.DesignVariable)
                 dvars.append(k)
         self.assertCountEqual(s.design_variables, dvars)
 
         # test value mode
-        s = relentless.potential.PairSpline(types=('1',), num_knots=3, mode='value')
+        s = relentless.model.potential.PairSpline(types=('1',), num_knots=3, mode='value')
         s.from_array(pair=('1','1'), r=r_arr, u=u_arr)
 
         dvars = []
         for i,(r,k) in enumerate(s.knots(pair=('1','1'))):
             self.assertAlmostEqual(r.value, r_arr[i])
             self.assertAlmostEqual(k.value, u_arr[i])
-            self.assertIsInstance(r, relentless.variable.IndependentVariable)
+            self.assertIsInstance(r, relentless.model.IndependentVariable)
             if i == s.num_knots-1:
-                self.assertIsInstance(k, relentless.variable.IndependentVariable)
+                self.assertIsInstance(k, relentless.model.IndependentVariable)
             else:
-                self.assertIsInstance(k, relentless.variable.DesignVariable)
+                self.assertIsInstance(k, relentless.model.DesignVariable)
                 dvars.append(k)
         self.assertCountEqual(s.design_variables, dvars)
 
@@ -626,21 +626,21 @@ class test_PairSpline(unittest.TestCase):
         u_arr = [9,4,1]
 
         # test diff mode
-        s = relentless.potential.PairSpline(types=('1',), num_knots=3)
+        s = relentless.model.potential.PairSpline(types=('1',), num_knots=3)
         s.from_array(pair=('1','1'), r=r_arr, u=u_arr)
         u_actual = numpy.array([6.25,2.25,1])
         u = s.energy(pair=('1','1'), r=[1.5,2.5,3.5])
         numpy.testing.assert_allclose(u, u_actual)
 
         # test value mode
-        s = relentless.potential.PairSpline(types=('1',), num_knots=3, mode='value')
+        s = relentless.model.potential.PairSpline(types=('1',), num_knots=3, mode='value')
         s.from_array(pair=('1','1'), r=r_arr, u=u_arr)
         u_actual = numpy.array([6.25,2.25,1])
         u = s.energy(pair=('1','1'), r=[1.5,2.5,3.5])
         numpy.testing.assert_allclose(u, u_actual)
 
         # test PairSpline with 2 knots
-        s = relentless.potential.PairSpline(types=('1',), num_knots=2, mode='value')
+        s = relentless.model.potential.PairSpline(types=('1',), num_knots=2, mode='value')
         s.from_array(pair=('1','1'), r=[1,2], u=[4,2])
         u = s.energy(pair=('1','1'), r=1.5)
         self.assertAlmostEqual(u, 3)
@@ -651,21 +651,21 @@ class test_PairSpline(unittest.TestCase):
         u_arr = [9,4,1]
 
         # test diff mode
-        s = relentless.potential.PairSpline(types=('1',), num_knots=3)
+        s = relentless.model.potential.PairSpline(types=('1',), num_knots=3)
         s.from_array(pair=('1','1'), r=r_arr, u=u_arr)
         f_actual = numpy.array([5,3,0])
         f = s.force(pair=('1','1'), r=[1.5,2.5,3.5])
         numpy.testing.assert_allclose(f, f_actual)
 
         # test value mode
-        s = relentless.potential.PairSpline(types=('1',), num_knots=3, mode='value')
+        s = relentless.model.potential.PairSpline(types=('1',), num_knots=3, mode='value')
         s.from_array(pair=('1','1'), r=r_arr, u=u_arr)
         f_actual = numpy.array([5,3,0])
         f = s.force(pair=('1','1'), r=[1.5,2.5,3.5])
         numpy.testing.assert_allclose(f, f_actual)
 
         # test PairSpline with 2 knots
-        s = relentless.potential.PairSpline(types=('1',), num_knots=2, mode='value')
+        s = relentless.model.potential.PairSpline(types=('1',), num_knots=2, mode='value')
         s.from_array(pair=('1','1'), r=[1,2], u=[4,2])
         f = s.force(pair=('1','1'), r=1.5)
         self.assertAlmostEqual(f, 2)
@@ -676,7 +676,7 @@ class test_PairSpline(unittest.TestCase):
         u_arr = [9,4,1]
 
         # test diff mode
-        s = relentless.potential.PairSpline(types=('1',), num_knots=3)
+        s = relentless.model.potential.PairSpline(types=('1',), num_knots=3)
         s.from_array(pair=('1','1'), r=r_arr, u=u_arr)
         d_actual = numpy.array([1.125,0.625,0])
         param = list(s.knots(('1','1')))[1][1]
@@ -684,7 +684,7 @@ class test_PairSpline(unittest.TestCase):
         numpy.testing.assert_allclose(d, d_actual)
 
         # test value mode
-        s = relentless.potential.PairSpline(types=('1',), num_knots=3, mode='value')
+        s = relentless.model.potential.PairSpline(types=('1',), num_knots=3, mode='value')
         s.from_array(pair=('1','1'), r=r_arr, u=u_arr)
         d_actual = numpy.array([0.75,0.75,0])
         param = list(s.knots(('1','1')))[1][1]
@@ -692,12 +692,12 @@ class test_PairSpline(unittest.TestCase):
         numpy.testing.assert_allclose(d, d_actual)
 
 class test_Yukawa(unittest.TestCase):
-    """Unit tests for relentless.potential.Yukawa"""
+    """Unit tests for relentless.model.potential.Yukawa"""
 
     def test_init(self):
         """Test creation from data"""
-        y = relentless.potential.Yukawa(types=('1',))
-        coeff = relentless.potential.PairParameters(types=('1',), params=('epsilon','kappa','rmin','rmax','shift'))
+        y = relentless.model.potential.Yukawa(types=('1',))
+        coeff = relentless.model.potential.PairParameters(types=('1',), params=('epsilon','kappa','rmin','rmax','shift'))
         for pair in coeff.pairs:
             coeff[pair]['rmin'] = False
             coeff[pair]['rmax'] = False
@@ -707,7 +707,7 @@ class test_Yukawa(unittest.TestCase):
 
     def test_energy(self):
         """Test _energy method"""
-        y = relentless.potential.Yukawa(types=('1',))
+        y = relentless.model.potential.Yukawa(types=('1',))
 
         # test scalar r
         r_input = 0.5
@@ -727,7 +727,7 @@ class test_Yukawa(unittest.TestCase):
 
     def test_force(self):
         """Test _force method"""
-        y = relentless.potential.Yukawa(types=('1',))
+        y = relentless.model.potential.Yukawa(types=('1',))
 
         # test scalar r
         r_input = 0.5
@@ -747,7 +747,7 @@ class test_Yukawa(unittest.TestCase):
 
     def test_derivative(self):
         """Test _derivative method"""
-        y = relentless.potential.Yukawa(types=('1',))
+        y = relentless.model.potential.Yukawa(types=('1',))
 
         # w.r.t. epsilon
         # test scalar r
@@ -784,12 +784,12 @@ class test_Yukawa(unittest.TestCase):
             u = y._derivative(param='kapppa', r=r_input, epsilon=1.0, kappa=1.0)
 
 class test_Depletion(unittest.TestCase):
-    """Unit tests for relentless.potential.Depletion"""
+    """Unit tests for relentless.model.potential.Depletion"""
 
     def test_init(self):
         """Test creation from data"""
-        dp = relentless.potential.Depletion(types=('1','2'))
-        coeff = relentless.potential.PairParameters(types=('1','2'),
+        dp = relentless.model.potential.Depletion(types=('1','2'))
+        coeff = relentless.model.potential.PairParameters(types=('1','2'),
                                                     params=('P','sigma_i','sigma_j','sigma_d','rmin','rmax','shift'))
         self.assertCountEqual(dp.coeff.types, coeff.types)
         self.assertCountEqual(dp.coeff.params, coeff.params)
@@ -797,16 +797,16 @@ class test_Depletion(unittest.TestCase):
     def test_cutoff_init(self):
         """Test creation of Depletion.Cutoff from data"""
         # create object dependent on scalars
-        w = relentless.potential.Depletion.Cutoff(sigma_i=1.0, sigma_j=2.0, sigma_d=0.25)
+        w = relentless.model.potential.Depletion.Cutoff(sigma_i=1.0, sigma_j=2.0, sigma_d=0.25)
         self.assertCountEqual(w.params, ('sigma_i','sigma_j','sigma_d'))
 
     def test_cutoff_value(self):
-        w = relentless.potential.Depletion.Cutoff(sigma_i=1.0, sigma_j=2.0, sigma_d=0.25)
+        w = relentless.model.potential.Depletion.Cutoff(sigma_i=1.0, sigma_j=2.0, sigma_d=0.25)
         self.assertAlmostEqual(w.compute(sigma_i=1.0, sigma_j=2.0, sigma_d=0.25), 1.75)
 
     def test_cutoff_derivative(self):
         """Test Depletion.Cutoff._derivative method"""
-        w = relentless.potential.Depletion.Cutoff(sigma_i=1.0, sigma_j=2.0, sigma_d=0.25)
+        w = relentless.model.potential.Depletion.Cutoff(sigma_i=1.0, sigma_j=2.0, sigma_d=0.25)
 
         # calculate w.r.t. sigma_i
         dw = w.compute_derivative('sigma_i', sigma_i=1.0, sigma_j=2.0, sigma_d=0.25)
@@ -826,7 +826,7 @@ class test_Depletion(unittest.TestCase):
 
     def test_energy(self):
         """Test _energy and energy methods"""
-        dp = relentless.potential.Depletion(types=('1',))
+        dp = relentless.model.potential.Depletion(types=('1',))
 
         # test scalar r
         r_input = 3
@@ -858,7 +858,7 @@ class test_Depletion(unittest.TestCase):
 
     def test_force(self):
         """Test _force and force methods"""
-        dp = relentless.potential.Depletion(types=('1',))
+        dp = relentless.model.potential.Depletion(types=('1',))
 
         # test scalar r
         r_input = 3
@@ -890,7 +890,7 @@ class test_Depletion(unittest.TestCase):
 
     def test_derivative(self):
         """Test _derivative and derivative methods"""
-        dp = relentless.potential.Depletion(types=('1',))
+        dp = relentless.model.potential.Depletion(types=('1',))
 
         # w.r.t. P
         # test scalar r
@@ -957,7 +957,7 @@ class test_Depletion(unittest.TestCase):
             d = dp._derivative(param='sigmaj', r=r_input, P=1, sigma_i=1, sigma_j=1, sigma_d=1)
 
         # test derivative outside of low/high bounds
-        P_var = relentless.variable.DesignVariable(value=1.0)
+        P_var = relentless.model.DesignVariable(value=1.0)
         dp.coeff['1','1'].update(P=P_var, sigma_i=1.5, sigma_j=2, sigma_d=2.5)
         r_input = numpy.array([1,5])
         d_actual = numpy.array([-25.7514468,0])

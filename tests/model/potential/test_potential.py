@@ -8,7 +8,7 @@ import numpy
 import relentless
 
 class test_Parameters(unittest.TestCase):
-    """Unit tests for relentless.potential.Parameters"""
+    """Unit tests for relentless.model.potential.Parameters"""
 
     def test_init(self):
         """Test creation from data"""
@@ -16,31 +16,31 @@ class test_Parameters(unittest.TestCase):
         params = ('energy', 'mass')
 
         # test construction with tuple input
-        m = relentless.potential.Parameters(types=('A','B'), params=('energy','mass'))
+        m = relentless.model.potential.Parameters(types=('A','B'), params=('energy','mass'))
         self.assertEqual(m.types, types)
         self.assertEqual(m.params, params)
 
         # test construction with list input
-        m = relentless.potential.Parameters(types=['A','B'], params=('energy','mass'))
+        m = relentless.model.potential.Parameters(types=['A','B'], params=('energy','mass'))
         self.assertEqual(m.types, types)
         self.assertEqual(m.params, params)
 
         # test construction with mixed tuple/list input
-        m = relentless.potential.Parameters(types=('A','B'), params=['energy','mass'])
+        m = relentless.model.potential.Parameters(types=('A','B'), params=['energy','mass'])
         self.assertEqual(m.types, types)
         self.assertEqual(m.params, params)
 
         # test construction with invalid types
         with self.assertRaises(TypeError):
-            m = relentless.potential.Parameters(types=(1,'B'), params=(1,2))
+            m = relentless.model.potential.Parameters(types=(1,'B'), params=(1,2))
 
         # test construction with invalid parameters
         with self.assertRaises(TypeError):
-            m = relentless.potential.Parameters(types=('A','B'), params=('1',2))
+            m = relentless.model.potential.Parameters(types=('A','B'), params=('1',2))
 
     def test_param_types(self):
         """Test various get and set methods on parameter types"""
-        m = relentless.potential.Parameters(types=('A','B'), params=('energy', 'mass'))
+        m = relentless.model.potential.Parameters(types=('A','B'), params=('energy', 'mass'))
 
         self.assertEqual(m.shared['energy'], None)
         self.assertEqual(m.shared['mass'], None)
@@ -72,7 +72,7 @@ class test_Parameters(unittest.TestCase):
 
     def test_accessor_methods(self):
         """Test various get and set methods on keys"""
-        m = relentless.potential.Parameters(types=('A',), params=('energy','mass'))
+        m = relentless.model.potential.Parameters(types=('A',), params=('energy','mass'))
 
         # test set and get for each pair type and param
         self.assertEqual(m['A']['energy'], None)
@@ -130,7 +130,7 @@ class test_Parameters(unittest.TestCase):
     def test_accessor_keys(self):
         """Test get and set methods for various keys"""
         # test set and get for initialized default
-        m = relentless.potential.Parameters(types=('A','B'), params=('energy','mass'))
+        m = relentless.model.potential.Parameters(types=('A','B'), params=('energy','mass'))
         self.assertEqual(m['A']['energy'], None)
         self.assertEqual(m['A']['mass'], None)
         self.assertEqual(m['B']['energy'], None)
@@ -171,7 +171,7 @@ class test_Parameters(unittest.TestCase):
     def test_evaluate(self):
         """Test evaluation of keyed parameters"""
         # test evaluation with empty parameter values
-        m = relentless.potential.Parameters(types=('A','B'), params=('energy','mass'))
+        m = relentless.model.potential.Parameters(types=('A','B'), params=('energy','mass'))
         with self.assertRaises(ValueError):
             x = m.evaluate('A')
 
@@ -180,14 +180,14 @@ class test_Parameters(unittest.TestCase):
             x = m.evaluate('C')
 
         # test evaluation with initialized shared parameter values
-        m = relentless.potential.Parameters(types=('A','B'), params=('energy','mass'))
+        m = relentless.model.potential.Parameters(types=('A','B'), params=('energy','mass'))
         m.shared['energy'] = 0.0
         m.shared['mass'] = 0.5
         self.assertEqual(m.evaluate('A'), {'energy':0.0, 'mass':0.5})
         self.assertEqual(m.evaluate('B'), {'energy':0.0, 'mass':0.5})
 
         # test evaluation with initialized shared and individual parameter values
-        m = relentless.potential.Parameters(types=('A','B'), params=('energy','mass'))
+        m = relentless.model.potential.Parameters(types=('A','B'), params=('energy','mass'))
         m.shared['energy'] = 0.0
         m.shared['mass'] = 0.5
         m['B']['energy'] = 1.5
@@ -195,13 +195,13 @@ class test_Parameters(unittest.TestCase):
         self.assertEqual(m.evaluate('B'), {'energy':1.5, 'mass':0.5})
 
         # test evaluation with initialized parameter values as DesignVariable types
-        m = relentless.potential.Parameters(types=('A',), params=('energy','mass'))
-        m['A']['energy'] = relentless.variable.DesignVariable(value=-1.0,low=0.1)
-        m['A']['mass'] = relentless.variable.DesignVariable(value=1.0,high=0.3)
+        m = relentless.model.potential.Parameters(types=('A',), params=('energy','mass'))
+        m['A']['energy'] = relentless.model.DesignVariable(value=-1.0,low=0.1)
+        m['A']['mass'] = relentless.model.DesignVariable(value=1.0,high=0.3)
         self.assertEqual(m.evaluate('A'), {'energy':0.1, 'mass':0.3})
 
         # test evaluation with initialized parameter values as unrecognized types
-        m = relentless.potential.Parameters(types=('A','B'), params=('energy','mass'))
+        m = relentless.model.potential.Parameters(types=('A','B'), params=('energy','mass'))
         m.shared['energy'] = relentless.math.Interpolator(x=(-1,0,1), y=(-2,0,2))
         m.shared['mass'] = relentless.math.Interpolator(x=(-1,0,1), y=(-2,0,2))
         with self.assertRaises(TypeError):
@@ -212,7 +212,7 @@ class test_Parameters(unittest.TestCase):
         temp = tempfile.NamedTemporaryFile()
 
         # test dumping/re-loading data with scalar parameter values
-        m = relentless.potential.Parameters(types=('A',), params=('energy','mass'))
+        m = relentless.model.potential.Parameters(types=('A',), params=('energy','mass'))
         m['A']['energy'] = 1.5
         m['A']['mass'] = 2.5
         m.save(temp.name)
@@ -222,9 +222,9 @@ class test_Parameters(unittest.TestCase):
         self.assertEqual(m['A']['mass'], x['A']['mass'])
 
         # test dumping/re-loading data with DesignVariable parameter values
-        m = relentless.potential.Parameters(types=('A',), params=('energy','mass'))
-        m['A']['energy'] = relentless.variable.DesignVariable(value=0.5)
-        m['A']['mass'] = relentless.variable.DesignVariable(value=2.0)
+        m = relentless.model.potential.Parameters(types=('A',), params=('energy','mass'))
+        m['A']['energy'] = relentless.model.DesignVariable(value=0.5)
+        m['A']['mass'] = relentless.model.DesignVariable(value=2.0)
         m.save(temp.name)
         with open(temp.name, 'r') as f:
             x = json.load(f)
@@ -233,8 +233,8 @@ class test_Parameters(unittest.TestCase):
 
         temp.close()
 
-class MockPotential(relentless.potential.Potential):
-    """Mock potential function used to test relentless.potential.Potential"""
+class MockPotential(relentless.model.potential.Potential):
+    """Mock potential function used to test relentless.model.potential.Potential"""
 
     def __init__(self, types, params, container=None):
         super().__init__(types, params, container)
@@ -249,14 +249,14 @@ class MockPotential(relentless.potential.Potential):
         pass
 
 class MockContainer:
-    """Mock container class used to test relentless.potential.Potential"""
+    """Mock container class used to test relentless.model.potential.Potential"""
 
     def __init__(self, types, params):
         self.types = ('foo')
         self.params = ('bar')
 
 class test_Potential(unittest.TestCase):
-    """Unit tests for relentless.potential.Potential"""
+    """Unit tests for relentless.model.potential.Potential"""
 
     def test_init(self):
         """Test creation from data"""

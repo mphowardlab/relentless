@@ -61,10 +61,10 @@ import numpy
 import scipy.integrate
 
 from relentless import data
-from relentless import extent
+from relentless.model import extent
 from relentless import math
 from relentless import mpi
-from relentless import variable
+from relentless.model import variable
 
 class ObjectiveFunction(abc.ABC):
     """Abstract base class for the optimization objective function.

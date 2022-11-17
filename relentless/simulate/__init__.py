@@ -82,11 +82,8 @@ from .md import (
     Thermostat,
     )
 
-from . import dilute
 from .dilute import Dilute
 
-from . import hoomd
 from .hoomd import HOOMD
 
-from . import lammps
 from .lammps import LAMMPS

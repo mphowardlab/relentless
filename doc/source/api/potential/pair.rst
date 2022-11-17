@@ -1,1 +1,1 @@
-.. automodule:: relentless.potential.pair
+.. automodule:: relentless.model.potential.pair

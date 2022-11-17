@@ -23,9 +23,9 @@ import lammpsio
 import numpy
 
 from relentless import data
-from relentless import ensemble
+from relentless.model import ensemble
 from relentless import mpi
-from relentless import extent
+from relentless.model import extent
 
 from . import simulate
 from . import initialize

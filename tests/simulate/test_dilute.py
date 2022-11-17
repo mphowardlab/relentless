@@ -4,7 +4,7 @@ import unittest
 
 import relentless
 
-from ..potential.test_pair import LinPot
+from tests.model.potential.test_pair import LinPot
 
 class test_Dilute(unittest.TestCase):
     """Unit tests for relentless.simulate.Dilute"""
@@ -23,7 +23,7 @@ class test_Dilute(unittest.TestCase):
         init = relentless.simulate.InitializeRandomly(
                 seed=42,
                 N={'A':2,'B':3},
-                V=relentless.extent.Cube(L=2.0),
+                V=relentless.model.Cube(L=2.0),
                 T=1.0)
         analyzer = relentless.simulate.EnsembleAverage(
             check_thermo_every=1, check_rdf_every=1, rdf_dr=0.1)
@@ -48,14 +48,14 @@ class test_Dilute(unittest.TestCase):
         init = relentless.simulate.InitializeRandomly(
                 seed=42,
                 N={'A':2,'B':3},
-                V=relentless.extent.Cube(L=2.0),
+                V=relentless.model.Cube(L=2.0),
                 T=1.0)
         analyzer = relentless.simulate.EnsembleAverage(
             check_thermo_every=1, check_rdf_every=1, rdf_dr=0.1)
         md = relentless.simulate.RunMolecularDynamics(steps=100, timestep=1e-3, analyzers=analyzer)
 
         # test with potential that has infinite potential at low r
-        pot = relentless.potential.LennardJones(types=('A','B'))
+        pot = relentless.model.potential.LennardJones(types=('A','B'))
         for pair in pot.coeff:
             pot.coeff[pair].update({'epsilon':1.0, 'sigma':1.0, 'rmax':3.0, 'shift':True})
         pots = relentless.simulate.Potentials()

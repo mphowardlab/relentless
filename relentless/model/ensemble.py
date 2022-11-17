@@ -27,10 +27,10 @@ import json
 
 import numpy
 
-from .collections import FixedKeyDict,PairMatrix
-from .math import Interpolator
+from relentless.collections import FixedKeyDict,PairMatrix
+from relentless.math import Interpolator
 from . import extent
-from . import mpi
+from relentless import mpi
 
 class RDF(Interpolator):
     r"""Radial distribution function.
