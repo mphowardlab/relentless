@@ -12,7 +12,7 @@ class test_TriclinicBox(unittest.TestCase):
         """Test creation from data."""
         # test valid construction, LAMMPS convention
         t = relentless.model.TriclinicBox(Lx=1,Ly=2,Lz=3,xy=1,xz=0.75,yz=2.25,
-                                           convention=relentless.model.TriclinicBox.Convention.LAMMPS)
+                                           convention='LAMMPS')
         numpy.testing.assert_allclose(t.a, numpy.array([1,0,0]))
         numpy.testing.assert_allclose(t.b, numpy.array([1,2,0]))
         numpy.testing.assert_allclose(t.c, numpy.array([0.75,2.25,3]))
@@ -20,7 +20,7 @@ class test_TriclinicBox(unittest.TestCase):
 
         # test valid construction, HOOMD convention
         t = relentless.model.TriclinicBox(Lx=1,Ly=2,Lz=3,xy=0.5,xz=0.25,yz=0.75,
-                                           convention=relentless.model.TriclinicBox.Convention.HOOMD)
+                                           convention='HOOMD')
         numpy.testing.assert_allclose(t.a, numpy.array([1,0,0]))
         numpy.testing.assert_allclose(t.b, numpy.array([1,2,0]))
         numpy.testing.assert_allclose(t.c, numpy.array([0.75,2.25,3]))
@@ -28,10 +28,10 @@ class test_TriclinicBox(unittest.TestCase):
 
         # test invalid constructions
         with self.assertRaises(ValueError):
-            t = relentless.model.TriclinicBox(Lx=1,Ly=2,Lz=3,xy=1,xz=0.75,yz=2.25,convention='LAMMPS')
+            t = relentless.model.TriclinicBox(Lx=1,Ly=2,Lz=3,xy=1,xz=0.75,yz=2.25,convention='not-real')
         with self.assertRaises(ValueError):
             t = relentless.model.TriclinicBox(Lx=-1,Ly=2,Lz=3,xy=1,xz=0.75,yz=2.25,
-                                               convention=relentless.model.TriclinicBox.Convention.LAMMPS)
+                                               convention='LAMMPS')
 
     def test_coordinate_transform(self):
         t = relentless.model.TriclinicBox(Lx=1, Ly=2, Lz=3, xy=1, xz=0.75, yz=2.25)
@@ -67,7 +67,7 @@ class test_TriclinicBox(unittest.TestCase):
         """Test to_json and from_json methods."""
         # test LAMMPS convention
         c = relentless.model.TriclinicBox(Lx=3,Ly=4,Lz=5,xy=2,xz=3,yz=4,
-                                           convention=relentless.model.TriclinicBox.Convention.LAMMPS)
+                                           convention='LAMMPS')
         data = c.to_json()
         c_ = relentless.model.TriclinicBox.from_json(data)
         self.assertIsInstance(c_, relentless.model.TriclinicBox)
@@ -78,7 +78,7 @@ class test_TriclinicBox(unittest.TestCase):
 
         # test HOOMD convention
         c = relentless.model.TriclinicBox(Lx=3,Ly=4,Lz=5,xy=2,xz=3,yz=4,
-                                           convention=relentless.model.TriclinicBox.Convention.HOOMD)
+                                           convention='HOOMD')
         data = c.to_json()
         c_ = relentless.model.TriclinicBox.from_json(data)
         self.assertIsInstance(c_, relentless.model.TriclinicBox)
@@ -147,24 +147,24 @@ class test_ObliqueArea(unittest.TestCase):
     def test_init(self):
         """Test creation from data."""
         # test valid construction, LAMMPS convention
-        t = relentless.model.ObliqueArea(Lx=1,Ly=2,xy=1, convention=relentless.model.ObliqueArea.Convention.LAMMPS)
+        t = relentless.model.ObliqueArea(Lx=1,Ly=2,xy=1, convention='LAMMPS')
         numpy.testing.assert_allclose(t.a, numpy.array([1,0]))
         numpy.testing.assert_allclose(t.b, numpy.array([1,2]))
         self.assertAlmostEqual(t.extent, 2)
 
         # test valid construction, HOOMD convention
         t = relentless.model.ObliqueArea(Lx=1,Ly=2,xy=0.5,
-                                           convention=relentless.model.ObliqueArea.Convention.HOOMD)
+                                           convention='HOOMD')
         numpy.testing.assert_allclose(t.a, numpy.array([1,0]))
         numpy.testing.assert_allclose(t.b, numpy.array([1,2]))
         self.assertAlmostEqual(t.extent, 2)    
 
         # test invalid constructions
         with self.assertRaises(ValueError):
-            t = relentless.model.ObliqueArea(Lx=1,Ly=2,xy=1,convention='LAMMPS')
+            t = relentless.model.ObliqueArea(Lx=1,Ly=2,xy=1,convention='not-real')
         with self.assertRaises(ValueError):
             t = relentless.model.ObliqueArea(Lx=-1,Ly=2,xy=1,
-                                               convention=relentless.model.TriclinicBox.Convention.LAMMPS)
+                                               convention='LAMMPS')
 
     def test_coordinate_transform(self):
         t = relentless.model.ObliqueArea(Lx=1, Ly=2, xy=1)
@@ -200,7 +200,7 @@ class test_ObliqueArea(unittest.TestCase):
         """Test to_json and from_json methods."""
         # test LAMMPS convention
         c = relentless.model.ObliqueArea(Lx=3,Ly=4,xy=2,
-                                           convention=relentless.model.ObliqueArea.Convention.LAMMPS)
+                                           convention='LAMMPS')
         data = c.to_json()
         c_ = relentless.model.ObliqueArea.from_json(data)
         self.assertIsInstance(c_, relentless.model.ObliqueArea)
@@ -210,7 +210,7 @@ class test_ObliqueArea(unittest.TestCase):
 
         # test HOOMD convention
         c = relentless.model.ObliqueArea(Lx=3,Ly=4,xy=2,
-                                           convention=relentless.model.ObliqueArea.Convention.HOOMD)
+                                           convention='HOOMD')
         data = c.to_json()
         c_ = relentless.model.ObliqueArea.from_json(data)
         self.assertIsInstance(c_, relentless.model.ObliqueArea)

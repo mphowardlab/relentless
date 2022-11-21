@@ -1,8 +1,9 @@
 """
-Simulations
-===========
+===================================
+Simulations (`relentless.simulate`)
+===================================
 
-:mod:`relentless.simulate` implements a generalizable and human-readable
+`relentless.simulate` implements a generalizable and human-readable
 interface for performing molecular simulations. The simulations are used to
 evolve a system described by interactions in :mod:`relentless.potential` to
 generate statistical ensembles. This module implements code to translate one
@@ -14,13 +15,12 @@ It also helps document workflows that can be shared and reproduced by others.
 .. rubric:: Example
 .. code::
 
-    # generic simulation operations
+    init = relentless.simulate.InitializeRandomly(seed=1)
     avg = relentless.simulate.EnsembleAverage(
             check_thermo_every=5,
             check_rdf_every=5,
             rdf_dr=0.1)
-    ops = [relentless.simulate.InitializeRandomly(seed=1),
-           relentless.simulate.RunLangevinDynamics(
+    ops = [relentless.simulate.RunLangevinDynamics(
                 steps=1e3,
                 timestep=0.001,
                 friction=0.8,
@@ -34,20 +34,104 @@ It also helps document workflows that can be shared and reproduced by others.
             ]
 
     # perform simulation using LAMMPS and save ensemble
-    lmp = relentless.simulate.LAMMPS(ops)
+    lmp = relentless.simulate.LAMMPS(init, ops)
     sim = lmp.run(potentials)
     sim[avg].ensemble.save('ensemble.json')
 
-.. rubric:: How it works
+Engines
+=======
 
-To learn more about how to setup a simulation, read through the following:
+.. autosummary::
+    :toctree: generated/
 
-.. toctree::
-    :maxdepth: 1
+    Dilute
+    HOOMD
+    LAMMPS
 
-    engines
-    operations
-    interactions
+Initializers
+============
+
+.. autosummary::
+    :toctree: generated/
+
+    InitializeFromFile
+    InitializeRandomly
+
+Molecular dynamics
+==================
+
+.. autosummary::
+    :toctree: generated/
+
+    RunMolecularDynamics
+
+Thermostats
+-----------
+
+.. autosummary::
+    :toctree: generated/
+
+    BerendsenThermostat
+    NoseHooverThermostat
+
+Barostats
+---------
+
+.. autosummary::
+    :toctree: generated/
+
+    BerendsenBarostat
+    MTKBarostat
+
+Other dynamics
+==============
+
+.. autosummary::
+    :toctree: generated/
+
+    RunBrownianDynamics
+    RunLangevinDynamics
+
+Analyzers
+=========
+
+.. autosummary::
+    :toctree: generated/
+
+    EnsembleAverage
+    
+Running a simulation
+====================
+
+Results
+-------
+
+.. autosummary::
+    :toctree: generated/
+
+    SimulationInstance
+
+Defining interactions
+---------------------
+
+.. autosummary::
+    :toctree: generated/
+
+    Potentials
+    PotentialTabulator
+    PairPotentialTabulator
+
+Developer classes
+=================
+
+.. autosummary::
+    :toctree: generated/
+
+    Simulation
+    SimulationOperation
+    AnalysisOperation
+    Barostat
+    Thermostat
 
 """
 from .simulate import (

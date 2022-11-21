@@ -1,17 +1,14 @@
 """
-Data management
-===============
-The :class:`Directory` class provides an interface for creating hierarchical
-filesystem directories and files within those directories using either an absolute
-or relative path.
+===================================
+Data management (`relentless.data`)
+===================================
+
+.. currentmodule:: relentless.data
 
 .. autosummary::
-    :nosignatures:
+    :toctree: generated/
 
     Directory
-
-.. autoclass:: Directory
-    :members:
 
 """
 import os

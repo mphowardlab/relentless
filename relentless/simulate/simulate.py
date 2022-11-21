@@ -584,7 +584,7 @@ class PairPotentialTabulator(PotentialTabulator):
     def force(self, pair):
         """Evaluates and accumulates force for all potentials.
 
-        If set, all forces are truncated to be less than or equal to the `magnitude`
+        If set, all forces are truncated to be less than or equal to the `fmax`
         of ``fmax``.
 
         Parameters

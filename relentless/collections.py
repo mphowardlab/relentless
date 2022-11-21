@@ -1,23 +1,16 @@
 """
-Collections
-===========
+======================================
+Collections (`relentless.collections`)
+======================================
 
-This module contains some customized data structures used for constructing
-potentials and performing computations during the optimization workflow.
+.. currentmodule:: relentless.collections
 
 .. autosummary::
-    :nosignatures:
+    :toctree: generated/
 
+    DefaultDict
     FixedKeyDict
     PairMatrix
-    DefaultDict
-
-.. autoclass:: FixedKeyDict
-    :members:
-.. autoclass:: PairMatrix
-    :members:
-.. autoclass:: DefaultDict
-    :members:
 
 """
 import collections

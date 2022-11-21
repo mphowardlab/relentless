@@ -38,7 +38,7 @@ The required dependencies are pretty minimal:
 and can be installed from ``requirements.txt``.
 
 Testing
--------
+=======
 
 A suite of unit tests is provided with the source code and can be run
 with ``unittest``:
@@ -48,7 +48,7 @@ with ``unittest``:
     python -m unittest
 
 Documentation
--------------
+=============
 
 Documentation is hosted at `ReadTheDocs <https://relentless.readthedocs.io>`_,
 but you can build it from source yourself:

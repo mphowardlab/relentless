@@ -10,7 +10,6 @@ import os
 import sys
 sys.path.insert(0, os.path.abspath('../..'))
 
-
 # -- Project information -----------------------------------------------------
 
 project = 'relentless'
@@ -18,7 +17,6 @@ copyright = '2021, Auburn University'
 author = 'Michael P. Howard'
 version = '0.1.0'
 release = '0.1.0'
-
 
 # -- General configuration ---------------------------------------------------
 
@@ -28,27 +26,30 @@ extensions = [
     'sphinx.ext.intersphinx',
     'sphinx.ext.mathjax',
     'sphinx.ext.napoleon',
-    'sphinx.ext.todo'
+    'sphinx_design'
 ]
 
 templates_path = ['_templates']
 
 exclude_patterns = []
 
+default_role = "any"
 
 # -- Options for HTML output -------------------------------------------------
 
-html_theme = 'sphinx_rtd_theme'
+html_theme = 'pydata_sphinx_theme'
+html_theme_options = {}
 html_static_path = ['_static']
 html_css_files = ['theme_overrides.css']
 
 # -- Options for autodoc & autosummary ---------------------------------------
 
-autodoc_default_options = {
-    'inherited-members': False
-}
+autosummary_generate = True
 
-autosummary_generate = False
+autodoc_default_options = {
+    'inherited-members': None,
+    'special-members': False
+}
 
 # -- Options for intersphinx -------------------------------------------------
 

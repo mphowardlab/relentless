@@ -1,35 +1,39 @@
-.. include:: ../../README.rst
+==========
+relentless
+==========
+
+Overview
+
+.. grid:: 2
+
+    .. grid-item-card::
+
+        User guide
+        
+        .. button-ref:: guide/index
+            :expand:
+            :color: secondary
+            :click-parent:
+            
+            Go to user guide
+
+    .. grid-item-card::
+
+        API reference
+        
+        .. button-ref:: api/index
+            :expand:
+            :color: secondary
+            :click-parent:
+            
+            Go to API reference
 
 .. toctree::
     :maxdepth: 1
-    :caption: Getting started
+    :hidden:
 
     guide/index
-    guide/install
-    guide/tutorial
-    guide/example
-
-.. toctree::
-    :maxdepth: 1
-    :caption: API
-
     api/index
-    api/mpi
-    api/ensemble
-    api/potential/index
-    api/simulate/index
-    api/optimize/index
-    api/variable
-    api/extent
-    api/devtools
-
-.. toctree::
-    :maxdepth: 1
-    :caption: Reference
-
-    release
-    license
-    credits
 
 Indices and tables
 ==================

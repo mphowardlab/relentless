@@ -1,13 +1,54 @@
 """
-Optimization
-============
+====================================
+Optimization (`relentless.optimize`)
+====================================
 
-.. toctree::
-    :maxdepth: 1
+.. currentmodule:: relentless.optimize
 
-    criteria
-    method
-    objective
+Objectives
+==========
+
+.. autosummary::
+    :toctree: generated/
+
+    RelativeEntropy
+
+Algorithms
+==========
+
+.. autosummary::
+    :toctree: generated/
+
+    SteepestDescent
+    FixedStepDescent
+    LineSearch
+
+Convergence criteria
+====================
+
+.. autosummary::
+    :toctree: generated/
+
+    Tolerance
+    ValueTest
+    GradientTest
+    AllTest
+    AndTest
+    AnyTest
+    OrTest
+
+Developer classes
+=================
+
+.. autosummary::
+    :toctree: generated/
+
+    ObjectiveFunction
+    ObjectiveFunctionResult
+    Optimizer
+    ConvergenceTest
+    LogicTest
+
 
 """
 from .criteria import (AllTest,

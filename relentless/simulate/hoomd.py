@@ -135,10 +135,10 @@ class InitializeRandomly(_Initialize):
         with sim.hoomd:
             # make the box and snapshot
             if isinstance(self.V, extent.TriclinicBox):
-                box_array = self.V.as_array(extent.TriclinicBox.Convention.HOOMD)
+                box_array = self.V.as_array('HOOMD')
                 box = hoomd.data.boxdim(*box_array, dimensions=3)
             elif isinstance(self.V, extent.ObliqueArea):
-                Lx,Ly,xy = self.V.as_array(extent.ObliqueArea.Convention.HOOMD)
+                Lx,Ly,xy = self.V.as_array('HOOMD')
                 box = hoomd.data.boxdim(Lx=Lx, Ly=Ly, Lz=1, xy=xy, xz=0, yz=0, dimensions=2)
             else:
                 raise ValueError('HOOMD supports 2d and 3d simulations')
@@ -612,9 +612,9 @@ class EnsembleAverage(simulate.AnalysisOperation):
             if self.num_samples > 0:
                 _V = {key: self._V[key]/self.num_samples for key in self._V}
                 if hasattr(self.logger, "Lz"):
-                    return extent.TriclinicBox(**_V,convention=extent.TriclinicBox.Convention.HOOMD)                
+                    return extent.TriclinicBox(**_V,convention='HOOMD')                
                 else:
-                    return extent.ObliqueArea(**_V,convention=extent.ObliqueArea.Convention.HOOMD)
+                    return extent.ObliqueArea(**_V,convention='HOOMD')
             else:
                 return None
 
@@ -719,10 +719,10 @@ class HOOMD(simulate.Simulation):
     Currently, this class only supports operations for HOOMD 2.x. Support for
     HOOMD 3.x will be added in future. The `freud <https://freud.readthedocs.io>`_
     analysis package (version 2.x) is also required for initialization and analysis.
-    To use this simulation backend, you will need to install both `hoomd` and
-    `freud` into your Python environment. `hoomd` is available through
-    `conda-forge` or can be built from source, while `freud` is available through
-    both `pip` and `conda-forge`. Please refer to the package documentation for
+    To use this simulation backend, you will need to install both :mod:`hoomd` and
+    :mod:`freud` into your Python environment. :mod:`hoomd` is available through
+    conda-forge or can be built from source, while :mod`freud` is available through
+    both PyPI and conda-forge. Please refer to the package documentation for
     details of how to install these.
 
     .. warning::

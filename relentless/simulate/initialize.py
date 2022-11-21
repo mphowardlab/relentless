@@ -66,10 +66,10 @@ class InitializeRandomly(simulate.GenericOperation):
     def _make_orthorhombic(V):
         # get the orthorhombic bounding box
         if isinstance(V, extent.TriclinicBox):
-            Lx,Ly,Lz,xy,xz,yz = V.as_array(extent.TriclinicBox.Convention.HOOMD)
+            Lx,Ly,Lz,xy,xz,yz = V.as_array('HOOMD')
             aabb = numpy.array([Lx/numpy.sqrt(1.+xy**2+(xy*yz-xz)**2), Ly/numpy.sqrt(1.+yz**2), Lz])
         elif isinstance(V, extent.ObliqueArea):
-            Lx,Ly,xy = V.as_array(extent.ObliqueArea.Convention.HOOMD)
+            Lx,Ly,xy = V.as_array('HOOMD')
             aabb = numpy.array([Lx/numpy.sqrt(1.+xy**2), Ly])
         else:
             raise TypeError('Random initialization currently only supported in triclinic/oblique extents')
