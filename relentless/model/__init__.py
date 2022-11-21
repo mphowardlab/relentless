@@ -73,11 +73,8 @@ Variables
     variable.VariableGraph
 
 """
-from .ensemble import (
-    Ensemble,
-    RDF,
-    )
-
+from . import potential
+from .ensemble import RDF, Ensemble
 from .extent import (
     Area,
     Cube,
@@ -88,10 +85,7 @@ from .extent import (
     Square,
     TriclinicBox,
     Volume,
-    )
-
-from . import potential
-
+)
 from .variable import (
     ArithmeticMean,
     ConstantVariable,
@@ -100,4 +94,4 @@ from .variable import (
     GeometricMean,
     IndependentVariable,
     Variable,
-    )
+)

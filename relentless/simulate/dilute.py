@@ -11,18 +11,21 @@ operations. It is best to interface with these operations using the frontend in
 """
 import numpy
 
-from relentless.model import ensemble
-from relentless.model import extent
+from relentless.model import ensemble, extent
+
 from . import simulate
 from .hoomd import _MDIntegrator
 
+
 class NullOperation(simulate.SimulationOperation):
     """Dummy operation that eats all arguments and doesn't do anything."""
+
     def __init__(self, *args, **ignore):
         pass
 
     def __call__(self, sim):
         pass
+
 
 class InitializeRandomly(simulate.SimulationOperation):
     """Initializes a "randomly" generated simulation.
@@ -49,6 +52,7 @@ class InitializeRandomly(simulate.SimulationOperation):
         operation, so None is the same as specifying something.
 
     """
+
     def __init__(self, seed, N, V, T, masses, diameters):
         self.N = N
         self.V = V
@@ -56,6 +60,7 @@ class InitializeRandomly(simulate.SimulationOperation):
 
     def __call__(self, sim):
         sim[self].ensemble = ensemble.Ensemble(T=self.T, N=self.N, V=self.V)
+
 
 class RunBrownianDynamics(_MDIntegrator):
     def __init__(self, steps, timestep, T, friction, seed, analyzers):
@@ -71,6 +76,7 @@ class RunBrownianDynamics(_MDIntegrator):
         for analyzer in self.analyzers:
             analyzer.finalize(sim)
 
+
 class RunLangevinDynamics(_MDIntegrator):
     def __init__(self, steps, timestep, T, friction, seed, analyzers):
         super().__init__(steps, timestep, analyzers)
@@ -85,6 +91,7 @@ class RunLangevinDynamics(_MDIntegrator):
         for analyzer in self.analyzers:
             analyzer.finalize(sim)
 
+
 class RunMolecularDynamics(_MDIntegrator):
     def __init__(self, steps, timestep, thermostat, barostat, analyzers):
         super().__init__(steps, timestep, analyzers)
@@ -93,7 +100,7 @@ class RunMolecularDynamics(_MDIntegrator):
 
     def __call__(self, sim):
         if self.barostat is not None:
-            raise ValueError('Dilute does not support constant pressure')
+            raise ValueError("Dilute does not support constant pressure")
 
         for analyzer in self.analyzers:
             analyzer(sim)
@@ -103,6 +110,7 @@ class RunMolecularDynamics(_MDIntegrator):
 
         for analyzer in self.analyzers:
             analyzer.finalize(sim)
+
 
 class EnsembleAverage(simulate.AnalysisOperation):
     r"""Analyzer for the simulation ensemble.
@@ -118,7 +126,9 @@ class EnsembleAverage(simulate.AnalysisOperation):
 
     .. math::
 
-        P=k_BT\sum_i\rho_i-\frac{2}{3}\sum_i\sum_j\rho_i\rho_j\int_0^\infty drr^3 \nabla u_{ij}(r) g_{ij}(r)
+        P = k_B T \sum_i\rho_i
+            - \frac{2}{3} \sum_i \sum_j \rho_i \rho_j
+            \int_0^\infty drr^3 \nabla u_{ij}(r) g_{ij}(r)
 
     Parameters
     ----------
@@ -130,6 +140,7 @@ class EnsembleAverage(simulate.AnalysisOperation):
         The width of a bin in the RDF histogram.
 
     """
+
     def __init__(self, check_thermo_every, check_rdf_every, rdf_dr):
         pass
 
@@ -138,23 +149,23 @@ class EnsembleAverage(simulate.AnalysisOperation):
 
     def finalize(self, sim):
         ens = sim[sim.initializer].ensemble.copy()
-        kT = sim.potentials.kB*ens.T
+        kT = sim.potentials.kB * ens.T
         # pair distribution function
         for pair in ens.pairs:
             u = sim.potentials.pair.energy(pair)
-            ens.rdf[pair] = ensemble.RDF(sim.potentials.pair.r, numpy.exp(-u/kT))
+            ens.rdf[pair] = ensemble.RDF(sim.potentials.pair.r, numpy.exp(-u / kT))
 
         # compute pressure
-        ens.P = 0.
+        ens.P = 0.0
         for a in sim.types:
-            rho_a = ens.N[a]/ens.V.extent
-            ens.P += kT*rho_a
+            rho_a = ens.N[a] / ens.V.extent
+            ens.P += kT * rho_a
             for b in sim.types:
-                rho_b = ens.N[b]/ens.V.extent
+                rho_b = ens.N[b] / ens.V.extent
                 r = sim.potentials.pair.r
-                u = sim.potentials.pair.energy((a,b))
-                f = sim.potentials.pair.force((a,b))
-                gr = ens.rdf[a,b].table[:,1]
+                u = sim.potentials.pair.energy((a, b))
+                f = sim.potentials.pair.force((a, b))
+                gr = ens.rdf[a, b].table[:, 1]
 
                 # only count continuous range of finite values
                 flags = numpy.isinf(u)
@@ -167,15 +178,18 @@ class EnsembleAverage(simulate.AnalysisOperation):
                 gr = gr[first_finite:]
 
                 if sim.dimension == 3:
-                    geo_prefactor = 4*numpy.pi*r**2
-                elif sim.dimension == 2: 
-                    geo_prefactor = 2*numpy.pi*r
+                    geo_prefactor = 4 * numpy.pi * r**2
+                elif sim.dimension == 2:
+                    geo_prefactor = 2 * numpy.pi * r
                 else:
-                    raise ValueError('Geometric integration factor unknown for extent type')
-                y = (geo_prefactor/6.)*rho_a*rho_b*f*gr*r
-                ens.P += numpy.trapz(y,x=r)
+                    raise ValueError(
+                        "Geometric integration factor unknown for extent type"
+                    )
+                y = (geo_prefactor / 6.0) * rho_a * rho_b * f * gr * r
+                ens.P += numpy.trapz(y, x=r)
 
         sim[self].ensemble = ens
+
 
 class Dilute(simulate.Simulation):
     r"""Simulation of a dilute system.

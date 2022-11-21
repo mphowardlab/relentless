@@ -16,6 +16,7 @@ import shutil
 
 from . import mpi
 
+
 class Directory:
     """Context for a filesystem directory.
 
@@ -51,6 +52,7 @@ class Directory:
             f = open('bar.txt')
 
     """
+
     def __init__(self, path):
         self._start = []
 
@@ -64,7 +66,7 @@ class Directory:
             dir_error = None
         dir_error = mpi.world.bcast(dir_error)
         if dir_error:
-            raise OSError('The specified path is not a valid directory')
+            raise OSError("The specified path is not a valid directory")
         self._path = path
 
     @classmethod
@@ -227,5 +229,5 @@ class Directory:
                 if entry.is_file():
                     shutil.copy2(entry.path, dest.path)
                 elif entry.is_dir():
-                    shutil.copytree(entry.path, os.path.join(dest.path,entry.name))
+                    shutil.copytree(entry.path, os.path.join(dest.path, entry.name))
         mpi.world.barrier()

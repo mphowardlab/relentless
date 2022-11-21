@@ -1,30 +1,30 @@
 """Unit tests for core.variable module."""
-import re
 import unittest
 
 import numpy
 
 import relentless
 
+
 class test_Variable(unittest.TestCase):
     """Unit tests for relentless.model.Variable."""
 
     def test_name(self):
-        x = relentless.model.IndependentVariable(1.0, name='x')
-        self.assertEqual(x.name,'x')
+        x = relentless.model.IndependentVariable(1.0, name="x")
+        self.assertEqual(x.name, "x")
 
-        y = relentless.model.IndependentVariable(2.0, name='y')
-        self.assertEqual(y.name, 'y')
-        self.assertEqual(y.id, x.id+1)
+        y = relentless.model.IndependentVariable(2.0, name="y")
+        self.assertEqual(y.name, "y")
+        self.assertEqual(y.id, x.id + 1)
 
         # auto-create name
         z = relentless.model.IndependentVariable(3.0)
-        self.assertEqual(z.name[:3],'__x')
-        self.assertEqual(z.id, x.id+2)
+        self.assertEqual(z.name[:3], "__x")
+        self.assertEqual(z.id, x.id + 2)
 
         # try to create variable with same name (fail)
         with self.assertRaises(ValueError):
-            relentless.model.IndependentVariable(3.0, name='x')
+            relentless.model.IndependentVariable(3.0, name="x")
 
     def test_operations(self):
         """Test arithmetic operations on variables."""
@@ -33,35 +33,35 @@ class test_Variable(unittest.TestCase):
         w = relentless.model.IndependentVariable(value=4.0)
 
         # addition
-        x = v+w
+        x = v + w
         self.assertAlmostEqual(x.value, 6.0)
-        x = v+2.0
+        x = v + 2.0
         self.assertAlmostEqual(x.value, 4.0)
-        x = 2.0+w
+        x = 2.0 + w
         self.assertAlmostEqual(x.value, 6.0)
 
         # subtraction
-        x = v-w
+        x = v - w
         self.assertAlmostEqual(x.value, -2.0)
-        x = v-1.0
+        x = v - 1.0
         self.assertAlmostEqual(x.value, 1.0)
-        x = 1.0-w
+        x = 1.0 - w
         self.assertAlmostEqual(x.value, -3.0)
 
         # multiplication
-        x = v*w
+        x = v * w
         self.assertAlmostEqual(x.value, 8.0)
-        x = v*1.5
+        x = v * 1.5
         self.assertAlmostEqual(x.value, 3.0)
-        x = 1.5*w
+        x = 1.5 * w
         self.assertAlmostEqual(x.value, 6.0)
 
         # division
-        x = w/v
+        x = w / v
         self.assertAlmostEqual(x.value, 2.0)
-        x = v/2.0
+        x = v / 2.0
         self.assertAlmostEqual(x.value, 1.0)
-        x = 3.0/w
+        x = 3.0 / w
         self.assertAlmostEqual(x.value, 0.75)
 
         # exponentiation
@@ -75,7 +75,8 @@ class test_Variable(unittest.TestCase):
         self.assertAlmostEqual(x.value, -4.0)
 
         # string conversion
-        self.assertEqual(str(x), '-4.0')
+        self.assertEqual(str(x), "-4.0")
+
 
 class test_IndependentVariable(unittest.TestCase):
     """Unit tests for relentless.model.IndependentVariable."""
@@ -90,7 +91,7 @@ class test_IndependentVariable(unittest.TestCase):
         self.assertEqual(v.value, 1)
 
         with self.assertRaises(TypeError):
-            v = relentless.model.IndependentVariable('1.0')
+            v = relentless.model.IndependentVariable("1.0")
 
     def test_value(self):
         """Test value setting."""
@@ -129,6 +130,7 @@ class test_IndependentVariable(unittest.TestCase):
         self.assertAlmostEqual(v.value, 1.0)
         with self.assertRaises(TypeError):
             v /= w
+
 
 class test_DesignVariable(unittest.TestCase):
     """Unit tests for relentless.model.DesignVariable."""
@@ -194,50 +196,50 @@ class test_DesignVariable(unittest.TestCase):
         self.assertEqual(v.low, -1.5)
 
         with self.assertRaises(TypeError):
-            v.value = '4'
+            v.value = "4"
         # test invalid low initialization
         with self.assertRaises(TypeError):
-            v.low = '4'
+            v.low = "4"
         # test invalid high initialization
         with self.assertRaises(TypeError):
-            v.high = '4'
+            v.high = "4"
 
     def test_clamp(self):
         """Test methods for clamping values with bounds."""
         # construction with only low bound
         v = relentless.model.DesignVariable(value=0.0, low=2.0)
         # test below low
-        val,state = v.clamp(1.0)
+        val, state = v.clamp(1.0)
         self.assertAlmostEqual(val, 2.0)
         self.assertEqual(state, v.State.LOW)
         # test at low
-        val,state = v.clamp(2.0)
+        val, state = v.clamp(2.0)
         self.assertAlmostEqual(val, 2.0)
         self.assertEqual(state, v.State.LOW)
         # test above low
-        val,state = v.clamp(3.0)
+        val, state = v.clamp(3.0)
         self.assertAlmostEqual(val, 3.0)
         self.assertEqual(state, v.State.FREE)
 
         # construction with low and high bounds
         v = relentless.model.DesignVariable(value=0.0, low=0.0, high=2.0)
         # test below low
-        val,state = v.clamp(-1.0)
+        val, state = v.clamp(-1.0)
         self.assertAlmostEqual(val, 0.0)
         self.assertEqual(state, v.State.LOW)
         # test between bounds
-        val,state = v.clamp(1.0)
+        val, state = v.clamp(1.0)
         self.assertAlmostEqual(val, 1.0)
         self.assertEqual(state, v.State.FREE)
         # test above high
-        val,state = v.clamp(2.5)
+        val, state = v.clamp(2.5)
         self.assertAlmostEqual(val, 2.0)
         self.assertEqual(state, v.State.HIGH)
 
         # construction with no bounds
         v = relentless.model.DesignVariable(value=0.0)
         # test free variable
-        val,state = v.clamp(1.0)
+        val, state = v.clamp(1.0)
         self.assertAlmostEqual(val, 1.0)
         self.assertEqual(state, v.State.FREE)
 
@@ -260,7 +262,7 @@ class test_DesignVariable(unittest.TestCase):
 
         # test invalid value
         with self.assertRaises(TypeError):
-            v.value = '0'
+            v.value = "0"
 
     def test_bounds(self):
         """Test methods for setting bounds and checking value clamping."""
@@ -290,8 +292,10 @@ class test_DesignVariable(unittest.TestCase):
         with self.assertRaises(ValueError):
             v.high = -1.6
 
+
 class DepVar(relentless.model.DependentVariable):
     """Mock dependent variable to test relentless.model.DependentVariable"""
+
     def __init__(self, *a, **b):
         super().__init__(*a, **b)
 
@@ -308,7 +312,8 @@ class DepVar(relentless.model.DependentVariable):
             else:
                 return -0.5
         else:
-            raise ValueError('Unknown parameter')
+            raise ValueError("Unknown parameter")
+
 
 class test_DependentVariable(unittest.TestCase):
     """Unit tests for relentless.model.DependentVariable"""
@@ -320,7 +325,7 @@ class test_DependentVariable(unittest.TestCase):
         v = relentless.model.DesignVariable(value=3.0)
 
         # test creation with only vardicts
-        w = DepVar({'t':t, 'u':u, 'v':v})
+        w = DepVar({"t": t, "u": u, "v": v})
         self.assertAlmostEqual(w.value, 6.0)
 
         # test creation with only kwvars
@@ -328,15 +333,15 @@ class test_DependentVariable(unittest.TestCase):
         self.assertAlmostEqual(w.value, 6.0)
 
         # test creation with vardicts and kwvars
-        w = DepVar({'t':t, 'u':u}, v=v)
+        w = DepVar({"t": t, "u": u}, v=v)
         self.assertAlmostEqual(w.value, 6.0)
 
         # test creation with repeated attributes
-        w = DepVar({'t':t, 'u':u}, u=v)
+        w = DepVar({"t": t, "u": u}, u=v)
         self.assertAlmostEqual(w.value, 4.0)
 
         # test creation with multiple vardicts
-        w = DepVar({'t':t, 'u':u}, {'v':v})
+        w = DepVar({"t": t, "u": u}, {"v": v})
         self.assertAlmostEqual(w.value, 6.0)
 
         # test creation with scalar attributes
@@ -402,6 +407,7 @@ class test_DependentVariable(unittest.TestCase):
         dq = q.derivative(t)
         self.assertAlmostEqual(dq, 0.5)
 
+
 class test_SameAs(unittest.TestCase):
     """Unit tests for relentless.model.variable.SameAs"""
 
@@ -409,10 +415,10 @@ class test_SameAs(unittest.TestCase):
         """Test creation with data."""
         v = relentless.model.DesignVariable(value=1.0)
         w = relentless.model.variable.SameAs(v)
-        self.assertCountEqual(w.params, ('a',))
+        self.assertCountEqual(w.params, ("a",))
 
-        u = relentless.model.variable.SameAs(w)
-        z = relentless.model.variable.SameAs(2.0)
+        relentless.model.variable.SameAs(w)
+        relentless.model.variable.SameAs(2.0)
 
     def test_value(self):
         """Test compute method."""
@@ -425,10 +431,11 @@ class test_SameAs(unittest.TestCase):
         """Test compute_derivative method."""
         v = relentless.model.DesignVariable(value=2.0)
         w = relentless.model.variable.SameAs(v)
-        self.assertAlmostEqual(w.compute_derivative('a', a=1.0), 1.0)
+        self.assertAlmostEqual(w.compute_derivative("a", a=1.0), 1.0)
         with self.assertRaises(ValueError):
-            w.compute_derivative('x', a=1.0)
+            w.compute_derivative("x", a=1.0)
         self.assertAlmostEqual(w.derivative(v), 1.0)
+
 
 class test_Negation(unittest.TestCase):
     """Unit tests for relentless.model.variable.Negation"""
@@ -437,10 +444,10 @@ class test_Negation(unittest.TestCase):
         """Test creation with data."""
         v = relentless.model.DesignVariable(value=1.0)
         w = relentless.model.variable.Negation(v)
-        self.assertCountEqual(w.params, ('a',))
+        self.assertCountEqual(w.params, ("a",))
 
-        u = relentless.model.variable.Negation(w)
-        z = relentless.model.variable.Negation(2.0)
+        relentless.model.variable.Negation(w)
+        relentless.model.variable.Negation(2.0)
 
     def test_value(self):
         """Test compute method."""
@@ -453,10 +460,11 @@ class test_Negation(unittest.TestCase):
         """Test compute_derivative method."""
         v = relentless.model.DesignVariable(value=2.0)
         w = relentless.model.variable.Negation(v)
-        self.assertAlmostEqual(w.compute_derivative('a', a=1.0), -1.0)
+        self.assertAlmostEqual(w.compute_derivative("a", a=1.0), -1.0)
         with self.assertRaises(ValueError):
-            w.compute_derivative('x', a=1.0)
+            w.compute_derivative("x", a=1.0)
         self.assertAlmostEqual(w.derivative(v), -1.0)
+
 
 class test_Sum(unittest.TestCase):
     """Unit tests for relentless.model.variable.Sum"""
@@ -466,12 +474,12 @@ class test_Sum(unittest.TestCase):
         u = relentless.model.DesignVariable(value=1.0)
         v = relentless.model.DesignVariable(value=2.0)
         w = relentless.model.variable.Sum(u, v)
-        self.assertCountEqual(w.params, ('a','b'))
+        self.assertCountEqual(w.params, ("a", "b"))
 
         x = relentless.model.variable.Sum(v, w)
-        y = relentless.model.variable.Sum(w, x)
-        w = relentless.model.variable.Sum(u, u)
-        z = relentless.model.variable.Sum(2.0, 1.0)
+        relentless.model.variable.Sum(w, x)
+        relentless.model.variable.Sum(u, u)
+        relentless.model.variable.Sum(2.0, 1.0)
 
     def test_value(self):
         """Test compute method."""
@@ -486,12 +494,13 @@ class test_Sum(unittest.TestCase):
         u = relentless.model.DesignVariable(value=1.0)
         v = relentless.model.DesignVariable(value=2.0)
         w = relentless.model.variable.Sum(u, v)
-        self.assertAlmostEqual(w.compute_derivative('a', a=4.0, b=3.0), 1.0)
-        self.assertAlmostEqual(w.compute_derivative('b', a=4.0, b=3.0), 1.0)
+        self.assertAlmostEqual(w.compute_derivative("a", a=4.0, b=3.0), 1.0)
+        self.assertAlmostEqual(w.compute_derivative("b", a=4.0, b=3.0), 1.0)
         with self.assertRaises(ValueError):
-            w.compute_derivative('x', a=4.0, b=3.0)
+            w.compute_derivative("x", a=4.0, b=3.0)
         self.assertAlmostEqual(w.derivative(u), 1.0)
         self.assertAlmostEqual(w.derivative(v), 1.0)
+
 
 class test_Difference(unittest.TestCase):
     """Unit tests for relentless.model.variable.Difference"""
@@ -501,12 +510,12 @@ class test_Difference(unittest.TestCase):
         u = relentless.model.DesignVariable(value=1.0)
         v = relentless.model.DesignVariable(value=2.0)
         w = relentless.model.variable.Difference(u, v)
-        self.assertCountEqual(w.params, ('a','b'))
+        self.assertCountEqual(w.params, ("a", "b"))
 
         x = relentless.model.variable.Difference(v, w)
-        y = relentless.model.variable.Difference(w, x)
-        w = relentless.model.variable.Difference(u, u)
-        z = relentless.model.variable.Difference(2.0, 1.0)
+        relentless.model.variable.Difference(w, x)
+        relentless.model.variable.Difference(u, u)
+        relentless.model.variable.Difference(2.0, 1.0)
 
     def test_value(self):
         """Test compute method."""
@@ -521,12 +530,13 @@ class test_Difference(unittest.TestCase):
         u = relentless.model.DesignVariable(value=1.0)
         v = relentless.model.DesignVariable(value=2.0)
         w = relentless.model.variable.Difference(u, v)
-        self.assertAlmostEqual(w.compute_derivative('a', a=4.0, b=3.0), 1.0)
-        self.assertAlmostEqual(w.compute_derivative('b', a=4.0, b=3.0), -1.0)
+        self.assertAlmostEqual(w.compute_derivative("a", a=4.0, b=3.0), 1.0)
+        self.assertAlmostEqual(w.compute_derivative("b", a=4.0, b=3.0), -1.0)
         with self.assertRaises(ValueError):
-            w.compute_derivative('x', a=4.0, b=3.0)
+            w.compute_derivative("x", a=4.0, b=3.0)
         self.assertAlmostEqual(w.derivative(u), 1.0)
         self.assertAlmostEqual(w.derivative(v), -1.0)
+
 
 class test_Product(unittest.TestCase):
     """Unit tests for relentless.model.variable.Power"""
@@ -536,12 +546,12 @@ class test_Product(unittest.TestCase):
         u = relentless.model.DesignVariable(value=1.0)
         v = relentless.model.DesignVariable(value=2.0)
         w = relentless.model.variable.Product(u, v)
-        self.assertCountEqual(w.params, ('a','b'))
+        self.assertCountEqual(w.params, ("a", "b"))
 
         x = relentless.model.variable.Product(v, w)
-        y = relentless.model.variable.Product(w, x)
-        w = relentless.model.variable.Product(u, u)
-        z = relentless.model.variable.Product(2.0, 1.0)
+        relentless.model.variable.Product(w, x)
+        relentless.model.variable.Product(u, u)
+        relentless.model.variable.Product(2.0, 1.0)
 
     def test_value(self):
         """Test compute method."""
@@ -556,12 +566,13 @@ class test_Product(unittest.TestCase):
         u = relentless.model.DesignVariable(value=1.0)
         v = relentless.model.DesignVariable(value=2.0)
         w = relentless.model.variable.Product(u, v)
-        self.assertAlmostEqual(w.compute_derivative('a', a=4.0, b=3.0), 3.0)
-        self.assertAlmostEqual(w.compute_derivative('b', a=4.0, b=3.0), 4.0)
+        self.assertAlmostEqual(w.compute_derivative("a", a=4.0, b=3.0), 3.0)
+        self.assertAlmostEqual(w.compute_derivative("b", a=4.0, b=3.0), 4.0)
         with self.assertRaises(ValueError):
-            w.compute_derivative('x', a=4.0, b=3.0)
+            w.compute_derivative("x", a=4.0, b=3.0)
         self.assertAlmostEqual(w.derivative(u), 2.0)
         self.assertAlmostEqual(w.derivative(v), 1.0)
+
 
 class test_Quotient(unittest.TestCase):
     """Unit tests for relentless.model.variable.Quotient"""
@@ -571,12 +582,12 @@ class test_Quotient(unittest.TestCase):
         u = relentless.model.DesignVariable(value=1.0)
         v = relentless.model.DesignVariable(value=2.0)
         w = relentless.model.variable.Quotient(u, v)
-        self.assertCountEqual(w.params, ('a','b'))
+        self.assertCountEqual(w.params, ("a", "b"))
 
         x = relentless.model.variable.Quotient(v, w)
-        y = relentless.model.variable.Quotient(w, x)
-        w = relentless.model.variable.Quotient(u, u)
-        z = relentless.model.variable.Quotient(2.0, 1.0)
+        relentless.model.variable.Quotient(w, x)
+        relentless.model.variable.Quotient(u, u)
+        relentless.model.variable.Quotient(2.0, 1.0)
 
     def test_value(self):
         """Test compute method."""
@@ -592,14 +603,15 @@ class test_Quotient(unittest.TestCase):
         u = relentless.model.DesignVariable(value=1.0)
         v = relentless.model.DesignVariable(value=2.0)
         w = relentless.model.variable.Quotient(u, v)
-        self.assertAlmostEqual(w.compute_derivative('a', a=9.0, b=3.0), 1.0/3.0)
-        self.assertTrue(numpy.isnan(w.compute_derivative('a', a=1.0, b=0.0)))
-        self.assertAlmostEqual(w.compute_derivative('b', a=9.0, b=3.0), -1.0)
-        self.assertTrue(numpy.isnan(w.compute_derivative('b', a=1.0, b=0.0)))
+        self.assertAlmostEqual(w.compute_derivative("a", a=9.0, b=3.0), 1.0 / 3.0)
+        self.assertTrue(numpy.isnan(w.compute_derivative("a", a=1.0, b=0.0)))
+        self.assertAlmostEqual(w.compute_derivative("b", a=9.0, b=3.0), -1.0)
+        self.assertTrue(numpy.isnan(w.compute_derivative("b", a=1.0, b=0.0)))
         with self.assertRaises(ValueError):
-            w.compute_derivative('x', a=4.0, b=3.0)
-        self.assertAlmostEqual(w.derivative(u), 1.0/2.0)
-        self.assertAlmostEqual(w.derivative(v), -1.0/4.0)
+            w.compute_derivative("x", a=4.0, b=3.0)
+        self.assertAlmostEqual(w.derivative(u), 1.0 / 2.0)
+        self.assertAlmostEqual(w.derivative(v), -1.0 / 4.0)
+
 
 class test_Power(unittest.TestCase):
     """Unit tests for relentless.model.variable.Power"""
@@ -609,12 +621,12 @@ class test_Power(unittest.TestCase):
         u = relentless.model.DesignVariable(value=1.0)
         v = relentless.model.DesignVariable(value=2.0)
         w = relentless.model.variable.Power(u, v)
-        self.assertCountEqual(w.params, ('a','b'))
+        self.assertCountEqual(w.params, ("a", "b"))
 
         x = relentless.model.variable.Power(v, w)
-        y = relentless.model.variable.Power(w, x)
-        w = relentless.model.variable.Power(u, u)
-        z = relentless.model.variable.Power(2.0, 1.0)
+        relentless.model.variable.Power(w, x)
+        relentless.model.variable.Power(u, u)
+        relentless.model.variable.Power(2.0, 1.0)
 
     def test_value(self):
         """Test compute method."""
@@ -632,18 +644,23 @@ class test_Power(unittest.TestCase):
         u = relentless.model.DesignVariable(value=2.0)
         v = relentless.model.DesignVariable(value=3.0)
         w = relentless.model.variable.Power(u, v)
-        self.assertAlmostEqual(w.compute_derivative('a', a=4.0, b=0.5), 1./4.)
-        self.assertAlmostEqual(w.compute_derivative('a', a=4.0, b=0.0), 0.0)
-        self.assertAlmostEqual(w.compute_derivative('a', a=4.0, b=-0.5), -1./16)
-        self.assertAlmostEqual(w.compute_derivative('a', a=0.0, b=2), 0.0)
-        self.assertAlmostEqual(w.compute_derivative('b', a=4.0, b=0.5), 2.0*numpy.log(4.0))
-        self.assertAlmostEqual(w.compute_derivative('b', a=4.0, b=0.0), numpy.log(4.0))
-        self.assertAlmostEqual(w.compute_derivative('b', a=4.0, b=-0.5), 0.5*numpy.log(4.0))
-        self.assertAlmostEqual(w.compute_derivative('a', a=0.0, b=2), 0.0)
+        self.assertAlmostEqual(w.compute_derivative("a", a=4.0, b=0.5), 1.0 / 4.0)
+        self.assertAlmostEqual(w.compute_derivative("a", a=4.0, b=0.0), 0.0)
+        self.assertAlmostEqual(w.compute_derivative("a", a=4.0, b=-0.5), -1.0 / 16)
+        self.assertAlmostEqual(w.compute_derivative("a", a=0.0, b=2), 0.0)
+        self.assertAlmostEqual(
+            w.compute_derivative("b", a=4.0, b=0.5), 2.0 * numpy.log(4.0)
+        )
+        self.assertAlmostEqual(w.compute_derivative("b", a=4.0, b=0.0), numpy.log(4.0))
+        self.assertAlmostEqual(
+            w.compute_derivative("b", a=4.0, b=-0.5), 0.5 * numpy.log(4.0)
+        )
+        self.assertAlmostEqual(w.compute_derivative("a", a=0.0, b=2), 0.0)
         with self.assertRaises(ValueError):
-            w.compute_derivative('x', a=4.0, b=3.0)
+            w.compute_derivative("x", a=4.0, b=3.0)
         self.assertAlmostEqual(w.derivative(u), 12)
-        self.assertAlmostEqual(w.derivative(v), 8.0*numpy.log(2.0))
+        self.assertAlmostEqual(w.derivative(v), 8.0 * numpy.log(2.0))
+
 
 class test_ArithmeticMean(unittest.TestCase):
     """Unit tests for relentless.model.ArithmeticMean"""
@@ -653,12 +670,12 @@ class test_ArithmeticMean(unittest.TestCase):
         u = relentless.model.DesignVariable(value=1.0)
         v = relentless.model.DesignVariable(value=2.0)
         w = relentless.model.ArithmeticMean(u, v)
-        self.assertCountEqual(w.params, ('a','b'))
+        self.assertCountEqual(w.params, ("a", "b"))
 
         x = relentless.model.ArithmeticMean(v, w)
-        y = relentless.model.ArithmeticMean(w, x)
-        w = relentless.model.ArithmeticMean(u, u)
-        z = relentless.model.ArithmeticMean(2.0, 1.0)
+        relentless.model.ArithmeticMean(w, x)
+        relentless.model.ArithmeticMean(u, u)
+        relentless.model.ArithmeticMean(2.0, 1.0)
 
     def test_value(self):
         """Test compute method."""
@@ -673,12 +690,13 @@ class test_ArithmeticMean(unittest.TestCase):
         u = relentless.model.DesignVariable(value=1.0)
         v = relentless.model.DesignVariable(value=2.0)
         w = relentless.model.ArithmeticMean(u, v)
-        self.assertAlmostEqual(w.compute_derivative('a', a=4.0, b=3.0), 0.5)
-        self.assertAlmostEqual(w.compute_derivative('b', a=4.0, b=3.0), 0.5)
+        self.assertAlmostEqual(w.compute_derivative("a", a=4.0, b=3.0), 0.5)
+        self.assertAlmostEqual(w.compute_derivative("b", a=4.0, b=3.0), 0.5)
         with self.assertRaises(ValueError):
-            w.compute_derivative('x', a=4.0, b=3.0)
+            w.compute_derivative("x", a=4.0, b=3.0)
         self.assertAlmostEqual(w.derivative(u), 0.5)
         self.assertAlmostEqual(w.derivative(v), 0.5)
+
 
 class test_GeometricMean(unittest.TestCase):
     """Unit tests for relentless.model.GeometricMean"""
@@ -688,12 +706,12 @@ class test_GeometricMean(unittest.TestCase):
         u = relentless.model.DesignVariable(value=1.0)
         v = relentless.model.DesignVariable(value=16.0)
         w = relentless.model.GeometricMean(u, v)
-        self.assertCountEqual(w.params, ('a','b'))
+        self.assertCountEqual(w.params, ("a", "b"))
 
         x = relentless.model.GeometricMean(v, w)
-        y = relentless.model.GeometricMean(w, x)
-        w = relentless.model.GeometricMean(u, u)
-        z = relentless.model.GeometricMean(2.0, 1.0)
+        relentless.model.GeometricMean(w, x)
+        relentless.model.GeometricMean(u, u)
+        relentless.model.GeometricMean(2.0, 1.0)
 
     def test_value(self):
         """Test compute method."""
@@ -708,16 +726,17 @@ class test_GeometricMean(unittest.TestCase):
         u = relentless.model.DesignVariable(value=1.0)
         v = relentless.model.DesignVariable(value=16.0)
         w = relentless.model.GeometricMean(u, v)
-        self.assertAlmostEqual(w.compute_derivative('a', a=9.0, b=4.0), 0.5*2.0/3.0)
-        self.assertTrue(numpy.isnan(w.compute_derivative('a', a=0.0, b=4.0)))
-        self.assertAlmostEqual(w.compute_derivative('a', a=9.0, b=0.0),0.0)
-        self.assertAlmostEqual(w.compute_derivative('b', a=9.0, b=4.0), 0.5*3.0/2.0)
-        self.assertTrue(numpy.isnan(w.compute_derivative('b', a=9.0, b=0.0)))
-        self.assertAlmostEqual(w.compute_derivative('b', a=0.0, b=4.0),0.0)
+        self.assertAlmostEqual(w.compute_derivative("a", a=9.0, b=4.0), 0.5 * 2.0 / 3.0)
+        self.assertTrue(numpy.isnan(w.compute_derivative("a", a=0.0, b=4.0)))
+        self.assertAlmostEqual(w.compute_derivative("a", a=9.0, b=0.0), 0.0)
+        self.assertAlmostEqual(w.compute_derivative("b", a=9.0, b=4.0), 0.5 * 3.0 / 2.0)
+        self.assertTrue(numpy.isnan(w.compute_derivative("b", a=9.0, b=0.0)))
+        self.assertAlmostEqual(w.compute_derivative("b", a=0.0, b=4.0), 0.0)
         with self.assertRaises(ValueError):
-            w.compute_derivative('x', a=9.0, b=4.0)
-        self.assertAlmostEqual(w.derivative(u), 0.5*4.0/1.0)
-        self.assertAlmostEqual(w.derivative(v), 0.5*1.0/4.0)
+            w.compute_derivative("x", a=9.0, b=4.0)
+        self.assertAlmostEqual(w.derivative(u), 0.5 * 4.0 / 1.0)
+        self.assertAlmostEqual(w.derivative(v), 0.5 * 1.0 / 4.0)
+
 
 class test_VariableGraph(unittest.TestCase):
     def setUp(self):
@@ -815,12 +834,12 @@ class test_VariableGraph(unittest.TestCase):
     def test_evaluate_derivative(self):
         g = relentless.model.variable.graph
         x = relentless.model.IndependentVariable(1.0)
-        y = 2*x + 2.0
-        z = 3*y
+        y = 2 * x + 2.0
+        z = 3 * y
         w = relentless.model.IndependentVariable(2.0)
         self.assertEqual(g.evaluate_derivative(x, x), 1.0)
         self.assertEqual(g.evaluate_derivative(y, x), 2.0)
-        self.assertEqual(g.evaluate_derivative(x ,w), 0.0)
+        self.assertEqual(g.evaluate_derivative(x, w), 0.0)
         self.assertEqual(g.evaluate_derivative(z, y), 3.0)
         self.assertEqual(g.evaluate_derivative(z, x), 6.0)
 
@@ -837,13 +856,16 @@ class test_VariableGraph(unittest.TestCase):
         self.assertCountEqual(result, (x,))
 
         result = g.check_variables_and_types((x, y), relentless.model.Variable)
-        self.assertCountEqual(result, (x,y))
+        self.assertCountEqual(result, (x, y))
 
         with self.assertRaises(TypeError):
             g.check_variables_and_types(x, relentless.model.DesignVariable)
 
-        result = g.check_variables_and_types(x, (relentless.model.DesignVariable, relentless.model.IndependentVariable))
+        result = g.check_variables_and_types(
+            x, (relentless.model.DesignVariable, relentless.model.IndependentVariable)
+        )
         self.assertCountEqual(result, (x,))
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

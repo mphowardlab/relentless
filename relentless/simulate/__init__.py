@@ -99,7 +99,7 @@ Analyzers
     :toctree: generated/
 
     EnsembleAverage
-    
+
 Running a simulation
 ====================
 
@@ -134,25 +134,11 @@ Developer classes
     Thermostat
 
 """
-from .simulate import (
-    AnalysisOperation,
-    PairPotentialTabulator,
-    PotentialTabulator,
-    Potentials,
-    Simulation,
-    SimulationInstance,
-    SimulationOperation,
-    )
-
-from .analyze import (
-    EnsembleAverage,
-    )
-
-from .initialize import (
-    InitializeFromFile,
-    InitializeRandomly,
-    )
-
+from .analyze import EnsembleAverage
+from .dilute import Dilute
+from .hoomd import HOOMD
+from .initialize import InitializeFromFile, InitializeRandomly
+from .lammps import LAMMPS
 from .md import (
     Barostat,
     BerendsenBarostat,
@@ -164,10 +150,13 @@ from .md import (
     RunLangevinDynamics,
     RunMolecularDynamics,
     Thermostat,
-    )
-
-from .dilute import Dilute
-
-from .hoomd import HOOMD
-
-from .lammps import LAMMPS
+)
+from .simulate import (
+    AnalysisOperation,
+    PairPotentialTabulator,
+    Potentials,
+    PotentialTabulator,
+    Simulation,
+    SimulationInstance,
+    SimulationOperation,
+)

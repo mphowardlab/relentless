@@ -17,6 +17,7 @@ import scipy.interpolate
 
 from .collections import FixedKeyDict
 
+
 class Interpolator:
     r"""Interpolating function.
 
@@ -69,18 +70,19 @@ class Interpolator:
         2.0
 
     """
+
     def __init__(self, x, y):
         x = numpy.atleast_1d(x)
         y = numpy.atleast_1d(y)
         if x.shape[0] == 1:
-            raise ValueError('x cannot be a scalar')
+            raise ValueError("x cannot be a scalar")
         if x.ndim > 1:
-            raise ValueError('x must be 1-dimensional')
+            raise ValueError("x must be 1-dimensional")
         if x.shape != y.shape:
-            raise ValueError('x and y must be the same shape')
+            raise ValueError("x and y must be the same shape")
         if not numpy.all(x[1:] > x[:-1]):
-            raise ValueError('x must be strictly increasing')
-        self._domain = (x[0],x[-1])
+            raise ValueError("x must be strictly increasing")
+        self._domain = (x[0], x[-1])
         if x.shape[0] > 2:
             self._spline = scipy.interpolate.Akima1DInterpolator(x=x, y=y)
         else:
@@ -113,7 +115,7 @@ class Interpolator:
         result[hi] = self._spline(self.domain[1])
 
         # evaluate in between
-        flags = numpy.logical_and(~lo,~hi)
+        flags = numpy.logical_and(~lo, ~hi)
         result[flags] = self._spline(x[flags])
 
         if scalar_x:
@@ -143,7 +145,7 @@ class Interpolator:
 
         """
         if not isinstance(n, int) and n <= 0:
-            raise ValueError('n must be a positive integer')
+            raise ValueError("n must be a positive integer")
         scalar_x = numpy.isscalar(x)
         x = numpy.atleast_1d(x)
         result = numpy.zeros(len(x))
@@ -157,7 +159,7 @@ class Interpolator:
         result[hi] = 0
 
         # evaluate in between
-        flags = numpy.logical_and(~lo,~hi)
+        flags = numpy.logical_and(~lo, ~hi)
         result[flags] = self._spline.derivative(n)(x[flags])
 
         if scalar_x:
@@ -169,6 +171,7 @@ class Interpolator:
     def domain(self):
         """tuple: The valid domain for interpolation."""
         return self._domain
+
 
 class KeyedArray(FixedKeyDict):
     """Numerical array with fixed keys.
@@ -235,12 +238,16 @@ class KeyedArray(FixedKeyDict):
         5.0
 
     """
+
     def __init__(self, keys, default=None):
         super().__init__(keys, default)
 
     def _assert_same_keys(self, val):
         if self.keys() != val.keys():
-            raise KeyError('Both KeyedArrays must have identical keys to perform mathematical operations.')
+            raise KeyError(
+                "Both KeyedArrays must have identical keys to"
+                " perform mathematical operations."
+            )
 
     def __add__(self, val):
         """Element-wise addition of two arrays, or of an array and a scalar."""
@@ -251,7 +258,7 @@ class KeyedArray(FixedKeyDict):
         elif numpy.isscalar(val):
             k.update({x: self[x] + val for x in self})
         else:
-            raise TypeError('A KeyedArray can only add a scalar or a KeyedArray.')
+            raise TypeError("A KeyedArray can only add a scalar or a KeyedArray.")
         return k
 
     def __radd__(self, val):
@@ -260,7 +267,7 @@ class KeyedArray(FixedKeyDict):
         if numpy.isscalar(val):
             k.update({x: val + self[x] for x in self})
         else:
-            raise TypeError('A KeyedArray can only add a scalar or a KeyedArray.')
+            raise TypeError("A KeyedArray can only add a scalar or a KeyedArray.")
         return k
 
     def __iadd__(self, val):
@@ -273,7 +280,7 @@ class KeyedArray(FixedKeyDict):
             for x in self:
                 self[x] += val
         else:
-            raise TypeError('A KeyedArray can only add a scalar or a KeyedArray.')
+            raise TypeError("A KeyedArray can only add a scalar or a KeyedArray.")
         return self
 
     def __sub__(self, val):
@@ -285,7 +292,7 @@ class KeyedArray(FixedKeyDict):
         elif numpy.isscalar(val):
             k.update({x: self[x] - val for x in self})
         else:
-            raise TypeError('A KeyedArray can only subtract a scalar or a KeyedArray.')
+            raise TypeError("A KeyedArray can only subtract a scalar or a KeyedArray.")
         return k
 
     def __rsub__(self, val):
@@ -294,11 +301,13 @@ class KeyedArray(FixedKeyDict):
         if numpy.isscalar(val):
             k.update({x: val - self[x] for x in self})
         else:
-            raise TypeError('A KeyedArray can only subtract a scalar or a KeyedArray.')
+            raise TypeError("A KeyedArray can only subtract a scalar or a KeyedArray.")
         return k
 
     def __isub__(self, val):
-        """In-place element-wise subtraction of two arrays, or of an array and a scalar."""
+        """In-place element-wise subtraction of two arrays,
+        or of an array and a scalar.
+        """
         if isinstance(val, KeyedArray):
             self._assert_same_keys(val)
             for x in self:
@@ -307,7 +316,7 @@ class KeyedArray(FixedKeyDict):
             for x in self:
                 self[x] -= val
         else:
-            raise TypeError('A KeyedArray can only subtract a scalar or a KeyedArray.')
+            raise TypeError("A KeyedArray can only subtract a scalar or a KeyedArray.")
         return self
 
     def __mul__(self, val):
@@ -315,24 +324,26 @@ class KeyedArray(FixedKeyDict):
         k = KeyedArray(keys=self.keys())
         if isinstance(val, KeyedArray):
             self._assert_same_keys(val)
-            k.update({x: self[x]*val[x] for x in self})
+            k.update({x: self[x] * val[x] for x in self})
         elif numpy.isscalar(val):
-            k.update({x: self[x]*val for x in self})
+            k.update({x: self[x] * val for x in self})
         else:
-            raise TypeError('A KeyedArray can only multiply a scalar or a KeyedArray.')
+            raise TypeError("A KeyedArray can only multiply a scalar or a KeyedArray.")
         return k
 
     def __rmul__(self, val):
         """Element-wise multiplication of a scalar by an array."""
         k = KeyedArray(keys=self.keys())
         if numpy.isscalar(val):
-            k.update({x: val*self[x] for x in self})
+            k.update({x: val * self[x] for x in self})
         else:
-            raise TypeError('A KeyedArray can only multiply a scalar or a KeyedArray.')
+            raise TypeError("A KeyedArray can only multiply a scalar or a KeyedArray.")
         return k
 
     def __imul__(self, val):
-        """In-place element-wise multiplication of two arrays, or of an array by a scalar."""
+        """In-place element-wise multiplication of two arrays,
+        or of an array by a scalar.
+        """
         if isinstance(val, KeyedArray):
             self._assert_same_keys(val)
             for x in self:
@@ -341,7 +352,7 @@ class KeyedArray(FixedKeyDict):
             for x in self:
                 self[x] *= val
         else:
-            raise TypeError('A KeyedArray can only multiply a scalar or a KeyedArray.')
+            raise TypeError("A KeyedArray can only multiply a scalar or a KeyedArray.")
         return self
 
     def __truediv__(self, val):
@@ -349,20 +360,20 @@ class KeyedArray(FixedKeyDict):
         k = KeyedArray(keys=self.keys())
         if isinstance(val, KeyedArray):
             self._assert_same_keys(val)
-            k.update({x: self[x]/val[x] for x in self})
+            k.update({x: self[x] / val[x] for x in self})
         elif numpy.isscalar(val):
-            k.update({x: self[x]/val for x in self})
+            k.update({x: self[x] / val for x in self})
         else:
-            raise TypeError('A KeyedArray can only divide a scalar or a KeyedArray.')
+            raise TypeError("A KeyedArray can only divide a scalar or a KeyedArray.")
         return k
 
     def __rtruediv__(self, val):
         """Element-wise division of a scalar by an array."""
         k = KeyedArray(keys=self.keys())
         if numpy.isscalar(val):
-            k.update({x: val/self[x] for x in self})
+            k.update({x: val / self[x] for x in self})
         else:
-            raise TypeError('A KeyedArray can only divide a scalar or a KeyedArray.')
+            raise TypeError("A KeyedArray can only divide a scalar or a KeyedArray.")
         return k
 
     def __itruediv__(self, val):
@@ -375,7 +386,7 @@ class KeyedArray(FixedKeyDict):
             for x in self:
                 self[x] /= val
         else:
-            raise TypeError('A KeyedArray can only divide a scalar or a KeyedArray.')
+            raise TypeError("A KeyedArray can only divide a scalar or a KeyedArray.")
         return self
 
     def __pow__(self, val):
@@ -383,11 +394,13 @@ class KeyedArray(FixedKeyDict):
         k = KeyedArray(keys=self.keys())
         if isinstance(val, KeyedArray):
             self._assert_same_keys(val)
-            k.update({x: self[x]**val[x] for x in self})
+            k.update({x: self[x] ** val[x] for x in self})
         elif numpy.isscalar(val):
-            k.update({x: self[x]**val for x in self})
+            k.update({x: self[x] ** val for x in self})
         else:
-            raise TypeError('A KeyedArray can only be exponentiated by a scalar or by a KeyedArray.')
+            raise TypeError(
+                "A KeyedArray can only be exponentiated by a scalar or by a KeyedArray."
+            )
         return k
 
     def __neg__(self):
@@ -437,4 +450,4 @@ class KeyedArray(FixedKeyDict):
 
         """
         self._assert_same_keys(val)
-        return numpy.sum([self[x]*val[x] for x in self])
+        return numpy.sum([self[x] * val[x] for x in self])

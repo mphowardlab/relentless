@@ -5,6 +5,7 @@ import relentless
 
 from .test_objective import QuadraticObjective
 
+
 class test_Tolerance(unittest.TestCase):
     """Unit tests for relentless.optimize.Tolerance"""
 
@@ -56,6 +57,7 @@ class test_Tolerance(unittest.TestCase):
             t = relentless.optimize.Tolerance(absolute=0.1, relative=1.1)
             t.isclose(x.value, 2.5)
 
+
 class test_GradientTest(unittest.TestCase):
     """Unit tests for relentless.optimize.GradientTest"""
 
@@ -99,13 +101,12 @@ class test_GradientTest(unittest.TestCase):
         x.low = 2.0
         self.assertTrue(t.converged(result=q.compute(x)))
 
+
 class test_ValueTest(unittest.TestCase):
     """Unit tests for relentless.optimize.ValueTest"""
 
     def test_init(self):
         """Test creation with data."""
-        x = relentless.model.DesignVariable(value=3.0)
-
         # test default values
         t = relentless.optimize.ValueTest(value=2.5)
         self.assertAlmostEqual(t.absolute, 1e-8)
@@ -141,6 +142,7 @@ class test_ValueTest(unittest.TestCase):
         x.value = 3.9999999999
         self.assertTrue(t.converged(result=q.compute(x)))
 
+
 class AnyTest(unittest.TestCase):
     """Unit tests for relentless.optimize.AnyTest"""
 
@@ -151,8 +153,8 @@ class AnyTest(unittest.TestCase):
         t2 = relentless.optimize.ValueTest(value=2.0)
         t3 = relentless.optimize.ValueTest(value=1.0)
 
-        t = relentless.optimize.AnyTest(t1,t2,t3)
-        self.assertCountEqual(t.tests, (t1,t2,t3))
+        t = relentless.optimize.AnyTest(t1, t2, t3)
+        self.assertCountEqual(t.tests, (t1, t2, t3))
 
     def test_converged(self):
         """Test converged method."""
@@ -162,7 +164,7 @@ class AnyTest(unittest.TestCase):
         t2 = relentless.optimize.ValueTest(value=1.0)
         t3 = relentless.optimize.ValueTest(value=0.0)
 
-        t = relentless.optimize.AnyTest(t1,t2,t3)
+        t = relentless.optimize.AnyTest(t1, t2, t3)
         self.assertFalse(t.converged(result=q.compute(x)))
 
         x.value = 2.00000001
@@ -170,6 +172,7 @@ class AnyTest(unittest.TestCase):
 
         x.value = 1.00000001
         self.assertTrue(t.converged(result=q.compute(x)))
+
 
 class AllTest(unittest.TestCase):
     """Unit tests for relentless.optimize.AllTest"""
@@ -181,8 +184,8 @@ class AllTest(unittest.TestCase):
         t2 = relentless.optimize.ValueTest(value=1.0)
         t3 = relentless.optimize.ValueTest(value=0.0)
 
-        t = relentless.optimize.AllTest(t1,t2,t3)
-        self.assertCountEqual(t.tests, (t1,t2,t3))
+        t = relentless.optimize.AllTest(t1, t2, t3)
+        self.assertCountEqual(t.tests, (t1, t2, t3))
 
     def test_converged(self):
         """Test converged method."""
@@ -192,7 +195,7 @@ class AllTest(unittest.TestCase):
         t2 = relentless.optimize.ValueTest(value=1.0)
         t3 = relentless.optimize.ValueTest(value=0.0)
 
-        t = relentless.optimize.AllTest(t1,t2,t3)
+        t = relentless.optimize.AllTest(t1, t2, t3)
         self.assertFalse(t.converged(result=q.compute(x)))
 
         x.value = 1.999999999
@@ -201,6 +204,7 @@ class AllTest(unittest.TestCase):
         t2.value = 0.0
         x.value = 0.999999999
         self.assertTrue(t.converged(result=q.compute(x)))
+
 
 class OrTest(unittest.TestCase):
     """Unit tests for relentless.optimize.OrTest"""
@@ -211,8 +215,8 @@ class OrTest(unittest.TestCase):
         t1 = relentless.optimize.GradientTest(tolerance=1e-8, variables=x)
         t2 = relentless.optimize.ValueTest(value=1.0)
 
-        t = relentless.optimize.OrTest(t1,t2)
-        self.assertCountEqual(t.tests, (t1,t2))
+        t = relentless.optimize.OrTest(t1, t2)
+        self.assertCountEqual(t.tests, (t1, t2))
 
     def test_converged(self):
         """Test converged method."""
@@ -221,7 +225,7 @@ class OrTest(unittest.TestCase):
         t1 = relentless.optimize.GradientTest(tolerance=1e-8, variables=x)
         t2 = relentless.optimize.ValueTest(value=1.0)
 
-        t = relentless.optimize.OrTest(t1,t2)
+        t = relentless.optimize.OrTest(t1, t2)
         self.assertFalse(t.converged(result=q.compute(x)))
 
         x.value = 1.9999999999
@@ -229,6 +233,7 @@ class OrTest(unittest.TestCase):
 
         x.value = 0.9999999999
         self.assertTrue(t.converged(result=q.compute(x)))
+
 
 class AndTest(unittest.TestCase):
     """Unit tests for relentless.optimize.AndTest"""
@@ -239,8 +244,8 @@ class AndTest(unittest.TestCase):
         t1 = relentless.optimize.GradientTest(tolerance=1e-8, variables=x)
         t2 = relentless.optimize.ValueTest(value=1.0)
 
-        t = relentless.optimize.AndTest(t1,t2)
-        self.assertCountEqual(t.tests, (t1,t2))
+        t = relentless.optimize.AndTest(t1, t2)
+        self.assertCountEqual(t.tests, (t1, t2))
 
     def test_converged(self):
         """Test converged method."""
@@ -249,7 +254,7 @@ class AndTest(unittest.TestCase):
         t1 = relentless.optimize.GradientTest(tolerance=1e-8, variables=x)
         t2 = relentless.optimize.ValueTest(value=1.0)
 
-        t = relentless.optimize.AndTest(t1,t2)
+        t = relentless.optimize.AndTest(t1, t2)
         self.assertFalse(t.converged(result=q.compute(x)))
 
         x.value = 1.999999999
@@ -259,5 +264,6 @@ class AndTest(unittest.TestCase):
         x.value = 0.999999999
         self.assertTrue(t.converged(result=q.compute(x)))
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

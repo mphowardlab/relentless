@@ -6,7 +6,8 @@ An objective function is the quantity to be minimized in an optimization problem
 by adjusting the variables on which the function depends.
 
 This function, :math:`f`, is a scalar value that is defined as a function of :math:`n`
-problem :class:`~relentless.variable.DesignVariable`\s :math:`\mathbf{x}=\left[x_1,\ldots,x_n\right]`.
+problem :class:`~relentless.variable.DesignVariable`\s
+:math:`\mathbf{x}=\left[x_1,\ldots,x_n\right]`.
 
 The value of the function, :math:`f\left(\mathbf{x}\right)` is specified.
 The gradient is also specified for all of the design variables:
@@ -60,20 +61,20 @@ import tempfile
 import numpy
 import scipy.integrate
 
-from relentless import data
-from relentless.model import extent
-from relentless import math
-from relentless import mpi
-from relentless.model import variable
+from relentless import data, math, mpi
+from relentless.model import extent, variable
+
 
 class ObjectiveFunction(abc.ABC):
-    """Abstract base class for the optimization objective function.
+    r"""Abstract base class for the optimization objective function.
 
     An :class:`ObjectiveFunction` defines the objective function parametrized on
     one or more adjustable :class:`~relentless.variable.DesignVariable`\s.
-    The function must also have a defined value and gradient for all values of its parameters.
+    The function must also have a defined value and gradient for all values of its
+    parameters.
 
     """
+
     @abc.abstractmethod
     def compute(self, variables, directory=None):
         """Evaluate the value and gradient of the objective function.
@@ -94,6 +95,7 @@ class ObjectiveFunction(abc.ABC):
 
         """
         pass
+
 
 class ObjectiveFunctionResult:
     """Class storing the value and gradient of a :class:`ObjectiveFunction`.
@@ -119,6 +121,7 @@ class ObjectiveFunctionResult:
         don't match.
 
     """
+
     def __init__(self, variables=None, value=None, gradient=None, directory=None):
         self.variables = variables
         self.value = value
@@ -129,7 +132,7 @@ class ObjectiveFunctionResult:
     def variables(self):
         """:class:`~relentless.math.KeyedArray`: Recorded variables of the
         :class:`ObjectiveFunction`."""
-        return getattr(self, '_variables', None)
+        return getattr(self, "_variables", None)
 
     @variables.setter
     def variables(self, value):
@@ -145,7 +148,7 @@ class ObjectiveFunctionResult:
     @property
     def value(self):
         """float: The value of the evaluated objective function."""
-        return getattr(self, '_value', None)
+        return getattr(self, "_value", None)
 
     @value.setter
     def value(self, x):
@@ -155,7 +158,7 @@ class ObjectiveFunctionResult:
     def gradient(self):
         """:class:`~relentless.math.KeyedArray`: The gradient of the objective
         function, keyed on its design variables."""
-        return getattr(self, '_gradient', None)
+        return getattr(self, "_gradient", None)
 
     @gradient.setter
     def gradient(self, value):
@@ -170,7 +173,7 @@ class ObjectiveFunctionResult:
     @property
     def directory(self):
         """:class:`~relentless.data.Directory` Directory holding written output."""
-        return getattr(self, '_directory', None)
+        return getattr(self, "_directory", None)
 
     @directory.setter
     def directory(self, value):
@@ -187,14 +190,15 @@ class ObjectiveFunctionResult:
             The name of the file to save data in.
 
         """
-        data = {'variables': {x.name: v for x, v in self.variables.items()},
-                'value': self.value,
-                'gradient': {x.name: v for x, v in self.gradient.items()},
-                'directory': self.directory.path if self.directory is not None else None
-                }
+        data = {
+            "variables": {x.name: v for x, v in self.variables.items()},
+            "value": self.value,
+            "gradient": {x.name: v for x, v in self.gradient.items()},
+            "directory": self.directory.path if self.directory is not None else None,
+        }
 
         # dump data to json file
-        with open(filename,'w') as f:
+        with open(filename, "w") as f:
             json.dump(data, f, indent=4)
 
     def _assert_keys_match(self, vars, grad):
@@ -215,7 +219,8 @@ class ObjectiveFunctionResult:
         """
         if vars is not None and grad is not None:
             if vars.keys() != grad.keys():
-                raise AssertionError('Variable and gradient keys do not match!')
+                raise AssertionError("Variable and gradient keys do not match!")
+
 
 class RelativeEntropy(ObjectiveFunction):
     r"""Relative entropy.
@@ -228,7 +233,8 @@ class RelativeEntropy(ObjectiveFunction):
 
     .. math::
 
-        S_{\rm rel} = -\int d\Gamma p_0(\Gamma)\ln\left(\frac{p(\Gamma)}{p_0(\Gamma)}\right)
+        S_{\rm rel} =
+            -\int d\Gamma p_0(\Gamma)\ln\left(\frac{p(\Gamma)}{p_0(\Gamma)}\right)
 
     where :math:`\Gamma` is an element of phase space. The relative entropy is
     zero when the two ensembles overlap completely, and it is positive otherwise.
@@ -247,11 +253,14 @@ class RelativeEntropy(ObjectiveFunction):
 
     .. math::
 
-        \nabla_\mathbf{x} S_{\rm rel} = -\frac{1}{2}\sum_{i,j}\int{dr\left(4\pi r^2\right)\left[\frac{\beta N_i N_j}{V} g_{ij}(r)-\frac{\beta_0 N_{i,0} N_{j,0}}{V_0} g_{ij,0}(r)\right]\nabla_\mathbf{x} u_{ij}(r)}
+        \nabla_\mathbf{x} S_{\rm rel} = -\frac{1}{2} \sum_{i,j} \int dr 4\pi r^2
+            \left[\frac{\beta N_i N_j}{V} g_{ij}(r) \right.
+            \left. -\frac{\beta_0 N_{i,0} N_{j,0}}{V_0} g_{ij,0}(r)\right]
+            \nabla_\mathbf{x} u_{ij}(r)}
 
     where :math:`\beta=1/(k_{\rm B}T)`, :math:`N_i` is the number of particles
-    of type :math:`i`, :math:`V` is the extent, and :math:`u_{ij}(r)` is the pair potential
-    in the *model* ensemble. The corresponding properties of the *target*
+    of type :math:`i`, :math:`V` is the extent, and :math:`u_{ij}(r)` is the pair
+    potential in the *model* ensemble. The corresponding properties of the *target*
     ensemble are denoted with subscript :math:`0`.
 
     :math:`S_{\rm rel}` is extensive as written, meaning that it depends on the
@@ -277,6 +286,7 @@ class RelativeEntropy(ObjectiveFunction):
         ``False``).
 
     """
+
     def __init__(self, target, simulation, potentials, thermo, extensive=False):
         self.target = target
         self.simulation = simulation
@@ -331,8 +341,8 @@ class RelativeEntropy(ObjectiveFunction):
         # write the pair potential parameters *before* the run
         if not directory_is_tmp:
             if mpi.world.rank_is_root:
-                for n,p in enumerate(self.potentials.pair.potentials):
-                    p.save(directory.file('pair_potential.{}.json'.format(n)))
+                for n, p in enumerate(self.potentials.pair.potentials):
+                    p.save(directory.file("pair_potential.{}.json".format(n)))
 
         # run simulation and use result to compute gradient
         try:
@@ -346,18 +356,19 @@ class RelativeEntropy(ObjectiveFunction):
         # relative entropy *value* is None
         gradient = self.compute_gradient(sim_ens, variables)
         result = ObjectiveFunctionResult(
-                variables, None, gradient, directory if not directory_is_tmp else None)
+            variables, None, gradient, directory if not directory_is_tmp else None
+        )
 
         # optionally write ensemble and result *after* the simulation
         if not directory_is_tmp:
             if mpi.world.rank_is_root:
-                sim_ens.save(directory.file('ensemble.json'))
-                result.save(directory.file('result.json'))
+                sim_ens.save(directory.file("ensemble.json"))
+                result.save(directory.file("result.json"))
 
         return result
 
     def compute_gradient(self, ensemble, variables):
-        """Computes the relative entropy gradient for an ensemble.
+        r"""Computes the relative entropy gradient for an ensemble.
 
         Parameters
         ----------
@@ -380,10 +391,10 @@ class RelativeEntropy(ObjectiveFunction):
 
         for var in dvars:
             update = 0
-            for i,j in self.target.pairs:
+            for i, j in self.target.pairs:
                 rs = self.potentials.pair.r
-                us = self.potentials.pair.energy((i,j))
-                dus = self.potentials.pair.derivative((i,j),var)
+                us = self.potentials.pair.energy((i, j))
+                dus = self.potentials.pair.derivative((i, j), var)
 
                 # only count (continuous range of) finite values
                 flags = numpy.isinf(us)
@@ -396,31 +407,61 @@ class RelativeEntropy(ObjectiveFunction):
                     continue
 
                 # interpolate derivative wrt design variable with r
-                dudvar = math.Interpolator(rs,dus)
+                dudvar = math.Interpolator(rs, dus)
 
                 # find common domain to compare rdfs
-                r0 = max(g_sim[i,j].domain[0],g_tgt[i,j].domain[0],dudvar.domain[0])
-                r1 = min(g_sim[i,j].domain[-1],g_tgt[i,j].domain[-1],dudvar.domain[-1])
-                sim_dr = numpy.min(numpy.diff(g_sim[i,j].table[:,0]))
-                tgt_dr = numpy.min(numpy.diff(g_tgt[i,j].table[:,0]))
+                r0 = max(g_sim[i, j].domain[0], g_tgt[i, j].domain[0], dudvar.domain[0])
+                r1 = min(
+                    g_sim[i, j].domain[-1], g_tgt[i, j].domain[-1], dudvar.domain[-1]
+                )
+                sim_dr = numpy.min(numpy.diff(g_sim[i, j].table[:, 0]))
+                tgt_dr = numpy.min(numpy.diff(g_tgt[i, j].table[:, 0]))
                 dudvar_dr = numpy.min(numpy.diff(rs))
-                dr = min(sim_dr,tgt_dr,dudvar_dr)
-                r = numpy.arange(r0,r1+0.5*dr,dr)
+                dr = min(sim_dr, tgt_dr, dudvar_dr)
+                r = numpy.arange(r0, r1 + 0.5 * dr, dr)
 
                 # normalization to extensive or intensive as specified
-                norm_factor = self.target.V.extent if not self.extensive else 1.
+                norm_factor = self.target.V.extent if not self.extensive else 1.0
 
-                # take integral by trapezoidal rule              
-                sim_factor = ensemble.N[i]*ensemble.N[j]/(self.potentials.kB*ensemble.T*ensemble.V.extent*norm_factor)
-                tgt_factor = self.target.N[i]*self.target.N[j]/(self.potentials.kB*self.target.T*self.target.V.extent*norm_factor)
-                mult = 1 if i == j else 2 # 1 if same, otherwise need i,j and j,i contributions
+                # take integral by trapezoidal rule
+                sim_factor = (
+                    ensemble.N[i]
+                    * ensemble.N[j]
+                    / (
+                        self.potentials.kB
+                        * ensemble.T
+                        * ensemble.V.extent
+                        * norm_factor
+                    )
+                )
+                tgt_factor = (
+                    self.target.N[i]
+                    * self.target.N[j]
+                    / (
+                        self.potentials.kB
+                        * self.target.T
+                        * self.target.V.extent
+                        * norm_factor
+                    )
+                )
+                mult = (
+                    1 if i == j else 2
+                )  # 1 if same, otherwise need i,j and j,i contributions
                 if isinstance(self.target.V, extent.Volume):
-                    geo_prefactor = 4*numpy.pi*r**2
-                elif isinstance(self.target.V, extent.Area): 
-                    geo_prefactor = 2*numpy.pi*r
+                    geo_prefactor = 4 * numpy.pi * r**2
+                elif isinstance(self.target.V, extent.Area):
+                    geo_prefactor = 2 * numpy.pi * r
                 else:
-                    raise ValueError('Geometric integration factor unknown for extent type')
-                y = -0.5*mult*geo_prefactor*(sim_factor*g_sim[i,j](r)-tgt_factor*g_tgt[i,j](r))*dudvar(r)
+                    raise ValueError(
+                        "Geometric integration factor unknown for extent type"
+                    )
+                y = (
+                    -0.5
+                    * mult
+                    * geo_prefactor
+                    * (sim_factor * g_sim[i, j](r) - tgt_factor * g_tgt[i, j](r))
+                    * dudvar(r)
+                )
                 update += scipy.integrate.trapz(y, x=r)
 
             gradient[var] = update
@@ -436,5 +477,5 @@ class RelativeEntropy(ObjectiveFunction):
     @target.setter
     def target(self, value):
         if value.V is None or value.N is None:
-            raise ValueError('The target ensemble must have both V and N set.')
+            raise ValueError("The target ensemble must have both V and N set.")
         self._target = value

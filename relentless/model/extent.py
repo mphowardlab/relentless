@@ -1,8 +1,8 @@
 """
 Extents
 =======
-An :class:`Extent` represents a region of space with a fixed, scalar volume or area. It corresponds
-to the "box" used in simulations. 
+An :class:`Extent` represents a region of space with a fixed, scalar volume or area.
+It corresponds to the "box" used in simulations.
 
 Examples
 --------
@@ -23,6 +23,7 @@ import abc
 
 import numpy
 
+
 class Extent(abc.ABC):
     r"""Abstract base class defining a region of space.
 
@@ -32,6 +33,7 @@ class Extent(abc.ABC):
     Extent must be specified so that the object can be saved to disk.
 
     """
+
     @classmethod
     @abc.abstractmethod
     def from_json(cls, data):
@@ -65,6 +67,7 @@ class Extent(abc.ABC):
         """
         pass
 
+
 class Volume(Extent):
     r"""Three-dimensional region of space.
 
@@ -75,6 +78,7 @@ class Volume(Extent):
 
     """
     pass
+
 
 class TriclinicBox(Volume):
     r"""Triclinic box.
@@ -132,29 +136,29 @@ class TriclinicBox(Volume):
 
     """
 
-    def __init__(self, Lx, Ly, Lz, xy, xz, yz, convention='LAMMPS'):
+    def __init__(self, Lx, Ly, Lz, xy, xz, yz, convention="LAMMPS"):
         if Lx <= 0 or Ly <= 0 or Lz <= 0:
-            raise ValueError('All side lengths must be positive.')
+            raise ValueError("All side lengths must be positive.")
 
         convention = convention.upper()
-        if convention == 'LAMMPS':
-            a = (Lx,0,0)
-            b = (xy,Ly,0)
-            c = (xz,yz,Lz)
-        elif convention == 'HOOMD':
-            a = (Lx,0,0)
-            b = (xy*Ly,Ly,0)
-            c = (xz*Lz,yz*Lz,Lz)
+        if convention == "LAMMPS":
+            a = (Lx, 0, 0)
+            b = (xy, Ly, 0)
+            c = (xz, yz, Lz)
+        elif convention == "HOOMD":
+            a = (Lx, 0, 0)
+            b = (xy * Ly, Ly, 0)
+            c = (xz * Lz, yz * Lz, Lz)
         else:
-            raise ValueError('Triclinic convention must be LAMMPS or HOOMD')
+            raise ValueError("Triclinic convention must be LAMMPS or HOOMD")
 
         self.a = numpy.array(a, dtype=numpy.float64)
         self.b = numpy.array(b, dtype=numpy.float64)
         self.c = numpy.array(c, dtype=numpy.float64)
 
         box_vec = self.a + self.b + self.c
-        self._low = -0.5*box_vec
-        self._high = 0.5*box_vec
+        self._low = -0.5 * box_vec
+        self._high = 0.5 * box_vec
         self._extent = numpy.dot(numpy.cross(self.a, self.b), self.c)
         self._convention = convention
 
@@ -218,18 +222,18 @@ class TriclinicBox(Volume):
         Lx = self.a[0]
         Ly = self.b[1]
         Lz = self.c[2]
-        if convention =='LAMMPS':
+        if convention == "LAMMPS":
             xy = self.b[0]
             xz = self.c[0]
             yz = self.c[1]
-        elif convention == 'HOOMD':
-            xy = self.b[0]/self.b[1]
-            xz = self.c[0]/self.c[2]
-            yz = self.c[1]/self.c[2]
+        elif convention == "HOOMD":
+            xy = self.b[0] / self.b[1]
+            xz = self.c[0] / self.c[2]
+            yz = self.c[1] / self.c[2]
         else:
-            raise TypeError('Convention must be LAMMPS or HOOMD')
+            raise TypeError("Convention must be LAMMPS or HOOMD")
 
-        return numpy.array([Lx,Ly,Lz,xy,xz,yz])
+        return numpy.array([Lx, Ly, Lz, xy, xz, yz])
 
     def coordinate_to_fraction(self, r):
         r"""Make fractional coordinates from Cartesian coordinates.
@@ -240,9 +244,11 @@ class TriclinicBox(Volume):
 
         .. math::
 
-            \mathbf{r} = \mathbf{r}_{\rm low} + (\mathbf{a}\quad\mathbf{b}\quad\mathbf{c}) \cdot \mathbf{x}
+            \mathbf{r} = \mathbf{r}_{\rm low}
+                + (\mathbf{a}\quad\mathbf{b}\quad\mathbf{c}) \cdot \mathbf{x}
 
-        where :math:`\mathbf{r}_{\rm low}` is the lower bound of the box, i.e., :attr:`low`.
+        where :math:`\mathbf{r}_{\rm low}` is the lower bound of the box,
+        i.e., :attr:`low`.
 
         Parameters
         ----------
@@ -255,20 +261,24 @@ class TriclinicBox(Volume):
             Fractional coordinates **x** corresponding to **r**.
 
         """
-        Lx,Ly,Lz,xy,xz,yz = self.as_array('LAMMPS')
+        Lx, Ly, Lz, xy, xz, yz = self.as_array("LAMMPS")
 
         # get difference from lower bound
         dx = -self.low + r
         is_1d = False
         if len(dx.shape) == 1:
-            dx = dx[numpy.newaxis,...]
+            dx = dx[numpy.newaxis, ...]
             is_1d = True
 
         # make fractional coordinate
         x = numpy.zeros_like(dx)
-        x[:,0] = (1.0/Lx)*dx[...,0] + (-xy/(Lx*Ly))*dx[...,1] + ((yz*xy-Ly*xz)/(Lx*Ly*Lz))*dx[...,2]
-        x[:,1] = (1.0/Ly)*dx[...,1] + (-yz/(Ly*Lz))*dx[...,2]
-        x[:,2] = (1.0/Lz)*dx[...,2]
+        x[:, 0] = (
+            (1.0 / Lx) * dx[..., 0]
+            + (-xy / (Lx * Ly)) * dx[..., 1]
+            + ((yz * xy - Ly * xz) / (Lx * Ly * Lz)) * dx[..., 2]
+        )
+        x[:, 1] = (1.0 / Ly) * dx[..., 1] + (-yz / (Ly * Lz)) * dx[..., 2]
+        x[:, 2] = (1.0 / Lz) * dx[..., 2]
         if is_1d:
             x = x[0]
 
@@ -292,17 +302,17 @@ class TriclinicBox(Volume):
             Cartesian coordinates **r** corresponding to **x**.
 
         """
-        Lx,Ly,Lz,xy,xz,yz = self.as_array('LAMMPS')
+        Lx, Ly, Lz, xy, xz, yz = self.as_array("LAMMPS")
 
         # make real coordinate
         r = numpy.array(x)
         is_1d = False
         if len(r.shape) == 1:
-            r = r[numpy.newaxis,...]
+            r = r[numpy.newaxis, ...]
             is_1d = True
-        r[:,0] = Lx*r[...,0] + xy*r[...,1] + xz*r[...,2]
-        r[:,1] = Ly*r[...,1] + yz*r[...,2]
-        r[:,2] = Lz*r[...,2]
+        r[:, 0] = Lx * r[..., 0] + xy * r[..., 1] + xz * r[..., 2]
+        r[:, 1] = Ly * r[..., 1] + yz * r[..., 2]
+        r[:, 2] = Lz * r[..., 2]
         r += self.low
         if is_1d:
             r = r[0]
@@ -322,15 +332,16 @@ class TriclinicBox(Volume):
             The serialized TriclinicBox.
 
         """
-        Lx,Ly,Lz,xy,xz,yz = self.as_array()
-        return {'Lx': Lx,
-                'Ly': Ly,
-                'Lz': Lz,
-                'xy': xy,
-                'xz': xz,
-                'yz': yz,
-                'convention': self._convention
-               }
+        Lx, Ly, Lz, xy, xz, yz = self.as_array()
+        return {
+            "Lx": Lx,
+            "Ly": Ly,
+            "Lz": Lz,
+            "xy": xy,
+            "xz": xz,
+            "yz": yz,
+            "convention": self._convention,
+        }
 
     def wrap(self, positions):
         """Wrap positions subject to periodic boundary conditions.
@@ -356,6 +367,7 @@ class TriclinicBox(Volume):
         r = self.fraction_to_coordinate(x)
         return r
 
+
 class Cuboid(TriclinicBox):
     r"""Orthorhombic box.
 
@@ -374,8 +386,9 @@ class Cuboid(TriclinicBox):
         Length along the :math:`z` axis.
 
     """
+
     def __init__(self, Lx, Ly, Lz):
-        super().__init__(Lx,Ly,Lz,0,0,0)
+        super().__init__(Lx, Ly, Lz, 0, 0, 0)
 
     @classmethod
     def from_json(cls, data):
@@ -407,10 +420,12 @@ class Cuboid(TriclinicBox):
             The serialized Cuboid.
 
         """
-        return {'Lx': self.a[0],
-                'Ly': self.b[1],
-                'Lz': self.c[2],
-               }
+        return {
+            "Lx": self.a[0],
+            "Ly": self.b[1],
+            "Lz": self.c[2],
+        }
+
 
 class Cube(Cuboid):
     r"""Cubic box.
@@ -424,8 +439,9 @@ class Cube(Cuboid):
         The edge length of the cube.
 
     """
+
     def __init__(self, L):
-        super().__init__(L,L,L)
+        super().__init__(L, L, L)
 
     @classmethod
     def from_json(cls, data):
@@ -456,7 +472,8 @@ class Cube(Cuboid):
             The serialized Cube.
 
         """
-        return {'L': self.a[0]}
+        return {"L": self.a[0]}
+
 
 class Area(Extent):
     r"""Two-dimensional region of space.
@@ -515,27 +532,27 @@ class ObliqueArea(Area):
 
     """
 
-    def __init__(self, Lx, Ly, xy, convention='LAMMPS'):
+    def __init__(self, Lx, Ly, xy, convention="LAMMPS"):
         if Lx <= 0 or Ly <= 0:
-            raise ValueError('All side lengths must be positive.')
+            raise ValueError("All side lengths must be positive.")
 
         convention = convention.upper()
-        if convention == 'LAMMPS':
-            a = (Lx,0)
-            b = (xy,Ly)
-        elif convention == 'HOOMD':
-            a = (Lx,0)
-            b = (xy*Ly,Ly)
+        if convention == "LAMMPS":
+            a = (Lx, 0)
+            b = (xy, Ly)
+        elif convention == "HOOMD":
+            a = (Lx, 0)
+            b = (xy * Ly, Ly)
         else:
-            raise ValueError('Triclinic convention must be LAMMPS or HOOMD')
+            raise ValueError("Triclinic convention must be LAMMPS or HOOMD")
 
         self.a = numpy.asarray(a, dtype=numpy.float64)
         self.b = numpy.asarray(b, dtype=numpy.float64)
 
         box_vec = self.a + self.b
-        self._low = -0.5*box_vec
-        self._high = 0.5*box_vec
-        self._extent = numpy.linalg.norm(numpy.cross(self.a,self.b))
+        self._low = -0.5 * box_vec
+        self._high = 0.5 * box_vec
+        self._extent = numpy.linalg.norm(numpy.cross(self.a, self.b))
         self._convention = convention
 
     @classmethod
@@ -592,13 +609,13 @@ class ObliqueArea(Area):
 
         Lx = self.a[0]
         Ly = self.b[1]
-        if convention == 'LAMMPS':
+        if convention == "LAMMPS":
             xy = self.b[0]
-        elif convention == 'HOOMD':
-            xy = self.b[0]/self.b[1]
+        elif convention == "HOOMD":
+            xy = self.b[0] / self.b[1]
         else:
-            raise TypeError('Convention must be HOOMD or LAMMPS')
-        return numpy.array([Lx,Ly,xy])
+            raise TypeError("Convention must be HOOMD or LAMMPS")
+        return numpy.array([Lx, Ly, xy])
 
     def coordinate_to_fraction(self, r):
         r"""Make fractional coordinates from Cartesian coordinates.
@@ -609,9 +626,11 @@ class ObliqueArea(Area):
 
         .. math::
 
-            \mathbf{r} = \mathbf{r}_{\rm low} + (\mathbf{a}\quad\mathbf{b}) \cdot \mathbf{x}
+            \mathbf{r} = \mathbf{r}_{\rm low}
+                + (\mathbf{a}\quad\mathbf{b}) \cdot \mathbf{x}
 
-        where :math:`\mathbf{r}_{\rm low}` is the lower bound of the box, i.e., :attr:`low`.
+        where :math:`\mathbf{r}_{\rm low}` is the lower bound of the box,
+        i.e., :attr:`low`.
 
         Parameters
         ----------
@@ -624,19 +643,19 @@ class ObliqueArea(Area):
             Fractional coordinates **x** corresponding to **r**.
 
         """
-        Lx,Ly,xy = self.as_array('LAMMPS')
+        Lx, Ly, xy = self.as_array("LAMMPS")
 
         # get difference from lower bound
         dx = -self.low + r
         is_1d = False
         if len(dx.shape) == 1:
-            dx = dx[numpy.newaxis,...]
+            dx = dx[numpy.newaxis, ...]
             is_1d = True
 
         # make fractional coordinate
         x = numpy.zeros_like(dx)
-        x[:,0] = (1.0/Lx)*dx[...,0] + (-xy/(Lx*Ly))*dx[...,1]
-        x[:,1] = (1.0/Ly)*dx[...,1]
+        x[:, 0] = (1.0 / Lx) * dx[..., 0] + (-xy / (Lx * Ly)) * dx[..., 1]
+        x[:, 1] = (1.0 / Ly) * dx[..., 1]
         if is_1d:
             x = x[0]
 
@@ -660,16 +679,16 @@ class ObliqueArea(Area):
             Cartesian coordinates **r** corresponding to **x**.
 
         """
-        Lx,Ly,xy = self.as_array('LAMMPS')
+        Lx, Ly, xy = self.as_array("LAMMPS")
 
         # make real coordinate
         r = numpy.array(x)
         is_1d = False
         if len(r.shape) == 1:
-            r = r[numpy.newaxis,...]
+            r = r[numpy.newaxis, ...]
             is_1d = True
-        r[:,0] = Lx*r[...,0] + xy*r[...,1]
-        r[:,1] = Ly*r[...,1]
+        r[:, 0] = Lx * r[..., 0] + xy * r[..., 1]
+        r[:, 1] = Ly * r[..., 1]
         r += self.low
         if is_1d:
             r = r[0]
@@ -689,12 +708,8 @@ class ObliqueArea(Area):
             The serialized ObliqueArea.
 
         """
-        Lx,Ly,xy = self.as_array()
-        return {'Lx': Lx,
-                'Ly': Ly,
-                'xy': xy,
-                'convention': self._convention
-               }
+        Lx, Ly, xy = self.as_array()
+        return {"Lx": Lx, "Ly": Ly, "xy": xy, "convention": self._convention}
 
     def wrap(self, positions):
         """Wrap positions subject to periodic boundary conditions.
@@ -716,9 +731,10 @@ class ObliqueArea(Area):
 
         """
         x = self.coordinate_to_fraction(positions)
-        x -= numpy.round(x-0.5)
+        x -= numpy.round(x - 0.5)
         r = self.fraction_to_coordinate(x)
         return r
+
 
 class Rectangle(ObliqueArea):
     r"""Rectangle box.
@@ -736,8 +752,9 @@ class Rectangle(ObliqueArea):
         Length along the :math:`y` axis..
 
     """
+
     def __init__(self, Lx, Ly):
-        super().__init__(Lx,Ly,0)
+        super().__init__(Lx, Ly, 0)
 
     @classmethod
     def from_json(cls, data):
@@ -769,9 +786,11 @@ class Rectangle(ObliqueArea):
             The serialized Rectangle.
 
         """
-        return {'Lx': self.a[0],
-                'Ly': self.b[1],
-               }
+        return {
+            "Lx": self.a[0],
+            "Ly": self.b[1],
+        }
+
 
 class Square(Rectangle):
     r"""Square box.
@@ -785,8 +804,9 @@ class Square(Rectangle):
         The edge length of the square.
 
     """
+
     def __init__(self, L):
-        super().__init__(L,L)
+        super().__init__(L, L)
 
     @classmethod
     def from_json(cls, data):
@@ -817,4 +837,4 @@ class Square(Rectangle):
             The serialized Square.
 
         """
-        return {'L': self.a[0]}
+        return {"L": self.a[0]}

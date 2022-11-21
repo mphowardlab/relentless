@@ -1,5 +1,6 @@
 from . import simulate
 
+
 class MinimizeEnergy(simulate.GenericOperation):
     """Perform energy minimization on a configuration.
 
@@ -17,8 +18,10 @@ class MinimizeEnergy(simulate.GenericOperation):
         Additional options for energy minimizer (defaults to ``None``).
 
     """
+
     def __init__(self, energy_tolerance, force_tolerance, max_iterations, options=None):
         super().__init__(energy_tolerance, force_tolerance, max_iterations, options)
+
 
 class RunBrownianDynamics(simulate.GenericOperation):
     """Perform a Brownian dynamics simulation.
@@ -41,8 +44,10 @@ class RunBrownianDynamics(simulate.GenericOperation):
         Analysis operations to perform with run (defaults to ``None``).
 
     """
+
     def __init__(self, steps, timestep, T, friction, seed, analyzers=None):
         super().__init__(steps, timestep, T, friction, seed, analyzers)
+
 
 class RunLangevinDynamics(simulate.GenericOperation):
     """Perform a Langevin dynamics simulation.
@@ -65,8 +70,10 @@ class RunLangevinDynamics(simulate.GenericOperation):
         Analysis operations to perform with run (defaults to ``None``).
 
     """
+
     def __init__(self, steps, timestep, T, friction, seed, analyzers=None):
         super().__init__(steps, timestep, T, friction, seed, analyzers)
+
 
 class RunMolecularDynamics(simulate.GenericOperation):
     """Perform a molecular dynamics simulation.
@@ -93,8 +100,10 @@ class RunMolecularDynamics(simulate.GenericOperation):
         Analysis operations to perform with run (defaults to ``None``).
 
     """
+
     def __init__(self, steps, timestep, thermostat=None, barostat=None, analyzers=None):
         super().__init__(steps, timestep, thermostat, barostat, analyzers)
+
 
 class Thermostat:
     """Thermostat.
@@ -108,8 +117,10 @@ class Thermostat:
         Target temperature.
 
     """
+
     def __init__(self, T):
         self.T = T
+
 
 class BerendsenThermostat(Thermostat):
     """Berendsen thermostat.
@@ -124,9 +135,11 @@ class BerendsenThermostat(Thermostat):
         Coupling time constant.
 
     """
+
     def __init__(self, T, tau):
         super().__init__(T)
         self.tau = tau
+
 
 class NoseHooverThermostat(Thermostat):
     """Nosé-Hoover thermostat.
@@ -139,9 +152,11 @@ class NoseHooverThermostat(Thermostat):
         Coupling time constant.
 
     """
+
     def __init__(self, T, tau):
         super().__init__(T)
         self.tau = tau
+
 
 class Barostat:
     """Barostat.
@@ -155,8 +170,10 @@ class Barostat:
         Target pressure.
 
     """
+
     def __init__(self, P):
         self.P = P
+
 
 class BerendsenBarostat(Barostat):
     """Berendsen barostat.
@@ -171,9 +188,11 @@ class BerendsenBarostat(Barostat):
         Coupling time constant.
 
     """
+
     def __init__(self, P, tau):
         super().__init__(P)
         self.tau = tau
+
 
 class MTKBarostat(Barostat):
     """MTK barostat.
@@ -188,7 +207,7 @@ class MTKBarostat(Barostat):
         Coupling time constant.
 
     """
+
     def __init__(self, P, tau):
         super().__init__(P)
         self.tau = tau
-

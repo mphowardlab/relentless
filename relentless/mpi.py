@@ -42,11 +42,14 @@ import json
 import os
 
 import numpy
+
 try:
     from mpi4py import MPI
+
     _has_mpi4py = True
 except ImportError:
     _has_mpi4py = False
+
 
 def _mpi_running():
     """Check if MPI is running.
@@ -61,11 +64,14 @@ def _mpi_running():
         True if MPI seems to be running.
 
     """
-    hints = ('MV2_COMM_WORLD_LOCAL_RANK',
-             'OMPI_COMM_WORLD_RANK',
-             'PMI_RANK',
-             'ALPS_APP_PE')
+    hints = (
+        "MV2_COMM_WORLD_LOCAL_RANK",
+        "OMPI_COMM_WORLD_RANK",
+        "PMI_RANK",
+        "ALPS_APP_PE",
+    )
     return any(h in os.environ for h in hints)
+
 
 class Communicator:
     """MPI communicator.
@@ -88,6 +94,7 @@ class Communicator:
         If the ``root`` rank does not lie within the valid range for the communicator.
 
     """
+
     def __init__(self, comm=None, root=0):
         if _mpi_running():
             if _has_mpi4py:
@@ -97,7 +104,9 @@ class Communicator:
                     self._comm = comm
                 self._comm.Set_errhandler(MPI.ERRORS_ARE_FATAL)
             else:
-                raise RuntimeError('Python seems to running in MPI, but mpi4py is not installed.')
+                raise RuntimeError(
+                    "Python seems to running in MPI, but mpi4py is not installed."
+                )
         else:
             self._comm = None
 
@@ -111,7 +120,7 @@ class Communicator:
             self._root = 0
 
         if self.root < 0 or self.root >= self.size:
-            raise IndexError('Root rank ID out of bounds.')
+            raise IndexError("Root rank ID out of bounds.")
 
     @property
     def comm(self):
@@ -194,7 +203,7 @@ class Communicator:
         if root is None:
             root = self.root
 
-        return self.comm.bcast(data,root)
+        return self.comm.bcast(data, root)
 
     def bcast_numpy(self, data, root=None):
         """Broadcast NumPy array to all ranks.
@@ -257,8 +266,8 @@ class Communicator:
         else:
             shape = None
             dtype = None
-        shape = self.bcast(shape,root)
-        dtype = self.bcast(dtype,root)
+        shape = self.bcast(shape, root)
+        dtype = self.bcast(dtype, root)
 
         # allocate memory if needed (storage may already exist)
         if self.rank != root:
@@ -267,10 +276,10 @@ class Communicator:
             except AttributeError:
                 alloc = True
             if alloc:
-                data = numpy.empty(shape,dtype=dtype)
+                data = numpy.empty(shape, dtype=dtype)
 
         # broadcast from the root rank
-        self.comm.Bcast(data,root)
+        self.comm.Bcast(data, root)
 
         return data
 
@@ -315,7 +324,7 @@ class Communicator:
             dat = numpy.loadtxt(filename, **kwargs)
         else:
             dat = None
-        dat = self.bcast_numpy(dat,root)
+        dat = self.bcast_numpy(dat, root)
 
         return dat
 
@@ -362,5 +371,6 @@ class Communicator:
         dat = self.bcast(dat, root)
 
         return dat
+
 
 world = Communicator()

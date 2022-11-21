@@ -78,15 +78,17 @@ import numpy
 from relentless import collections
 from relentless.model import variable
 
+
 class ConvergenceTest(abc.ABC):
     r"""Abstract base class for optimization convergence tests.
 
     A :class:`ConvergenceTest` defines a test to determine if an
-    :class:`~relentless.optimize.objective.ObjectiveFunction` :math:`f\left(\mathbf{x}\right)`,
-    defined on a set of design variables :math:`\mathbf{x}=\left[x_1,\cdots,x_n\right]`,
-    has converged to a desired point.
+    :class:`~relentless.optimize.objective.ObjectiveFunction`
+    :math:`f\left(\mathbf{x}\right)`, defined on a set of design variables
+    :math:`\mathbf{x}=\left[x_1,\cdots,x_n\right]`, has converged to a desired point.
 
     """
+
     @abc.abstractmethod
     def converged(self, result):
         """Check if the function is converged.
@@ -102,6 +104,7 @@ class ConvergenceTest(abc.ABC):
             True if the result is converged.
         """
         pass
+
 
 class Tolerance:
     r"""Tolerance for convergence tests.
@@ -131,6 +134,7 @@ class Tolerance:
         The default relative tolerance.
 
     """
+
     def __init__(self, absolute, relative):
         self._absolute = collections.DefaultDict(absolute)
         self._relative = collections.DefaultDict(relative)
@@ -152,9 +156,10 @@ class Tolerance:
 
         The test is performed using :func:`numpy.isclose`.
 
-        The default :attr:`absolute` and :attr:`relative` tolerances can be overridden based on a ``key``,
-        which can be any valid dictionary key other than ``None``. When testing for closeness, if a ``key``
-        is given, the keyed tolerance will be used if has been specified; otherwise, the default tolerance is used.
+        The default :attr:`absolute` and :attr:`relative` tolerances can be overridden
+        based on a ``key``, which can be any valid dictionary key other than ``None``.
+        When testing for closeness, if a ``key`` is given, the keyed tolerance will be
+        used if has been specified; otherwise, the default tolerance is used.
 
         Parameters
         ----------
@@ -179,18 +184,19 @@ class Tolerance:
 
         """
         if self.absolute[key] < 0:
-            raise ValueError('Absolute tolerances must be non-negative.')
+            raise ValueError("Absolute tolerances must be non-negative.")
         if self.relative[key] < 0 or self.relative[key] > 1:
-            raise ValueError('Relative tolerances must be between 0 and 1.')
+            raise ValueError("Relative tolerances must be between 0 and 1.")
         return numpy.isclose(a, b, atol=self.absolute[key], rtol=self.relative[key])
+
 
 class GradientTest(ConvergenceTest):
     r"""Gradient test for convergence using absolute tolerance.
 
     This test is useful for finding minima / maxima where the gradient should be zero.
     This is implemented using an absolute tolerance, :math:`\varepsilon_{\rm a}`, which
-    can be any non-negative numerical value. One ``tolerance`` must be initially specified
-    for all variables, but a different tolerance can be set for each variable:
+    can be any non-negative numerical value. One ``tolerance`` must be initially
+    specified for all variables, but a different tolerance can be set for each variable:
 
     .. code::
 
@@ -198,8 +204,8 @@ class GradientTest(ConvergenceTest):
         test.tolerance[x] = 1.e-2
 
     The result is converged with respect to an unconstrained design variable
-    :math:`x_i` (i.e., having :class:`~relentless.variable.DesignVariable.State` ``FREE``
-    if and only if:
+    :math:`x_i` (i.e., having :class:`~relentless.variable.DesignVariable.State`
+    ``FREE``) if and only if:
 
     .. math::
 
@@ -232,9 +238,12 @@ class GradientTest(ConvergenceTest):
         Variable(s) to test convergence for in gradient.
 
     """
+
     def __init__(self, tolerance, variables):
         self._tolerance = Tolerance(absolute=tolerance, relative=0)
-        self.variables = variable.graph.check_variables_and_types(variables, variable.Variable)
+        self.variables = variable.graph.check_variables_and_types(
+            variables, variable.Variable
+        )
 
     @property
     def tolerance(self):
@@ -263,10 +272,10 @@ class GradientTest(ConvergenceTest):
         converged = True
         for x in self.variables:
             if x not in result.gradient:
-                raise KeyError('Design variable not in result')
+                raise KeyError("Design variable not in result")
             grad = result.gradient[x]
             tol = self.tolerance[x]
-            if x.athigh() and  -grad < -tol:
+            if x.athigh() and -grad < -tol:
                 converged = False
                 break
             elif x.atlow() and -grad > tol:
@@ -277,6 +286,7 @@ class GradientTest(ConvergenceTest):
                 break
 
         return converged
+
 
 class ValueTest(ConvergenceTest):
     r"""Value test for convergence.
@@ -295,6 +305,7 @@ class ValueTest(ConvergenceTest):
         The default relative tolerance (defaults to ``1e-5``).
 
     """
+
     def __init__(self, value, absolute=1e-8, relative=1e-5):
         self._tolerance = Tolerance(absolute=absolute, relative=relative)
         self.value = value
@@ -345,8 +356,9 @@ class ValueTest(ConvergenceTest):
         """
         return self._tolerance.isclose(result.value, self.value)
 
+
 class LogicTest(ConvergenceTest):
-    """Abstract base class for logical convergence tests.
+    r"""Abstract base class for logical convergence tests.
 
     Parameters
     ----------
@@ -359,13 +371,15 @@ class LogicTest(ConvergenceTest):
         If all inputs are not :class:`ConvergenceTest`\s.
 
     """
+
     def __init__(self, *tests):
         if not all([isinstance(t, ConvergenceTest) for t in tests]):
-            raise TypeError('All inputs to a LogicTest must be ConvergenceTests.')
+            raise TypeError("All inputs to a LogicTest must be ConvergenceTests.")
         self.tests = tests
 
+
 class AnyTest(LogicTest):
-    """Logic test if any specified test returns convergence.
+    r"""Logic test if any specified test returns convergence.
 
     Check if the function is determined to be converged by any of the specified
     convergence tests.
@@ -376,6 +390,7 @@ class AnyTest(LogicTest):
         The :class:`ConvergenceTest`\s to be used.
 
     """
+
     def converged(self, result):
         """Check if the function has converged by any of the specified tests.
 
@@ -392,8 +407,9 @@ class AnyTest(LogicTest):
         """
         return any(t.converged(result) for t in self.tests)
 
+
 class AllTest(LogicTest):
-    """Logic test if all specified tests return convergence.
+    r"""Logic test if all specified tests return convergence.
 
     Check if the function is determined to be converged by all of the specified
     convergence tests.
@@ -404,6 +420,7 @@ class AllTest(LogicTest):
         The :class:`ConvergenceTest`\s to be used.
 
     """
+
     def converged(self, result):
         """Check if the function is converged by all of the specified tests.
 
@@ -420,6 +437,7 @@ class AllTest(LogicTest):
         """
         return all(t.converged(result) for t in self.tests)
 
+
 class OrTest(AnyTest):
     """Logic test if either of the specified tests return convergence.
 
@@ -434,8 +452,10 @@ class OrTest(AnyTest):
         The second convergence test to use.
 
     """
+
     def __init__(self, a, b):
         super().__init__(a, b)
+
 
 class AndTest(AllTest):
     """Logic test if both specified tests return convergence.
@@ -451,5 +471,6 @@ class AndTest(AllTest):
         The second convergence test to use.
 
     """
+
     def __init__(self, a, b):
         super().__init__(a, b)

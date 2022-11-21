@@ -9,23 +9,23 @@ Overview
     .. grid-item-card::
 
         User guide
-        
+
         .. button-ref:: guide/index
             :expand:
             :color: secondary
             :click-parent:
-            
+
             Go to user guide
 
     .. grid-item-card::
 
         API reference
-        
+
         .. button-ref:: api/index
             :expand:
             :color: secondary
             :click-parent:
-            
+
             Go to API reference
 
 .. toctree::
