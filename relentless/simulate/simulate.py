@@ -11,14 +11,17 @@ import numpy
 
 from relentless import data
 
+
 class SimulationOperation(abc.ABC):
     """Operation to be performed by a :class:`Simulation`."""
+
     class Data:
         pass
 
     @abc.abstractmethod
     def __call__(self, sim):
         pass
+
 
 class GenericOperation(SimulationOperation):
     """Generic simulation operation adapter.
@@ -35,6 +38,7 @@ class GenericOperation(SimulationOperation):
         Keyword arguments for simulation operation.
 
     """
+
     def __init__(self, *args, **kwargs):
         self._op = None
         self._backend = None
@@ -58,7 +62,7 @@ class GenericOperation(SimulationOperation):
         Raises
         ------
         TypeError
-            If the specified simulation backend is not registered (using :meth:`add_backend()`).
+            If the specified simulation backend is not a :class:`Simulation`.
         TypeError
             If the specified operation is not found in the simulation backend.
 
@@ -70,14 +74,16 @@ class GenericOperation(SimulationOperation):
         if self._op is None or self._backend != sim.backend:
             backend = sim.backend
             if not issubclass(backend, Simulation):
-                raise TypeError('Backend must be a Simulation.')
+                raise TypeError("Backend must be a Simulation.")
 
             op_name = type(self).__name__
             BackendOp = getattr(backend, op_name, None)
             if BackendOp is NotImplementedOperation or BackendOp is None:
-                raise NotImplementedError('{}.{} operation not implemented.'.format(backend.__name__,op_name))
+                raise NotImplementedError(
+                    "{}.{} operation not implemented.".format(backend.__name__, op_name)
+                )
 
-            self._op = BackendOp(*self._args,**self._kwargs)
+            self._op = BackendOp(*self._args, **self._kwargs)
             for attr in self._forward_attr:
                 value = getattr(self, attr)
                 setattr(self._op, attr, value)
@@ -86,35 +92,40 @@ class GenericOperation(SimulationOperation):
     def __getattr__(self, name):
         if self._op is not None:
             if not hasattr(self._op, name):
-                raise AttributeError('Operation does not have attribute')
+                raise AttributeError("Operation does not have attribute")
             return getattr(self._op, name)
         else:
-            raise AttributeError('Backend operation not initialized yet')
+            raise AttributeError("Backend operation not initialized yet")
 
     def __setattr__(self, name, value):
         super().__setattr__(name, value)
-        if name not in ('_op','_backend','_args','_kwargs','_forward_attr'):
+        if name not in ("_op", "_backend", "_args", "_kwargs", "_forward_attr"):
             self._forward_attr.add(name)
             if self._op is not None:
                 setattr(self._op, name, value)
 
+
 class NotImplementedOperation(SimulationOperation):
     """Operation not implemented by a :class:`Simulation`."""
+
     def __call__(self, sim):
-        raise NotImplementedError('Operation not implemented')
+        raise NotImplementedError("Operation not implemented")
+
 
 class AnalysisOperation(SimulationOperation):
     @abc.abstractmethod
     def finalize(self, sim):
         pass
 
+
 class GenericAnalysisOperation(AnalysisOperation, GenericOperation):
     def finalize(self, sim):
         self._ensure_op(sim)
         self._op.finalize(sim)
 
+
 class Simulation:
-    """Simulation engine.
+    r"""Simulation engine.
 
     A simulation engine interprets a sequence of :class:`SimulationOperation`\s
     into a set of commands or parameters that are executed by backend software.
@@ -136,6 +147,7 @@ class Simulation:
         Sequence of :class:`SimulationOperation`\s to call.
 
     """
+
     def __init__(self, initializer, operations=None):
         self.initializer = initializer
         if operations is not None:
@@ -144,7 +156,7 @@ class Simulation:
             self.operations = []
 
     def run(self, potentials, directory):
-        """Run the simulation operations.
+        r"""Run the simulation operations.
 
         A new simulation instance is created to perform the run. It is intended
         to be destroyed at the end of the run to prevent memory leaks.
@@ -172,7 +184,9 @@ class Simulation:
         # then run the remaining operations
         for op in self.operations:
             if isinstance(op, AnalysisOperation):
-                raise TypeError('Analysis operations should be attached to another operation')
+                raise TypeError(
+                    "Analysis operations should be attached to another operation"
+                )
             op(sim)
         return sim
 
@@ -184,7 +198,7 @@ class Simulation:
     @initializer.setter
     def initializer(self, op):
         if not isinstance(op, SimulationOperation):
-            return TypeError('Initializer must be SimulationOperation')
+            return TypeError("Initializer must be SimulationOperation")
         self._initializer = op
 
     @property
@@ -199,14 +213,11 @@ class Simulation:
         except TypeError:
             ops_ = [ops]
         if not all([isinstance(op, SimulationOperation) for op in ops_]):
-            raise TypeError('All operations must be SimulationOperations.')
+            raise TypeError("All operations must be SimulationOperations.")
         self._operations = ops_
 
     def _new_instance(self, initializer, potentials, directory):
-        return SimulationInstance(type(self),
-                                  initializer,
-                                  potentials,
-                                  directory)
+        return SimulationInstance(type(self), initializer, potentials, directory)
 
     # initialization
     InitializeFromFile = NotImplementedOperation
@@ -222,6 +233,7 @@ class Simulation:
 
     # analysis
     EnsembleAverage = NotImplementedOperation
+
 
 class SimulationInstance:
     """Specific instance of a simulation and its data.
@@ -244,13 +256,14 @@ class SimulationInstance:
     potentials : :class:`Potentials`
         Potentials for the simulation.
     directory : :class:`~relentless.data.Directory`
-        Directory for simulation data.    
+        Directory for simulation data.
     dimension : int
         Dimensionality of the simulation.
     initializer : :class:`SimulationOperation`
         Operation to initialize the simulation.
 
     """
+
     def __init__(self, backend, initializer, potentials, directory):
         self.backend = backend
         self.potentials = potentials
@@ -269,12 +282,12 @@ class SimulationInstance:
 
         # finish running the setup with the initializer
         if not isinstance(initializer, SimulationOperation):
-            raise TypeError('Initializer must be a SimulationOperation')
+            raise TypeError("Initializer must be a SimulationOperation")
         self.initializer = initializer
 
     def __getitem__(self, op):
         op_ = op._op if isinstance(op, GenericOperation) else op
-        if not op_ in self._opdata:
+        if op_ not in self._opdata:
             self._opdata[op_] = op_.Data()
         return self._opdata[op_]
 
@@ -286,12 +299,13 @@ class SimulationInstance:
     @types.setter
     def types(self, value):
         self._types = tuple(value)
-        self._pairs = tuple((i,j) for i in self._types for j in self._types if j >= i)
+        self._pairs = tuple((i, j) for i in self._types for j in self._types if j >= i)
 
     @property
     def pairs(self):
         """tuple: Unique pairs of particle types in simulation."""
         return self._pairs
+
 
 class Potentials:
     """Set of interaction potentials.
@@ -319,12 +333,15 @@ class Potentials:
         Boltzmann constant.
 
     """
+
     def __init__(self, pair_potentials=None, kB=1.0):
-        self._pair = PairPotentialTabulator(rmin=0.0,
-                                            rmax=None,
-                                            num=None,
-                                            neighbor_buffer=0.0,
-                                            potentials=pair_potentials)
+        self._pair = PairPotentialTabulator(
+            rmin=0.0,
+            rmax=None,
+            num=None,
+            neighbor_buffer=0.0,
+            potentials=pair_potentials,
+        )
         self.kB = kB
 
     @property
@@ -332,8 +349,9 @@ class Potentials:
         """:class:`PairPotentialTabulator`: Pair potentials."""
         return self._pair
 
+
 class PotentialTabulator:
-    """Tabulator for an interaction potential.
+    r"""Tabulator for an interaction potential.
 
     The energy, force, and derivative are evaluated at different positions ``x``
     and stored in arrays. The ``start`` and ``end`` of this range must be
@@ -348,12 +366,14 @@ class PotentialTabulator:
     stop : float
         The positional value of ``x`` at which to end tabulation.
     num : int
-        The number of points (value of ``x``) at which to tabulate and evaluate the potential.
+        The number of points (value of ``x``) at which to tabulate and evaluate
+        the potential.
     potentials : :class:`~relentless.potential.potential.Potential` or array_like
         The potential(s) to be tabulated. If array_like, all elements must
         be :class:`~relentless.potential.potential.Potential`\s. (Defaults to ``None``).
 
     """
+
     def __init__(self, start, stop, num, potentials=None):
         self.start = start
         self.stop = stop
@@ -403,22 +423,24 @@ class PotentialTabulator:
 
     @num.setter
     def num(self, val):
-        if val is not None and (not isinstance(val,int) or val < 2):
-            raise ValueError('Number of points must be at least 2.')
+        if val is not None and (not isinstance(val, int) or val < 2):
+            raise ValueError("Number of points must be at least 2.")
         self._num = val
         self._compute_x = True
 
     @property
     def x(self):
-        """array_like: The values of ``x`` at which to evaluate :meth:`energy`, :meth:`force`, and :meth:`derivative`."""
+        """array_like: The values of ``x`` at which to evaluate the potential."""
         if self._compute_x:
             if self.start is None:
-                raise ValueError('Start of range must be set.')
+                raise ValueError("Start of range must be set.")
             if self.stop is None:
-                raise ValueError('End of range must be set.')
+                raise ValueError("End of range must be set.")
             if self.num is None:
-                raise ValueError('Number of points must be set.')
-            self._x = numpy.linspace(self.start,self.stop,self.num,dtype=numpy.float64)
+                raise ValueError("Number of points must be set.")
+            self._x = numpy.linspace(
+                self.start, self.stop, self.num, dtype=numpy.float64
+            )
             self._compute_x = False
         return self._x
 
@@ -439,7 +461,7 @@ class PotentialTabulator:
         u = numpy.zeros_like(self.x)
         for pot in self.potentials:
             try:
-                u += pot.energy(key,self.x)
+                u += pot.energy(key, self.x)
             except KeyError:
                 pass
         return u
@@ -461,7 +483,7 @@ class PotentialTabulator:
         f = numpy.zeros_like(self.x)
         for pot in self.potentials:
             try:
-                f += pot.force(key,self.x)
+                f += pot.force(key, self.x)
             except KeyError:
                 pass
         return f
@@ -483,13 +505,14 @@ class PotentialTabulator:
         d = numpy.zeros_like(self.x)
         for pot in self.potentials:
             try:
-                d += pot.derivative(key,var,self.x)
+                d += pot.derivative(key, var, self.x)
             except KeyError:
                 pass
         return d
 
+
 class PairPotentialTabulator(PotentialTabulator):
-    """Tabulate one or more pair potentials.
+    r"""Tabulate one or more pair potentials.
 
     Enables evaluation of energy, force, and derivative at different
     positional values (i.e. ``r``).
@@ -501,7 +524,8 @@ class PairPotentialTabulator(PotentialTabulator):
     rmax : float
         The maximum value of ``r`` at which to tabulate.
     num : int
-        The number of points (value of ``r``) at which to tabulate and evaluate the potential.
+        The number of points (value of ``r``) at which to tabulate and evaluate the
+        potential.
     neighbor_buffer : float
         Buffer radius used in computing the neighbor list.
     potentials : :class:`~relentless.potential.pair.PairPotential` or array_like
@@ -511,14 +535,15 @@ class PairPotentialTabulator(PotentialTabulator):
         The maximum value of force at which to allow evaluation.
 
     """
+
     def __init__(self, rmin, rmax, num, neighbor_buffer, potentials=None, fmax=None):
-        super().__init__(rmin,rmax,num,potentials)
+        super().__init__(rmin, rmax, num, potentials)
         self.neighbor_buffer = neighbor_buffer
         self.fmax = fmax
 
     @property
     def r(self):
-        """array_like: The values of ``r`` at which to evaluate :meth:`energy`, :meth:`force`, and :meth:`derivative`."""
+        """array_like: The values of ``r`` at which to evaluate potential."""
         return self.x
 
     @property
@@ -602,7 +627,7 @@ class PairPotentialTabulator(PotentialTabulator):
         if self.fmax is not None:
             flags = numpy.fabs(f) >= self.fmax
             sign = numpy.sign(f[flags])
-            f[flags] = sign*self.fmax
+            f[flags] = sign * self.fmax
         return f
 
     def derivative(self, pair, var):

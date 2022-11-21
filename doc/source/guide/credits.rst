@@ -9,4 +9,3 @@ Contributors
 **Adithya N Sreenivasan**
 
 **Zachary M. Sherman**
-

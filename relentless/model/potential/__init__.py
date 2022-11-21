@@ -28,11 +28,6 @@ Developer classes
     PairParameters
 
 """
-from .potential import (
-    Parameters,
-    Potential,
-    )
-
 from .pair import (
     Depletion,
     LennardJones,
@@ -40,4 +35,5 @@ from .pair import (
     PairPotential,
     PairSpline,
     Yukawa,
-    )
+)
+from .potential import Parameters, Potential

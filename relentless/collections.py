@@ -15,6 +15,7 @@ Collections (`relentless.collections`)
 """
 import collections
 
+
 class FixedKeyDict(collections.abc.MutableMapping):
     """Dictionary with fixed keys.
 
@@ -66,6 +67,7 @@ class FixedKeyDict(collections.abc.MutableMapping):
         FixedKeyDict(keys=('A',))
 
     """
+
     def __init__(self, keys, default=None):
         self._keys = tuple(keys)
         self._data = {}
@@ -87,7 +89,7 @@ class FixedKeyDict(collections.abc.MutableMapping):
 
         """
         if key not in self._keys:
-            raise KeyError('Key {} is not in dictionary.'.format(key))
+            raise KeyError("Key {} is not in dictionary.".format(key))
         return key
 
     def __getitem__(self, key):
@@ -112,6 +114,7 @@ class FixedKeyDict(collections.abc.MutableMapping):
         """Clear entries in the dictionary, resetting to default."""
         for i in self._keys:
             self._data[i] = self._default
+
 
 class PairMatrix(collections.abc.MutableMapping):
     """Generic matrix of values per-pair.
@@ -177,11 +180,12 @@ class PairMatrix(collections.abc.MutableMapping):
         PairMatrix(types=('A',))
 
     """
+
     def __init__(self, types):
         if len(types) == 0:
-            raise ValueError('Cannot initialize with empty types')
+            raise ValueError("Cannot initialize with empty types")
         if not all(isinstance(t, str) for t in types):
-            raise TypeError('All types must be strings')
+            raise TypeError("All types must be strings")
         self.types = tuple(types)
 
         # flood data with type pairs
@@ -189,7 +193,7 @@ class PairMatrix(collections.abc.MutableMapping):
         for i in self.types:
             for j in self.types:
                 if j >= i:
-                    self._data[i,j] = {}
+                    self._data[i, j] = {}
 
     def _check_key(self, key):
         """Check that a pair key is valid.
@@ -206,17 +210,17 @@ class PairMatrix(collections.abc.MutableMapping):
 
         """
         if len(key) != 2:
-            raise KeyError('Coefficient matrix requires a pair of types.')
+            raise KeyError("Coefficient matrix requires a pair of types.")
 
         if key[0] not in self.types:
-            raise KeyError('Type {} is not in coefficient matrix.'.format(key[0]))
+            raise KeyError("Type {} is not in coefficient matrix.".format(key[0]))
         elif key[1] not in self.types:
-            raise KeyError('Type {} is not in coefficient matrix.'.format(key[1]))
+            raise KeyError("Type {} is not in coefficient matrix.".format(key[1]))
 
         if key[1] >= key[0]:
             return key
         else:
-            return (key[1],key[0])
+            return (key[1], key[0])
 
     def __getitem__(self, key):
         """Get all coefficients for the `(i,j)` pair."""
@@ -243,6 +247,7 @@ class PairMatrix(collections.abc.MutableMapping):
         """tuple: All unique pairs in the matrix."""
         return tuple(self._data.keys())
 
+
 class DefaultDict(collections.abc.MutableMapping):
     """Dictionary which supports a default value.
 
@@ -252,6 +257,7 @@ class DefaultDict(collections.abc.MutableMapping):
         The default value.
 
     """
+
     def __init__(self, default):
         self._data = {}
         self.default = default
@@ -272,7 +278,7 @@ class DefaultDict(collections.abc.MutableMapping):
     def __setitem__(self, key, value):
         """Set value of keyed item."""
         if key is None:
-            raise KeyError('A DefaultDict key cannot be None.')
+            raise KeyError("A DefaultDict key cannot be None.")
         self._data[key] = value
 
     def __len__(self):

@@ -27,10 +27,12 @@ import json
 
 import numpy
 
-from relentless.collections import FixedKeyDict,PairMatrix
-from relentless.math import Interpolator
-from . import extent
 from relentless import mpi
+from relentless.collections import FixedKeyDict, PairMatrix
+from relentless.math import Interpolator
+
+from . import extent
+
 
 class RDF(Interpolator):
     r"""Radial distribution function.
@@ -46,9 +48,11 @@ class RDF(Interpolator):
         1-d array of :math:`g(r)` values.
 
     """
+
     def __init__(self, r, g):
-        super().__init__(r,g)
-        self.table = numpy.column_stack((r,g))
+        super().__init__(r, g)
+        self.table = numpy.column_stack((r, g))
+
 
 class Ensemble:
     r"""Thermodynamic ensemble.
@@ -72,6 +76,7 @@ class Ensemble:
         Pressure of the system.
 
     """
+
     def __init__(self, T, N, V=None, P=None):
         # T
         self.T = T
@@ -79,8 +84,8 @@ class Ensemble:
         # N
         types = tuple(N.keys())
         for t in types:
-            if not isinstance(t,str):
-                raise TypeError('Particle type must be a string')
+            if not isinstance(t, str):
+                raise TypeError("Particle type must be a string")
         self._N = FixedKeyDict(keys=types)
         self.N.update(N)
 
@@ -108,7 +113,7 @@ class Ensemble:
     @V.setter
     def V(self, value):
         if value is not None and not isinstance(value, extent.Extent):
-            raise TypeError('V can only be set as an Extent object or as None.')
+            raise TypeError("V can only be set as an Extent object or as None.")
         self._V = value
 
     @property
@@ -122,7 +127,9 @@ class Ensemble:
 
     @property
     def N(self):
-        r""":class:`~relentless.collections.FixedKeyDict`: Number of particles of each type."""
+        r""":class:`~relentless.collections.FixedKeyDict`:
+        Number of particles of each type.
+        """
         return self._N
 
     @property
@@ -137,7 +144,9 @@ class Ensemble:
 
     @property
     def rdf(self):
-        r""":class:`~relentless.collections.PairMatrix`: Radial distribution function per pair."""
+        r""":class:`~relentless.collections.PairMatrix`:
+        Radial distribution function per pair.
+        """
         return self._rdf
 
     def copy(self):
@@ -160,24 +169,23 @@ class Ensemble:
             The name of the file to save data in.
 
         """
-        data = {'T': self.T,
-                'N': dict(self.N),
-                'V': {'__name__':type(self.V).__name__,
-                      'data':self.V.to_json()
-                     },
-                'P': self.P,
-                'rdf': {}
-               }
+        data = {
+            "T": self.T,
+            "N": dict(self.N),
+            "V": {"__name__": type(self.V).__name__, "data": self.V.to_json()},
+            "P": self.P,
+            "rdf": {},
+        }
 
         # set the rdf values in data
         for pair in self.rdf:
             if self.rdf[pair]:
-                data['rdf'][str(pair)] = self.rdf[pair].table.tolist()
+                data["rdf"][str(pair)] = self.rdf[pair].table.tolist()
             else:
-                data['rdf'][str(pair)] = None
+                data["rdf"][str(pair)] = None
 
         # dump data to json file
-        with open(filename,'w') as f:
+        with open(filename, "w") as f:
             json.dump(data, f, indent=4)
 
     @classmethod
@@ -198,21 +206,22 @@ class Ensemble:
         data = mpi.world.load_json(filename)
 
         # create initial ensemble
-        ExtentType = getattr(extent,data['V']['__name__'])
-        thermo = {'T': data['T'],
-                  'N': data['N'],
-                  'V': ExtentType.from_json(data['V']['data']),
-                  'P': data['P'],
-                 }
+        ExtentType = getattr(extent, data["V"]["__name__"])
+        thermo = {
+            "T": data["T"],
+            "N": data["N"],
+            "V": ExtentType.from_json(data["V"]["data"]),
+            "P": data["P"],
+        }
         ens = Ensemble(**thermo)
 
         # unpack rdfs
         for pair in ens.rdf:
             pair_ = str(pair)
-            if data['rdf'][pair_] is None:
+            if data["rdf"][pair_] is None:
                 continue
-            r = [i[0] for i in data['rdf'][pair_]]
-            g = [i[1] for i in data['rdf'][pair_]]
-            ens.rdf[pair] = RDF(r,g)
+            r = [i[0] for i in data["rdf"][pair_]]
+            g = [i[1] for i in data["rdf"][pair_]]
+            ens.rdf[pair] = RDF(r, g)
 
         return ens

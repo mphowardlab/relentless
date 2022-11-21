@@ -6,6 +6,7 @@ import numpy
 from relentless import collections
 from relentless.model import variable
 
+
 class Parameters:
     """Parameters for types.
 
@@ -28,17 +29,18 @@ class Parameters:
         If ``params`` is not only strings.
 
     """
+
     def __init__(self, types, params):
         if len(types) == 0:
-            raise ValueError('Cannot initialize with empty types')
+            raise ValueError("Cannot initialize with empty types")
         if not all(isinstance(t, str) for t in types):
-            raise TypeError('All types must be strings')
+            raise TypeError("All types must be strings")
         self.types = tuple(types)
 
         if len(params) == 0:
-            raise ValueError('params cannot be initialized as empty')
+            raise ValueError("params cannot be initialized as empty")
         if not all(isinstance(p, str) for p in params):
-            raise TypeError('All parameters must be strings')
+            raise TypeError("All parameters must be strings")
         self.params = tuple(params)
 
         # shared params
@@ -78,7 +80,7 @@ class Parameters:
             elif self.shared[p] is not None:
                 v = self.shared[p]
             else:
-                raise ValueError('Parameter {} is not set for {}.'.format(p,str(key)))
+                raise ValueError("Parameter {} is not set for {}.".format(p, str(key)))
 
             # evaluate the variable
             if isinstance(v, variable.Variable):
@@ -86,11 +88,11 @@ class Parameters:
             elif numpy.isscalar(v):
                 params[p] = v
             else:
-                raise TypeError('Parameter type unrecognized')
+                raise TypeError("Parameter type unrecognized")
 
             # final check: error if variable is still not set
             if v is None:
-                raise ValueError('Parameter {} is not set for {}.'.format(p,str(key)))
+                raise ValueError("Parameter {} is not set for {}.".format(p, str(key)))
 
         return params
 
@@ -107,7 +109,7 @@ class Parameters:
         for key in self:
             data[str(key)] = self.evaluate(key)
 
-        with open(filename, 'w') as f:
+        with open(filename, "w") as f:
             json.dump(data, f, sort_keys=True, indent=4)
 
     def __getitem__(self, key):
@@ -116,7 +118,9 @@ class Parameters:
     def __setitem__(self, key, value):
         for p in value:
             if p not in self.params:
-                raise KeyError('Only the known parameters can be set in the coefficient matrix.')
+                raise KeyError(
+                    "Only the known parameters can be set in the coefficient matrix."
+                )
         self[key].clear()
         self[key].update(value)
 
@@ -130,6 +134,7 @@ class Parameters:
     def shared(self):
         """:class:`~relentless.collections.FixedKeyDict`: The shared parameters."""
         return self._shared
+
 
 class Potential(abc.ABC):
     """Abstract base class for interaction potential.
@@ -151,10 +156,11 @@ class Potential(abc.ABC):
         and ``params``.
 
     """
+
     def __init__(self, keys, params, container=None):
         if container is None:
             container = Parameters
-        self.coeff = container(keys,params)
+        self.coeff = container(keys, params)
 
     @abc.abstractmethod
     def energy(self, key, x):
@@ -247,8 +253,8 @@ class Potential(abc.ABC):
         s = numpy.isscalar(x)
         x = numpy.array(x, dtype=numpy.float64, ndmin=1)
         if len(x.shape) != 1:
-            raise TypeError('Potential coordinate must be 1D array.')
-        return x,numpy.zeros_like(x),s
+            raise TypeError("Potential coordinate must be 1D array.")
+        return x, numpy.zeros_like(x), s
 
     def save(self, filename):
         """Save the coefficient matrix to file as JSON data.

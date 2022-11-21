@@ -4,7 +4,4 @@ relentless
 
 """
 
-from . import model
-from . import mpi
-from . import optimize
-from . import simulate
+from . import model, mpi, optimize, simulate

@@ -15,34 +15,34 @@ required methods.
 """
 import abc
 import os
-from packaging import version
 
 import numpy
+from packaging import version
 
-from relentless.collections import FixedKeyDict, PairMatrix
-from relentless.model import ensemble
-from relentless.model import extent
-from relentless.math import Interpolator
 from relentless import mpi
+from relentless.collections import FixedKeyDict, PairMatrix
+from relentless.math import Interpolator
+from relentless.model import ensemble, extent
 
-from . import simulate
-from . import initialize
-from . import md
+from . import initialize, md, simulate
 
 try:
     import hoomd
     import hoomd.md
+
     _hoomd_found = True
 except ImportError:
     _hoomd_found = False
 
 try:
     import freud
+
     _freud_found = True
 except ImportError:
     _freud_found = False
 
-## initializers
+
+# initializers
 class _Initialize(simulate.SimulationOperation):
     """Initialize a simulation.
 
@@ -50,6 +50,7 @@ class _Initialize(simulate.SimulationOperation):
     method implemented.
 
     """
+
     def __call__(self, sim):
         sim[self].system = self.initialize(sim)
 
@@ -70,6 +71,7 @@ class _Initialize(simulate.SimulationOperation):
         """
         pass
 
+
 class InitializeFromFile(_Initialize):
     """Initialize a simulation from a GSD file.
 
@@ -79,6 +81,7 @@ class InitializeFromFile(_Initialize):
         The file from which to read the system data.
 
     """
+
     def __init__(self, filename):
         super().__init__()
         self.filename = os.path.realpath(filename)
@@ -86,6 +89,7 @@ class InitializeFromFile(_Initialize):
     def initialize(self, sim):
         with sim.hoomd:
             return hoomd.init.read_gsd(self.filename)
+
 
 class InitializeRandomly(_Initialize):
     """Initialize a randomly generated simulation box.
@@ -122,6 +126,7 @@ class InitializeRandomly(_Initialize):
         are randomly inserted without checking their sizes.
 
     """
+
     def __init__(self, seed, N, V, T, masses, diameters):
         super().__init__()
         self.seed = seed
@@ -135,30 +140,42 @@ class InitializeRandomly(_Initialize):
         with sim.hoomd:
             # make the box and snapshot
             if isinstance(self.V, extent.TriclinicBox):
-                box_array = self.V.as_array('HOOMD')
+                box_array = self.V.as_array("HOOMD")
                 box = hoomd.data.boxdim(*box_array, dimensions=3)
             elif isinstance(self.V, extent.ObliqueArea):
-                Lx,Ly,xy = self.V.as_array('HOOMD')
-                box = hoomd.data.boxdim(Lx=Lx, Ly=Ly, Lz=1, xy=xy, xz=0, yz=0, dimensions=2)
+                Lx, Ly, xy = self.V.as_array("HOOMD")
+                box = hoomd.data.boxdim(
+                    Lx=Lx, Ly=Ly, Lz=1, xy=xy, xz=0, yz=0, dimensions=2
+                )
             else:
-                raise ValueError('HOOMD supports 2d and 3d simulations')
+                raise ValueError("HOOMD supports 2d and 3d simulations")
 
             types = tuple(self.N.keys())
-            typeids = {i: typeid for typeid,i in enumerate(types)}
-            snap = hoomd.data.make_snapshot(N=sum(self.N.values()),
-                                            box=box,
-                                            particle_types=list(types))
+            typeids = {i: typeid for typeid, i in enumerate(types)}
+            snap = hoomd.data.make_snapshot(
+                N=sum(self.N.values()), box=box, particle_types=list(types)
+            )
 
             # randomly place particles in fractional coordinates
             if mpi.world.rank == 0:
                 # generate the positions and types
                 if self.diameters is not None:
-                    positions, all_types = initialize.InitializeRandomly._pack_particles(self.seed, self.N, self.V, self.diameters)
+                    (
+                        positions,
+                        all_types,
+                    ) = initialize.InitializeRandomly._pack_particles(
+                        self.seed, self.N, self.V, self.diameters
+                    )
                 else:
-                    positions, all_types = initialize.InitializeRandomly._random_particles(self.seed, self.N, self.V)
+                    (
+                        positions,
+                        all_types,
+                    ) = initialize.InitializeRandomly._random_particles(
+                        self.seed, self.N, self.V
+                    )
 
                 # set the positions
-                snap.particles.position[:,:box.dimensions] = positions
+                snap.particles.position[:, : box.dimensions] = positions
 
                 # set the typeids
                 snap.particles.typeid[:] = [typeids[i] for i in all_types]
@@ -172,24 +189,27 @@ class InitializeRandomly(_Initialize):
                 # set velocities, defaulting to zeros
                 vel = numpy.zeros((snap.particles.N, 3))
                 if self.T is not None:
-                    rng = numpy.random.default_rng(self.seed+1)
+                    rng = numpy.random.default_rng(self.seed + 1)
                     # Maxwell-Boltzmann = normal with variance kT/m per component
-                    v_mb = rng.normal(scale=numpy.sqrt(sim.potentials.kB*self.T),
-                                      size=(snap.particles.N,box.dimensions))
-                    v_mb /= numpy.sqrt(snap.particles.mass[:,None])
+                    v_mb = rng.normal(
+                        scale=numpy.sqrt(sim.potentials.kB * self.T),
+                        size=(snap.particles.N, box.dimensions),
+                    )
+                    v_mb /= numpy.sqrt(snap.particles.mass[:, None])
 
                     # zero the linear momentum
-                    p_mb = numpy.sum(snap.particles.mass[:,None]*v_mb, axis=0)
-                    v_cm = p_mb/numpy.sum(snap.particles.mass)
+                    p_mb = numpy.sum(snap.particles.mass[:, None] * v_mb, axis=0)
+                    v_cm = p_mb / numpy.sum(snap.particles.mass)
                     v_mb -= v_cm
 
-                    vel[:,:box.dimensions] = v_mb
+                    vel[:, : box.dimensions] = v_mb
                 snap.particles.velocity[:] = vel
 
             # read snapshot
             return hoomd.init.read_snapshot(snap)
 
-## integrators
+
+# integrators
 class MinimizeEnergy(simulate.SimulationOperation):
     """Run energy minimization until convergence.
 
@@ -220,38 +240,42 @@ class MinimizeEnergy(simulate.SimulationOperation):
         number of iterations.
 
     """
+
     def __init__(self, energy_tolerance, force_tolerance, max_iterations, options):
         self.energy_tolerance = energy_tolerance
         self.force_tolerance = force_tolerance
         self.max_iterations = max_iterations
         self.options = options
-        if 'max_displacement' not in self.options:
-           raise KeyError('HOOMD energy minimizer requires max_displacement option.')
-        if 'steps_per_iteration' not in self.options:
-            self.options['steps_per_iteration'] = 100
+        if "max_displacement" not in self.options:
+            raise KeyError("HOOMD energy minimizer requires max_displacement option.")
+        if "steps_per_iteration" not in self.options:
+            self.options["steps_per_iteration"] = 100
 
     def __call__(self, sim):
         with sim.hoomd:
             # setup FIRE minimization
-            fire = hoomd.md.integrate.mode_minimize_fire(dt=self.options['max_displacement'],
-                                                         Etol=self.energy_tolerance,
-                                                         ftol=self.force_tolerance)
+            fire = hoomd.md.integrate.mode_minimize_fire(
+                dt=self.options["max_displacement"],
+                Etol=self.energy_tolerance,
+                ftol=self.force_tolerance,
+            )
             all_ = hoomd.group.all()
             nve = hoomd.md.integrate.nve(all_)
 
             # run while not yet converged
             it = 0
             while not fire.has_converged() and it < self.max_iterations:
-                hoomd.run(self.options['steps_per_iteration'])
+                hoomd.run(self.options["steps_per_iteration"])
                 it += 1
             if not fire.has_converged():
-                raise RuntimeError('Energy minimization failed to converge.')
+                raise RuntimeError("Energy minimization failed to converge.")
 
             # try to cleanup these integrators from the system
             # we want them to ideally be isolated to this method
             nve.disable()
             del nve
             del fire
+
 
 class _MDIntegrator(simulate.SimulationOperation):
     """Base HOOMD molecular dynamics integrator.
@@ -266,6 +290,7 @@ class _MDIntegrator(simulate.SimulationOperation):
         Analysis operations to perform with run (defaults to ``None``).
 
     """
+
     def __init__(self, steps, timestep, analyzers):
         self.steps = steps
         self.timestep = timestep
@@ -286,6 +311,7 @@ class _MDIntegrator(simulate.SimulationOperation):
             ops_ = []
 
         self._analyzers = ops_
+
 
 class RunBrownianDynamics(_MDIntegrator):
     """Perform a Brownian dynamics simulation.
@@ -308,6 +334,7 @@ class RunBrownianDynamics(_MDIntegrator):
         Analysis operations to perform with run (defaults to ``None``).
 
     """
+
     def __init__(self, steps, timestep, T, friction, seed, analyzers):
         super().__init__(steps, timestep, analyzers)
         self.T = T
@@ -318,15 +345,14 @@ class RunBrownianDynamics(_MDIntegrator):
         with sim.hoomd:
             ig = hoomd.md.integrate.mode_standard(self.timestep)
             bd = hoomd.md.integrate.brownian(
-                    group=hoomd.group.all(),
-                    kT=sim.potentials.kB*self.T,
-                    seed=self.seed)
+                group=hoomd.group.all(), kT=sim.potentials.kB * self.T, seed=self.seed
+            )
             for t in sim.types:
                 try:
                     gamma = self.friction[t]
                 except TypeError:
                     gamma = self.friction
-                bd.set_gamma(t,gamma)
+                bd.set_gamma(t, gamma)
 
             # run + analysis
             for analyzer in self.analyzers:
@@ -339,6 +365,7 @@ class RunBrownianDynamics(_MDIntegrator):
 
             bd.disable()
             del bd, ig
+
 
 class RunLangevinDynamics(_MDIntegrator):
     """Perform a Langevin dynamics simulation.
@@ -361,6 +388,7 @@ class RunLangevinDynamics(_MDIntegrator):
         Analysis operations to perform with run (defaults to ``None``).
 
     """
+
     def __init__(self, steps, timestep, T, friction, seed, analyzers):
         super().__init__(steps, timestep, analyzers)
         self.T = T
@@ -371,15 +399,14 @@ class RunLangevinDynamics(_MDIntegrator):
         with sim.hoomd:
             ig = hoomd.md.integrate.mode_standard(self.timestep)
             ld = hoomd.md.integrate.langevin(
-                    group=hoomd.group.all(),
-                    kT=sim.potentials.kB*self.T,
-                    seed=self.seed)
+                group=hoomd.group.all(), kT=sim.potentials.kB * self.T, seed=self.seed
+            )
             for t in sim.types:
                 try:
                     gamma = self.friction[t]
                 except TypeError:
                     gamma = self.friction
-                ld.set_gamma(t,gamma)
+                ld.set_gamma(t, gamma)
 
             # run + analysis
             for analyzer in self.analyzers:
@@ -392,6 +419,7 @@ class RunLangevinDynamics(_MDIntegrator):
 
             ld.disable()
             del ld, ig
+
 
 class RunMolecularDynamics(_MDIntegrator):
     """Perform a molecular dynamics simulation.
@@ -422,6 +450,7 @@ class RunMolecularDynamics(_MDIntegrator):
         If an appropriate combination of thermostat and barostat is not set.
 
     """
+
     def __init__(self, steps, timestep, thermostat, barostat, analyzers):
         super().__init__(steps, timestep, analyzers)
         self.thermostat = thermostat
@@ -432,31 +461,42 @@ class RunMolecularDynamics(_MDIntegrator):
             ig = hoomd.md.integrate.mode_standard(self.timestep)
             if self.thermostat is None and self.barostat is None:
                 ig_method = hoomd.md.integrate.nve(group=hoomd.group.all())
-            elif isinstance(self.thermostat, md.BerendsenThermostat) and self.barostat is None:
+            elif (
+                isinstance(self.thermostat, md.BerendsenThermostat)
+                and self.barostat is None
+            ):
                 ig_method = hoomd.md.integrate.berendsen(
-                        group=hoomd.group.all(),
-                        kT=sim.potentials.kB*self.thermostat.T,
-                        tau=self.thermostat.tau)
-            elif isinstance(self.thermostat, md.NoseHooverThermostat) and self.barostat is None:
+                    group=hoomd.group.all(),
+                    kT=sim.potentials.kB * self.thermostat.T,
+                    tau=self.thermostat.tau,
+                )
+            elif (
+                isinstance(self.thermostat, md.NoseHooverThermostat)
+                and self.barostat is None
+            ):
                 ig_method = hoomd.md.integrate.nvt(
-                        group=hoomd.group.all(),
-                        kT=sim.potentials.kB*self.thermostat.T,
-                        tau=self.thermostat.tau)
+                    group=hoomd.group.all(),
+                    kT=sim.potentials.kB * self.thermostat.T,
+                    tau=self.thermostat.tau,
+                )
             elif self.thermostat is None and isinstance(self.barostat, md.MTKBarostat):
                 ig_method = hoomd.md.integrate.nph(
-                        group=hoomd.group.all(),
-                        P=self.barostat.P,
-                        tauP=self.barostat.tau)
-            elif isinstance(self.thermostat, md.NoseHooverThermostat) and isinstance(self.barostat, md.MTKBarostat):
+                    group=hoomd.group.all(), P=self.barostat.P, tauP=self.barostat.tau
+                )
+            elif isinstance(self.thermostat, md.NoseHooverThermostat) and isinstance(
+                self.barostat, md.MTKBarostat
+            ):
                 ig_method = hoomd.md.integrate.npt(
-                        group=hoomd.group.all(),
-                        kT=sim.potentials.kB*self.thermostat.T,
-                        tau=self.thermostat.tau,
-                        P=self.barostat.P,
-                        tauP=self.barostat.tau)
+                    group=hoomd.group.all(),
+                    kT=sim.potentials.kB * self.thermostat.T,
+                    tau=self.thermostat.tau,
+                    P=self.barostat.P,
+                    tauP=self.barostat.tau,
+                )
             else:
-                raise TypeError('An appropriate combination of thermostat and barostat must be set.')
-
+                raise TypeError(
+                    "An appropriate combination of thermostat and barostat must be set."
+                )
 
             # run + analysis
             for analyzer in self.analyzers:
@@ -470,7 +510,8 @@ class RunMolecularDynamics(_MDIntegrator):
             ig_method.disable()
             del ig_method, ig
 
-## analyzers
+
+# analyzers
 class EnsembleAverage(simulate.AnalysisOperation):
     """Analyzer for the simulation ensemble.
 
@@ -488,6 +529,7 @@ class EnsembleAverage(simulate.AnalysisOperation):
         The width of a bin in the RDF histogram.
 
     """
+
     def __init__(self, check_thermo_every, check_rdf_every, rdf_dr):
         self.check_thermo_every = check_thermo_every
         self.check_rdf_every = check_rdf_every
@@ -497,27 +539,42 @@ class EnsembleAverage(simulate.AnalysisOperation):
         with sim.hoomd:
             # thermodynamic properties
             if sim.dimension == 3:
-                quantities_logged = ['temperature','pressure','lx','ly','lz','xy','xz','yz']
+                quantities_logged = [
+                    "temperature",
+                    "pressure",
+                    "lx",
+                    "ly",
+                    "lz",
+                    "xy",
+                    "xz",
+                    "yz",
+                ]
             elif sim.dimension == 2:
-                quantities_logged = ['temperature','pressure','lx','ly','xy']
+                quantities_logged = ["temperature", "pressure", "lx", "ly", "xy"]
             else:
-                raise ValueError('HOOMD only supports 2d or 3d simulations')
-            sim[self].logger = hoomd.analyze.log(filename=None,
-                                                 quantities= quantities_logged,
-                                                 period=self.check_thermo_every)
+                raise ValueError("HOOMD only supports 2d or 3d simulations")
+            sim[self].logger = hoomd.analyze.log(
+                filename=None,
+                quantities=quantities_logged,
+                period=self.check_thermo_every,
+            )
             sim[self].thermo_callback = self.ThermodynamicsCallback(sim[self].logger)
-            sim[self].hoomd_thermo_callback = hoomd.analyze.callback(callback=sim[self].thermo_callback,
-                                   period=self.check_thermo_every)
+            sim[self].hoomd_thermo_callback = hoomd.analyze.callback(
+                callback=sim[self].thermo_callback, period=self.check_thermo_every
+            )
 
             # pair distribution function
             rdf_params = PairMatrix(sim.types)
             rmax = sim.potentials.pair.r[-1]
-            bins = numpy.round(rmax/self.rdf_dr).astype(int)
+            bins = numpy.round(rmax / self.rdf_dr).astype(int)
             for pair in rdf_params:
-                rdf_params[pair] = {'bins': bins, 'rmax': rmax}
-            sim[self].rdf_callback = self.RDFCallback(sim[sim.initializer].system,rdf_params)
-            sim[self].hoomd_rdf_callback = hoomd.analyze.callback(callback=sim[self].rdf_callback,
-                                   period=self.check_rdf_every)
+                rdf_params[pair] = {"bins": bins, "rmax": rmax}
+            sim[self].rdf_callback = self.RDFCallback(
+                sim[sim.initializer].system, rdf_params
+            )
+            sim[self].hoomd_rdf_callback = hoomd.analyze.callback(
+                callback=sim[self].rdf_callback, period=self.check_rdf_every
+            )
 
     def finalize(self, sim):
         """Extract the average ensemble from a simulation instance.
@@ -535,10 +592,12 @@ class EnsembleAverage(simulate.AnalysisOperation):
         """
         rdf_recorder = sim[self].rdf_callback
         thermo_recorder = sim[self].thermo_callback
-        ens = ensemble.Ensemble(T=thermo_recorder.T,
-                                N=rdf_recorder.N,
-                                V=thermo_recorder.V,
-                                P=thermo_recorder.P)
+        ens = ensemble.Ensemble(
+            T=thermo_recorder.T,
+            N=rdf_recorder.N,
+            V=thermo_recorder.V,
+            P=thermo_recorder.P,
+        )
         for pair in rdf_recorder.rdf:
             ens.rdf[pair] = rdf_recorder.rdf[pair]
 
@@ -563,6 +622,7 @@ class EnsembleAverage(simulate.AnalysisOperation):
             Logger from which to retrieve data.
 
         """
+
         def __init__(self, logger):
             self.logger = logger
             self.reset()
@@ -570,10 +630,10 @@ class EnsembleAverage(simulate.AnalysisOperation):
         def __call__(self, timestep):
             self.num_samples += 1
 
-            T = self.logger.query('temperature')
+            T = self.logger.query("temperature")
             self._T += T
 
-            P = self.logger.query('pressure')
+            P = self.logger.query("pressure")
             self._P += P
 
             for key in self._V:
@@ -583,12 +643,19 @@ class EnsembleAverage(simulate.AnalysisOperation):
         def reset(self):
             """Resets sample number, ``T``, ``P``, and all ``V`` parameters to 0."""
             self.num_samples = 0
-            self._T = 0.
-            self._P = 0.
+            self._T = 0.0
+            self._P = 0.0
             if hasattr(self.logger, "Lz"):
-                self._V = {'Lx' : 0., 'Ly': 0., 'Lz': 0., 'xy': 0., 'xz': 0., 'yz': 0.}
+                self._V = {
+                    "Lx": 0.0,
+                    "Ly": 0.0,
+                    "Lz": 0.0,
+                    "xy": 0.0,
+                    "xz": 0.0,
+                    "yz": 0.0,
+                }
             else:
-                self._V = {'Lx' : 0., 'Ly': 0., 'xy': 0.}
+                self._V = {"Lx": 0.0, "Ly": 0.0, "xy": 0.0}
 
         @property
         def T(self):
@@ -610,11 +677,11 @@ class EnsembleAverage(simulate.AnalysisOperation):
         def V(self):
             """float: Average extent across samples."""
             if self.num_samples > 0:
-                _V = {key: self._V[key]/self.num_samples for key in self._V}
+                _V = {key: self._V[key] / self.num_samples for key in self._V}
                 if hasattr(self.logger, "Lz"):
-                    return extent.TriclinicBox(**_V,convention='HOOMD')                
+                    return extent.TriclinicBox(**_V, convention="HOOMD")
                 else:
-                    return extent.ObliqueArea(**_V,convention='HOOMD')
+                    return extent.ObliqueArea(**_V, convention="HOOMD")
             else:
                 return None
 
@@ -626,9 +693,11 @@ class EnsembleAverage(simulate.AnalysisOperation):
         system : :mod:`hoomd.data` system
             Simulation system object.
         params : :class:`~relentless.collections.PairMatrix`
-            Parameters to be used to initialize an instance of :class:`freud.density.RDF`.
+            Parameters to be used to initialize an instance of
+            :class:`freud.density.RDF`.
 
         """
+
         def __init__(self, system, params):
             self.system = system
 
@@ -638,45 +707,64 @@ class EnsembleAverage(simulate.AnalysisOperation):
                 self._N[i] = 0
 
             self._rdf = PairMatrix(params.types)
-            for i,j in self._rdf:
-                self._rdf[i,j] = freud.density.RDF(bins=params[i,j]['bins'],
-                                                   r_max=params[i,j]['rmax'],
-                                                   normalize=(i==j))
+            for i, j in self._rdf:
+                self._rdf[i, j] = freud.density.RDF(
+                    bins=params[i, j]["bins"],
+                    r_max=params[i, j]["rmax"],
+                    normalize=(i == j),
+                )
 
         def __call__(self, timestep):
             snap = self.system.take_snapshot()
             if mpi.world.rank == 0:
-                box_array = numpy.array([snap.box.Lx, snap.box.Ly, snap.box.Lz, snap.box.xy, snap.box.xz, snap.box.yz])
+                box_array = numpy.array(
+                    [
+                        snap.box.Lx,
+                        snap.box.Ly,
+                        snap.box.Lz,
+                        snap.box.xy,
+                        snap.box.xz,
+                        snap.box.yz,
+                    ]
+                )
                 if snap.box.dimensions == 2:
-                    box_array[2] = 0.
-                    box_array[-2:] = 0.
+                    box_array[2] = 0.0
+                    box_array[-2:] = 0.0
                 box = freud.box.Box.from_box(box_array, dimensions=snap.box.dimensions)
                 # pre build aabbs per type and count particles by type
                 aabbs = {}
                 type_masks = {}
                 for i in self._N:
-                    type_masks[i] = (snap.particles.typeid == snap.particles.types.index(i))
+                    type_masks[i] = snap.particles.typeid == snap.particles.types.index(
+                        i
+                    )
                     self._N[i] += numpy.sum(type_masks[i])
-                    aabbs[i] = freud.locality.AABBQuery(box,snap.particles.position[type_masks[i]])
+                    aabbs[i] = freud.locality.AABBQuery(
+                        box, snap.particles.position[type_masks[i]]
+                    )
                 # then do rdfs using the AABBs
-                for i,j in self._rdf:                  
-                    query_args = dict(self._rdf[i,j].default_query_args)
-                    query_args.update(exclude_ii=(i==j))
+                for i, j in self._rdf:
+                    query_args = dict(self._rdf[i, j].default_query_args)
+                    query_args.update(exclude_ii=(i == j))
                     # resetting when the samples are zero clears the RDF, on delay
-                    self._rdf[i,j].compute(aabbs[j],
-                                           snap.particles.position[type_masks[i]],
-                                           neighbors=query_args,
-                                           reset=(self.num_samples == 0))
+                    self._rdf[i, j].compute(
+                        aabbs[j],
+                        snap.particles.position[type_masks[i]],
+                        neighbors=query_args,
+                        reset=(self.num_samples == 0),
+                    )
             self.num_samples += 1
 
         @property
         def N(self):
-            """:class:`~relentless.collections.FixedKeyDict`: Number of particles by type."""
+            """:class:`~relentless.collections.FixedKeyDict`:
+            Number of particles by type.
+            """
             if self.num_samples > 0:
-                N = FixedKeyDict(self._N.keys())               
+                N = FixedKeyDict(self._N.keys())
                 for i in self._N:
                     if mpi.world.rank == 0:
-                        Ni = self._N[i]/self.num_samples
+                        Ni = self._N[i] / self.num_samples
                     else:
                         Ni = None
                     Ni = mpi.world.bcast(Ni, root=0)
@@ -687,16 +775,20 @@ class EnsembleAverage(simulate.AnalysisOperation):
 
         @property
         def rdf(self):
-            """:class:`~relentless.collections.PairMatrix`: Radial distribution functions."""
+            """:class:`~relentless.collections.PairMatrix`:
+            Radial distribution functions.
+            """
             if self.num_samples > 0:
                 rdf = PairMatrix(self._rdf.types)
                 for pair in rdf:
                     if mpi.world.rank == 0:
-                        gr = numpy.column_stack((self._rdf[pair].bin_centers,self._rdf[pair].rdf))
+                        gr = numpy.column_stack(
+                            (self._rdf[pair].bin_centers, self._rdf[pair].rdf)
+                        )
                     else:
                         gr = None
-                    gr = mpi.world.bcast_numpy(gr,root=0)
-                    rdf[pair] = ensemble.RDF(gr[:,0],gr[:,1])
+                    gr = mpi.world.bcast_numpy(gr, root=0)
+                    rdf[pair] = ensemble.RDF(gr[:, 0], gr[:, 1])
                 return rdf
             else:
                 return None
@@ -708,10 +800,12 @@ class EnsembleAverage(simulate.AnalysisOperation):
                 self._N[i] = 0
             # rdf will be reset on next call
 
+
 class HOOMD(simulate.Simulation):
     """Simulation using HOOMD-blue.
 
-    A simulation is performed using `HOOMD-blue <https://hoomd-blue.readthedocs.io/en/stable>`_.
+    A simulation is performed using
+    `HOOMD-blue <https://hoomd-blue.readthedocs.io/en/stable>`_.
     HOOMD-blue is a molecular dynamics program that can execute on both CPUs and
     GPUs, as a single process or with MPI parallelism. The launch configuration
     will be automatically selected for you when the simulation is run.
@@ -727,10 +821,12 @@ class HOOMD(simulate.Simulation):
 
     .. warning::
 
-        HOOMD requires that tabulated pair potentials be finite. A common place to have an
-        infinite value is at :math:`r=0`, since potentials like :class:`~relentless.potential.pair.LennardJones`
-        diverge there. You should make sure to exclude these values from the tabulated potentials,
-        e.g., setting :attr:`~relentless.simulate.PairPotentialTabulator.rmin` to a small value larger than 0.
+        HOOMD requires that tabulated pair potentials be finite. A common place to
+        have an infinite value is at :math:`r=0`, since potentials like
+        :class:`~relentless.potential.pair.LennardJones` diverge there. You should
+        make sure to exclude these values from the tabulated potentials,
+        e.g., setting :attr:`~relentless.simulate.PairPotentialTabulator.rmin` to a
+        small value larger than 0.
 
     Raises
     ------
@@ -740,16 +836,17 @@ class HOOMD(simulate.Simulation):
         If the :mod:`freud` package is not found or is not version 2.x.
 
     """
+
     def __init__(self, initializer, operations=None):
         if not _hoomd_found:
-            raise ImportError('HOOMD not found.')
+            raise ImportError("HOOMD not found.")
         elif version.parse(hoomd.__version__).major != 2:
-            raise ImportError('Only HOOMD 2.x is supported.')
+            raise ImportError("Only HOOMD 2.x is supported.")
 
         if not _freud_found:
-            raise ImportError('freud not found.')
+            raise ImportError("freud not found.")
         elif version.parse(freud.__version__).major != 2:
-            raise ImportError('Only freud 2.x is supported.')
+            raise ImportError("Only freud 2.x is supported.")
 
         super().__init__(initializer, operations)
 
@@ -758,7 +855,7 @@ class HOOMD(simulate.Simulation):
 
         # initialize hoomd exec conf once
         if hoomd.context.exec_conf is None:
-            hoomd.context.initialize('--notice-level=0')
+            hoomd.context.initialize("--notice-level=0")
             hoomd.util.quiet_status()
 
         # initialize
@@ -784,28 +881,36 @@ class HOOMD(simulate.Simulation):
             Simulation instance.
 
         """
+
         def _table_eval(r_i, rmin, rmax, **coeff):
-            r = coeff['r']
-            u = coeff['u']
-            f = coeff['f']
-            u_r = Interpolator(r,u)
-            f_r = Interpolator(r,f)
+            r = coeff["r"]
+            u = coeff["u"]
+            f = coeff["f"]
+            u_r = Interpolator(r, u)
+            f_r = Interpolator(r, f)
             return (u_r(r_i), f_r(r_i))
+
         with sim.hoomd:
-            neighbor_list = hoomd.md.nlist.tree(r_buff=sim.potentials.pair.neighbor_buffer)
-            pair_potential = hoomd.md.pair.table(width=len(sim.potentials.pair.r),
-                                                 nlist=neighbor_list)
-            for i,j in sim.pairs:
+            neighbor_list = hoomd.md.nlist.tree(
+                r_buff=sim.potentials.pair.neighbor_buffer
+            )
+            pair_potential = hoomd.md.pair.table(
+                width=len(sim.potentials.pair.r), nlist=neighbor_list
+            )
+            for i, j in sim.pairs:
                 r = sim.potentials.pair.r
-                u = sim.potentials.pair.energy((i,j))
-                f = sim.potentials.pair.force((i,j))
+                u = sim.potentials.pair.energy((i, j))
+                f = sim.potentials.pair.force((i, j))
                 if numpy.any(numpy.isinf(u)) or numpy.any(numpy.isinf(f)):
-                    raise ValueError('Pair potential/force is infinite at evaluated r')
-                pair_potential.pair_coeff.set(i,j,
-                                              func=_table_eval,
-                                              rmin=r[0],
-                                              rmax=r[-1],
-                                              coeff=dict(r=r,u=u,f=f))
+                    raise ValueError("Pair potential/force is infinite at evaluated r")
+                pair_potential.pair_coeff.set(
+                    i,
+                    j,
+                    func=_table_eval,
+                    rmin=r[0],
+                    rmax=r[-1],
+                    coeff=dict(r=r, u=u, f=f),
+                )
 
     # initialize
     InitializeFromFile = InitializeFromFile

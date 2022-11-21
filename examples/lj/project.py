@@ -14,37 +14,46 @@ converges with a small number of iterations.
 
 """
 import numpy
+
 import relentless
 
 # lj potential with epsilon as a design variable
-lj = relentless.potential.LennardJones(types=('1',))
+lj = relentless.potential.LennardJones(types=("1",))
 epsilon = relentless.variable.DesignVariable(1.0)
-lj.coeff['1','1'].update({'epsilon': epsilon, 'sigma': 1.0, 'rmax': 3.0, 'shift': True})
+lj.coeff["1", "1"].update(
+    {"epsilon": epsilon, "sigma": 1.0, "rmax": 3.0, "shift": True}
+)
 
 # target ensemble
-target = relentless.ensemble.Ensemble(T=1.5, V=relentless.extent.Cube(L=10.), N={'1':50})
+target = relentless.ensemble.Ensemble(
+    T=1.5, V=relentless.extent.Cube(L=10.0), N={"1": 50}
+)
 dr = 0.05
-rs = numpy.arange(0.5*dr,5.0,dr)
+rs = numpy.arange(0.5 * dr, 5.0, dr)
 for pair in target.pairs:
-    gs = numpy.exp(-target.beta*lj.energy(pair,rs))
-    target.rdf[pair] = relentless.ensemble.RDF(rs,gs)
+    gs = numpy.exp(-target.beta * lj.energy(pair, rs))
+    target.rdf[pair] = relentless.ensemble.RDF(rs, gs)
 
 # relative entropy optimization in dilute molecular simulation
 potentials = relentless.simulate.Potentials(lj)
 potentials.pair.rmax = 3.0
 potentials.pair.num = 1000
 potentials.pair.neighbor_buffer = 0.4
-thermo = relentless.simulate.AddEnsembleAnalyzer(check_thermo_every=1, check_rdf_every=1, rdf_dr=dr)
+thermo = relentless.simulate.AddEnsembleAnalyzer(
+    check_thermo_every=1, check_rdf_every=1, rdf_dr=dr
+)
 simulation = relentless.simulate.Dilute([thermo])
 relent = relentless.optimize.RelativeEntropy(target, simulation, potentials, thermo)
 
 # steepest descent optimization (fixed step with line search)
-optimizer = relentless.optimize.FixedStepDescent(stop=relentless.optimize.GradientTest(1e-4),
-                                                 max_iter=10,
-                                                 step_size=0.1,
-                                                 line_search=relentless.optimize.LineSearch(1e-6,2))
+optimizer = relentless.optimize.FixedStepDescent(
+    stop=relentless.optimize.GradientTest(1e-4),
+    max_iter=10,
+    step_size=0.1,
+    line_search=relentless.optimize.LineSearch(1e-6, 2),
+)
 
 # change parameter and optimize
 epsilon.value = 1.5
 optimizer.optimize(relent)
-print('Optimized epsilon = {:.3f}'.format(epsilon.value))
+print("Optimized epsilon = {:.3f}".format(epsilon.value))

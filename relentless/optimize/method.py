@@ -2,10 +2,11 @@ import abc
 
 import numpy
 
-from relentless import data
-from relentless import math
+from relentless import data, math
 from relentless.model import variable
-from .criteria import ConvergenceTest,Tolerance
+
+from .criteria import ConvergenceTest, Tolerance
+
 
 class Optimizer(abc.ABC):
     """Abstract base class for optimization algorithm.
@@ -18,6 +19,7 @@ class Optimizer(abc.ABC):
         The convergence test used as the stopping criterion for the optimizer.
 
     """
+
     def __init__(self, stop):
         self.stop = stop
 
@@ -49,15 +51,17 @@ class Optimizer(abc.ABC):
     @stop.setter
     def stop(self, value):
         if not isinstance(value, ConvergenceTest):
-            raise TypeError('The stopping criterion must be a ConvergenceTest.')
+            raise TypeError("The stopping criterion must be a ConvergenceTest.")
         self._stop = value
 
-class LineSearch:
-    r"""Line search algorithm.
 
-    Given an :class:`~relentless.optimize.objective.ObjectiveFunction` :math:`f\left(\mathbf{x}\right)`
-    and a search interval defined as :math:`\mathbf{d}=\mathbf{x}_{end}-\mathbf{x}_{start}`,
-    the line search algorithm seeks an optimal step size :math:`0<\alpha<1` such
+class LineSearch:
+    r"""Line search algorithm
+
+    Given an :class:`~relentless.optimize.objective.ObjectiveFunction`
+    :math:`f\left(\mathbf{x}\right)` and a search interval defined as
+    :math:`\mathbf{d}=\mathbf{x}_{end}-\mathbf{x}_{start}`, the line search
+    algorithm seeks an optimal step size :math:`0<\alpha<1` such
     that the following quantity is minimized:
 
     .. math::
@@ -79,7 +83,8 @@ class LineSearch:
 
     where :math:`c` is a defined relative tolerance value, and :math:`t_{start}`
     is the target value at the start of the search interval. This is the
-    `strong Wolfe condition on curvature <https://wikipedia.org/wiki/Wolfe_conditions#Strong_Wolfe_condition_on_curvature>`_.
+    `strong Wolfe condition on curvature
+    <https://wikipedia.org/wiki/Wolfe_conditions#Strong_Wolfe_condition_on_curvature>`_.
 
     Because :math:`\mathbf{d}` is a descent direction, the target at the
     start of the search interval is always positive. If the target is positive
@@ -101,6 +106,7 @@ class LineSearch:
         The maximum number of line search iterations allowed.
 
     """
+
     def __init__(self, tolerance, max_iter):
         self.tolerance = tolerance
         self.max_iter = max_iter
@@ -136,32 +142,40 @@ class LineSearch:
         # compute search direction
         d = end.variables - start.variables
         if d.norm() == 0:
-            raise ValueError('The start and end of the search interval must be different.')
+            raise ValueError(
+                "The start and end of the search interval must be different."
+            )
 
         # compute start and end target values
         targets = numpy.array([-d.dot(start.gradient), -d.dot(end.gradient)])
         if targets[0] < 0:
-            raise ValueError('The defined search interval must be a descent direction.')
+            raise ValueError("The defined search interval must be a descent direction.")
 
         # compute tolerance
-        tol = Tolerance(absolute=self.tolerance*numpy.abs(targets[0]), relative=0)
+        tol = Tolerance(absolute=self.tolerance * numpy.abs(targets[0]), relative=0)
 
         # check if max step size acceptable, else iterate to minimize target
         if targets[1] > 0 or tol.isclose(targets[1], 0):
             result = end
         else:
-            steps = numpy.array([0., 1.])
+            steps = numpy.array([0.0, 1.0])
             iter_num = 0
             new_target = numpy.inf
             new_res = end
             while not tol.isclose(new_target, 0) and iter_num < self.max_iter:
                 # linear interpolation for step size
-                new_step = (steps[0]*targets[1] - steps[1]*targets[0])/(targets[1] - targets[0])
+                new_step = (steps[0] * targets[1] - steps[1] * targets[0]) / (
+                    targets[1] - targets[0]
+                )
 
                 # adjust variables based on new step size, compute new target
                 for x in start.variables:
-                    x.value = start.variables[x] + new_step*d[x]
-                new_dir = directory.directory(str(iter_num)) if directory is not None else None
+                    x.value = start.variables[x] + new_step * d[x]
+                new_dir = (
+                    directory.directory(str(iter_num))
+                    if directory is not None
+                    else None
+                )
                 new_res = objective.compute(start.variables, new_dir)
                 new_target = -d.dot(new_res.gradient)
 
@@ -189,7 +203,7 @@ class LineSearch:
     @tolerance.setter
     def tolerance(self, value):
         if value < 0 or value > 1:
-            raise ValueError('The relative tolerance must be between 0 and 1.')
+            raise ValueError("The relative tolerance must be between 0 and 1.")
         self._tolerance = value
 
     @property
@@ -200,16 +214,18 @@ class LineSearch:
     @max_iter.setter
     def max_iter(self, value):
         if not isinstance(value, int):
-            raise TypeError('The maximum number of iterations must be an integer.')
+            raise TypeError("The maximum number of iterations must be an integer.")
         if value < 1:
-            raise ValueError('The maximum number of iterations must be positive.')
+            raise ValueError("The maximum number of iterations must be positive.")
         self._max_iter = value
+
 
 class SteepestDescent(Optimizer):
     r"""Steepest descent algorithm.
 
-    For an :class:`~relentless.optimize.objective.ObjectiveFunction` :math:`f\left(\mathbf{x}\right)`,
-    the steepest descent algorithm seeks to approach a minimum of the function.
+    For an :class:`~relentless.optimize.objective.ObjectiveFunction`
+    :math:`f\left(\mathbf{x}\right)`, the steepest descent algorithm seeks to
+    approach a minimum of the function.
 
     The optimization is performed using scaled variables :math:`\mathbf{y}`.
     Define :math:`\mathbf{X}` as the scaling parameters for each variable such
@@ -230,15 +246,17 @@ class SteepestDescent(Optimizer):
 
     .. math::
 
-        \nabla f\left(\mathbf{y}\right) = \left[X_1 \frac{\partial f}{\partial x_1},
-                                                      \cdots,
-                                                X_n \frac{\partial f}{\partial x_n}\right]
+        \nabla f\left(\mathbf{y}\right) =
+            \left[X_1 \frac{\partial f}{\partial x_1},
+            \cdots,
+            X_n \frac{\partial f}{\partial x_n}\right]
 
     Note that this optimization procedure is equivalent to:
 
     .. math::
 
-        \left(x_i\right)_{n+1} = \left(x_i\right)_n-\alpha{X_i}^2 \frac{\partial f}{\partial x_i}
+        \left(x_i\right)_{n+1} =
+            \left(x_i\right)_n-\alpha{X_i}^2 \frac{\partial f}{\partial x_i}
 
     for each unscaled design variable :math:`x_i`.
 
@@ -260,6 +278,7 @@ class SteepestDescent(Optimizer):
         specified step size value as the "maximum" step size (defaults to ``None``).
 
     """
+
     def __init__(self, stop, max_iter, step_size, scale=1.0, line_search=None):
         super().__init__(stop)
         self.max_iter = max_iter
@@ -321,7 +340,9 @@ class SteepestDescent(Optimizer):
             design variables are specified for the objective function.
 
         """
-        design_variables = variable.graph.check_variables_and_types(design_variables, variable.DesignVariable)
+        design_variables = variable.graph.check_variables_and_types(
+            design_variables, variable.DesignVariable
+        )
         if len(design_variables) == 0:
             return None
 
@@ -343,30 +364,33 @@ class SteepestDescent(Optimizer):
         cur_dir = directory.directory(str(iter_num)) if directory is not None else None
         cur_res = objective.compute(design_variables, cur_dir)
         while not self.stop.converged(cur_res) and iter_num < self.max_iter:
-            grad_y = scale*cur_res.gradient
-            update = self.descent_amount(grad_y)*grad_y
+            grad_y = scale * cur_res.gradient
+            update = self.descent_amount(grad_y) * grad_y
 
             # steepest descent update
             for x in design_variables:
                 x.value = cur_res.variables[x] - update[x]
-            next_dir = cur_dir.directory('.next') if cur_dir is not None else None
+            next_dir = cur_dir.directory(".next") if cur_dir is not None else None
             next_res = objective.compute(design_variables, next_dir)
 
             # if line search, attempt backtracking in interval
             if self.line_search is not None:
-                line_dir = cur_dir.directory('.line') if cur_dir is not None else None
-                line_res = self.line_search.find(objective=objective,
-                                                 start=cur_res,
-                                                 end=next_res,
-                                                 directory=line_dir)
+                line_dir = cur_dir.directory(".line") if cur_dir is not None else None
+                line_res = self.line_search.find(
+                    objective=objective, start=cur_res, end=next_res, directory=line_dir
+                )
 
                 if line_res is not next_res:
                     for x in design_variables:
                         x.value = line_res.variables[x]
                     next_res = line_res
 
-            # move the contents of the "next" result contents to the new "current" result
-            cur_dir = directory.directory(str(iter_num+1)) if directory is not None else None
+            # move the contents of the "next" result to the new "current" result
+            cur_dir = (
+                directory.directory(str(iter_num + 1))
+                if directory is not None
+                else None
+            )
             if next_res.directory is not None:
                 next_res.directory.move_contents(cur_dir)
 
@@ -385,9 +409,9 @@ class SteepestDescent(Optimizer):
     @max_iter.setter
     def max_iter(self, value):
         if not isinstance(value, int):
-            raise TypeError('The maximum number of iterations must be an integer.')
+            raise TypeError("The maximum number of iterations must be an integer.")
         if value < 1:
-            raise ValueError('The maximum number of iterations must be positive.')
+            raise ValueError("The maximum number of iterations must be positive.")
         self._max_iter = value
 
     @property
@@ -398,12 +422,14 @@ class SteepestDescent(Optimizer):
     @step_size.setter
     def step_size(self, value):
         if value <= 0:
-            raise ValueError('The step size must be positive.')
+            raise ValueError("The step size must be positive.")
         self._step_size = value
 
     @property
     def scale(self):
-        r"""float or dict: A scalar scaling parameter or scaling parameters (:math:`\mathbf{X}`)
+        r"""float or dict: Scaling parameter.
+
+        A scalar scaling parameter or scaling parameters (:math:`\mathbf{X}`)
         keyed on one or more :class:`~relentless.optimize.objective.ObjectiveFunction`
         design variables. Must be positive."""
         return self._scale
@@ -417,19 +443,22 @@ class SteepestDescent(Optimizer):
             scale = value
             err = value <= 0
         if err:
-            raise ValueError('The scaling parameters must be positive.')
+            raise ValueError("The scaling parameters must be positive.")
         self._scale = scale
 
     @property
     def line_search(self):
-        """:class:`LineSearch`: The line search object used to optimize the step size."""
+        """:class:`LineSearch`: The line search used to optimize the step size."""
         return self._line_search
 
     @line_search.setter
     def line_search(self, value):
         if value is not None and not isinstance(value, LineSearch):
-            raise TypeError('If defined, the line search parameter must be a LineSearch object.')
+            raise TypeError(
+                "If defined, the line search parameter must be a LineSearch object."
+            )
         self._line_search = value
+
 
 class FixedStepDescent(SteepestDescent):
     r"""Fixed-step steepest descent algorithm.
@@ -444,7 +473,8 @@ class FixedStepDescent(SteepestDescent):
     .. math::
 
         \mathbf{y}_{n+1} = \mathbf{y}_n
-                          -\frac{\alpha}{\left\lVert\nabla f\left(\mathbf{y}_n\right)\right\rVert}\nabla f\left(\mathbf{y}_n\right)
+            -\frac{\alpha}{\left\lVert\nabla f\left(\mathbf{y}_n\right)\right\rVert}
+            \nabla f\left(\mathbf{y}_n\right)
 
     Parameters
     ----------
@@ -464,6 +494,7 @@ class FixedStepDescent(SteepestDescent):
         specified step size value as the "maximum" step size (defaults to ``None``).
 
     """
+
     def __init__(self, stop, max_iter, step_size, scale=1.0, line_search=None):
         super().__init__(stop, max_iter, step_size, scale, line_search)
 
@@ -492,4 +523,4 @@ class FixedStepDescent(SteepestDescent):
         k = math.KeyedArray(keys=gradient.keys())
         for i in k:
             k[i] = self.step_size
-        return k/gradient.norm()
+        return k / gradient.norm()
