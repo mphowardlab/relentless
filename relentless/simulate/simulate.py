@@ -234,6 +234,9 @@ class Simulation:
     # analysis
     EnsembleAverage = NotImplementedOperation
 
+    # dump trajectory
+    WriteTrajectory = NotImplementedOperation
+
 
 class SimulationInstance:
     """Specific instance of a simulation and its data.

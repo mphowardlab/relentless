@@ -801,6 +801,18 @@ class EnsembleAverage(simulate.AnalysisOperation):
             # rdf will be reset on next call
 
 
+# dump traj
+class WriteTrajectory(simulate.SimulationOperation):
+    def __init__(self, filename, every):
+        self.filename = filename
+        self.every = every
+
+    def __call__(self, sim):
+        with sim.hoomd:
+            all_ = hoomd.group.all()
+            hoomd.dump.gsd(self.filename, period=self.every, group=all_, overwrite=True)
+
+
 class HOOMD(simulate.Simulation):
     """Simulation using HOOMD-blue.
 
@@ -924,3 +936,6 @@ class HOOMD(simulate.Simulation):
 
     # analyze
     EnsembleAverage = EnsembleAverage
+
+    # dump traj
+    WriteTrajectory = WriteTrajectory

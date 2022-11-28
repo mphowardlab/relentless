@@ -211,3 +211,8 @@ class MTKBarostat(Barostat):
     def __init__(self, P, tau):
         super().__init__(P)
         self.tau = tau
+
+
+class WriteTrajectory(simulate.GenericOperation):
+    def __init__(self, filename, every):
+        super().__init__(filename, every)

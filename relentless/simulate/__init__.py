@@ -150,6 +150,7 @@ from .md import (
     RunLangevinDynamics,
     RunMolecularDynamics,
     Thermostat,
+    WriteTrajectory,
 )
 from .simulate import (
     AnalysisOperation,
