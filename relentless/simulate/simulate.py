@@ -233,8 +233,6 @@ class Simulation:
 
     # analysis
     EnsembleAverage = NotImplementedOperation
-
-    # dump trajectory
     WriteTrajectory = NotImplementedOperation
 
 

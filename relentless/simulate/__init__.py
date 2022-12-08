@@ -134,7 +134,7 @@ Developer classes
     Thermostat
 
 """
-from .analyze import EnsembleAverage
+from .analyze import EnsembleAverage, WriteTrajectory
 from .dilute import Dilute
 from .hoomd import HOOMD
 from .initialize import InitializeFromFile, InitializeRandomly
@@ -150,7 +150,6 @@ from .md import (
     RunLangevinDynamics,
     RunMolecularDynamics,
     Thermostat,
-    WriteTrajectory,
 )
 from .simulate import (
     AnalysisOperation,
