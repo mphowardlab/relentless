@@ -811,13 +811,13 @@ class WriteTrajectory(simulate.AnalysisOperation):
     every : int
         Interval of time steps at which to write a snapshot of the simulation.
     velocity : bool
-        Log particle velocity.
+        Log particle velocities.
     image : bool
-        Log particle image.
+        Log particle images.
     typeid : bool
-        Log particle type ID.
+        Log particle types.
     mass : bool
-        Log particle mass.
+        Log particle masses.
 
     """
 
@@ -830,14 +830,20 @@ class WriteTrajectory(simulate.AnalysisOperation):
         self.mass = mass
 
     def __call__(self, sim):
+        # property group is always dyanmic in the trajectory file since it logs position
         _dynamic = ["property"]
+        # momentum group makes particle velocities and particles images dynamic
         if self.velocity is True or self.image is True:
             _dynamic.append("momentum")
 
         with sim.hoomd:
+            # selects all particles to be part of the trajectory file
             all_ = hoomd.group.all()
+
+            # dump the .gsd file into the directory
+            # Note: the .gsd file is overwritten for each call of the function
             hoomd.dump.gsd(
-                self.filename,
+                filename=sim.directory.file(self.filename),
                 period=self.every,
                 group=all_,
                 overwrite=True,
@@ -845,7 +851,7 @@ class WriteTrajectory(simulate.AnalysisOperation):
             )
 
     def finalize(self, sim):
-        return super().finalize(sim)
+        pass
 
 
 class HOOMD(simulate.Simulation):
@@ -971,6 +977,4 @@ class HOOMD(simulate.Simulation):
 
     # analyze
     EnsembleAverage = EnsembleAverage
-
-    # dump traj
     WriteTrajectory = WriteTrajectory

@@ -21,22 +21,22 @@ class EnsembleAverage(simulate.GenericAnalysisOperation):
 
 
 class WriteTrajectory(simulate.GenericAnalysisOperation):
-    """Writes a .gsd file.
+    """Writes a trajectory file of the simulation.
 
     Parameters
     ----------
     filename : str
-        Name of the .gsd file to be written.
+        Name of the trajectory file to be written.
     every : int
         Interval of time steps at which to write a snapshot of the simulation.
     velocity : bool
-        Log particle velocity.
+        Log particle velocities.
     image : bool
-        Log particle image.
+        Log particle images.
     typeid : bool
-        Log particle type ID.
+        Log particle types.
     mass : bool
-        Log particle mass.
+        Log particle masses.
 
     """
 
