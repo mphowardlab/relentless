@@ -803,6 +803,75 @@ class EnsembleAverage(simulate.AnalysisOperation, LAMMPSOperation):
         sim[self].ensemble = ens
 
 
+class WriteTrajectory(simulate.AnalysisOperation):
+    """Writes a LAMMPS dump file. When all options are set to True the file has
+    the following format:
+    ITEM: ATOMS x y z vx vy vz ix iy iz id mass
+    Where x y z are position, vx vy vz are velocoity, ix iy iz are image, id is
+    typeid, & mass is mass.
+    Parameters
+    ----------
+    filename : str
+        Name of the LAMMPS dump file to be written.
+    every : int
+        Interval of time steps at which to write a snapshot of the simulation.
+    velocity : bool
+        Log particle velocities.
+    image : bool
+        Log particle images.
+    typeid : bool
+        Log particle types.
+    mass : bool
+        Log particle masses.
+
+    Raises
+    ------
+    TypeError
+        If filename is not a string.
+    TypeError
+        If every is not an integer.
+
+    """
+
+    def __init__(self, filename, every, velocity, image, typeid, mass):
+        self.filename = filename
+        self.every = every
+        self.velocity = velocity
+        self.image = image
+        self.typeid = typeid
+        self.mass = mass
+
+    def __call__(self, sim):
+        self.sim = sim
+        cmds = self.to_commands(sim)
+        sim.lammps.commands_list(cmds)
+
+    def to_commands(self, sim):
+        if not isinstance(self.filename, str):
+            raise TypeError("filename must be a string")
+        if not isinstance(self.every, int):
+            raise TypeError("every must be an integer")
+
+        # ensures the file is written in the directory
+        filename = sim.directory.file(self.filename)
+        # position is always dynamic
+        _dynamic = " x y z "
+        if self.velocity is True:
+            _dynamic += "vx vy vz "
+        if self.image is True:
+            _dynamic += "ix iy iz "
+        if self.typeid is True:
+            _dynamic += "id "
+        if self.mass is True:
+            _dynamic += "mass "
+
+        cmds = ["dump myDump all custom " + str(self.every) + " " + filename + _dynamic]
+        return cmds
+
+    def finalize(self, sim):
+        pass
+
+
 class LAMMPS(simulate.Simulation):
     """Simulation using LAMMPS.
 
@@ -999,3 +1068,4 @@ class LAMMPS(simulate.Simulation):
 
     # analyze
     EnsembleAverage = EnsembleAverage
+    WriteTrajectory = WriteTrajectory

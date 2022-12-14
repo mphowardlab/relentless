@@ -819,6 +819,13 @@ class WriteTrajectory(simulate.AnalysisOperation):
     mass : bool
         Log particle masses.
 
+    Raises
+    ------
+    TypeError
+        If filename is not a string.
+    TypeError
+        If every is not an integer.
+
     """
 
     def __init__(self, filename, every, velocity, image, typeid, mass):
@@ -830,6 +837,11 @@ class WriteTrajectory(simulate.AnalysisOperation):
         self.mass = mass
 
     def __call__(self, sim):
+        if not isinstance(self.filename, str):
+            raise TypeError("filename must be a string")
+        if not isinstance(self.every, int):
+            raise TypeError("every must be an integer")
+
         # property group is always dyanmic in the trajectory file since it logs position
         _dynamic = ["property"]
         # momentum group makes particle velocities and particles images dynamic
