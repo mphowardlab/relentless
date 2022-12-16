@@ -861,7 +861,7 @@ class WriteTrajectory(simulate.AnalysisOperation):
         if self.image is True:
             _dynamic += "ix iy iz "
         if self.typeid is True:
-            _dynamic += "id "
+            _dynamic += "type "
         if self.mass is True:
             _dynamic += "mass "
 
