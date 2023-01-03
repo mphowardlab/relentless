@@ -44,6 +44,87 @@ class test_Dilute(unittest.TestCase):
         ens_ = sim[analyzer].ensemble
         self.assertAlmostEqual(ens_.P, -207.5228556)
 
+    def test_run_moleculardynamics(self):
+        """Test run molecular dynamics method with thermostat."""
+        init = relentless.simulate.InitializeRandomly(
+            seed=42, N={"A": 2, "B": 3}, V=relentless.model.Cube(L=2.0), T=1.0
+        )
+        analyzer = relentless.simulate.EnsembleAverage(
+            check_thermo_every=1, check_rdf_every=1, rdf_dr=0.1
+        )
+        md = relentless.simulate.RunMolecularDynamics(
+            steps=100,
+            timestep=1e-3,
+            analyzers=analyzer,
+            thermostat=relentless.simulate.BerendsenThermostat(T=2, tau=0.1),
+        )
+
+        # set up potentials
+        pot = LinPot(("A", "B"), params=("m",))
+        for pair in pot.coeff:
+            pot.coeff[pair]["m"] = 2.0
+        pots = relentless.simulate.Potentials()
+        pots.pair.potentials.append(pot)
+        pots.pair.rmax = 3.0
+        pots.pair.num = 4
+
+        d = relentless.simulate.Dilute(init, operations=md)
+        sim = d.run(potentials=pots, directory=self.directory)
+        ens_ = sim[analyzer].ensemble
+        self.assertAlmostEqual(ens_.T, 2)
+
+    def test_run_langevindynamics(self):
+        """Test run Langevin dynamics method."""
+        init = relentless.simulate.InitializeRandomly(
+            seed=42, N={"A": 2, "B": 3}, V=relentless.model.Cube(L=2.0), T=1.0
+        )
+        analyzer = relentless.simulate.EnsembleAverage(
+            check_thermo_every=1, check_rdf_every=1, rdf_dr=0.1
+        )
+        lgv = relentless.simulate.RunLangevinDynamics(
+            steps=100, timestep=1e-3, T=2, friction=0.1, seed=2, analyzers=analyzer
+        )
+
+        # set up potentials
+        pot = LinPot(("A", "B"), params=("m",))
+        for pair in pot.coeff:
+            pot.coeff[pair]["m"] = 2.0
+        pots = relentless.simulate.Potentials()
+        pots.pair.potentials.append(pot)
+        pots.pair.rmax = 3.0
+        pots.pair.num = 4
+
+        d = relentless.simulate.Dilute(init, operations=lgv)
+        sim = d.run(potentials=pots, directory=self.directory)
+        ens_ = sim[analyzer].ensemble
+        self.assertAlmostEqual(ens_.T, 2)
+
+    def test_run_browniandynamics(self):
+        """Test run Brownian dynamics method."""
+        init = relentless.simulate.InitializeRandomly(
+            seed=42, N={"A": 2, "B": 3}, V=relentless.model.Cube(L=2.0), T=1.0
+        )
+        analyzer = relentless.simulate.EnsembleAverage(
+            check_thermo_every=1, check_rdf_every=1, rdf_dr=0.1
+        )
+        bd = relentless.simulate.RunBrownianDynamics(
+            steps=100, timestep=1e-3, T=2.0, friction=0.1, seed=2, analyzers=analyzer
+        )
+
+        # set up potentials
+        pot = LinPot(("A", "B"), params=("m",))
+        for pair in pot.coeff:
+            pot.coeff[pair]["m"] = 2.0
+        pots = relentless.simulate.Potentials()
+        pots.pair.potentials.append(pot)
+        pots.pair.rmax = 3.0
+        pots.pair.num = 4
+
+        d = relentless.simulate.Dilute(init, operations=bd)
+        sim = d.run(potentials=pots, directory=self.directory)
+        ens_ = sim[analyzer].ensemble
+        self.assertAlmostEqual(ens_.T, 2)
+
     def test_inf_potential(self):
         """Test potential with infinite value."""
         init = relentless.simulate.InitializeRandomly(
