@@ -8,15 +8,22 @@ try:
     import lammps
 except ImportError:
     pass
-import lammpsio
+
+try:
+    import lammpsio
+except ImportError:
+    pass
 
 import relentless
 from tests.model.potential.test_pair import LinPot
 
-
-@unittest.skipIf(
-    not relentless.simulate.lammps._lammps_found, "Compatible LAMMPS not installed"
+_has_modules = (
+    relentless.simulate.lammps._lammps_found
+    and relentless.simulate.lammps._lammpsio_found
 )
+
+
+@unittest.skipIf(not _has_modules, "LAMMPS and/or lammpsio not installed")
 @parameterized_class(
     [{"dim": 2}, {"dim": 3}],
     class_name_func=lambda cls, num, params_dict: "{}_{}d".format(
