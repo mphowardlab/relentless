@@ -153,7 +153,7 @@ class EnsembleAverage(simulate.AnalysisOperation):
         # pair distribution function
         for pair in ens.pairs:
             u = sim.potentials.pair.energy(pair)
-            ens.rdf[pair] = ensemble.RDF(sim.potentials.pair.r, numpy.exp(-u / kT))
+            ens.rdf[pair] = ensemble.RDF(sim.potentials.pair.x, numpy.exp(-u / kT))
 
         # compute pressure
         ens.P = 0.0
@@ -162,7 +162,7 @@ class EnsembleAverage(simulate.AnalysisOperation):
             ens.P += kT * rho_a
             for b in sim.types:
                 rho_b = ens.N[b] / ens.V.extent
-                r = sim.potentials.pair.r
+                r = sim.potentials.pair.x
                 u = sim.potentials.pair.energy((a, b))
                 f = sim.potentials.pair.force((a, b))
                 gr = ens.rdf[a, b].table[:, 1]

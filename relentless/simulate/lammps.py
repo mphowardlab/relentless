@@ -746,7 +746,7 @@ class EnsembleAverage(simulate.AnalysisOperation, LAMMPSOperation):
         ]
 
         # pair distribution function
-        rmax = sim.potentials.pair.r[-1]
+        rmax = sim.potentials.pair.x[-1]
         sim[self].num_bins = numpy.round(rmax / self.rdf_dr).astype(int)
         sim[self].rdf_file = file_["rdf"]
         sim[self].rdf_pairs = tuple(sim.pairs)
@@ -913,9 +913,9 @@ class LAMMPS(simulate.Simulation):
             If the pair potentials do not have equally spaced ``r``.
 
         """
-        if sim.potentials.pair.rmin == 0:
-            raise ValueError("LAMMPS requires rmin > 0 for pair potentials")
-        r = sim.potentials.pair.r
+        if sim.potentials.pair.start == 0:
+            raise ValueError("LAMMPS requires start > 0 for pair potentials")
+        r = sim.potentials.pair.x
         Nr = len(r)
         if Nr == 1:
             raise ValueError(
