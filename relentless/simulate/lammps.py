@@ -915,17 +915,13 @@ class LAMMPS(simulate.Simulation):
         """
         if sim.potentials.pair.start == 0:
             raise ValueError("LAMMPS requires start > 0 for pair potentials")
-        r = sim.potentials.pair.x
+        rsq = sim.potentials.pair.xsquared
+        r = numpy.sqrt(rsq)
         Nr = len(r)
         if Nr == 1:
             raise ValueError(
                 "LAMMPS requires at least two points in the tabulated potential."
             )
-
-        # check that all r are equally spaced
-        dr = r[1:] - r[:-1]
-        if not numpy.all(numpy.isclose(dr, dr[0])):
-            raise ValueError("LAMMPS requires equally spaced r in pair potentials.")
 
         def pair_map(sim, pair):
             # Map lammps type indexes as a pair, lowest type first
@@ -951,15 +947,20 @@ class LAMMPS(simulate.Simulation):
                         )
                     )
                     fw.write(
-                        "N {N} R {rmin} {rmax}\n\n".format(N=Nr, rmin=r[0], rmax=r[-1])
+                        "N {N} RSQ {rmin} {rmax}\n\n".format(
+                            N=Nr,
+                            rmin=sim.potentials.pair.start,
+                            rmax=sim.potentials.pair.stop,
+                        )
                     )
 
-                    u = sim.potentials.pair.energy((i, j))
-                    f = sim.potentials.pair.force((i, j))
+                    # explicitly use r = sqrt(r^2) to avoid interpolation
+                    u = sim.potentials.pair.energy((i, j), r)
+                    f = sim.potentials.pair.force((i, j), r)
                     for idx in range(Nr):
                         fw.write(
                             "{idx} {r} {u} {f}\n".format(
-                                idx=idx + 1, r=r[idx], u=u[idx], f=f[idx]
+                                idx=idx + 1, r=rsq[idx], u=u[idx], f=f[idx]
                             )
                         )
 

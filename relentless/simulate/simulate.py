@@ -439,7 +439,13 @@ class PotentialTabulator:
     def x(self):
         """array_like: The values of ``x`` at which to evaluate the potential."""
         self.validate()
-        return numpy.linspace(self.start, self.stop, self.num, dtype=numpy.float64)
+        return numpy.linspace(self.start, self.stop, self.num, dtype=float)
+
+    @property
+    def xsquared(self):
+        """array_like: The values of ``x**2`` at which to evaluate the potential."""
+        self.validate()
+        return numpy.linspace(self.start**2, self.stop**2, self.num, dtype=float)
 
     def energy(self, key, x=None):
         """Evaluates and accumulates energy for all potentials.
