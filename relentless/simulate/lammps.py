@@ -787,15 +787,23 @@ class EnsembleAverage(simulate.AnalysisOperation, LAMMPSOperation):
         # timestep from col. 0
         thermo = mpi.world.loadtxt(sim[self].thermo_file, skiprows=2)[1:]
         N = {i: Ni for i, Ni in zip(sim.types, thermo[8 : 8 + len(sim.types)])}
-        V = extent.TriclinicBox(
-            Lx=thermo[2],
-            Ly=thermo[3],
-            Lz=thermo[4],
-            xy=thermo[5],
-            xz=thermo[6],
-            yz=thermo[7],
-            convention="LAMMPS",
-        )
+        if sim.dimension == 3:
+            V = extent.TriclinicBox(
+                Lx=thermo[2],
+                Ly=thermo[3],
+                Lz=thermo[4],
+                xy=thermo[5],
+                xz=thermo[6],
+                yz=thermo[7],
+                convention="LAMMPS",
+            )
+        else:
+            V = extent.ObliqueArea(
+                Lx=thermo[2],
+                Ly=thermo[3],
+                xy=thermo[5],
+                convention="LAMMPS",
+            )
         ens = ensemble.Ensemble(N=N, T=thermo[0], P=thermo[1], V=V)
 
         # extract rdfs
