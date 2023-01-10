@@ -19,7 +19,6 @@ To implement your own LAMMPS operation, create an operation that derives from
 import abc
 import uuid
 
-import lammpsio
 import numpy
 
 from relentless import mpi
@@ -33,6 +32,13 @@ try:
     _lammps_found = True
 except ImportError:
     _lammps_found = False
+
+try:
+    import lammpsio
+
+    _lammpsio_found = True
+except ImportError:
+    _lammpsio_found = False
 
 
 class LAMMPSOperation(simulate.SimulationOperation):
@@ -846,6 +852,9 @@ class LAMMPS(simulate.Simulation):
     def __init__(self, initializer, operations=None, dimension=3, quiet=True):
         if not _lammps_found:
             raise ImportError("LAMMPS not found.")
+
+        if not _lammpsio_found:
+            raise ImportError("lammpsio not found.")
 
         super().__init__(initializer, operations)
         self.dimension = dimension
