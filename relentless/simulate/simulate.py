@@ -508,7 +508,7 @@ class PotentialTabulator:
         ----------
         key : str
             The key for which to evaluate the derivative for each potential.
-        var : `relentless.model.Variable`
+        var : :class:`~relentless.model.Variable`
             Variable to differentiate with respect to.
         x : float or list
             The pair distance(s) at which to evaluate the derivative.
@@ -641,7 +641,7 @@ class PairPotentialTabulator(PotentialTabulator):
         ----------
         pair : str
             The pair for which to evaluate the derivative for each potential.
-        var : `relentless.model.Variable`
+        var : :class:`~relentless.model.Variable`
             Variable to differentiate with respect to.
         x : float or list
             The pair distance(s) at which to evaluate the derivative.
