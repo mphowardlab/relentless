@@ -71,7 +71,7 @@ class RunBrownianDynamics(_MDIntegrator):
         for analyzer in self.analyzers:
             analyzer(sim)
 
-        sim[sim.initializer].ensemble = self.T
+        sim[sim.initializer].ensemble.T = self.T
 
         for analyzer in self.analyzers:
             analyzer.finalize(sim)
@@ -86,7 +86,7 @@ class RunLangevinDynamics(_MDIntegrator):
         for analyzer in self.analyzers:
             analyzer(sim)
 
-        sim[sim.initializer].ensemble = self.T
+        sim[sim.initializer].ensemble.T = self.T
 
         for analyzer in self.analyzers:
             analyzer.finalize(sim)
@@ -106,7 +106,7 @@ class RunMolecularDynamics(_MDIntegrator):
             analyzer(sim)
 
         if self.thermostat is not None:
-            sim[sim.initializer].ensemble = self.thermostat.T
+            sim[sim.initializer].ensemble.T = self.thermostat.T
 
         for analyzer in self.analyzers:
             analyzer.finalize(sim)
