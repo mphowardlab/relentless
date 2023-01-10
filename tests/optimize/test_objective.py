@@ -104,7 +104,7 @@ class test_RelativeEntropy(unittest.TestCase):
             {"epsilon": self.epsilon, "sigma": self.sigma, "rmax": 2.7}
         )
         self.potentials = relentless.simulate.Potentials(pair_potentials=lj)
-        self.potentials.pair.rmax = 3.6
+        self.potentials.pair.stop = 3.6
         self.potentials.pair.num = 1000
         self.potentials.pair.fmax = 100.0
         self.potentials.pair.neighbor_buffer = 0.4

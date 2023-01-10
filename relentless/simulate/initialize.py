@@ -115,9 +115,7 @@ class InitializeRandomly(simulate.GenericOperation):
         sorted_N = sorted(N.items(), key=lambda x: x[1], reverse=True)
         for i, Ni in sorted_N:
             # generate site coordinates, on orthorhombic lattices
-            di = diameters[i]
-            if isinstance(di, variable.Variable):
-                di = di.value
+            di = variable.evaluate(diameters[i])
             if dimension == 3:
                 # fcc lattice
                 a = numpy.sqrt(2.0) * di

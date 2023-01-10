@@ -565,7 +565,7 @@ class EnsembleAverage(simulate.AnalysisOperation):
 
             # pair distribution function
             rdf_params = PairMatrix(sim.types)
-            rmax = sim.potentials.pair.r[-1]
+            rmax = sim.potentials.pair.x[-1]
             bins = numpy.round(rmax / self.rdf_dr).astype(int)
             for pair in rdf_params:
                 rdf_params[pair] = {"bins": bins, "rmax": rmax}
@@ -895,10 +895,10 @@ class HOOMD(simulate.Simulation):
                 r_buff=sim.potentials.pair.neighbor_buffer
             )
             pair_potential = hoomd.md.pair.table(
-                width=len(sim.potentials.pair.r), nlist=neighbor_list
+                width=len(sim.potentials.pair.x), nlist=neighbor_list
             )
             for i, j in sim.pairs:
-                r = sim.potentials.pair.r
+                r = sim.potentials.pair.x
                 u = sim.potentials.pair.energy((i, j))
                 f = sim.potentials.pair.force((i, j))
                 if numpy.any(numpy.isinf(u)) or numpy.any(numpy.isinf(f)):
