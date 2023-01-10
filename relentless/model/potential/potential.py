@@ -83,12 +83,7 @@ class Parameters:
                 raise ValueError("Parameter {} is not set for {}.".format(p, str(key)))
 
             # evaluate the variable
-            if isinstance(v, variable.Variable):
-                params[p] = v.value
-            elif numpy.isscalar(v):
-                params[p] = v
-            else:
-                raise TypeError("Parameter type unrecognized")
+            params[p] = variable.evaluate(v)
 
             # final check: error if variable is still not set
             if v is None:

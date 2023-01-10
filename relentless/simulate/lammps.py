@@ -22,7 +22,7 @@ import uuid
 import numpy
 
 from relentless import mpi
-from relentless.model import ensemble, extent
+from relentless.model import ensemble, extent, variable
 
 from . import initialize, md, simulate
 
@@ -974,7 +974,7 @@ class LAMMPS(simulate.Simulation):
 
                     # find r where potential and force are zero
                     all_rmax = [
-                        pair_pot.coeff[i, j]["rmax"]
+                        variable.evaluate(pair_pot.coeff[i, j]["rmax"])
                         for pair_pot in sim.potentials.pair.potentials
                     ]
                     if None not in all_rmax:
