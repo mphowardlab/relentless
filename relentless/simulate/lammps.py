@@ -991,7 +991,8 @@ class LAMMPS(simulate.Simulation):
 
         # process all lammps commands
         cmds = [
-            "neighbor {skin} multi".format(skin=sim.potentials.pair.neighbor_buffer)
+            "neighbor {skin} multi".format(skin=sim.potentials.pair.neighbor_buffer),
+            "neigh_modify delay 0 every 1 check yes",
         ]
         cmds += ["pair_style table linear {N}".format(N=Nr)]
 
