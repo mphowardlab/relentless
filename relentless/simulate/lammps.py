@@ -812,7 +812,7 @@ class EnsembleAverage(simulate.AnalysisOperation, LAMMPSOperation):
 class WriteTrajectory(simulate.AnalysisOperation):
     """Writes a LAMMPS dump file. When all options are set to True the file has
     the following format:
-    ITEM: ATOMS x y z vx vy vz ix iy iz id mass
+    ITEM: ATOMS x y z vx vy vz ix iy iz type mass
     Where x y z are position, vx vy vz are velocoity, ix iy iz are image, id is
     typeid, & mass is mass.
     Parameters
@@ -871,7 +871,11 @@ class WriteTrajectory(simulate.AnalysisOperation):
         if self.mass is True:
             _dynamic += "mass "
 
-        cmds = ["dump myDump all custom " + str(self.every) + " " + filename + _dynamic]
+        cmds = [
+            "dump myDump all custom {} {} {}".format(
+                str(self.every), filename, _dynamic
+            )
+        ]
         return cmds
 
     def finalize(self, sim):
