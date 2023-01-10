@@ -965,15 +965,24 @@ class LAMMPS(simulate.Simulation):
                         )
 
                     # find r where potential and force are zero
-                    nonzero_r = numpy.flatnonzero(
-                        numpy.logical_and(~numpy.isclose(u, 0), ~numpy.isclose(f, 0))
-                    )
-                    if len(nonzero_r) > 1:
-                        # cutoff at last nonzero r (cannot be first r)
-                        rcut[(i, j)] = r[nonzero_r[-1]]
+                    all_rmax = [
+                        pair_pot.coeff[i, j]["rmax"]
+                        for pair_pot in sim.potentials.pair.potentials
+                    ]
+                    if None not in all_rmax:
+                        # use rmax if set for all potentials
+                        rcut[(i, j)] = min(max(all_rmax), sim.potentials.pair.stop)
                     else:
-                        # if first or second r is nonzero, cutoff at second
-                        rcut[(i, j)] = r[1]
+                        # otherwise, deduce safe cutoff from tabulated values
+                        nonzero_r = numpy.flatnonzero(
+                            numpy.logical_and(
+                                ~numpy.isclose(u, 0), ~numpy.isclose(f, 0)
+                            )
+                        )
+                        # cutoff at last nonzero r (cannot be first r)
+                        # we add 1 to make sure we include the last point if
+                        # potential happens to go smoothly to zero
+                        rcut[(i, j)] = r[min(nonzero_r[-1] + 1, len(r) - 1)]
         else:
             rcut = None
             file_ = None
