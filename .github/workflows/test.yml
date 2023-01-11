@@ -51,6 +51,9 @@ jobs:
   test-hoomd:
     name: unit test [python-${{ matrix.python-version }}] / hoomd-2.9.7
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -el {0}
     strategy:
       fail-fast: false
       matrix:
