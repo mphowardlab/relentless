@@ -84,4 +84,4 @@ jobs:
 
       - name: Test
         run: |
-          python -m unittest -v ./tests/simulate/test_hoomd.py
+          python -m unittest -v tests/simulate/test_hoomd.py
