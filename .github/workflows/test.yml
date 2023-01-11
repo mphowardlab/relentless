@@ -71,7 +71,7 @@ jobs:
 
       - name: Install test dependencies
         run: |
-          mamba install hoomd=2.9.7 freud>=2
+          mamba install "hoomd=2.9.7" "freud>=2"
           python -m pip install pip --upgrade pip
           pip install -r tests/requirements.txt
 
