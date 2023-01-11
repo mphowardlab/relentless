@@ -46,16 +46,15 @@ jobs:
 
       - name: Test
         run: |
-          cd ..
-          python -m unittest discover -v -s ./relentless/tests -p 'test_*.py'
+          python -m unittest discover -v -s ./tests -p 'test_*.py'
 
   test-hoomd:
-    name: unit test [python-${{ matrix.python-version }}] / HOOMD-2.9.7
+    name: unit test [python-${{ matrix.python-version }}] / hoomd-2.9.7
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        python-version: ['3.8', '3.9', '3.10', '3.11']
+        python-version: ['3.8', '3.9', '3.10']
 
     steps:
       - name: Checkout code
@@ -82,5 +81,4 @@ jobs:
 
       - name: Test
         run: |
-          cd ..
-          python -m unittest -v ./relentless/tests/simulate/test_hoomd.py
+          python -m unittest -v ./tests/simulate/test_hoomd.py
