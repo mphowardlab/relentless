@@ -6,10 +6,6 @@ from parameterized import parameterized_class
 
 try:
     import lammps
-except ImportError:
-    pass
-
-try:
     import lammpsio
 except ImportError:
     pass
@@ -23,7 +19,7 @@ _has_modules = (
 )
 
 
-@unittest.skipIf(not _has_modules, "Compatible LAMMPS and/or lammpsio not installed")
+@unittest.skipIf(not _has_modules, "LAMMPS dependencies not installed")
 @parameterized_class(
     [{"dim": 2}, {"dim": 3}],
     class_name_func=lambda cls, num, params_dict: "{}_{}d".format(

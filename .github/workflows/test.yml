@@ -100,9 +100,10 @@ jobs:
           activate-environment: test
       - name: Install test dependencies
         run: |
-          mamba install "lammps=${{ matrix.lammps-version }}" "lammpsio>=0.2.0"
+          mamba install "lammps=${{ matrix.lammps-version }}"
           python -m pip install pip --upgrade pip
           pip install -r tests/requirements.txt
+          pip install lammpsio>=0.2.0
       - name: Install
         run: |
           pip install .
