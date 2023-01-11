@@ -1,8 +1,21 @@
 {
-    "files.insertFinalNewline": true,
     "editor.autoIndent": "keep",
     "editor.detectIndentation": false,
     "editor.rulers": [
         80
-    ]
+    ],
+    "files.insertFinalNewline": true,
+    "python.linting.flake8Enabled": true,
+    "python.linting.pycodestyleEnabled": false,
+    "python.linting.pylintEnabled": false,
+    "python.formatting.provider": "black",
+    "python.testing.pytestEnabled": false,
+    "python.testing.unittestEnabled": true,
+    "python.testing.unittestArgs": [
+        "-v",
+        "-s",
+        "./tests",
+        "-p",
+        "test_*.py"
+    ],
 }

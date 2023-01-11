@@ -22,7 +22,7 @@ import uuid
 import numpy
 
 from relentless import mpi
-from relentless.model import ensemble, extent
+from relentless.model import ensemble, extent, variable
 
 from . import initialize, md, simulate
 
@@ -746,7 +746,7 @@ class EnsembleAverage(simulate.AnalysisOperation, LAMMPSOperation):
         ]
 
         # pair distribution function
-        rmax = sim.potentials.pair.r[-1]
+        rmax = sim.potentials.pair.x[-1]
         sim[self].num_bins = numpy.round(rmax / self.rdf_dr).astype(int)
         sim[self].rdf_file = file_["rdf"]
         sim[self].rdf_pairs = tuple(sim.pairs)
@@ -787,15 +787,23 @@ class EnsembleAverage(simulate.AnalysisOperation, LAMMPSOperation):
         # timestep from col. 0
         thermo = mpi.world.loadtxt(sim[self].thermo_file, skiprows=2)[1:]
         N = {i: Ni for i, Ni in zip(sim.types, thermo[8 : 8 + len(sim.types)])}
-        V = extent.TriclinicBox(
-            Lx=thermo[2],
-            Ly=thermo[3],
-            Lz=thermo[4],
-            xy=thermo[5],
-            xz=thermo[6],
-            yz=thermo[7],
-            convention="LAMMPS",
-        )
+        if sim.dimension == 3:
+            V = extent.TriclinicBox(
+                Lx=thermo[2],
+                Ly=thermo[3],
+                Lz=thermo[4],
+                xy=thermo[5],
+                xz=thermo[6],
+                yz=thermo[7],
+                convention="LAMMPS",
+            )
+        else:
+            V = extent.ObliqueArea(
+                Lx=thermo[2],
+                Ly=thermo[3],
+                xy=thermo[5],
+                convention="LAMMPS",
+            )
         ens = ensemble.Ensemble(N=N, T=thermo[0], P=thermo[1], V=V)
 
         # extract rdfs
@@ -913,19 +921,15 @@ class LAMMPS(simulate.Simulation):
             If the pair potentials do not have equally spaced ``r``.
 
         """
-        if sim.potentials.pair.rmin == 0:
-            raise ValueError("LAMMPS requires rmin > 0 for pair potentials")
-        r = sim.potentials.pair.r
+        if sim.potentials.pair.start == 0:
+            raise ValueError("LAMMPS requires start > 0 for pair potentials")
+        rsq = sim.potentials.pair.xsquared
+        r = numpy.sqrt(rsq)
         Nr = len(r)
         if Nr == 1:
             raise ValueError(
                 "LAMMPS requires at least two points in the tabulated potential."
             )
-
-        # check that all r are equally spaced
-        dr = r[1:] - r[:-1]
-        if not numpy.all(numpy.isclose(dr, dr[0])):
-            raise ValueError("LAMMPS requires equally spaced r in pair potentials.")
 
         def pair_map(sim, pair):
             # Map lammps type indexes as a pair, lowest type first
@@ -951,28 +955,42 @@ class LAMMPS(simulate.Simulation):
                         )
                     )
                     fw.write(
-                        "N {N} R {rmin} {rmax}\n\n".format(N=Nr, rmin=r[0], rmax=r[-1])
+                        "N {N} RSQ {rmin} {rmax}\n\n".format(
+                            N=Nr,
+                            rmin=sim.potentials.pair.start,
+                            rmax=sim.potentials.pair.stop,
+                        )
                     )
 
-                    u = sim.potentials.pair.energy((i, j))
-                    f = sim.potentials.pair.force((i, j))
+                    # explicitly use r = sqrt(r^2) to avoid interpolation
+                    u = sim.potentials.pair.energy((i, j), r)
+                    f = sim.potentials.pair.force((i, j), r)
                     for idx in range(Nr):
                         fw.write(
                             "{idx} {r} {u} {f}\n".format(
-                                idx=idx + 1, r=r[idx], u=u[idx], f=f[idx]
+                                idx=idx + 1, r=rsq[idx], u=u[idx], f=f[idx]
                             )
                         )
 
                     # find r where potential and force are zero
-                    nonzero_r = numpy.flatnonzero(
-                        numpy.logical_and(~numpy.isclose(u, 0), ~numpy.isclose(f, 0))
-                    )
-                    if len(nonzero_r) > 1:
-                        # cutoff at last nonzero r (cannot be first r)
-                        rcut[(i, j)] = r[nonzero_r[-1]]
+                    all_rmax = [
+                        variable.evaluate(pair_pot.coeff[i, j]["rmax"])
+                        for pair_pot in sim.potentials.pair.potentials
+                    ]
+                    if None not in all_rmax:
+                        # use rmax if set for all potentials
+                        rcut[(i, j)] = min(max(all_rmax), sim.potentials.pair.stop)
                     else:
-                        # if first or second r is nonzero, cutoff at second
-                        rcut[(i, j)] = r[1]
+                        # otherwise, deduce safe cutoff from tabulated values
+                        nonzero_r = numpy.flatnonzero(
+                            numpy.logical_and(
+                                ~numpy.isclose(u, 0), ~numpy.isclose(f, 0)
+                            )
+                        )
+                        # cutoff at last nonzero r (cannot be first r)
+                        # we add 1 to make sure we include the last point if
+                        # potential happens to go smoothly to zero
+                        rcut[(i, j)] = r[min(nonzero_r[-1] + 1, len(r) - 1)]
         else:
             rcut = None
             file_ = None
@@ -981,7 +999,8 @@ class LAMMPS(simulate.Simulation):
 
         # process all lammps commands
         cmds = [
-            "neighbor {skin} multi".format(skin=sim.potentials.pair.neighbor_buffer)
+            "neighbor {skin} multi".format(skin=sim.potentials.pair.neighbor_buffer),
+            "neigh_modify delay 0 every 1 check yes",
         ]
         cmds += ["pair_style table linear {N}".format(N=Nr)]
 
