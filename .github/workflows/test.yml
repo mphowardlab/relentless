@@ -100,7 +100,7 @@ jobs:
           activate-environment: test
       - name: Install test dependencies
         run: |
-          mamba install "hoomd=2.9.7" "freud>=2"
+          mamba install "lammps=${{ matrix.lammps-version }}" "lammpsio>=0.2.0"
           python -m pip install pip --upgrade pip
           pip install -r tests/requirements.txt
       - name: Install
