@@ -2,27 +2,19 @@
 import tempfile
 import unittest
 
-from parameterized import parameterized_class
-
-try:
-    import gsd.hoomd
-
-    _found_gsd = True
-except ImportError:
-    _found_gsd = False
+import gsd.hoomd
 import numpy
+from parameterized import parameterized_class
 
 import relentless
 from tests.model.potential.test_pair import LinPot
 
 _has_modules = (
-    relentless.simulate.hoomd._hoomd_found
-    and relentless.simulate.hoomd._freud_found
-    and _found_gsd
+    relentless.simulate.hoomd._hoomd_found and relentless.simulate.hoomd._freud_found
 )
 
 
-@unittest.skipIf(not _has_modules, "HOOMD, freud, and/or GSD not installed")
+@unittest.skipIf(not _has_modules, "HOOMD dependencies not installed")
 @parameterized_class(
     [{"dim": 2}, {"dim": 3}],
     class_name_func=lambda cls, num, params_dict: "{}_{}d".format(

@@ -1,6 +1,6 @@
 .DS_Store
 build
-env
+env*
 *.egg-info
 *.pyc
 __pycache__
