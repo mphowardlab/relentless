@@ -288,10 +288,10 @@ class test_LAMMPS(unittest.TestCase):
         analyzer = relentless.simulate.WriteTrajectory(
             filename="test_writetrajectory.lammpstrj",
             every=100,
-            velocity=True,
-            image=True,
-            typeid=True,
-            mass=True,
+            velocities=True,
+            images=True,
+            types=True,
+            masses=True,
         )
         lgv = relentless.simulate.RunLangevinDynamics(
             steps=500,
@@ -306,16 +306,7 @@ class test_LAMMPS(unittest.TestCase):
 
         # read trajectory file
         file = sim.directory.file("test_writetrajectory.lammpstrj")
-        traj = lammpsio.DumpFile(
-            filename=file,
-            schema={
-                "position": (0, 1, 2),
-                "velocity": (3, 4, 5),
-                "image": (6, 7, 8),
-                "typeid": 9,
-                "mass": 10,
-            },
-        )
+        traj = lammpsio.DumpFile(file)
         for snap in traj:
             self.assertEqual(snap.N, 5)
             self.assertIsNotNone(snap.velocity)

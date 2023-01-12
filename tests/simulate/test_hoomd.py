@@ -250,7 +250,7 @@ class test_HOOMD(unittest.TestCase):
             seed=1, N=ens.N, V=ens.V, T=ens.T, diameters={"A": 1, "B": 1}
         )
         analyzer = relentless.simulate.WriteTrajectory(
-            filename="test_writetrajectory.gsd", every=100, velocity=True
+            filename="test_writetrajectory.gsd", every=100, velocities=True
         )
         lgv = relentless.simulate.RunLangevinDynamics(
             steps=500, timestep=0.001, T=ens.T, friction=1.0, seed=1, analyzers=analyzer

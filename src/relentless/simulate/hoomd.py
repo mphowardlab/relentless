@@ -802,50 +802,38 @@ class EnsembleAverage(simulate.AnalysisOperation):
 
 
 class WriteTrajectory(simulate.AnalysisOperation):
-    """Writes a .gsd file.
+    """Write a GSD file.
 
     Parameters
     ----------
     filename : str
-        Name of the .gsd file to be written.
+        Name of the trajectory file to be written, as a relative path.
     every : int
-        Interval of time steps at which to write a snapshot of the simulation.
-    velocity : bool
-        Log particle velocities.
-    image : bool
-        Log particle images.
-    typeid : bool
-        Log particle types.
-    mass : bool
-        Log particle masses.
-
-    Raises
-    ------
-    TypeError
-        If filename is not a string.
-    TypeError
-        If every is not an integer.
+        Interval of time steps at which to write a snapshot.
+    velocities : bool
+        Include particle velocities.
+    images : bool
+        Include particle images.
+    types : bool
+        Include particle types.
+    masses : bool
+        Include particle masses.
 
     """
 
-    def __init__(self, filename, every, velocity, image, typeid, mass):
+    def __init__(self, filename, every, velocities, images, types, masses):
         self.filename = filename
         self.every = every
-        self.velocity = velocity
-        self.image = image
-        self.typeid = typeid
-        self.mass = mass
+        self.velocities = velocities
+        self.images = images
+        self.types = types
+        self.masses = masses
 
     def __call__(self, sim):
-        if not isinstance(self.filename, str):
-            raise TypeError("filename must be a string")
-        if not isinstance(self.every, int):
-            raise TypeError("every must be an integer")
-
         # property group is always dyanmic in the trajectory file since it logs position
         _dynamic = ["property"]
         # momentum group makes particle velocities and particles images dynamic
-        if self.velocity is True or self.image is True:
+        if self.velocities is True or self.images is True:
             _dynamic.append("momentum")
 
         with sim.hoomd:

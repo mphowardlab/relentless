@@ -21,26 +21,34 @@ class EnsembleAverage(simulate.GenericAnalysisOperation):
 
 
 class WriteTrajectory(simulate.GenericAnalysisOperation):
-    """Writes a trajectory file of the simulation.
+    """Write a simulation trajectory to file.
+
+    The `filename` is relative to the directory where the simulation is being
+    run. Regardless of the file extension, the file format is currently restricted
+    to be native to the specific simulation backend. Any existing file of the
+    same name will be overwritten.
+
+    Particle positions, wrapped into the periodic simulation box, are always
+    included in the trajectory. Additional properties can be opted in.
 
     Parameters
     ----------
     filename : str
-        Name of the trajectory file to be written.
+        Name of the trajectory file to be written, as a relative path.
     every : int
-        Interval of time steps at which to write a snapshot of the simulation.
-    velocity : bool
-        Log particle velocities.
-    image : bool
-        Log particle images.
-    typeid : bool
-        Log particle types.
-    mass : bool
-        Log particle masses.
+        Interval of time steps at which to write a snapshot.
+    velocities : bool
+        Include particle velocities.
+    images : bool
+        Include particle images.
+    types : bool
+        Include particle types.
+    masses : bool
+        Include particle masses.
 
     """
 
     def __init__(
-        self, filename, every, velocity=False, image=False, typeid=False, mass=False
+        self, filename, every, velocities=False, images=False, types=False, masses=False
     ):
-        super().__init__(filename, every, velocity, image, typeid, mass)
+        super().__init__(filename, every, velocities, images, types, masses)

@@ -45,6 +45,7 @@ class LAMMPSOperation(simulate.SimulationOperation):
     """LAMMPS simulation operation."""
 
     _compute_counter = 1
+    _dump_counter = 1
     _fix_counter = 1
     _group_counter = 1
     _variable_counter = 1
@@ -78,6 +79,20 @@ class LAMMPSOperation(simulate.SimulationOperation):
         idx = int(LAMMPSOperation._compute_counter)
         LAMMPSOperation._compute_counter += 1
         return "c{}".format(idx)
+
+    @classmethod
+    def new_dump_id(cls):
+        """Make a unique new dump ID.
+
+        Returns
+        -------
+        int
+            The dump ID.
+
+        """
+        idx = int(LAMMPSOperation._dump_counter)
+        LAMMPSOperation._dump_counter += 1
+        return "d{}".format(idx)
 
     @classmethod
     def new_fix_id(cls):
@@ -817,72 +832,60 @@ class EnsembleAverage(simulate.AnalysisOperation, LAMMPSOperation):
         sim[self].ensemble = ens
 
 
-class WriteTrajectory(simulate.AnalysisOperation):
-    """Writes a LAMMPS dump file. When all options are set to True the file has
-    the following format:
-    ITEM: ATOMS x y z vx vy vz ix iy iz type mass
-    Where x y z are position, vx vy vz are velocoity, ix iy iz are image, id is
-    typeid, & mass is mass.
+class WriteTrajectory(simulate.AnalysisOperation, LAMMPSOperation):
+    """Writes a LAMMPS dump file.
+
+    When all options are set to True the file has the following format::
+
+        ITEM: ATOMS id type mass x y z vx vy vz ix iy iz
+
+    where ``id`` is the atom ID, ``x y z`` are positions, ``vx vy vz`` are
+    velocities, and ``ix iy iz`` are images.
+
     Parameters
     ----------
     filename : str
-        Name of the LAMMPS dump file to be written.
+        Name of the trajectory file to be written, as a relative path.
     every : int
-        Interval of time steps at which to write a snapshot of the simulation.
-    velocity : bool
-        Log particle velocities.
-    image : bool
-        Log particle images.
-    typeid : bool
-        Log particle types.
-    mass : bool
-        Log particle masses.
-
-    Raises
-    ------
-    TypeError
-        If filename is not a string.
-    TypeError
-        If every is not an integer.
+        Interval of time steps at which to write a snapshot.
+    velocities : bool
+        Include particle velocities.
+    images : bool
+        Include particle images.
+    types : bool
+        Include particle types.
+    masses : bool
+        Include particle masses.
 
     """
 
-    def __init__(self, filename, every, velocity, image, typeid, mass):
+    def __init__(self, filename, every, velocities, images, types, masses):
         self.filename = filename
         self.every = every
-        self.velocity = velocity
-        self.image = image
-        self.typeid = typeid
-        self.mass = mass
-
-    def __call__(self, sim):
-        self.sim = sim
-        cmds = self.to_commands(sim)
-        sim.lammps.commands_list(cmds)
+        self.velocities = velocities
+        self.images = images
+        self.types = types
+        self.masses = masses
 
     def to_commands(self, sim):
-        if not isinstance(self.filename, str):
-            raise TypeError("filename must be a string")
-        if not isinstance(self.every, int):
-            raise TypeError("every must be an integer")
-
-        # ensures the file is written in the directory
-        filename = sim.directory.file(self.filename)
+        dump_format = "id"
+        if self.types is True:
+            dump_format += " type"
+        if self.masses is True:
+            dump_format += " mass"
         # position is always dynamic
-        _dynamic = " x y z "
-        if self.velocity is True:
-            _dynamic += "vx vy vz "
-        if self.image is True:
-            _dynamic += "ix iy iz "
-        if self.typeid is True:
-            _dynamic += "type "
-        if self.mass is True:
-            _dynamic += "mass "
+        dump_format += " x y z"
+        if self.velocities is True:
+            dump_format += " vx vy vz"
+        if self.images is True:
+            dump_format += " ix iy iz"
 
+        dump_id = self.new_dump_id()
         cmds = [
-            "dump myDump all custom {} {} {}".format(
-                str(self.every), filename, _dynamic
-            )
+            "dump {} all custom {} {} {}".format(
+                dump_id, self.every, sim.directory.file(self.filename), dump_format
+            ),
+            "dump_modify {} append no pbc yes flush yes".format(dump_id),
         ]
         return cmds
 
