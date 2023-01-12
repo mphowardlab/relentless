@@ -337,8 +337,8 @@ class Potentials:
 
     def __init__(self, pair_potentials=None, kB=1.0):
         self._pair = PairPotentialTabulator(
-            rmin=0.0,
-            rmax=None,
+            start=0.0,
+            stop=None,
             num=None,
             neighbor_buffer=0.0,
             potentials=pair_potentials,
@@ -404,7 +404,6 @@ class PotentialTabulator:
     @start.setter
     def start(self, val):
         self._start = val
-        self._compute_x = True
 
     @property
     def stop(self):
@@ -414,7 +413,6 @@ class PotentialTabulator:
     @stop.setter
     def stop(self, val):
         self._stop = val
-        self._compute_x = True
 
     @property
     def num(self):
@@ -427,31 +425,39 @@ class PotentialTabulator:
         if val is not None and (not isinstance(val, int) or val < 2):
             raise ValueError("Number of points must be at least 2.")
         self._num = val
-        self._compute_x = True
+
+    def validate(self):
+        if self.start is None:
+            raise ValueError("Start of range must be set.")
+        if self.stop is None:
+            raise ValueError("End of range must be set.")
+        if self.num is None:
+            raise ValueError("Number of points must be set.")
+        if self.start >= self.stop:
+            raise ValueError("Range must be increasing")
 
     @property
     def x(self):
         """array_like: The values of ``x`` at which to evaluate the potential."""
-        if self._compute_x:
-            if self.start is None:
-                raise ValueError("Start of range must be set.")
-            if self.stop is None:
-                raise ValueError("End of range must be set.")
-            if self.num is None:
-                raise ValueError("Number of points must be set.")
-            self._x = numpy.linspace(
-                self.start, self.stop, self.num, dtype=numpy.float64
-            )
-            self._compute_x = False
-        return self._x
+        self.validate()
+        return numpy.linspace(self.start, self.stop, self.num, dtype=float)
 
-    def energy(self, key):
+    @property
+    def xsquared(self):
+        """array_like: The values of ``x**2`` at which to evaluate the potential."""
+        self.validate()
+        return numpy.linspace(self.start**2, self.stop**2, self.num, dtype=float)
+
+    def energy(self, key, x=None):
         """Evaluates and accumulates energy for all potentials.
 
         Parameters
         ----------
         key : str
             The key for which to evaluate the energy for each potential.
+        x : float or list
+            The pair distance(s) at which to evaluate the derivative.
+            Default of ``None`` will use a linear space from `start` to `stop`.
 
         Returns
         -------
@@ -459,21 +465,26 @@ class PotentialTabulator:
             Accumulated energy at each ``x`` value.
 
         """
-        u = numpy.zeros_like(self.x)
+        if x is None:
+            x = self.x
+        u = numpy.zeros_like(x, dtype=float)
         for pot in self.potentials:
             try:
-                u += pot.energy(key, self.x)
+                u += pot.energy(key, x)
             except KeyError:
                 pass
         return u
 
-    def force(self, key):
+    def force(self, key, x=None):
         """Evaluates and accumulates force for all potentials.
 
         Parameters
         ----------
         key : str
             The key for which to evaluate the force for each potential.
+        x : float or list
+            The pair distance(s) at which to evaluate the derivative.
+            Default of ``None`` will use a linear space from `start` to `stop`.
 
         Returns
         -------
@@ -481,21 +492,28 @@ class PotentialTabulator:
             Accumulated force at each ``x`` value.
 
         """
-        f = numpy.zeros_like(self.x)
+        if x is None:
+            x = self.x
+        f = numpy.zeros_like(x, dtype=float)
         for pot in self.potentials:
             try:
-                f += pot.force(key, self.x)
+                f += pot.force(key, x)
             except KeyError:
                 pass
         return f
 
-    def derivative(self, key, var):
+    def derivative(self, key, var, x=None):
         """Evaluates and accumulates derivative for all potentials.
 
         Parameters
         ----------
         key : str
             The key for which to evaluate the derivative for each potential.
+        var : :class:`~relentless.model.Variable`
+            Variable to differentiate with respect to.
+        x : float or list
+            The pair distance(s) at which to evaluate the derivative.
+            Default of ``None`` will use a linear space from `start` to `stop`.
 
         Returns
         -------
@@ -503,10 +521,12 @@ class PotentialTabulator:
             Accumulated force at each ``x`` value.
 
         """
-        d = numpy.zeros_like(self.x)
+        if x is None:
+            x = self.x
+        d = numpy.zeros_like(x, dtype=float)
         for pot in self.potentials:
             try:
-                d += pot.derivative(key, var, self.x)
+                d += pot.derivative(key, var, x)
             except KeyError:
                 pass
         return d
@@ -520,9 +540,9 @@ class PairPotentialTabulator(PotentialTabulator):
 
     Parameters
     ----------
-    rmin : float
+    start : float
         The minimum value of ``r`` at which to tabulate.
-    rmax : float
+    stop : float
         The maximum value of ``r`` at which to tabulate.
     num : int
         The number of points (value of ``r``) at which to tabulate and evaluate the
@@ -537,33 +557,10 @@ class PairPotentialTabulator(PotentialTabulator):
 
     """
 
-    def __init__(self, rmin, rmax, num, neighbor_buffer, potentials=None, fmax=None):
-        super().__init__(rmin, rmax, num, potentials)
+    def __init__(self, start, stop, num, neighbor_buffer, potentials=None, fmax=None):
+        super().__init__(start, stop, num, potentials)
         self.neighbor_buffer = neighbor_buffer
         self.fmax = fmax
-
-    @property
-    def r(self):
-        """array_like: The values of ``r`` at which to evaluate potential."""
-        return self.x
-
-    @property
-    def rmin(self):
-        """float: The minimum value of ``r`` at which to allow tabulation."""
-        return self.start
-
-    @rmin.setter
-    def rmin(self, val):
-        self.start = val
-
-    @property
-    def rmax(self):
-        """float: The maximum value of ``r`` at which to allow tabulation."""
-        return self.stop
-
-    @rmax.setter
-    def rmax(self, val):
-        self.stop = val
 
     @property
     def neighbor_buffer(self):
@@ -587,15 +584,18 @@ class PairPotentialTabulator(PotentialTabulator):
         else:
             self._fmax = None
 
-    def energy(self, pair):
+    def energy(self, pair, x=None):
         """Evaluates and accumulates energy for all potentials.
 
-        Shifts the energy to be 0 at ``rmax``.
+        Shifts the energy to be 0 at `stop`.
 
         Parameters
         ----------
         pair : str
             The pair for which to evaluate the energy for each potential.
+        x : float or list
+            The pair distance(s) at which to evaluate the derivative.
+            Default of ``None`` will use a linear space from `start` to `stop`.
 
         Returns
         -------
@@ -603,11 +603,10 @@ class PairPotentialTabulator(PotentialTabulator):
             Accumulated energy at each ``r`` value.
 
         """
-        u = super().energy(pair)
-        u -= u[-1]
+        u = super().energy(pair, x) - super().energy(pair, self.stop)
         return u
 
-    def force(self, pair):
+    def force(self, pair, x=None):
         """Evaluates and accumulates force for all potentials.
 
         If set, all forces are truncated to be less than or equal to the `fmax`
@@ -617,6 +616,9 @@ class PairPotentialTabulator(PotentialTabulator):
         ----------
         pair : str
             The pair for which to evaluate the force for each potential.
+        x : float or list
+            The pair distance(s) at which to evaluate the derivative.
+            Default of ``None`` will use a linear space from `start` to `stop`.
 
         Returns
         -------
@@ -624,14 +626,14 @@ class PairPotentialTabulator(PotentialTabulator):
             Accumulated force at each ``r`` value.
 
         """
-        f = super().force(pair)
+        f = super().force(pair, x)
         if self.fmax is not None:
             flags = numpy.fabs(f) >= self.fmax
             sign = numpy.sign(f[flags])
             f[flags] = sign * self.fmax
         return f
 
-    def derivative(self, pair, var):
+    def derivative(self, pair, var, x=None):
         """Evaluates and accumulates derivative for all potentials.
 
         Shifts the derivative to be 0 at :attr:`rmax`.
@@ -640,6 +642,11 @@ class PairPotentialTabulator(PotentialTabulator):
         ----------
         pair : str
             The pair for which to evaluate the derivative for each potential.
+        var : :class:`~relentless.model.Variable`
+            Variable to differentiate with respect to.
+        x : float or list
+            The pair distance(s) at which to evaluate the derivative.
+            Default of ``None`` will use a linear space from `start` to `stop`.
 
         Returns
         -------
@@ -647,6 +654,5 @@ class PairPotentialTabulator(PotentialTabulator):
             Accumulated derivative at each ``r`` value.
 
         """
-        d = super().derivative(pair, var)
-        d -= d[-1]
+        d = super().derivative(pair, var, x) - super().derivative(pair, var, self.stop)
         return d

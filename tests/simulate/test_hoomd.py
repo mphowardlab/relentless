@@ -60,7 +60,7 @@ class test_HOOMD(unittest.TestCase):
             pot.coeff[pair].update({"m": -2.0, "rmax": 1.0})
         pots = relentless.simulate.Potentials()
         pots.pair.potentials.append(pot)
-        pots.pair.rmax = 2.0
+        pots.pair.stop = 2.0
         pots.pair.num = 3
 
         return (ens, pots)
@@ -247,7 +247,7 @@ class test_HOOMD(unittest.TestCase):
         self.assertIsNotNone(ens_.V)
         self.assertNotEqual(ens_.V.extent, 0)
         for i, j in ens_.rdf:
-            self.assertEqual(ens_.rdf[i, j].table.shape, (len(pot.pair.r) - 1, 2))
+            self.assertEqual(ens_.rdf[i, j].table.shape, (len(pot.pair.x) - 1, 2))
         self.assertEqual(sim[analyzer].num_thermo_samples, 100)
         self.assertEqual(sim[analyzer].num_rdf_samples, 50)
 

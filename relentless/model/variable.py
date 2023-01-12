@@ -1291,3 +1291,29 @@ class VariableGraph:
 
 
 graph = VariableGraph()
+
+
+def evaluate(x):
+    """Evaluate an object that may be a variable.
+
+    If `x` is a :class:`Variable` it is evaluated before returning its value,
+    but if it is already a scalar, this step can be skipped. An error is
+    raised if `x` is neither.
+
+    Parameters
+    ----------
+    x : float or :class:`Variable`
+        Potential variable to evaluate
+
+    Returns
+    -------
+    float
+        The value of the object
+
+    """
+    if isinstance(x, Variable):
+        return x.value
+    elif numpy.isscalar(x):
+        return x
+    else:
+        raise TypeError("Object type unrecognized")

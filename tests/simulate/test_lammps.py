@@ -61,8 +61,8 @@ class test_LAMMPS(unittest.TestCase):
             pot.coeff[pair].update({"m": -2.0, "rmax": 1.0})
         pots = relentless.simulate.Potentials()
         pots.pair.potentials.append(pot)
-        pots.pair.rmin = 1e-6
-        pots.pair.rmax = 2.0
+        pots.pair.start = 1e-6
+        pots.pair.stop = 2.0
         pots.pair.num = 3
 
         return (ens, pots)

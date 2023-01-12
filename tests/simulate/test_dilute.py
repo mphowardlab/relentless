@@ -36,7 +36,7 @@ class test_Dilute(unittest.TestCase):
             pot.coeff[pair]["m"] = 2.0
         pots = relentless.simulate.Potentials()
         pots.pair.potentials.append(pot)
-        pots.pair.rmax = 3.0
+        pots.pair.stop = 3.0
         pots.pair.num = 4
 
         d = relentless.simulate.Dilute(init, operations=md)
@@ -65,7 +65,7 @@ class test_Dilute(unittest.TestCase):
             pot.coeff[pair]["m"] = 2.0
         pots = relentless.simulate.Potentials()
         pots.pair.potentials.append(pot)
-        pots.pair.rmax = 3.0
+        pots.pair.stop = 3.0
         pots.pair.num = 4
 
         d = relentless.simulate.Dilute(init, operations=md)
@@ -91,7 +91,7 @@ class test_Dilute(unittest.TestCase):
             pot.coeff[pair]["m"] = 2.0
         pots = relentless.simulate.Potentials()
         pots.pair.potentials.append(pot)
-        pots.pair.rmax = 3.0
+        pots.pair.stop = 3.0
         pots.pair.num = 4
 
         d = relentless.simulate.Dilute(init, operations=lgv)
@@ -117,7 +117,7 @@ class test_Dilute(unittest.TestCase):
             pot.coeff[pair]["m"] = 2.0
         pots = relentless.simulate.Potentials()
         pots.pair.potentials.append(pot)
-        pots.pair.rmax = 3.0
+        pots.pair.stop = 3.0
         pots.pair.num = 4
 
         d = relentless.simulate.Dilute(init, operations=bd)
@@ -145,7 +145,7 @@ class test_Dilute(unittest.TestCase):
             )
         pots = relentless.simulate.Potentials()
         pots.pair.potentials.append(pot)
-        pots.pair.rmax = 3.0
+        pots.pair.stop = 3.0
         pots.pair.num = 100
 
         d = relentless.simulate.Dilute(init, operations=md)
