@@ -23,7 +23,7 @@ class EnsembleAverage(simulate.GenericAnalysisOperation):
 class WriteTrajectory(simulate.GenericAnalysisOperation):
     """Write a simulation trajectory to file.
 
-    The `filename` is relative to the directory where the simulation is being
+    The ``filename`` is relative to the directory where the simulation is being
     run. Regardless of the file extension, the file format is currently restricted
     to be native to the specific simulation backend. Any existing file of the
     same name will be overwritten.

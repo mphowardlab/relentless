@@ -99,6 +99,7 @@ Analyzers
     :toctree: generated/
 
     EnsembleAverage
+    WriteTrajectory
 
 Running a simulation
 ====================
