@@ -40,6 +40,7 @@ jobs:
 
   test-hoomd:
     name: unit test [python-${{ matrix.python-version }},hoomd-2.9.7]
+    needs: test
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -70,6 +71,7 @@ jobs:
 
   test-lammps:
     name: unit test [python-${{ matrix.python-version }},lammps-${{ matrix.lammps-version }}]
+    needs: test
     runs-on: ubuntu-latest
     defaults:
       run:
