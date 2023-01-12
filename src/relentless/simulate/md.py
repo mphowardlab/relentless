@@ -47,6 +47,23 @@ class RunBrownianDynamics(simulate.GenericOperation):
 
     def __init__(self, steps, timestep, T, friction, seed, analyzers=None):
         super().__init__(steps, timestep, T, friction, seed, analyzers)
+        self.analyzers = analyzers
+
+    @property
+    def analyzers(self):
+        return self._analyzers
+
+    @analyzers.setter
+    def analyzers(self, ops):
+        if ops is not None:
+            try:
+                ops_ = list(ops)
+            except TypeError:
+                ops_ = [ops]
+        else:
+            ops_ = []
+
+        self._analyzers = ops_
 
 
 class RunLangevinDynamics(simulate.GenericOperation):
@@ -73,6 +90,22 @@ class RunLangevinDynamics(simulate.GenericOperation):
 
     def __init__(self, steps, timestep, T, friction, seed, analyzers=None):
         super().__init__(steps, timestep, T, friction, seed, analyzers)
+
+        @property
+        def analyzers(self):
+            return self._analyzers
+
+        @analyzers.setter
+        def analyzers(self, ops):
+            if ops is not None:
+                try:
+                    ops_ = list(ops)
+                except TypeError:
+                    ops_ = [ops]
+            else:
+                ops_ = []
+
+            self._analyzers = ops_
 
 
 class RunMolecularDynamics(simulate.GenericOperation):
@@ -103,6 +136,24 @@ class RunMolecularDynamics(simulate.GenericOperation):
 
     def __init__(self, steps, timestep, thermostat=None, barostat=None, analyzers=None):
         super().__init__(steps, timestep, thermostat, barostat, analyzers)
+
+        self.analyzers = analyzers
+
+        @property
+        def analyzers(self):
+            return self._analyzers
+
+        @analyzers.setter
+        def analyzers(self, ops):
+            if ops is not None:
+                try:
+                    ops_ = list(ops)
+                except TypeError:
+                    ops_ = [ops]
+            else:
+                ops_ = []
+            print(ops_)
+            self._analyzers = ops_
 
 
 class Thermostat:

@@ -23,7 +23,26 @@ class SimulationOperation(abc.ABC):
         pass
 
 
-class GenericOperation(SimulationOperation):
+class AnalysisOperation(abc.ABC):
+    """Analysis operation to be performed by a :class:`Simulation`."""
+
+    class Data:
+        pass
+
+    @abc.abstractmethod
+    def pre_run(self, sim, op):
+        pass
+
+    @abc.abstractmethod
+    def post_run(self, sim, op):
+        pass
+
+    @abc.abstractmethod
+    def process(self, sim, op):
+        pass
+
+
+class GenericOperationMixin:
     """Generic simulation operation adapter.
 
     Translates a generic simulation operation into an implemented operation
@@ -45,30 +64,6 @@ class GenericOperation(SimulationOperation):
         self._args = args
         self._kwargs = kwargs
         self._forward_attr = set()
-
-    def __call__(self, sim):
-        """Evaluates the generic simulation operation.
-
-        Parameters
-        ----------
-        sim : :class:`Simulation`
-            Simulation object.
-
-        Returns
-        -------
-        :class:`object`
-            The result of the generic simulation operation function.
-
-        Raises
-        ------
-        TypeError
-            If the specified simulation backend is not a :class:`Simulation`.
-        TypeError
-            If the specified operation is not found in the simulation backend.
-
-        """
-        self._ensure_op(sim)
-        return self._op(sim)
 
     def _ensure_op(self, sim):
         if self._op is None or self._backend != sim.backend:
@@ -105,23 +100,51 @@ class GenericOperation(SimulationOperation):
                 setattr(self._op, name, value)
 
 
+class GenericOperation(SimulationOperation, GenericOperationMixin):
+    def __call__(self, sim):
+        """Evaluates the generic simulation operation.
+
+        Parameters
+        ----------
+        sim : :class:`Simulation`
+            Simulation object.
+
+        Returns
+        -------
+        :class:`object`
+            The result of the generic simulation operation function.
+
+        Raises
+        ------
+        TypeError
+            If the specified simulation backend is not a :class:`Simulation`.
+        TypeError
+            If the specified operation is not found in the simulation backend.
+
+        """
+        self._ensure_op(sim)
+        return self._op(sim)
+
+
+class GenericAnalysisOperation(AnalysisOperation, GenericOperationMixin):
+    def pre_run(self, sim, op):
+        self._ensure_op(sim)
+        self._op.pre_run(sim, op)
+
+    def post_run(self, sim, op):
+        self._ensure_op(sim)
+        self._op.post_run(sim, op)
+
+    def process(self, sim, op):
+        self._ensure_op(sim)
+        self._op.process(sim, op)
+
+
 class NotImplementedOperation(SimulationOperation):
     """Operation not implemented by a :class:`Simulation`."""
 
     def __call__(self, sim):
         raise NotImplementedError("Operation not implemented")
-
-
-class AnalysisOperation(SimulationOperation):
-    @abc.abstractmethod
-    def finalize(self, sim):
-        pass
-
-
-class GenericAnalysisOperation(AnalysisOperation, GenericOperation):
-    def finalize(self, sim):
-        self._ensure_op(sim)
-        self._op.finalize(sim)
 
 
 class Simulation:
@@ -181,13 +204,15 @@ class Simulation:
         """
         # initialize the instance
         sim = self._new_instance(self.initializer, potentials, directory)
-        # then run the remaining operations
+        # run the operations
         for op in self.operations:
-            if isinstance(op, AnalysisOperation):
-                raise TypeError(
-                    "Analysis operations should be attached to another operation"
-                )
             op(sim)
+        # finalize the analysis operations
+        for op in self.operations:
+            if hasattr(op, "analyzers"):
+                for analyzer in op.analyzers:
+                    analyzer.process(sim, op)
+
         return sim
 
     @property
@@ -287,7 +312,11 @@ class SimulationInstance:
         self.initializer = initializer
 
     def __getitem__(self, op):
-        op_ = op._op if isinstance(op, GenericOperation) else op
+        op_ = (
+            op._op
+            if isinstance(op, (GenericOperation, GenericAnalysisOperation))
+            else op
+        )
         if op_ not in self._opdata:
             self._opdata[op_] = op_.Data()
         return self._opdata[op_]

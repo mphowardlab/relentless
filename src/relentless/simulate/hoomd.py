@@ -356,12 +356,12 @@ class RunBrownianDynamics(_MDIntegrator):
 
             # run + analysis
             for analyzer in self.analyzers:
-                analyzer(sim)
+                analyzer.pre_run(sim, self)
 
             hoomd.run(self.steps)
 
             for analyzer in self.analyzers:
-                analyzer.finalize(sim)
+                analyzer.post_run(sim, self)
 
             bd.disable()
             del bd, ig
@@ -410,12 +410,12 @@ class RunLangevinDynamics(_MDIntegrator):
 
             # run + analysis
             for analyzer in self.analyzers:
-                analyzer(sim)
+                analyzer.pre_run(sim, self)
 
             hoomd.run(self.steps)
 
             for analyzer in self.analyzers:
-                analyzer.finalize(sim)
+                analyzer.post_run(sim, self)
 
             ld.disable()
             del ld, ig
@@ -500,12 +500,12 @@ class RunMolecularDynamics(_MDIntegrator):
 
             # run + analysis
             for analyzer in self.analyzers:
-                analyzer(sim)
+                analyzer.pre_run(sim, self)
 
             hoomd.run(self.steps)
 
             for analyzer in self.analyzers:
-                analyzer.finalize(sim)
+                analyzer.post_run(sim, self)
 
             ig_method.disable()
             del ig_method, ig
@@ -535,7 +535,7 @@ class EnsembleAverage(simulate.AnalysisOperation):
         self.check_rdf_every = check_rdf_every
         self.rdf_dr = rdf_dr
 
-    def __call__(self, sim):
+    def pre_run(self, sim, op):
         with sim.hoomd:
             # thermodynamic properties
             if sim.dimension == 3:
@@ -576,7 +576,18 @@ class EnsembleAverage(simulate.AnalysisOperation):
                 callback=sim[self].rdf_callback, period=self.check_rdf_every
             )
 
-    def finalize(self, sim):
+    def post_run(self, sim, op):
+        with sim.hoomd:
+            sim[self].logger.disable()
+            del sim[self].logger
+
+            sim[self].hoomd_thermo_callback.disable()
+            del sim[self].hoomd_thermo_callback
+
+            sim[self].hoomd_rdf_callback.disable()
+            del sim[self].hoomd_rdf_callback
+
+    def process(self, sim, op):
         """Extract the average ensemble from a simulation instance.
 
         Parameters
@@ -605,13 +616,9 @@ class EnsembleAverage(simulate.AnalysisOperation):
         sim[self].num_thermo_samples = thermo_recorder.num_samples
         sim[self].num_rdf_samples = rdf_recorder.num_samples
 
-        # disable and delete
-        sim[self].logger.disable()
-        sim[self].hoomd_thermo_callback.disable()
-        sim[self].hoomd_rdf_callback.disable()
-        del sim[self].logger
-        del sim[self].hoomd_thermo_callback, sim[self].thermo_callback
-        del sim[self].hoomd_rdf_callback, sim[self].rdf_callback
+        # disable and delete callbacks
+        del sim[self].thermo_callback
+        del sim[self].rdf_callback
 
     class ThermodynamicsCallback:
         """HOOMD callback for averaging thermodynamic properties.
@@ -829,7 +836,7 @@ class WriteTrajectory(simulate.AnalysisOperation):
         self.types = types
         self.masses = masses
 
-    def __call__(self, sim):
+    def pre_run(self, sim):
         # property group is always dyanmic in the trajectory file since it logs position
         _dynamic = ["property"]
         # momentum group makes particle velocities and particles images dynamic
@@ -842,7 +849,7 @@ class WriteTrajectory(simulate.AnalysisOperation):
 
             # dump the .gsd file into the directory
             # Note: the .gsd file is overwritten for each call of the function
-            hoomd.dump.gsd(
+            sim[self].gsd = hoomd.dump.gsd(
                 filename=sim.directory.file(self.filename),
                 period=self.every,
                 group=all_,
@@ -850,7 +857,11 @@ class WriteTrajectory(simulate.AnalysisOperation):
                 dynamic=_dynamic,
             )
 
-    def finalize(self, sim):
+    def post_run(self, sim, op):
+        sim[self].gsd.disable()
+        del sim[self].gsd
+
+    def process(self, sim, op):
         pass
 
 
