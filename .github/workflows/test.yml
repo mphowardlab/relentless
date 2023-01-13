@@ -21,13 +21,21 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ['3.8', '3.9', '3.10', '3.11']
+        mpi: [false, true]
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+      - name: Setup MPI
+        if: ${{ matrix.mpi }}
+        uses: mpi4py/setup-mpi@v1
       - name: Setup Python ${{ matrix.python-version }}
         uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
+      - name: Install mpi4py
+        if: ${{ matrix.mpi }}
+        run: |
+          pip install --no-cache-dir mpi4py
       - name: Install test dependencies
         run: |
           pip install -r tests/requirements.txt
@@ -35,8 +43,13 @@ jobs:
         run: |
           pip install .
       - name: Test
+        if: ${{ ! matrix.mpi }}
         run: |
           python -m unittest discover -v -s ./tests -p 'test_*.py'
+      - name: Test MPI
+        if: ${{ matrix.mpi }}
+        run: |
+          mpiexec -n 2 python -m unittest discover -v -s ./tests -p 'test_*.py'
 
   test-hoomd:
     name: unit test [python-${{ matrix.python-version }}, hoomd-2.9.7]
