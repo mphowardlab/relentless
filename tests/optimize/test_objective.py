@@ -184,7 +184,7 @@ class test_RelativeEntropy(unittest.TestCase):
         res = relent.compute((self.epsilon, self.sigma))
 
         sim = self.simulation.run(self.potentials, self.directory)
-        ensemble = sim[self.thermo].ensemble
+        ensemble = sim[self.thermo]["ensemble"]
         res_grad = relent.compute_gradient(ensemble, (self.epsilon, self.sigma))
 
         grad_eps = self.relent_grad(self.epsilon)
@@ -204,7 +204,7 @@ class test_RelativeEntropy(unittest.TestCase):
         res = relent.compute((self.epsilon, self.sigma))
 
         sim = self.simulation.run(self.potentials, self.directory)
-        ensemble = sim[self.thermo].ensemble
+        ensemble = sim[self.thermo]["ensemble"]
         res_grad = relent.compute_gradient(ensemble, (self.epsilon, self.sigma))
 
         grad_eps = self.relent_grad(self.epsilon, ext=True)
@@ -245,7 +245,7 @@ class test_RelativeEntropy(unittest.TestCase):
 
         y = relentless.mpi.world.load_json(self.directory.file("ensemble.json"))
         sim = self.simulation.run(self.potentials, self.directory)
-        sim_ens = sim[self.thermo].ensemble
+        sim_ens = sim[self.thermo]["ensemble"]
         self.assertAlmostEqual(y["T"], 1.5)
         self.assertAlmostEqual(y["N"], {"1": 50})
         self.assertAlmostEqual(y["V"]["data"], {"L": 10.0})

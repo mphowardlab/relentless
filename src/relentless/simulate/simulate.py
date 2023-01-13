@@ -15,9 +15,6 @@ from relentless import data
 class SimulationOperation(abc.ABC):
     """Operation to be performed by a :class:`Simulation`."""
 
-    class Data:
-        pass
-
     @abc.abstractmethod
     def __call__(self, sim):
         pass
@@ -26,125 +23,77 @@ class SimulationOperation(abc.ABC):
 class AnalysisOperation(abc.ABC):
     """Analysis operation to be performed by a :class:`Simulation`."""
 
-    class Data:
+    @abc.abstractmethod
+    def pre_run(self, sim, sim_op):
         pass
 
     @abc.abstractmethod
-    def pre_run(self, sim, op):
+    def post_run(self, sim, sim_op):
         pass
 
     @abc.abstractmethod
-    def post_run(self, sim, op):
-        pass
-
-    @abc.abstractmethod
-    def process(self, sim, op):
+    def process(self, sim, sim_op):
         pass
 
 
-class GenericOperationMixin:
-    """Generic simulation operation adapter.
-
-    Translates a generic simulation operation into an implemented operation
-    for a valid :class:`Simulation` backend. The backend must be an attribute
-    of the :class:`GenericOperation`.
-
-    Parameters
-    ----------
-    args : args
-        Positional arguments for simulation operation.
-    kwargs : kwargs
-        Keyword arguments for simulation operation.
-
-    """
-
-    def __init__(self, *args, **kwargs):
-        self._op = None
-        self._backend = None
-        self._args = args
-        self._kwargs = kwargs
-        self._forward_attr = set()
-
-    def _ensure_op(self, sim):
-        if self._op is None or self._backend != sim.backend:
-            backend = sim.backend
-            if not issubclass(backend, Simulation):
-                raise TypeError("Backend must be a Simulation.")
-
-            op_name = type(self).__name__
-            BackendOp = getattr(backend, op_name, None)
-            if BackendOp is NotImplementedOperation or BackendOp is None:
-                raise NotImplementedError(
-                    "{}.{} operation not implemented.".format(backend.__name__, op_name)
-                )
-
-            self._op = BackendOp(*self._args, **self._kwargs)
-            for attr in self._forward_attr:
-                value = getattr(self, attr)
-                setattr(self._op, attr, value)
-            self._backend = backend
-
-    def __getattr__(self, name):
-        if self._op is not None:
-            if not hasattr(self._op, name):
-                raise AttributeError("Operation does not have attribute")
-            return getattr(self._op, name)
-        else:
-            raise AttributeError("Backend operation not initialized yet")
-
-    def __setattr__(self, name, value):
-        super().__setattr__(name, value)
-        if name not in ("_op", "_backend", "_args", "_kwargs", "_forward_attr"):
-            self._forward_attr.add(name)
-            if self._op is not None:
-                setattr(self._op, name, value)
-
-
-class GenericOperation(SimulationOperation, GenericOperationMixin):
+class DelegatedSimulationOperation(SimulationOperation):
     def __call__(self, sim):
-        """Evaluates the generic simulation operation.
+        # run operation
+        op = self._make_delegate(sim)
+        op(sim)
+        # pilfer data and delete
+        sim[self] = dict(sim[op])
+        del sim[op]
+        del op
 
-        Parameters
-        ----------
-        sim : :class:`Simulation`
-            Simulation object.
+    def _get_delegate(self, sim, *args, **kwargs):
+        op_name = type(self).__name__
+        delegate = getattr(sim.backend, "_" + op_name, None)
+        if delegate is None:
+            raise NotImplementedError(
+                "{} is not implemented for {}.".format(op_name, sim.backend.__name__)
+            )
+        return delegate(*args, **kwargs)
 
-        Returns
-        -------
-        :class:`object`
-            The result of the generic simulation operation function.
-
-        Raises
-        ------
-        TypeError
-            If the specified simulation backend is not a :class:`Simulation`.
-        TypeError
-            If the specified operation is not found in the simulation backend.
-
-        """
-        self._ensure_op(sim)
-        return self._op(sim)
+    @abc.abstractmethod
+    def _make_delegate(self, sim):
+        pass
 
 
-class GenericAnalysisOperation(AnalysisOperation, GenericOperationMixin):
-    def pre_run(self, sim, op):
-        self._ensure_op(sim)
-        self._op.pre_run(sim, op)
+class DelegatedAnalysisOperation(AnalysisOperation):
+    def pre_run(self, sim, sim_op):
+        delegate_op = self._make_delegate(sim)
+        delegate_op.pre_run(sim, sim_op)
 
-    def post_run(self, sim, op):
-        self._ensure_op(sim)
-        self._op.post_run(sim, op)
+        sim[self] = dict(sim[delegate_op])
+        sim[self].update({"_delegate": delegate_op, "_delegate_state": "pre_run"})
 
-    def process(self, sim, op):
-        self._ensure_op(sim)
-        self._op.process(sim, op)
+    def post_run(self, sim, sim_op):
+        if "_delegate" not in sim[self] or sim[self]["_delegate_state"] != "pre_run":
+            raise RuntimeError("Call pre_run before post_run")
+        delegate_op = sim[self]["_delegate"]
+        delegate_op.post_run(sim, sim_op)
 
+        sim[self].update(sim[delegate_op])
+        sim[self]["_delegate_state"] = "post_run"
 
-class NotImplementedOperation(SimulationOperation):
-    """Operation not implemented by a :class:`Simulation`."""
+    def process(self, sim, sim_op):
+        if "_delegate" not in sim[self] or sim[self]["_delegate_state"] != "post_run":
+            raise RuntimeError("Call post_run before process")
+        delegate_op = sim[self]["_delegate"]
+        delegate_op.process(sim, sim_op)
 
-    def __call__(self, sim):
-        raise NotImplementedError("Operation not implemented")
+        sim[self].update(sim[delegate_op])
+
+        del sim[delegate_op]
+        del sim[self]["_delegate"]
+        del sim[self]["_delegate_state"]
+
+    _get_delegate = DelegatedSimulationOperation._get_delegate
+
+    @abc.abstractmethod
+    def _make_delegate(self, sim):
+        pass
 
 
 class Simulation:
@@ -203,7 +152,7 @@ class Simulation:
 
         """
         # initialize the instance
-        sim = self._new_instance(self.initializer, potentials, directory)
+        sim = self._new_instance(potentials, directory)
         # run the operations
         for op in self.operations:
             op(sim)
@@ -241,24 +190,10 @@ class Simulation:
             raise TypeError("All operations must be SimulationOperations.")
         self._operations = ops_
 
-    def _new_instance(self, initializer, potentials, directory):
-        return SimulationInstance(type(self), initializer, potentials, directory)
-
-    # initialization
-    InitializeFromFile = NotImplementedOperation
-    InitializeRandomly = NotImplementedOperation
-
-    # energy minimization
-    MinimizeEnergy = NotImplementedOperation
-
-    # md integrators
-    RunBrownianDynamics = NotImplementedOperation
-    RunLangevinDynamics = NotImplementedOperation
-    RunMolecularDynamics = NotImplementedOperation
-
-    # analysis
-    EnsembleAverage = NotImplementedOperation
-    WriteTrajectory = NotImplementedOperation
+    def _new_instance(self, potentials, directory):
+        sim = SimulationInstance(type(self), self.initializer, potentials, directory)
+        sim.initializer(sim)
+        return sim
 
 
 class SimulationInstance:
@@ -306,20 +241,19 @@ class SimulationInstance:
         # operation data set
         self._opdata = {}
 
-        # finish running the setup with the initializer
-        if not isinstance(initializer, SimulationOperation):
-            raise TypeError("Initializer must be a SimulationOperation")
         self.initializer = initializer
 
     def __getitem__(self, op):
-        op_ = (
-            op._op
-            if isinstance(op, (GenericOperation, GenericAnalysisOperation))
-            else op
-        )
-        if op_ not in self._opdata:
-            self._opdata[op_] = op_.Data()
-        return self._opdata[op_]
+        if op not in self._opdata:
+            self._opdata[op] = {}
+        return self._opdata[op]
+
+    def __setitem__(self, op, value):
+        self._opdata[op] = {}
+        self._opdata[op].update(value)
+
+    def __delitem__(self, op):
+        del self._opdata[op]
 
     @property
     def types(self):

@@ -41,7 +41,7 @@ class test_Dilute(unittest.TestCase):
 
         d = relentless.simulate.Dilute(init, operations=md)
         sim = d.run(potentials=pots, directory=self.directory)
-        ens_ = sim[analyzer].ensemble
+        ens_ = sim[analyzer]["ensemble"]
         self.assertAlmostEqual(ens_.P, -207.5228556)
 
     def test_run_moleculardynamics(self):
@@ -70,7 +70,7 @@ class test_Dilute(unittest.TestCase):
 
         d = relentless.simulate.Dilute(init, operations=md)
         sim = d.run(potentials=pots, directory=self.directory)
-        ens_ = sim[analyzer].ensemble
+        ens_ = sim[analyzer]["ensemble"]
         self.assertAlmostEqual(ens_.T, 2)
 
     def test_run_langevindynamics(self):
@@ -96,7 +96,7 @@ class test_Dilute(unittest.TestCase):
 
         d = relentless.simulate.Dilute(init, operations=lgv)
         sim = d.run(potentials=pots, directory=self.directory)
-        ens_ = sim[analyzer].ensemble
+        ens_ = sim[analyzer]["ensemble"]
         self.assertAlmostEqual(ens_.T, 2)
 
     def test_run_browniandynamics(self):
@@ -122,7 +122,7 @@ class test_Dilute(unittest.TestCase):
 
         d = relentless.simulate.Dilute(init, operations=bd)
         sim = d.run(potentials=pots, directory=self.directory)
-        ens_ = sim[analyzer].ensemble
+        ens_ = sim[analyzer]["ensemble"]
         self.assertAlmostEqual(ens_.T, 2)
 
     def test_inf_potential(self):
@@ -155,7 +155,7 @@ class test_Dilute(unittest.TestCase):
         except RuntimeWarning:
             warned = True
         self.assertFalse(warned)  # no warning should be raised
-        ens_ = sim[analyzer].ensemble
+        ens_ = sim[analyzer]["ensemble"]
         self.assertAlmostEqual(ens_.P, -1.1987890)
 
     def tearDown(self):

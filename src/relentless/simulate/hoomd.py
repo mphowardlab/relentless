@@ -1,18 +1,3 @@
-"""
-HOOMD
-=====
-
-This module implements the :class:`HOOMD` simulation backend and its specific
-operations. It is best to interface with these operations using the frontend in
-:mod:`relentless.simulate`.
-
-.. rubric:: Developer notes
-
-To implement your own HOOMD operation, create an operation that derives from
-:class:`~relentless.simulate.simulate.SimulationOperation` and define the
-required methods.
-
-"""
 import abc
 import os
 
@@ -52,7 +37,47 @@ class _Initialize(simulate.SimulationOperation):
     """
 
     def __call__(self, sim):
-        sim[self].system = self.initialize(sim)
+        # initialize hoomd exec conf once
+        if hoomd.context.exec_conf is None:
+            hoomd.context.initialize("--notice-level=0")
+            hoomd.util.quiet_status()
+
+        # initialize
+        sim[self]["_context"] = hoomd.context.SimulationContext()
+        sim[self]["_system"] = self.initialize(sim)
+        sim.dimension = sim[self]["_system"].box.dimensions
+        sim.types = sim[self]["_system"].particles.types
+
+        # attach the potentials
+        def _table_eval(r_i, rmin, rmax, **coeff):
+            r = coeff["r"]
+            u = coeff["u"]
+            f = coeff["f"]
+            u_r = Interpolator(r, u)
+            f_r = Interpolator(r, f)
+            return (u_r(r_i), f_r(r_i))
+
+        with sim[self]["_context"]:
+            neighbor_list = hoomd.md.nlist.tree(
+                r_buff=sim.potentials.pair.neighbor_buffer
+            )
+            pair_potential = hoomd.md.pair.table(
+                width=len(sim.potentials.pair.x), nlist=neighbor_list
+            )
+            for i, j in sim.pairs:
+                r = sim.potentials.pair.x
+                u = sim.potentials.pair.energy((i, j))
+                f = sim.potentials.pair.force((i, j))
+                if numpy.any(numpy.isinf(u)) or numpy.any(numpy.isinf(f)):
+                    raise ValueError("Pair potential/force is infinite at evaluated r")
+                pair_potential.pair_coeff.set(
+                    i,
+                    j,
+                    func=_table_eval,
+                    rmin=r[0],
+                    rmax=r[-1],
+                    coeff=dict(r=r, u=u, f=f),
+                )
 
     @abc.abstractmethod
     def initialize(self, sim):
@@ -83,11 +108,10 @@ class InitializeFromFile(_Initialize):
     """
 
     def __init__(self, filename):
-        super().__init__()
         self.filename = os.path.realpath(filename)
 
     def initialize(self, sim):
-        with sim.hoomd:
+        with sim[self]["_context"]:
             return hoomd.init.read_gsd(self.filename)
 
 
@@ -128,7 +152,6 @@ class InitializeRandomly(_Initialize):
     """
 
     def __init__(self, seed, N, V, T, masses, diameters):
-        super().__init__()
         self.seed = seed
         self.N = N
         self.V = V
@@ -137,7 +160,7 @@ class InitializeRandomly(_Initialize):
         self.diameters = diameters
 
     def initialize(self, sim):
-        with sim.hoomd:
+        with sim[self]["_context"]:
             # make the box and snapshot
             if isinstance(self.V, extent.TriclinicBox):
                 box_array = self.V.as_array("HOOMD")
@@ -252,7 +275,7 @@ class MinimizeEnergy(simulate.SimulationOperation):
             self.options["steps_per_iteration"] = 100
 
     def __call__(self, sim):
-        with sim.hoomd:
+        with sim[sim.initializer]["_context"]:
             # setup FIRE minimization
             fire = hoomd.md.integrate.mode_minimize_fire(
                 dt=self.options["max_displacement"],
@@ -342,7 +365,7 @@ class RunBrownianDynamics(_MDIntegrator):
         self.seed = seed
 
     def __call__(self, sim):
-        with sim.hoomd:
+        with sim[sim.initializer]["_context"]:
             ig = hoomd.md.integrate.mode_standard(self.timestep)
             bd = hoomd.md.integrate.brownian(
                 group=hoomd.group.all(), kT=sim.potentials.kB * self.T, seed=self.seed
@@ -396,7 +419,7 @@ class RunLangevinDynamics(_MDIntegrator):
         self.seed = seed
 
     def __call__(self, sim):
-        with sim.hoomd:
+        with sim[sim.initializer]["_context"]:
             ig = hoomd.md.integrate.mode_standard(self.timestep)
             ld = hoomd.md.integrate.langevin(
                 group=hoomd.group.all(), kT=sim.potentials.kB * self.T, seed=self.seed
@@ -457,7 +480,7 @@ class RunMolecularDynamics(_MDIntegrator):
         self.barostat = barostat
 
     def __call__(self, sim):
-        with sim.hoomd:
+        with sim[sim.initializer]["_context"]:
             ig = hoomd.md.integrate.mode_standard(self.timestep)
             if self.thermostat is None and self.barostat is None:
                 ig_method = hoomd.md.integrate.nve(group=hoomd.group.all())
@@ -535,8 +558,8 @@ class EnsembleAverage(simulate.AnalysisOperation):
         self.check_rdf_every = check_rdf_every
         self.rdf_dr = rdf_dr
 
-    def pre_run(self, sim, op):
-        with sim.hoomd:
+    def pre_run(self, sim, sim_op):
+        with sim[sim.initializer]["_context"]:
             # thermodynamic properties
             if sim.dimension == 3:
                 quantities_logged = [
@@ -553,14 +576,16 @@ class EnsembleAverage(simulate.AnalysisOperation):
                 quantities_logged = ["temperature", "pressure", "lx", "ly", "xy"]
             else:
                 raise ValueError("HOOMD only supports 2d or 3d simulations")
-            sim[self].logger = hoomd.analyze.log(
+            sim[self]["_logger"] = hoomd.analyze.log(
                 filename=None,
                 quantities=quantities_logged,
                 period=self.check_thermo_every,
             )
-            sim[self].thermo_callback = self.ThermodynamicsCallback(sim[self].logger)
-            sim[self].hoomd_thermo_callback = hoomd.analyze.callback(
-                callback=sim[self].thermo_callback, period=self.check_thermo_every
+            sim[self]["_thermo_callback"] = self.ThermodynamicsCallback(
+                sim[self]["_logger"]
+            )
+            sim[self]["_hoomd_thermo_callback"] = hoomd.analyze.callback(
+                callback=sim[self]["_thermo_callback"], period=self.check_thermo_every
             )
 
             # pair distribution function
@@ -569,40 +594,27 @@ class EnsembleAverage(simulate.AnalysisOperation):
             bins = numpy.round(rmax / self.rdf_dr).astype(int)
             for pair in rdf_params:
                 rdf_params[pair] = {"bins": bins, "rmax": rmax}
-            sim[self].rdf_callback = self.RDFCallback(
-                sim[sim.initializer].system, rdf_params
+            sim[self]["_rdf_callback"] = self.RDFCallback(
+                sim[sim.initializer]["_system"], rdf_params
             )
-            sim[self].hoomd_rdf_callback = hoomd.analyze.callback(
-                callback=sim[self].rdf_callback, period=self.check_rdf_every
+            sim[self]["_hoomd_rdf_callback"] = hoomd.analyze.callback(
+                callback=sim[self]["_rdf_callback"], period=self.check_rdf_every
             )
 
-    def post_run(self, sim, op):
-        with sim.hoomd:
-            sim[self].logger.disable()
-            del sim[self].logger
+    def post_run(self, sim, sim_op):
+        with sim[sim.initializer]["_context"]:
+            sim[self]["_logger"].disable()
+            del sim[self]["_logger"]
 
-            sim[self].hoomd_thermo_callback.disable()
-            del sim[self].hoomd_thermo_callback
+            sim[self]["_hoomd_thermo_callback"].disable()
+            del sim[self]["_hoomd_thermo_callback"]
 
-            sim[self].hoomd_rdf_callback.disable()
-            del sim[self].hoomd_rdf_callback
+            sim[self]["_hoomd_rdf_callback"].disable()
+            del sim[self]["_hoomd_rdf_callback"]
 
-    def process(self, sim, op):
-        """Extract the average ensemble from a simulation instance.
-
-        Parameters
-        ----------
-        sim : :class:`~relentless.simulate.simulate.SimulationInstance`
-            The simulation.
-
-        Returns
-        -------
-        :class:`~relentless.ensemble.Ensemble`
-            Average ensemble from the simulation data.
-
-        """
-        rdf_recorder = sim[self].rdf_callback
-        thermo_recorder = sim[self].thermo_callback
+    def process(self, sim, sim_op):
+        rdf_recorder = sim[self]["_rdf_callback"]
+        thermo_recorder = sim[self]["_thermo_callback"]
         ens = ensemble.Ensemble(
             T=thermo_recorder.T,
             N=rdf_recorder.N,
@@ -612,23 +624,16 @@ class EnsembleAverage(simulate.AnalysisOperation):
         for pair in rdf_recorder.rdf:
             ens.rdf[pair] = rdf_recorder.rdf[pair]
 
-        sim[self].ensemble = ens
-        sim[self].num_thermo_samples = thermo_recorder.num_samples
-        sim[self].num_rdf_samples = rdf_recorder.num_samples
+        sim[self]["ensemble"] = ens
+        sim[self]["num_thermo_samples"] = thermo_recorder.num_samples
+        sim[self]["num_rdf_samples"] = rdf_recorder.num_samples
 
         # disable and delete callbacks
-        del sim[self].thermo_callback
-        del sim[self].rdf_callback
+        del sim[self]["_thermo_callback"]
+        del sim[self]["_rdf_callback"]
 
     class ThermodynamicsCallback:
-        """HOOMD callback for averaging thermodynamic properties.
-
-        Parameters
-        ----------
-        logger : :mod:`hoomd.analyze` logger
-            Logger from which to retrieve data.
-
-        """
+        """HOOMD callback for averaging thermodynamic properties."""
 
         def __init__(self, logger):
             self.logger = logger
@@ -809,25 +814,6 @@ class EnsembleAverage(simulate.AnalysisOperation):
 
 
 class WriteTrajectory(simulate.AnalysisOperation):
-    """Write a GSD file.
-
-    Parameters
-    ----------
-    filename : str
-        Name of the trajectory file to be written, as a relative path.
-    every : int
-        Interval of time steps at which to write a snapshot.
-    velocities : bool
-        Include particle velocities.
-    images : bool
-        Include particle images.
-    types : bool
-        Include particle types.
-    masses : bool
-        Include particle masses.
-
-    """
-
     def __init__(self, filename, every, velocities, images, types, masses):
         self.filename = filename
         self.every = every
@@ -836,20 +822,20 @@ class WriteTrajectory(simulate.AnalysisOperation):
         self.types = types
         self.masses = masses
 
-    def pre_run(self, sim):
+    def pre_run(self, sim, sim_op):
         # property group is always dyanmic in the trajectory file since it logs position
         _dynamic = ["property"]
         # momentum group makes particle velocities and particles images dynamic
         if self.velocities is True or self.images is True:
             _dynamic.append("momentum")
 
-        with sim.hoomd:
+        with sim[sim.initializer]["_context"]:
             # selects all particles to be part of the trajectory file
             all_ = hoomd.group.all()
 
             # dump the .gsd file into the directory
             # Note: the .gsd file is overwritten for each call of the function
-            sim[self].gsd = hoomd.dump.gsd(
+            sim[self]["_gsd"] = hoomd.dump.gsd(
                 filename=sim.directory.file(self.filename),
                 period=self.every,
                 group=all_,
@@ -857,11 +843,11 @@ class WriteTrajectory(simulate.AnalysisOperation):
                 dynamic=_dynamic,
             )
 
-    def post_run(self, sim, op):
-        sim[self].gsd.disable()
-        del sim[self].gsd
+    def post_run(self, sim, sim_op):
+        sim[self]["_gsd"].disable()
+        del sim[self]["_gsd"]
 
-    def process(self, sim, op):
+    def process(self, sim, sim_op):
         pass
 
 
@@ -914,78 +900,16 @@ class HOOMD(simulate.Simulation):
 
         super().__init__(initializer, operations)
 
-    def _new_instance(self, initializer, potentials, directory):
-        sim = super()._new_instance(initializer, potentials, directory)
-
-        # initialize hoomd exec conf once
-        if hoomd.context.exec_conf is None:
-            hoomd.context.initialize("--notice-level=0")
-            hoomd.util.quiet_status()
-
-        # initialize
-        sim.hoomd = hoomd.context.SimulationContext()
-        initializer(sim)
-        sim.dimension = sim[initializer].system.box.dimensions
-        sim.types = sim[initializer].system.particles.types
-
-        # attach the potentials
-        self._attach_potentials(sim)
-
-        return sim
-
-    def _attach_potentials(self, sim):
-        """Attach potentials to the simulation.
-
-        The potentials are attached to the instance as the last step of
-        initialization, after the particles types are encoded by the initializer.
-
-        Parameters
-        ----------
-        sim : :class:`~relentless.simulate.SimulationInstance`
-            Simulation instance.
-
-        """
-
-        def _table_eval(r_i, rmin, rmax, **coeff):
-            r = coeff["r"]
-            u = coeff["u"]
-            f = coeff["f"]
-            u_r = Interpolator(r, u)
-            f_r = Interpolator(r, f)
-            return (u_r(r_i), f_r(r_i))
-
-        with sim.hoomd:
-            neighbor_list = hoomd.md.nlist.tree(
-                r_buff=sim.potentials.pair.neighbor_buffer
-            )
-            pair_potential = hoomd.md.pair.table(
-                width=len(sim.potentials.pair.x), nlist=neighbor_list
-            )
-            for i, j in sim.pairs:
-                r = sim.potentials.pair.x
-                u = sim.potentials.pair.energy((i, j))
-                f = sim.potentials.pair.force((i, j))
-                if numpy.any(numpy.isinf(u)) or numpy.any(numpy.isinf(f)):
-                    raise ValueError("Pair potential/force is infinite at evaluated r")
-                pair_potential.pair_coeff.set(
-                    i,
-                    j,
-                    func=_table_eval,
-                    rmin=r[0],
-                    rmax=r[-1],
-                    coeff=dict(r=r, u=u, f=f),
-                )
-
     # initialize
-    InitializeFromFile = InitializeFromFile
-    InitializeRandomly = InitializeRandomly
+    _InitializeFromFile = InitializeFromFile
+    _InitializeRandomly = InitializeRandomly
 
     # md
-    MinimizeEnergy = MinimizeEnergy
-    RunBrownianDynamics = RunBrownianDynamics
-    RunLangevinDynamics = RunLangevinDynamics
-    RunMolecularDynamics = RunMolecularDynamics
+    _MinimizeEnergy = MinimizeEnergy
+    _RunBrownianDynamics = RunBrownianDynamics
+    _RunLangevinDynamics = RunLangevinDynamics
+    _RunMolecularDynamics = RunMolecularDynamics
 
     # analyze
-    EnsembleAverage = EnsembleAverage
-    WriteTrajectory = WriteTrajectory
+    _EnsembleAverage = EnsembleAverage
+    _WriteTrajectory = WriteTrajectory
