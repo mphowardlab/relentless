@@ -86,18 +86,19 @@ class test_LAMMPS(unittest.TestCase):
         ens, pot = self.ens_pot()
         file_ = self.create_file()
         op = relentless.simulate.InitializeFromFile(filename=file_)
-        op.lammps_types = {"1": 1, "2": 2}
-        lmp = relentless.simulate.LAMMPS(op, dimension=self.dim)
+        lmp = relentless.simulate.LAMMPS(
+            op, dimension=self.dim, lammps_types={"1": 1, "2": 2}
+        )
         sim = lmp.run(potentials=pot, directory=self.directory)
-        self.assertIsInstance(sim.lammps, lammps.lammps)
-        self.assertEqual(sim.lammps.get_natoms(), 5)
+        self.assertIsInstance(sim[sim.initializer]["_lammps"], lammps.lammps)
+        self.assertEqual(sim[sim.initializer]["_lammps"].get_natoms(), 5)
 
         # InitializeRandomly
         op = relentless.simulate.InitializeRandomly(seed=1, N=ens.N, V=ens.V, T=ens.T)
         lmp = relentless.simulate.LAMMPS(op, dimension=self.dim)
         sim = lmp.run(potentials=pot, directory=self.directory)
-        self.assertIsInstance(sim.lammps, lammps.lammps)
-        self.assertEqual(sim.lammps.get_natoms(), 5)
+        self.assertIsInstance(sim[sim.initializer]["_lammps"], lammps.lammps)
+        self.assertEqual(sim[sim.initializer]["_lammps"].get_natoms(), 5)
 
     def test_random_initialize_options(self):
         # no T
@@ -131,7 +132,6 @@ class test_LAMMPS(unittest.TestCase):
         ens, pot = self.ens_pot()
         file_ = self.create_file()
         init = relentless.simulate.InitializeFromFile(filename=file_)
-        init.lammps_types = {"1": 1, "2": 2}
 
         # MinimizeEnergy
         emin = relentless.simulate.MinimizeEnergy(
@@ -140,7 +140,9 @@ class test_LAMMPS(unittest.TestCase):
             max_iterations=1000,
             options={"max_evaluations": 10000},
         )
-        lmp = relentless.simulate.LAMMPS(init, operations=[emin], dimension=self.dim)
+        lmp = relentless.simulate.LAMMPS(
+            init, operations=[emin], dimension=self.dim, lammps_types={"1": 1, "2": 2}
+        )
         lmp.run(potentials=pot, directory=self.directory)
         self.assertEqual(emin.options["max_evaluations"], 10000)
 
@@ -148,7 +150,9 @@ class test_LAMMPS(unittest.TestCase):
         emin = relentless.simulate.MinimizeEnergy(
             energy_tolerance=1e-7, force_tolerance=1e-7, max_iterations=1000, options={}
         )
-        lmp = relentless.simulate.LAMMPS(init, operations=[emin], dimension=self.dim)
+        lmp = relentless.simulate.LAMMPS(
+            init, operations=[emin], dimension=self.dim, lammps_types={"1": 1, "2": 2}
+        )
         lmp.run(potentials=pot, directory=self.directory)
         self.assertEqual(emin.options["max_evaluations"], 100 * emin.max_iterations)
 
@@ -253,7 +257,7 @@ class test_LAMMPS(unittest.TestCase):
         sim = h.run(potentials=pot, directory=self.directory)
 
         # extract ensemble
-        ens_ = sim[analyzer].ensemble
+        ens_ = sim[analyzer]["ensemble"]
         self.assertIsNotNone(ens_.T)
         self.assertNotEqual(ens_.T, 0)
         self.assertIsNotNone(ens_.P)
@@ -266,7 +270,7 @@ class test_LAMMPS(unittest.TestCase):
 
         # extract ensemble from second analyzer, answers should be slightly different
         # for any quantities that fluctuate
-        ens2_ = sim[analyzer2].ensemble
+        ens2_ = sim[analyzer2]["ensemble"]
         self.assertIsNotNone(ens2_.T)
         self.assertNotEqual(ens2_.T, 0)
         self.assertNotEqual(ens2_.T, ens_.T)

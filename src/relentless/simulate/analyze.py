@@ -1,7 +1,7 @@
 from . import simulate
 
 
-class EnsembleAverage(simulate.GenericAnalysisOperation):
+class EnsembleAverage(simulate.DelegatedAnalysisOperation):
     """Analyze the simulation ensemble.
 
     Parameters
@@ -17,10 +17,20 @@ class EnsembleAverage(simulate.GenericAnalysisOperation):
     """
 
     def __init__(self, check_thermo_every, check_rdf_every, rdf_dr):
-        super().__init__(check_thermo_every, check_rdf_every, rdf_dr)
+        self.check_thermo_every = check_thermo_every
+        self.check_rdf_every = check_rdf_every
+        self.rdf_dr = rdf_dr
+
+    def _make_delegate(self, sim):
+        return self._get_delegate(
+            sim,
+            check_thermo_every=self.check_thermo_every,
+            check_rdf_every=self.check_rdf_every,
+            rdf_dr=self.rdf_dr,
+        )
 
 
-class WriteTrajectory(simulate.GenericAnalysisOperation):
+class WriteTrajectory(simulate.DelegatedAnalysisOperation):
     """Write a simulation trajectory to file.
 
     The ``filename`` is relative to the directory where the simulation is being
@@ -51,4 +61,20 @@ class WriteTrajectory(simulate.GenericAnalysisOperation):
     def __init__(
         self, filename, every, velocities=False, images=False, types=False, masses=False
     ):
-        super().__init__(filename, every, velocities, images, types, masses)
+        self.filename = filename
+        self.every = every
+        self.velocities = velocities
+        self.images = images
+        self.types = types
+        self.masses = masses
+
+    def _make_delegate(self, sim):
+        return self._get_delegate(
+            sim,
+            filename=self.filename,
+            every=self.every,
+            velocities=self.velocities,
+            images=self.images,
+            types=self.types,
+            masses=self.masses,
+        )

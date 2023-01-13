@@ -39,7 +39,7 @@ jobs:
           python -m unittest discover -v -s ./tests -p 'test_*.py'
 
   test-hoomd:
-    name: unit test [python-${{ matrix.python-version }},hoomd-2.9.7]
+    name: unit test [python-${{ matrix.python-version }}, hoomd-2.9.7]
     needs: test
     runs-on: ubuntu-latest
     defaults:
@@ -70,7 +70,7 @@ jobs:
           python -m unittest -v tests/simulate/test_hoomd.py
 
   test-lammps:
-    name: unit test [python-${{ matrix.python-version }},lammps-${{ matrix.lammps-version }}]
+    name: unit test [python-${{ matrix.python-version }}, lammps-${{ matrix.lammps-version }}]
     needs: test
     runs-on: ubuntu-latest
     defaults:
@@ -80,7 +80,7 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ['3.8', '3.9', '3.10']
-        lammps-version: ['2021.09.29','2022.06.23']
+        lammps-version: ['2021.09.29', '2022.06.23']
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -100,3 +100,20 @@ jobs:
       - name: Test
         run: |
           python -m unittest -v tests/simulate/test_lammps.py
+
+  # final exit point for unit tests on PRs, which can be a required check
+  test-exit:
+    name: unit test
+    needs: [test, test-hoomd, test-lammps]
+    if: ${{ always() && github.event_name == 'pull_request' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check core tests
+        if: needs.test.result != 'success'
+        run: echo "::error ::core tests failed." && exit 1
+      - name: Check hoomd tests
+        if: needs.test-hoomd.result != 'success'
+        run: echo "::error ::hoomd tests failed." && exit 1
+      - name: Check lammps tests
+        if: needs.test-lammps.result != 'success'
+        run: echo "::error ::lammps tests failed." && exit 1

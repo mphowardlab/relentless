@@ -231,7 +231,7 @@ class test_HOOMD(unittest.TestCase):
         sim = h.run(pot, self.directory)
 
         # extract ensemble
-        ens_ = sim[analyzer].ensemble
+        ens_ = sim[analyzer]["ensemble"]
         self.assertIsNotNone(ens_.T)
         self.assertNotEqual(ens_.T, 0)
         self.assertIsNotNone(ens_.P)
@@ -240,8 +240,8 @@ class test_HOOMD(unittest.TestCase):
         self.assertNotEqual(ens_.V.extent, 0)
         for i, j in ens_.rdf:
             self.assertEqual(ens_.rdf[i, j].table.shape, (len(pot.pair.x) - 1, 2))
-        self.assertEqual(sim[analyzer].num_thermo_samples, 100)
-        self.assertEqual(sim[analyzer].num_rdf_samples, 50)
+        self.assertEqual(sim[analyzer]["num_thermo_samples"], 100)
+        self.assertEqual(sim[analyzer]["num_rdf_samples"], 50)
 
     def test_writetrajectory(self):
         """Test write trajectory simulation operation."""
@@ -306,7 +306,7 @@ class test_HOOMD(unittest.TestCase):
         h = relentless.simulate.HOOMD(init, ig)
         sim = h.run(pot, self.directory)
 
-        ens_ = sim[analyzer].ensemble
+        ens_ = sim[analyzer]["ensemble"]
         for i, j in ens_.rdf:
             self.assertEqual(ens_.rdf[i, j].table[0, 1], 0.0)
 
