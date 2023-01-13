@@ -24,6 +24,10 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+      - name: Setup MPI
+        uses: mpi4py/setup-mpi@v1
+        with:
+          mpi: 'openmpi'
       - name: Setup Python ${{ matrix.python-version }}
         uses: actions/setup-python@v4
         with:
@@ -37,6 +41,12 @@ jobs:
       - name: Test
         run: |
           python -m unittest discover -v -s ./tests -p 'test_*.py'
+      - name: Install mpi4py
+        run: |
+          pip install --no-cache-dir mpi4py
+      - name: Test MPI
+        run: |
+          mpiexec -n 2 --timeout 300 python -m unittest discover -v -s ./tests -p 'test_*.py'
 
   test-hoomd:
     name: unit test [python-${{ matrix.python-version }}, hoomd-2.9.7]
