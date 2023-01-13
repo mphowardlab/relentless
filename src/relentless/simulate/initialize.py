@@ -88,18 +88,11 @@ class InitializeRandomly(simulate.DelegatedSimulationOperation):
     @staticmethod
     def _make_orthorhombic(V):
         # get the orthorhombic bounding box
+        box_array = V.as_array()
         if isinstance(V, extent.TriclinicBox):
-            Lx, Ly, Lz, xy, xz, yz = V.as_array("HOOMD")
-            aabb = numpy.array(
-                [
-                    Lx / numpy.sqrt(1.0 + xy**2 + (xy * yz - xz) ** 2),
-                    Ly / numpy.sqrt(1.0 + yz**2),
-                    Lz,
-                ]
-            )
+            aabb = box_array[:3]
         elif isinstance(V, extent.ObliqueArea):
-            Lx, Ly, xy = V.as_array("HOOMD")
-            aabb = numpy.array([Lx / numpy.sqrt(1.0 + xy**2), Ly])
+            aabb = box_array[:2]
         else:
             raise TypeError(
                 "Random initialization currently only supported in"
