@@ -233,6 +233,7 @@ class Simulation:
 
     # analysis
     EnsembleAverage = NotImplementedOperation
+    WriteTrajectory = NotImplementedOperation
 
 
 class SimulationInstance:

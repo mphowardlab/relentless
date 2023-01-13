@@ -45,6 +45,7 @@ class LAMMPSOperation(simulate.SimulationOperation):
     """LAMMPS simulation operation."""
 
     _compute_counter = 1
+    _dump_counter = 1
     _fix_counter = 1
     _group_counter = 1
     _variable_counter = 1
@@ -78,6 +79,20 @@ class LAMMPSOperation(simulate.SimulationOperation):
         idx = int(LAMMPSOperation._compute_counter)
         LAMMPSOperation._compute_counter += 1
         return "c{}".format(idx)
+
+    @classmethod
+    def new_dump_id(cls):
+        """Make a unique new dump ID.
+
+        Returns
+        -------
+        int
+            The dump ID.
+
+        """
+        idx = int(LAMMPSOperation._dump_counter)
+        LAMMPSOperation._dump_counter += 1
+        return "d{}".format(idx)
 
     @classmethod
     def new_fix_id(cls):
@@ -817,6 +832,67 @@ class EnsembleAverage(simulate.AnalysisOperation, LAMMPSOperation):
         sim[self].ensemble = ens
 
 
+class WriteTrajectory(simulate.AnalysisOperation, LAMMPSOperation):
+    """Writes a LAMMPS dump file.
+
+    When all options are set to True the file has the following format::
+
+        ITEM: ATOMS id type mass x y z vx vy vz ix iy iz
+
+    where ``id`` is the atom ID, ``x y z`` are positions, ``vx vy vz`` are
+    velocities, and ``ix iy iz`` are images.
+
+    Parameters
+    ----------
+    filename : str
+        Name of the trajectory file to be written, as a relative path.
+    every : int
+        Interval of time steps at which to write a snapshot.
+    velocities : bool
+        Include particle velocities.
+    images : bool
+        Include particle images.
+    types : bool
+        Include particle types.
+    masses : bool
+        Include particle masses.
+
+    """
+
+    def __init__(self, filename, every, velocities, images, types, masses):
+        self.filename = filename
+        self.every = every
+        self.velocities = velocities
+        self.images = images
+        self.types = types
+        self.masses = masses
+
+    def to_commands(self, sim):
+        dump_format = "id"
+        if self.types is True:
+            dump_format += " type"
+        if self.masses is True:
+            dump_format += " mass"
+        # position is always dynamic
+        dump_format += " x y z"
+        if self.velocities is True:
+            dump_format += " vx vy vz"
+        if self.images is True:
+            dump_format += " ix iy iz"
+
+        dump_id = self.new_dump_id()
+        cmds = [
+            "dump {} all custom {} {} {}".format(
+                dump_id, self.every, sim.directory.file(self.filename), dump_format
+            ),
+            "dump_modify {} append no pbc yes flush yes".format(dump_id),
+        ]
+        return cmds
+
+    def finalize(self, sim):
+        pass
+
+
 class LAMMPS(simulate.Simulation):
     """Simulation using LAMMPS.
 
@@ -1027,3 +1103,4 @@ class LAMMPS(simulate.Simulation):
 
     # analyze
     EnsembleAverage = EnsembleAverage
+    WriteTrajectory = WriteTrajectory

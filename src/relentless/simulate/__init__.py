@@ -99,6 +99,7 @@ Analyzers
     :toctree: generated/
 
     EnsembleAverage
+    WriteTrajectory
 
 Running a simulation
 ====================
@@ -134,7 +135,7 @@ Developer classes
     Thermostat
 
 """
-from .analyze import EnsembleAverage
+from .analyze import EnsembleAverage, WriteTrajectory
 from .dilute import Dilute
 from .hoomd import HOOMD
 from .initialize import InitializeFromFile, InitializeRandomly

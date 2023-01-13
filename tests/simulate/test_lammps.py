@@ -279,6 +279,41 @@ class test_LAMMPS(unittest.TestCase):
         for i, j in ens2_.rdf:
             self.assertEqual(ens2_.rdf[i, j].table.shape, (4, 2))
 
+    def test_writetrajectory(self):
+        """Test write trajectory simulation operation."""
+        ens, pot = self.ens_pot()
+        init = relentless.simulate.InitializeRandomly(
+            seed=1, N=ens.N, V=ens.V, T=ens.T, diameters={"1": 1, "2": 1}
+        )
+        analyzer = relentless.simulate.WriteTrajectory(
+            filename="test_writetrajectory.lammpstrj",
+            every=100,
+            velocities=True,
+            images=True,
+            types=True,
+            masses=True,
+        )
+        lgv = relentless.simulate.RunLangevinDynamics(
+            steps=500,
+            timestep=0.001,
+            T=ens.T,
+            friction=1.0,
+            seed=1,
+            analyzers=[analyzer],
+        )
+        h = relentless.simulate.LAMMPS(init, operations=lgv, dimension=self.dim)
+        sim = h.run(potentials=pot, directory=self.directory)
+
+        # read trajectory file
+        file = sim.directory.file("test_writetrajectory.lammpstrj")
+        traj = lammpsio.DumpFile(file)
+        for snap in traj:
+            self.assertEqual(snap.N, 5)
+            self.assertIsNotNone(snap.velocity)
+            self.assertIsNotNone(snap.image)
+            self.assertCountEqual(snap.typeid, [1, 1, 2, 2, 2])
+            self.assertCountEqual(snap.mass, [1, 1, 1, 1, 1])
+
     def tearDown(self):
         if relentless.mpi.world.rank_is_root:
             self._tmp.cleanup()

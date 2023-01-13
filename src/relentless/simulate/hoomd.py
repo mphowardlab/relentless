@@ -801,6 +801,59 @@ class EnsembleAverage(simulate.AnalysisOperation):
             # rdf will be reset on next call
 
 
+class WriteTrajectory(simulate.AnalysisOperation):
+    """Write a GSD file.
+
+    Parameters
+    ----------
+    filename : str
+        Name of the trajectory file to be written, as a relative path.
+    every : int
+        Interval of time steps at which to write a snapshot.
+    velocities : bool
+        Include particle velocities.
+    images : bool
+        Include particle images.
+    types : bool
+        Include particle types.
+    masses : bool
+        Include particle masses.
+
+    """
+
+    def __init__(self, filename, every, velocities, images, types, masses):
+        self.filename = filename
+        self.every = every
+        self.velocities = velocities
+        self.images = images
+        self.types = types
+        self.masses = masses
+
+    def __call__(self, sim):
+        # property group is always dyanmic in the trajectory file since it logs position
+        _dynamic = ["property"]
+        # momentum group makes particle velocities and particles images dynamic
+        if self.velocities is True or self.images is True:
+            _dynamic.append("momentum")
+
+        with sim.hoomd:
+            # selects all particles to be part of the trajectory file
+            all_ = hoomd.group.all()
+
+            # dump the .gsd file into the directory
+            # Note: the .gsd file is overwritten for each call of the function
+            hoomd.dump.gsd(
+                filename=sim.directory.file(self.filename),
+                period=self.every,
+                group=all_,
+                overwrite=True,
+                dynamic=_dynamic,
+            )
+
+    def finalize(self, sim):
+        pass
+
+
 class HOOMD(simulate.Simulation):
     """Simulation using HOOMD-blue.
 
@@ -924,3 +977,4 @@ class HOOMD(simulate.Simulation):
 
     # analyze
     EnsembleAverage = EnsembleAverage
+    WriteTrajectory = WriteTrajectory
