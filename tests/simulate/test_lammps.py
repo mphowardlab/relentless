@@ -319,6 +319,7 @@ class test_LAMMPS(unittest.TestCase):
             self.assertCountEqual(snap.mass, [1, 1, 1, 1, 1])
 
     def tearDown(self):
+        relentless.mpi.world.barrier()
         if relentless.mpi.world.rank_is_root:
             self._tmp.cleanup()
             del self._tmp

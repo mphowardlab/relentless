@@ -130,12 +130,18 @@ class test_Directory(unittest.TestCase):
         # delete sub-directory
         self.assertCountEqual(os.listdir(d1.path), ["bar", "ham.txt", "eggs.txt"])
         self.assertCountEqual(os.listdir(d3.path), ["baz.txt"])
-        d3.clear_contents()
+        relentless.mpi.world.barrier()
+        if relentless.mpi.world.rank_is_root:
+            d3.clear_contents()
+        relentless.mpi.world.barrier()
         self.assertCountEqual(os.listdir(d1.path), ["bar", "ham.txt", "eggs.txt"])
         self.assertCountEqual(os.listdir(d3.path), [])
         # delete parent directory
         self.assertCountEqual(os.listdir(d.path), ["foo", "bar", "spam.txt"])
-        d.clear_contents()
+        relentless.mpi.world.barrier()
+        if relentless.mpi.world.rank_is_root:
+            d.clear_contents()
+        relentless.mpi.world.barrier()
         self.assertCountEqual(os.listdir(d.path), [])
 
     def test_path(self):
@@ -165,14 +171,20 @@ class test_Directory(unittest.TestCase):
         self.assertFalse(os.path.isdir(os.path.join(bar, "fizz")))
 
         # move to bar
-        dfoo.move_contents(dbar)
+        relentless.mpi.world.barrier()
+        if relentless.mpi.world.rank_is_root:
+            dfoo.move_contents(dbar)
+        relentless.mpi.world.barrier()
         self.assertFalse(os.path.isfile(os.path.join(foo, "spam.txt")))
         self.assertFalse(os.path.isdir(os.path.join(foo, "fizz")))
         self.assertTrue(os.path.isfile(os.path.join(bar, "spam.txt")))
         self.assertTrue(os.path.isdir(os.path.join(bar, "fizz")))
 
         # move to baz (doesn't exist as Directory yet)
-        dbar.move_contents(baz)
+        relentless.mpi.world.barrier()
+        if relentless.mpi.world.rank_is_root:
+            dbar.move_contents(baz)
+        relentless.mpi.world.barrier()
         self.assertFalse(os.path.isfile(os.path.join(foo, "spam.txt")))
         self.assertFalse(os.path.isdir(os.path.join(foo, "fizz")))
         self.assertFalse(os.path.isfile(os.path.join(bar, "spam.txt")))
@@ -199,14 +211,20 @@ class test_Directory(unittest.TestCase):
         self.assertFalse(os.path.isdir(os.path.join(bar, "fizz")))
 
         # copy to bar
-        dfoo.copy_contents(dbar)
+        relentless.mpi.world.barrier()
+        if relentless.mpi.world.rank_is_root:
+            dfoo.copy_contents(dbar)
+        relentless.mpi.world.barrier()
         self.assertTrue(os.path.isfile(os.path.join(foo, "spam.txt")))
         self.assertTrue(os.path.isdir(os.path.join(foo, "fizz")))
         self.assertTrue(os.path.isfile(os.path.join(bar, "spam.txt")))
         self.assertTrue(os.path.isdir(os.path.join(bar, "fizz")))
 
         # copy to baz (doesn't exist as Directory yet)
-        dfoo.copy_contents(baz)
+        relentless.mpi.world.barrier()
+        if relentless.mpi.world.rank_is_root:
+            dfoo.copy_contents(baz)
+        relentless.mpi.world.barrier()
         self.assertTrue(os.path.isfile(os.path.join(foo, "spam.txt")))
         self.assertTrue(os.path.isdir(os.path.join(foo, "fizz")))
         self.assertTrue(os.path.isfile(os.path.join(bar, "spam.txt")))
@@ -215,6 +233,7 @@ class test_Directory(unittest.TestCase):
         self.assertTrue(os.path.isdir(os.path.join(baz, "fizz")))
 
     def tearDown(self):
+        relentless.mpi.world.barrier()
         if relentless.mpi.world.rank_is_root:
             self._tmp.cleanup()
             del self._tmp

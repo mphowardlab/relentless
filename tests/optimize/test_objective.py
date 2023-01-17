@@ -79,6 +79,7 @@ class test_ObjectiveFunction(unittest.TestCase):
         self.assertAlmostEqual(x, 1.0)
 
     def tearDown(self):
+        relentless.mpi.world.barrier()
         if relentless.mpi.world.rank_is_root:
             self._tmp.cleanup()
             del self._tmp
@@ -255,6 +256,7 @@ class test_RelativeEntropy(unittest.TestCase):
         )
 
     def tearDown(self):
+        relentless.mpi.world.barrier()
         if relentless.mpi.world.rank_is_root:
             self._tmp.cleanup()
             del self._tmp

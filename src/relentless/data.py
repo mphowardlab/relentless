@@ -56,7 +56,7 @@ class Directory:
     def __init__(self, path):
         self._start = []
 
-        # ensure path exists at time directory is created (synchronizing)
+        # ensure path exists at time directory is created
         path = os.path.realpath(path)
         if mpi.world.rank_is_root:
             if not os.path.exists(path):
@@ -189,13 +189,11 @@ class Directory:
 
         """
         # delete on root rank and wait
-        if mpi.world.rank_is_root:
-            for entry in os.scandir(self.path):
-                if entry.is_file():
-                    os.remove(entry.path)
-                elif entry.is_dir():
-                    shutil.rmtree(entry.path)
-        mpi.world.barrier()
+        for entry in os.scandir(self.path):
+            if entry.is_file():
+                os.remove(entry.path)
+            elif entry.is_dir():
+                shutil.rmtree(entry.path)
 
     def move_contents(self, dest):
         """Move the contents of the directory.
@@ -207,11 +205,8 @@ class Directory:
 
         """
         dest = Directory.cast(dest)
-        # move on root rank and wait
-        if mpi.world.rank_is_root:
-            for entry in os.scandir(self.path):
-                shutil.move(entry.path, dest.path)
-        mpi.world.barrier()
+        for entry in os.scandir(self.path):
+            shutil.move(entry.path, dest.path)
 
     def copy_contents(self, dest):
         """Copy the contents of the directory.
@@ -223,11 +218,8 @@ class Directory:
 
         """
         dest = Directory.cast(dest)
-        # copy using root rank and wait
-        if mpi.world.rank_is_root:
-            for entry in os.scandir(self.path):
-                if entry.is_file():
-                    shutil.copy2(entry.path, dest.path)
-                elif entry.is_dir():
-                    shutil.copytree(entry.path, os.path.join(dest.path, entry.name))
-        mpi.world.barrier()
+        for entry in os.scandir(self.path):
+            if entry.is_file():
+                shutil.copy2(entry.path, dest.path)
+            elif entry.is_dir():
+                shutil.copytree(entry.path, os.path.join(dest.path, entry.name))

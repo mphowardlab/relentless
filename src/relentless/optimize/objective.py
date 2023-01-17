@@ -349,6 +349,7 @@ class RelativeEntropy(ObjectiveFunction):
             sim = self.simulation.run(self.potentials, directory)
             sim_ens = sim[self.thermo]["ensemble"]
         finally:
+            mpi.world.barrier()
             if tmp is not None:
                 tmp.cleanup()
 

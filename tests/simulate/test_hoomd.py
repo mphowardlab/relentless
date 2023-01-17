@@ -311,6 +311,7 @@ class test_HOOMD(unittest.TestCase):
             self.assertEqual(ens_.rdf[i, j].table[0, 1], 0.0)
 
     def tearDown(self):
+        relentless.mpi.world.barrier()
         if relentless.mpi.world.rank_is_root:
             self._tmp.cleanup()
             del self._tmp

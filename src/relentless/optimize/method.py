@@ -2,7 +2,7 @@ import abc
 
 import numpy
 
-from relentless import data, math
+from relentless import data, math, mpi
 from relentless.model import variable
 
 from .criteria import ConvergenceTest, Tolerance
@@ -392,7 +392,10 @@ class SteepestDescent(Optimizer):
                 else None
             )
             if next_res.directory is not None:
-                next_res.directory.move_contents(cur_dir)
+                mpi.world.barrier()
+                if mpi.world.rank_is_root:
+                    next_res.directory.move_contents(cur_dir)
+                mpi.world.barrier()
 
             # recycle next result, updating directory to new location
             cur_res = next_res
