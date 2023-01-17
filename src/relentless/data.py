@@ -14,8 +14,6 @@ Data management (`relentless.data`)
 import os
 import shutil
 
-from . import mpi
-
 
 class Directory:
     """Context for a filesystem directory.
@@ -34,6 +32,8 @@ class Directory:
     ----------
     path : str
         Absolute or relative directory path.
+    create : bool
+        If True, ensure the directory is created on the filesystem.
 
     Raises
     ------
@@ -46,6 +46,11 @@ class Directory:
 
         d = Directory('foo')
 
+    Create a directory on the root rank and wait to proceed::
+
+        d = Directory('bar', create=relentless.mpi.world.rank_is_root)
+        relentless.mpi.world.barrier()
+
     Using the context to open a file ``foo/bar.txt`` in a directory::
 
         with Directory('foo') as d:
@@ -53,24 +58,14 @@ class Directory:
 
     """
 
-    def __init__(self, path):
+    def __init__(self, path, create=True):
         self._start = []
-
-        # ensure path exists at time directory is created
-        path = os.path.realpath(path)
-        if mpi.world.rank_is_root:
-            if not os.path.exists(path):
-                os.makedirs(path)
-            dir_error = not os.path.isdir(path)
-        else:
-            dir_error = None
-        dir_error = mpi.world.bcast(dir_error)
-        if dir_error:
-            raise OSError("The specified path is not a valid directory")
-        self._path = path
+        self._path = os.path.realpath(path)
+        if create:
+            os.makedirs(self._path, exist_ok=True)
 
     @classmethod
-    def cast(cls, directory):
+    def cast(cls, directory, create=True):
         """Try to cast an object to a directory.
 
         Ensure that a `str` or :class:`Directory` is a :class:`Directory`. No
@@ -81,6 +76,8 @@ class Directory:
         ----------
         directory : str or :class:`Directory`
             Object to ensure is a directory
+        create : bool
+            If True, ensure the directory is created on the filesystem.
 
         Returns
         -------
@@ -90,6 +87,8 @@ class Directory:
         """
         if not isinstance(directory, Directory):
             directory = Directory(directory)
+        if create:
+            os.makedirs(directory.path, exist_ok=True)
         return directory
 
     def __enter__(self):
@@ -103,6 +102,8 @@ class Directory:
             This directory.
 
         """
+        if not os.path.isdir(self.path):
+            raise OSError("Directory does not exist")
         self._start.append(os.getcwd())
         os.chdir(self.path)
         return self
@@ -155,7 +156,7 @@ class Directory:
         """
         return os.path.join(self.path, name)
 
-    def directory(self, name):
+    def directory(self, name, create=True):
         """Get a child directory.
 
         This method is convenient for abstracting references to child
@@ -165,6 +166,8 @@ class Directory:
         ----------
         name : str
             Name of the directory.
+        create : bool
+            If True, ensure the directory is created on the filesystem.
 
         Returns
         -------
@@ -179,7 +182,7 @@ class Directory:
             bar = foo.directory('bar')
 
         """
-        return Directory(os.path.join(self.path, name))
+        return Directory(os.path.join(self.path, name), create=create)
 
     def clear_contents(self):
         r"""Clear the contents of a directory.
@@ -204,7 +207,7 @@ class Directory:
             Destination directory.
 
         """
-        dest = Directory.cast(dest)
+        dest = Directory.cast(dest, create=True)
         for entry in os.scandir(self.path):
             shutil.move(entry.path, dest.path)
 
@@ -217,7 +220,7 @@ class Directory:
             Destination directory.
 
         """
-        dest = Directory.cast(dest)
+        dest = Directory.cast(dest, create=True)
         for entry in os.scandir(self.path):
             if entry.is_file():
                 shutil.copy2(entry.path, dest.path)

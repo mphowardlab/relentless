@@ -31,7 +31,10 @@ class test_HOOMD(unittest.TestCase):
         else:
             directory = None
         directory = relentless.mpi.world.bcast(directory)
-        self.directory = relentless.data.Directory(directory)
+        self.directory = relentless.data.Directory(
+            directory, create=relentless.mpi.world.rank_is_root
+        )
+        relentless.mpi.world.barrier()
 
     # mock (NVT) ensemble and potential for testing
     def ens_pot(self):

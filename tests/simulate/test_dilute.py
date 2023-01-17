@@ -16,7 +16,10 @@ class test_Dilute(unittest.TestCase):
         else:
             directory = None
         directory = relentless.mpi.world.bcast(directory)
-        self.directory = relentless.data.Directory(directory)
+        self.directory = relentless.data.Directory(
+            directory, create=relentless.mpi.world.rank_is_root
+        )
+        relentless.mpi.world.barrier()
 
     def test_run(self):
         """Test run method."""

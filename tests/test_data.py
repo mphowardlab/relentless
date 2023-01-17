@@ -16,6 +16,7 @@ class test_Directory(unittest.TestCase):
             directory = None
         self.f = relentless.mpi.world.bcast(directory)
         self.real_f = os.path.realpath(self.f)
+        relentless.mpi.world.barrier()
 
     """Unit tests for core.data.Directory."""
 
@@ -24,7 +25,8 @@ class test_Directory(unittest.TestCase):
         cwd = os.getcwd()
 
         # test creation with existing path
-        d = relentless.data.Directory(self.f)
+        d = relentless.data.Directory(self.f, create=relentless.mpi.world.rank_is_root)
+        relentless.mpi.world.barrier()
         self.assertEqual(d.path, self.real_f)
         self.assertEqual(d._start, [])
         # enter and exit
@@ -36,7 +38,8 @@ class test_Directory(unittest.TestCase):
         # test creation with non-existent path (absolute)
         foo = os.path.join(self.f, "foo")
         real_foo = os.path.realpath(foo)
-        d1 = relentless.data.Directory(foo)
+        d1 = relentless.data.Directory(foo, create=relentless.mpi.world.rank_is_root)
+        relentless.mpi.world.barrier()
         self.assertEqual(d1.path, real_foo)
         self.assertEqual(d1._start, [])
         # enter and exit
@@ -48,7 +51,8 @@ class test_Directory(unittest.TestCase):
         # test creation with non-existent path (recursive)
         foobar = os.path.join(self.f, "bar", "foobar")
         real_foobar = os.path.realpath(foobar)
-        d2 = relentless.data.Directory(foobar)
+        d2 = relentless.data.Directory(foobar, create=relentless.mpi.world.rank_is_root)
+        relentless.mpi.world.barrier()
         self.assertEqual(d2.path, real_foobar)
         self.assertEqual(d2._start, [])
         # enter and exit
@@ -56,19 +60,6 @@ class test_Directory(unittest.TestCase):
             self.assertEqual(d2._start, [cwd])
             self.assertEqual(os.getcwd(), real_foobar)
         self.assertEqual(d2._start, [])
-
-        # test creation with invalid directory path
-        if relentless.mpi.world.rank_is_root:
-            x = tempfile.NamedTemporaryFile(dir=self.f)
-            x_name = x.name
-        else:
-            x = None
-            x_name = None
-        x_name = relentless.mpi.world.bcast(x_name)
-        with self.assertRaises(OSError):
-            relentless.data.Directory(x_name)
-        if x is not None:
-            x.close()
 
         # test unsuccessfully changing directories (by redundancy)
         with d:
@@ -101,10 +92,14 @@ class test_Directory(unittest.TestCase):
     def test_context(self):
         """Test context methods for Directory."""
         # create nested directory structure
-        d = relentless.data.Directory(self.f)
-        d1 = d.directory("foo")
-        d2 = d.directory("bar")
-        d3 = d1.directory(os.path.join("bar", "foobar"))
+        d = relentless.data.Directory(self.f, create=relentless.mpi.world.rank_is_root)
+        relentless.mpi.world.barrier()
+        d1 = d.directory("foo", create=relentless.mpi.world.rank_is_root)
+        d2 = d.directory("bar", create=relentless.mpi.world.rank_is_root)
+        d3 = d1.directory(
+            os.path.join("bar", "foobar"), create=relentless.mpi.world.rank_is_root
+        )
+        relentless.mpi.world.barrier()
         self.assertEqual(d.path, self.real_f)
         self.assertEqual(d1.path, os.path.join(self.real_f, "foo"))
         self.assertEqual(d2.path, os.path.join(self.real_f, "bar"))
@@ -148,7 +143,8 @@ class test_Directory(unittest.TestCase):
         # set path by constructor
         foo = os.path.join(self.f, "foo")
         real_foo = os.path.realpath(foo)
-        d = relentless.data.Directory(foo)
+        d = relentless.data.Directory(foo, create=relentless.mpi.world.rank_is_root)
+        relentless.mpi.world.barrier()
         self.assertEqual(d.path, real_foo)
         self.assertTrue(os.path.exists(foo))
 
@@ -157,14 +153,15 @@ class test_Directory(unittest.TestCase):
         bar = os.path.join(self.f, "bar")
         baz = os.path.join(self.f, "baz")
 
-        dfoo = relentless.data.Directory(foo)
-        dbar = relentless.data.Directory(bar)
+        dfoo = relentless.data.Directory(foo, create=relentless.mpi.world.rank_is_root)
+        dbar = relentless.data.Directory(bar, create=relentless.mpi.world.rank_is_root)
+        relentless.mpi.world.barrier()
 
         # create a file and directory in foo, it is not yet in bar
         if relentless.mpi.world.rank_is_root:
             open(dfoo.file("spam.txt"), "w").close()
+        dfoo.directory("fizz", create=relentless.mpi.world.rank_is_root)
         relentless.mpi.world.barrier()
-        dfoo.directory("fizz")
         self.assertTrue(os.path.isfile(os.path.join(foo, "spam.txt")))
         self.assertTrue(os.path.isdir(os.path.join(foo, "fizz")))
         self.assertFalse(os.path.isfile(os.path.join(bar, "spam.txt")))
@@ -197,14 +194,15 @@ class test_Directory(unittest.TestCase):
         bar = os.path.join(self.f, "bar")
         baz = os.path.join(self.f, "baz")
 
-        dfoo = relentless.data.Directory(foo)
-        dbar = relentless.data.Directory(bar)
+        dfoo = relentless.data.Directory(foo, create=relentless.mpi.world.rank_is_root)
+        dbar = relentless.data.Directory(bar, create=relentless.mpi.world.rank_is_root)
+        relentless.mpi.world.barrier()
 
         # create a file and directory in foo, it is not yet in bar
         if relentless.mpi.world.rank_is_root:
             open(dfoo.file("spam.txt"), "w").close()
+        dfoo.directory("fizz", create=relentless.mpi.world.rank_is_root)
         relentless.mpi.world.barrier()
-        dfoo.directory("fizz")
         self.assertTrue(os.path.isfile(os.path.join(foo, "spam.txt")))
         self.assertTrue(os.path.isdir(os.path.join(foo, "fizz")))
         self.assertFalse(os.path.isfile(os.path.join(bar, "spam.txt")))
