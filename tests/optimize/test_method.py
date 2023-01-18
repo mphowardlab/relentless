@@ -89,6 +89,7 @@ class test_LineSearch(unittest.TestCase):
             ls.find(objective=q, start=res_1, end=res_3)
 
     def tearDown(self):
+        relentless.mpi.world.barrier()
         if relentless.mpi.world.rank_is_root:
             self._tmp.cleanup()
             del self._tmp
@@ -257,6 +258,7 @@ class test_SteepestDescent(unittest.TestCase):
             self.assertAlmostEqual(float(f.readline()), 1.0)
 
     def tearDown(self):
+        relentless.mpi.world.barrier()
         if relentless.mpi.world.rank_is_root:
             self._tmp.cleanup()
             del self._tmp

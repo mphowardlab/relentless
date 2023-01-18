@@ -16,7 +16,10 @@ class test_Dilute(unittest.TestCase):
         else:
             directory = None
         directory = relentless.mpi.world.bcast(directory)
-        self.directory = relentless.data.Directory(directory)
+        self.directory = relentless.data.Directory(
+            directory, create=relentless.mpi.world.rank_is_root
+        )
+        relentless.mpi.world.barrier()
 
     def test_run(self):
         """Test run method."""
@@ -159,6 +162,7 @@ class test_Dilute(unittest.TestCase):
         self.assertAlmostEqual(ens_.P, -1.1987890)
 
     def tearDown(self):
+        relentless.mpi.world.barrier()
         if relentless.mpi.world.rank_is_root:
             self._tmp.cleanup()
             del self._tmp

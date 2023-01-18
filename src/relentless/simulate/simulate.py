@@ -9,7 +9,7 @@ import abc
 
 import numpy
 
-from relentless import data
+from relentless import data, mpi
 
 
 class SimulationOperation(abc.ABC):
@@ -229,9 +229,8 @@ class SimulationInstance:
         self.backend = backend
         self.potentials = potentials
 
-        if directory is not None:
-            directory = data.Directory.cast(directory)
-        self.directory = directory
+        self.directory = data.Directory.cast(directory, create=mpi.world.rank_is_root)
+        mpi.world.barrier()
 
         # properties of simulation, to be set
         self.dimension = None

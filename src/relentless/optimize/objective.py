@@ -178,7 +178,8 @@ class ObjectiveFunctionResult:
     @directory.setter
     def directory(self, value):
         if value is not None:
-            value = data.Directory.cast(value)
+            value = data.Directory.cast(value, create=mpi.world.rank_is_root)
+            mpi.world.barrier()
         self._directory = value
 
     def save(self, filename):
@@ -336,19 +337,22 @@ class RelativeEntropy(ObjectiveFunction):
         else:
             tmp = None
             directory_is_tmp = False
-        directory = data.Directory.cast(directory)
+        directory = data.Directory.cast(directory, create=mpi.world.rank_is_root)
+        mpi.world.barrier()
 
         # write the pair potential parameters *before* the run
         if not directory_is_tmp:
             if mpi.world.rank_is_root:
                 for n, p in enumerate(self.potentials.pair.potentials):
                     p.save(directory.file("pair_potential.{}.json".format(n)))
+            mpi.world.barrier()
 
         # run simulation and use result to compute gradient
         try:
             sim = self.simulation.run(self.potentials, directory)
             sim_ens = sim[self.thermo]["ensemble"]
         finally:
+            mpi.world.barrier()
             if tmp is not None:
                 tmp.cleanup()
 
@@ -364,6 +368,7 @@ class RelativeEntropy(ObjectiveFunction):
             if mpi.world.rank_is_root:
                 sim_ens.save(directory.file("ensemble.json"))
                 result.save(directory.file("result.json"))
+            mpi.world.barrier()
 
         return result
 
