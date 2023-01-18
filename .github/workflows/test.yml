@@ -17,6 +17,8 @@ jobs:
   test:
     name: unit test [python-${{ matrix.python-version }}]
     runs-on: ubuntu-latest
+    env:
+      MPIEXEC_TIMEOUT: 300
     strategy:
       fail-fast: false
       matrix:
@@ -46,7 +48,7 @@ jobs:
           pip install --no-cache-dir mpi4py
       - name: Test MPI
         run: |
-          mpiexec -n 2 --timeout 300 python -m unittest discover -v -s ./tests -p 'test_*.py'
+          mpiexec -n 2 python -m unittest discover -v -s ./tests -p 'test_*.py'
 
   test-hoomd:
     name: unit test [python-${{ matrix.python-version }}, hoomd-2.9.7]
@@ -83,6 +85,8 @@ jobs:
     name: unit test [python-${{ matrix.python-version }}, lammps-${{ matrix.lammps-version }}]
     needs: test
     runs-on: ubuntu-latest
+    env:
+      MPIEXEC_TIMEOUT: 300
     defaults:
       run:
         shell: bash -el {0}
@@ -112,7 +116,7 @@ jobs:
           python -m unittest -v tests/simulate/test_lammps.py
       - name: Test MPI
         run: |
-          mpirun -n 2 --timeout 300 python -m unittest -v tests/simulate/test_lammps.py
+          mpiexec -n 2 python -m unittest -v tests/simulate/test_lammps.py
 
   # final exit point for unit tests on PRs, which can be a required check
   test-exit:
