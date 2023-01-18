@@ -94,6 +94,10 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+      - name: Setup MPI
+        uses: mpi4py/setup-mpi@v1
+        with:
+          mpi: 'openmpi'
       - name: Setup Python ${{ matrix.python-version }}
         uses: conda-incubator/setup-miniconda@v2
         with:
@@ -110,6 +114,12 @@ jobs:
       - name: Test
         run: |
           python -m unittest -v tests/simulate/test_lammps.py
+      - name: Install mpi4py
+        run: |
+          pip install --no-cache-dir mpi4py
+      - name: Test MPI
+        run: |
+          mpirun -n 2 --timeout 300 python -m unittest -v tests/simulate/test_lammps.py
 
   # final exit point for unit tests on PRs, which can be a required check
   test-exit:
