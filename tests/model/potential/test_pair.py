@@ -130,6 +130,10 @@ class LinPot(relentless.model.potential.PairPotential):
     def __init__(self, types, params):
         super().__init__(types, params)
 
+    @classmethod
+    def from_json(cls, data):
+        pass
+
     def _energy(self, r, m, **params):
         r, u, s = self._zeros(r)
         u[:] = m * r
@@ -158,6 +162,10 @@ class TwoVarPot(relentless.model.potential.PairPotential):
 
     def __init__(self, types, params):
         super().__init__(types, params)
+
+    @classmethod
+    def from_json(cls, data):
+        pass
 
     def _energy(self, r, x, y, **params):
         pass
@@ -477,10 +485,18 @@ class test_PairPotential(unittest.TestCase):
         with open(temp.name, "r") as f:
             x = json.load(f)
 
-        self.assertEqual(p.coeff["1", "1"]["m"], x["('1', '1')"]["m"])
-        self.assertEqual(p.coeff["1", "1"]["rmin"], x["('1', '1')"]["rmin"])
-        self.assertEqual(p.coeff["1", "1"]["rmax"], x["('1', '1')"]["rmax"])
-        self.assertEqual(p.coeff["1", "1"]["shift"], x["('1', '1')"]["shift"])
+        self.assertEqual(
+            p.coeff["1", "1"]["m"], x["coeff"]["values"]["('1', '1')"]["m"]
+        )
+        self.assertEqual(
+            p.coeff["1", "1"]["rmin"], x["coeff"]["values"]["('1', '1')"]["rmin"]
+        )
+        self.assertEqual(
+            p.coeff["1", "1"]["rmax"], x["coeff"]["values"]["('1', '1')"]["rmax"]
+        )
+        self.assertEqual(
+            p.coeff["1", "1"]["shift"], x["coeff"]["values"]["('1', '1')"]["shift"]
+        )
 
         temp.close()
 

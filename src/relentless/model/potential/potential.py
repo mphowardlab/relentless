@@ -51,6 +51,13 @@ class Parameters:
         for t in self.types:
             self._per_type[t] = collections.FixedKeyDict(keys=self.params)
 
+    @classmethod
+    def from_json(cls, data):
+        params = Parameters(data["types"], data["params"])
+        for key in params:
+            params[key].update(data["values"][str(key)])
+        return params
+
     def evaluate(self, key):
         """Evaluate parameters.
 
@@ -91,21 +98,21 @@ class Parameters:
 
         return params
 
-    def save(self, filename):
-        """Save the parameter to a JSON file.
+    def to_json(self):
+        """Export parameters to a JSON-compatible dictionary.
 
-        Parameters
-        ----------
-        filename : str
-            The name of the file to save.
+        Returns
+        -------
+        dict
+            Evaluated parameters.
 
         """
-        data = {}
-        for key in self:
-            data[str(key)] = self.evaluate(key)
-
-        with open(filename, "w") as f:
-            json.dump(data, f, sort_keys=True, indent=4)
+        data = {
+            "types": self.types,
+            "params": self.params,
+            "values": {str(key): self.evaluate(key) for key in self},
+        }
+        return data
 
     def __getitem__(self, key):
         return self._per_type[key]
@@ -149,10 +156,27 @@ class Potential(abc.ABC):
         Container for storing coefficients. By default, :class:`Parameters` is used.
         The constructor of the ``container`` must accept two arguments: ``keys``
         and ``params``.
+    name : str
+        Unique name of the potential. Defaults to ``__U[id]``, where ``id`` is the
+        unique integer ID of the potential.
 
     """
 
-    def __init__(self, keys, params, container=None):
+    count = 0
+    names = set()
+
+    def __init__(self, keys, params, container=None, name=None):
+        # set unique id and name
+        self.id = Potential.count
+        if name is None:
+            name = "__U[{}]".format(self.id)
+        if name in self.names:
+            raise ValueError("Potential name already used")
+        else:
+            self.names.add(name)
+            self.name = name
+        Potential.count += 1
+
         if container is None:
             container = Parameters
         self.coeff = container(keys, params)
@@ -251,8 +275,24 @@ class Potential(abc.ABC):
             raise TypeError("Potential coordinate must be 1D array.")
         return x, numpy.zeros_like(x), s
 
+    def to_json(self):
+        """Export potential to a JSON-compatible dictionary.
+
+        Returns
+        -------
+        dict
+            Potential.
+
+        """
+        data = {
+            "id": self.id,
+            "name": self.name,
+            "coeff": self.coeff.to_json(),
+        }
+        return data
+
     def save(self, filename):
-        """Save the coefficient matrix to file as JSON data.
+        """Save the potential to file as JSON data.
 
         Parameters
         ----------
@@ -260,4 +300,6 @@ class Potential(abc.ABC):
             The name of the file to which to save the data.
 
         """
-        self.coeff.save(filename)
+        data = self.to_json()
+        with open(filename, "w") as f:
+            json.dump(data, f, sort_keys=True, indent=4)

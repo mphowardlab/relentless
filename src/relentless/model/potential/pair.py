@@ -100,6 +100,13 @@ class PairParameters(potential.Parameters):
         for pair in self:
             self._per_pair[pair] = collections.FixedKeyDict(keys=self.params)
 
+    @classmethod
+    def from_json(cls, data):
+        params = PairParameters(data["types"], data["params"])
+        for key in params:
+            params[key].update(data["values"][str(key)])
+        return params
+
     def __getitem__(self, pair):
         """Get parameters for the (i,j) pair."""
         if isinstance(pair, str):
@@ -224,6 +231,11 @@ class PairPotential(potential.Potential):
             self.coeff[p]["rmin"] = False
             self.coeff[p]["rmax"] = False
             self.coeff[p]["shift"] = False
+
+    @classmethod
+    @abc.abstractmethod
+    def from_json(cls, data):
+        pass
 
     def energy(self, pair, r):
         """Evaluate pair energy.
@@ -579,6 +591,12 @@ class Depletion(PairPotential):
     def __init__(self, types):
         super().__init__(types=types, params=("P", "sigma_i", "sigma_j", "sigma_d"))
 
+    @classmethod
+    def from_json(cls, data):
+        u = Depletion(data["coeff"]["types"])
+        for key in u.coeff:
+            u.coeff[key].update(data["coeff"]["values"][str(key)])
+
     class Cutoff(variable.DependentVariable):
         r"""Physical cutoff for depletion potential.
 
@@ -789,6 +807,12 @@ class LennardJones(PairPotential):
     def __init__(self, types):
         super().__init__(types=types, params=("epsilon", "sigma"))
 
+    @classmethod
+    def from_json(cls, data):
+        u = LennardJones(data["coeff"]["types"])
+        for key in u.coeff:
+            u.coeff[key].update(data["coeff"]["values"][str(key)])
+
     def _energy(self, r, epsilon, sigma, **params):
         if sigma < 0:
             raise ValueError("sigma must be positive")
@@ -903,6 +927,18 @@ class PairSpline(PairPotential):
             params.append(ki)
         super().__init__(types=types, params=params)
 
+    @classmethod
+    def from_json(cls, data):
+        u = PairSpline(data["coeff"]["types"], data["num_knots"], data["mode"])
+        for key in u.coeff:
+            for param in u.coeff[key]:
+                data_value = data["coeff"]["values"][str(key)][param]
+                if isinstance(u.coeff[key][param], variable.IndependentVariable):
+                    u.coeff[key][param].value = data_value
+                else:
+                    u.coeff[key][param] = data_value
+        return u
+
     def from_array(self, pair, r, u):
         r"""Set up the potential from knot points.
 
@@ -954,6 +990,12 @@ class PairSpline(PairPotential):
                     self.coeff[pair][ki] = variable.IndependentVariable(ks[i])
             else:
                 self.coeff[pair][ki].value = ks[i]
+
+    def to_json(self):
+        data = super().to_json()
+        data["num_knots"] = self.num_knots
+        data["mode"] = self.mode
+        return data
 
     def _knot_params(self, i):
         r"""Get the parameter names for a given knot.
@@ -1136,6 +1178,12 @@ class Yukawa(PairPotential):
 
     def __init__(self, types):
         super().__init__(types=types, params=("epsilon", "kappa"))
+
+    @classmethod
+    def from_json(cls, data):
+        u = Yukawa(data["coeff"]["types"])
+        for key in u.coeff:
+            u.coeff[key].update(data["coeff"]["values"][str(key)])
 
     def _energy(self, r, epsilon, kappa, **params):
         if kappa < 0:
