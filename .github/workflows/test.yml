@@ -116,10 +116,10 @@ jobs:
           python -m unittest -v tests/simulate/test_lammps.py
       - name: Install mpi4py
         run: |
-          pip install --no-cache-dir mpi4py
+          env MPICC=/usr/bin/mpicc pip install --no-cache-dir mpi4py
       - name: Test MPI
         run: |
-          mpirun -n 2 --timeout 300 python -m unittest -v tests/simulate/test_lammps.py
+          /usr/bin/mpirun -n 2 --timeout 300 python -m unittest -v tests/simulate/test_lammps.py
 
   # final exit point for unit tests on PRs, which can be a required check
   test-exit:
