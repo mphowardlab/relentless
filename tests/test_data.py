@@ -189,6 +189,25 @@ class test_Directory(unittest.TestCase):
         self.assertTrue(os.path.isfile(os.path.join(baz, "spam.txt")))
         self.assertTrue(os.path.isdir(os.path.join(baz, "fizz")))
 
+        # create a copy of the file and directory currently in baz in foo
+        if relentless.mpi.world.rank_is_root:
+            open(dfoo.file("spam.txt"), "w").close()
+        dfoo.directory("fizz", create=relentless.mpi.world.rank_is_root)
+        relentless.mpi.world.barrier()
+        self.assertTrue(os.path.isfile(os.path.join(foo, "spam.txt")))
+        self.assertTrue(os.path.isdir(os.path.join(foo, "fizz")))
+        self.assertTrue(os.path.isfile(os.path.join(baz, "spam.txt")))
+        self.assertTrue(os.path.isdir(os.path.join(baz, "fizz")))
+
+        # move file and directory from foo to baz
+        if relentless.mpi.world.rank_is_root:
+            dfoo.move_contents(baz, overwrite=True)
+        relentless.mpi.world.barrier()
+        self.assertFalse(os.path.isfile(os.path.join(foo, "spam.txt")))
+        self.assertFalse(os.path.isdir(os.path.join(foo, "fizz")))
+        self.assertTrue(os.path.isfile(os.path.join(baz, "spam.txt")))
+        self.assertTrue(os.path.isdir(os.path.join(baz, "fizz")))
+
     def test_copy_contents(self):
         foo = os.path.join(self.f, "foo")
         bar = os.path.join(self.f, "bar")

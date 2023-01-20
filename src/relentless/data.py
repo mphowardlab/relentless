@@ -198,18 +198,27 @@ class Directory:
             elif entry.is_dir():
                 shutil.rmtree(entry.path)
 
-    def move_contents(self, dest):
+    def move_contents(self, dest, overwrite=True):
         """Move the contents of the directory.
 
         Parameters
         ----------
         dest : :class:`Directory` or :class:`str`
             Destination directory.
+        overwrite : bool
+            Clear destination directory before moving contents.
 
         """
         dest = Directory.cast(dest, create=True)
-        for entry in os.scandir(self.path):
-            shutil.move(entry.path, dest.path)
+        if overwrite is True:
+            dest.clear_contents()
+        try:
+            for entry in os.scandir(self.path):
+                shutil.move(entry.path, dest.path)
+        except Exception:
+            raise FileExistsError(
+                "File and/or directory already exists and overwrite is False"
+            )
 
     def copy_contents(self, dest):
         """Copy the contents of the directory.
