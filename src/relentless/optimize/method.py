@@ -316,7 +316,8 @@ class SteepestDescent(Optimizer):
 
         If specified, a :class:`LineSearch` is performed to choose an optimal step size.
 
-        If ``directory`` is specified, output will be saved into a directory
+        If ``directory`` is specified, it will be cleared before the optimization
+        begins. The output will be saved into a directory
         created for each iteration of the optimization, e.g., ``directory/0``.
         To advance to the next iteration of the optimization (e.g., from iteration
         0 to iteration 1), a directory ``directory/0/.next`` is created at
@@ -351,6 +352,7 @@ class SteepestDescent(Optimizer):
 
         if directory is not None:
             directory = data.Directory.cast(directory, create=mpi.world.rank_is_root)
+            directory.clear_contents()
             mpi.world.barrier()
 
         # fix scaling parameters
