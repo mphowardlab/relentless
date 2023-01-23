@@ -9,7 +9,7 @@ from . import simulate
 
 
 # initializers
-class InitializeFromFile(simulate.GenericOperation):
+class InitializeFromFile(simulate.DelegatedSimulationOperation):
     """Initialize a simulation from a file.
 
     Description.
@@ -22,10 +22,13 @@ class InitializeFromFile(simulate.GenericOperation):
     """
 
     def __init__(self, filename):
-        super().__init__(filename)
+        self.filename = filename
+
+    def _make_delegate(self, sim):
+        return self._get_delegate(sim, filename=self.filename)
 
 
-class InitializeRandomly(simulate.GenericOperation):
+class InitializeRandomly(simulate.DelegatedSimulationOperation):
     """Initialize a randomly generated simulation box.
 
     If ``diameters`` is ``None``, the particles are randomly placed in the box.
@@ -64,23 +67,32 @@ class InitializeRandomly(simulate.GenericOperation):
     """
 
     def __init__(self, seed, N, V, T=None, masses=None, diameters=None):
-        super().__init__(seed, N, V, T, masses, diameters)
+        self.seed = seed
+        self.N = N
+        self.V = V
+        self.T = T
+        self.masses = masses
+        self.diameters = diameters
+
+    def _make_delegate(self, sim):
+        return self._get_delegate(
+            sim,
+            seed=self.seed,
+            N=self.N,
+            V=self.V,
+            T=self.T,
+            masses=self.masses,
+            diameters=self.diameters,
+        )
 
     @staticmethod
     def _make_orthorhombic(V):
         # get the orthorhombic bounding box
+        box_array = V.as_array()
         if isinstance(V, extent.TriclinicBox):
-            Lx, Ly, Lz, xy, xz, yz = V.as_array("HOOMD")
-            aabb = numpy.array(
-                [
-                    Lx / numpy.sqrt(1.0 + xy**2 + (xy * yz - xz) ** 2),
-                    Ly / numpy.sqrt(1.0 + yz**2),
-                    Lz,
-                ]
-            )
+            aabb = box_array[:3]
         elif isinstance(V, extent.ObliqueArea):
-            Lx, Ly, xy = V.as_array("HOOMD")
-            aabb = numpy.array([Lx / numpy.sqrt(1.0 + xy**2), Ly])
+            aabb = box_array[:2]
         else:
             raise TypeError(
                 "Random initialization currently only supported in"

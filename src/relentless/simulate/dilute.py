@@ -59,7 +59,13 @@ class InitializeRandomly(simulate.SimulationOperation):
         self.T = T
 
     def __call__(self, sim):
-        sim[self].ensemble = ensemble.Ensemble(T=self.T, N=self.N, V=self.V)
+        ens = ensemble.Ensemble(T=self.T, N=self.N, V=self.V)
+        sim[self]["_ensemble"] = ens
+        if isinstance(ens.V, extent.Volume):
+            sim.dimension = 3
+        elif isinstance(ens.V, extent.Area):
+            sim.dimension = 2
+        sim.types = ens.types
 
 
 class RunBrownianDynamics(_MDIntegrator):
@@ -69,12 +75,12 @@ class RunBrownianDynamics(_MDIntegrator):
 
     def __call__(self, sim):
         for analyzer in self.analyzers:
-            analyzer(sim)
+            analyzer.pre_run(sim, self)
 
-        sim[sim.initializer].ensemble.T = self.T
+        sim[sim.initializer]["_ensemble"].T = self.T
 
         for analyzer in self.analyzers:
-            analyzer.finalize(sim)
+            analyzer.post_run(sim, self)
 
 
 class RunLangevinDynamics(_MDIntegrator):
@@ -84,12 +90,12 @@ class RunLangevinDynamics(_MDIntegrator):
 
     def __call__(self, sim):
         for analyzer in self.analyzers:
-            analyzer(sim)
+            analyzer.pre_run(sim, self)
 
-        sim[sim.initializer].ensemble.T = self.T
+        sim[sim.initializer]["_ensemble"].T = self.T
 
         for analyzer in self.analyzers:
-            analyzer.finalize(sim)
+            analyzer.post_run(sim, self)
 
 
 class RunMolecularDynamics(_MDIntegrator):
@@ -103,13 +109,13 @@ class RunMolecularDynamics(_MDIntegrator):
             raise ValueError("Dilute does not support constant pressure")
 
         for analyzer in self.analyzers:
-            analyzer(sim)
+            analyzer.pre_run(sim, self)
 
         if self.thermostat is not None:
-            sim[sim.initializer].ensemble.T = self.thermostat.T
+            sim[sim.initializer]["_ensemble"].T = self.thermostat.T
 
         for analyzer in self.analyzers:
-            analyzer.finalize(sim)
+            analyzer.post_run(sim, self)
 
 
 class EnsembleAverage(simulate.AnalysisOperation):
@@ -144,11 +150,14 @@ class EnsembleAverage(simulate.AnalysisOperation):
     def __init__(self, check_thermo_every, check_rdf_every, rdf_dr):
         pass
 
-    def __call__(self, sim):
+    def pre_run(self, sim, sim_op):
         pass
 
-    def finalize(self, sim):
-        ens = sim[sim.initializer].ensemble.copy()
+    def post_run(self, sim, sim_op):
+        pass
+
+    def process(self, sim, sim_op):
+        ens = sim[sim.initializer]["_ensemble"].copy()
         kT = sim.potentials.kB * ens.T
         # pair distribution function
         for pair in ens.pairs:
@@ -188,7 +197,9 @@ class EnsembleAverage(simulate.AnalysisOperation):
                 y = (geo_prefactor / 6.0) * rho_a * rho_b * f * gr * r
                 ens.P += numpy.trapz(y, x=r)
 
-        sim[self].ensemble = ens
+        sim[self]["ensemble"] = ens
+        sim[self]["num_thermo_samples"] = None
+        sim[self]["num_rdf_samples"] = None
 
 
 class Dilute(simulate.Simulation):
@@ -214,29 +225,15 @@ class Dilute(simulate.Simulation):
 
     """
 
-    def _new_instance(self, initializer, potentials, directory):
-        sim = super()._new_instance(initializer, potentials, directory)
-
-        # initialize
-        initializer(sim)
-        ens = sim[initializer].ensemble
-        if isinstance(ens.V, extent.Volume):
-            sim.dimension = 3
-        elif isinstance(ens.V, extent.Area):
-            sim.dimension = 2
-        sim.types = ens.types
-
-        return sim
-
     # initialize
     # InitializeFromFile = simulate.NotImplementedOperation
-    InitializeRandomly = InitializeRandomly
+    _InitializeRandomly = InitializeRandomly
 
     # md
-    MinimizeEnergy = NullOperation
-    RunBrownianDynamics = RunBrownianDynamics
-    RunLangevinDynamics = RunLangevinDynamics
-    RunMolecularDynamics = RunMolecularDynamics
+    _MinimizeEnergy = NullOperation
+    _RunBrownianDynamics = RunBrownianDynamics
+    _RunLangevinDynamics = RunLangevinDynamics
+    _RunMolecularDynamics = RunMolecularDynamics
 
     # analyze
-    EnsembleAverage = EnsembleAverage
+    _EnsembleAverage = EnsembleAverage

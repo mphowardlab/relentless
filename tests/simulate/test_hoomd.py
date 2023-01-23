@@ -2,27 +2,19 @@
 import tempfile
 import unittest
 
-from parameterized import parameterized_class
-
-try:
-    import gsd.hoomd
-
-    _found_gsd = True
-except ImportError:
-    _found_gsd = False
+import gsd.hoomd
 import numpy
+from parameterized import parameterized_class
 
 import relentless
 from tests.model.potential.test_pair import LinPot
 
 _has_modules = (
-    relentless.simulate.hoomd._hoomd_found
-    and relentless.simulate.hoomd._freud_found
-    and _found_gsd
+    relentless.simulate.hoomd._hoomd_found and relentless.simulate.hoomd._freud_found
 )
 
 
-@unittest.skipIf(not _has_modules, "HOOMD, freud, and/or GSD not installed")
+@unittest.skipIf(not _has_modules, "HOOMD dependencies not installed")
 @parameterized_class(
     [{"dim": 2}, {"dim": 3}],
     class_name_func=lambda cls, num, params_dict: "{}_{}d".format(
@@ -39,7 +31,10 @@ class test_HOOMD(unittest.TestCase):
         else:
             directory = None
         directory = relentless.mpi.world.bcast(directory)
-        self.directory = relentless.data.Directory(directory)
+        self.directory = relentless.data.Directory(
+            directory, create=relentless.mpi.world.rank_is_root
+        )
+        relentless.mpi.world.barrier()
 
     # mock (NVT) ensemble and potential for testing
     def ens_pot(self):
@@ -239,7 +234,7 @@ class test_HOOMD(unittest.TestCase):
         sim = h.run(pot, self.directory)
 
         # extract ensemble
-        ens_ = sim[analyzer].ensemble
+        ens_ = sim[analyzer]["ensemble"]
         self.assertIsNotNone(ens_.T)
         self.assertNotEqual(ens_.T, 0)
         self.assertIsNotNone(ens_.P)
@@ -248,8 +243,31 @@ class test_HOOMD(unittest.TestCase):
         self.assertNotEqual(ens_.V.extent, 0)
         for i, j in ens_.rdf:
             self.assertEqual(ens_.rdf[i, j].table.shape, (len(pot.pair.x) - 1, 2))
-        self.assertEqual(sim[analyzer].num_thermo_samples, 100)
-        self.assertEqual(sim[analyzer].num_rdf_samples, 50)
+        self.assertEqual(sim[analyzer]["num_thermo_samples"], 100)
+        self.assertEqual(sim[analyzer]["num_rdf_samples"], 50)
+
+    def test_writetrajectory(self):
+        """Test write trajectory simulation operation."""
+        ens, pot = self.ens_pot()
+        init = relentless.simulate.InitializeRandomly(
+            seed=1, N=ens.N, V=ens.V, T=ens.T, diameters={"A": 1, "B": 1}
+        )
+        analyzer = relentless.simulate.WriteTrajectory(
+            filename="test_writetrajectory.gsd", every=100, velocities=True
+        )
+        lgv = relentless.simulate.RunLangevinDynamics(
+            steps=500, timestep=0.001, T=ens.T, friction=1.0, seed=1, analyzers=analyzer
+        )
+        h = relentless.simulate.HOOMD(init, lgv)
+        sim = h.run(pot, self.directory)
+
+        # read trajectory file
+        file = sim.directory.file("test_writetrajectory.gsd")
+        with gsd.hoomd.open(file) as traj:
+            for snap in traj:
+                self.assertEqual(snap.particles.N, 5)
+                self.assertIsNotNone(snap.particles.velocity)
+                self.assertCountEqual(snap.particles.typeid, [0, 0, 1, 1, 1])
 
     def test_self_interactions(self):
         """Test if self-interactions are excluded from rdf computation."""
@@ -291,11 +309,12 @@ class test_HOOMD(unittest.TestCase):
         h = relentless.simulate.HOOMD(init, ig)
         sim = h.run(pot, self.directory)
 
-        ens_ = sim[analyzer].ensemble
+        ens_ = sim[analyzer]["ensemble"]
         for i, j in ens_.rdf:
             self.assertEqual(ens_.rdf[i, j].table[0, 1], 0.0)
 
     def tearDown(self):
+        relentless.mpi.world.barrier()
         if relentless.mpi.world.rank_is_root:
             self._tmp.cleanup()
             del self._tmp

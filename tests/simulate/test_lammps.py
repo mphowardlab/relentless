@@ -6,10 +6,6 @@ from parameterized import parameterized_class
 
 try:
     import lammps
-except ImportError:
-    pass
-
-try:
     import lammpsio
 except ImportError:
     pass
@@ -23,7 +19,7 @@ _has_modules = (
 )
 
 
-@unittest.skipIf(not _has_modules, "Compatible LAMMPS and/or lammpsio not installed")
+@unittest.skipIf(not _has_modules, "LAMMPS dependencies not installed")
 @parameterized_class(
     [{"dim": 2}, {"dim": 3}],
     class_name_func=lambda cls, num, params_dict: "{}_{}d".format(
@@ -40,7 +36,10 @@ class test_LAMMPS(unittest.TestCase):
         else:
             directory = None
         directory = relentless.mpi.world.bcast(directory)
-        self.directory = relentless.data.Directory(directory)
+        self.directory = relentless.data.Directory(
+            directory, create=relentless.mpi.world.rank_is_root
+        )
+        relentless.mpi.world.barrier()
 
     # mock (NVT) ensemble and potential for testing
     def ens_pot(self):
@@ -90,18 +89,19 @@ class test_LAMMPS(unittest.TestCase):
         ens, pot = self.ens_pot()
         file_ = self.create_file()
         op = relentless.simulate.InitializeFromFile(filename=file_)
-        op.lammps_types = {"1": 1, "2": 2}
-        lmp = relentless.simulate.LAMMPS(op, dimension=self.dim)
+        lmp = relentless.simulate.LAMMPS(
+            op, dimension=self.dim, lammps_types={"1": 1, "2": 2}
+        )
         sim = lmp.run(potentials=pot, directory=self.directory)
-        self.assertIsInstance(sim.lammps, lammps.lammps)
-        self.assertEqual(sim.lammps.get_natoms(), 5)
+        self.assertIsInstance(sim[sim.initializer]["_lammps"], lammps.lammps)
+        self.assertEqual(sim[sim.initializer]["_lammps"].get_natoms(), 5)
 
         # InitializeRandomly
         op = relentless.simulate.InitializeRandomly(seed=1, N=ens.N, V=ens.V, T=ens.T)
         lmp = relentless.simulate.LAMMPS(op, dimension=self.dim)
         sim = lmp.run(potentials=pot, directory=self.directory)
-        self.assertIsInstance(sim.lammps, lammps.lammps)
-        self.assertEqual(sim.lammps.get_natoms(), 5)
+        self.assertIsInstance(sim[sim.initializer]["_lammps"], lammps.lammps)
+        self.assertEqual(sim[sim.initializer]["_lammps"].get_natoms(), 5)
 
     def test_random_initialize_options(self):
         # no T
@@ -135,7 +135,6 @@ class test_LAMMPS(unittest.TestCase):
         ens, pot = self.ens_pot()
         file_ = self.create_file()
         init = relentless.simulate.InitializeFromFile(filename=file_)
-        init.lammps_types = {"1": 1, "2": 2}
 
         # MinimizeEnergy
         emin = relentless.simulate.MinimizeEnergy(
@@ -144,7 +143,9 @@ class test_LAMMPS(unittest.TestCase):
             max_iterations=1000,
             options={"max_evaluations": 10000},
         )
-        lmp = relentless.simulate.LAMMPS(init, operations=[emin], dimension=self.dim)
+        lmp = relentless.simulate.LAMMPS(
+            init, operations=[emin], dimension=self.dim, lammps_types={"1": 1, "2": 2}
+        )
         lmp.run(potentials=pot, directory=self.directory)
         self.assertEqual(emin.options["max_evaluations"], 10000)
 
@@ -152,7 +153,9 @@ class test_LAMMPS(unittest.TestCase):
         emin = relentless.simulate.MinimizeEnergy(
             energy_tolerance=1e-7, force_tolerance=1e-7, max_iterations=1000, options={}
         )
-        lmp = relentless.simulate.LAMMPS(init, operations=[emin], dimension=self.dim)
+        lmp = relentless.simulate.LAMMPS(
+            init, operations=[emin], dimension=self.dim, lammps_types={"1": 1, "2": 2}
+        )
         lmp.run(potentials=pot, directory=self.directory)
         self.assertEqual(emin.options["max_evaluations"], 100 * emin.max_iterations)
 
@@ -257,7 +260,7 @@ class test_LAMMPS(unittest.TestCase):
         sim = h.run(potentials=pot, directory=self.directory)
 
         # extract ensemble
-        ens_ = sim[analyzer].ensemble
+        ens_ = sim[analyzer]["ensemble"]
         self.assertIsNotNone(ens_.T)
         self.assertNotEqual(ens_.T, 0)
         self.assertIsNotNone(ens_.P)
@@ -270,7 +273,7 @@ class test_LAMMPS(unittest.TestCase):
 
         # extract ensemble from second analyzer, answers should be slightly different
         # for any quantities that fluctuate
-        ens2_ = sim[analyzer2].ensemble
+        ens2_ = sim[analyzer2]["ensemble"]
         self.assertIsNotNone(ens2_.T)
         self.assertNotEqual(ens2_.T, 0)
         self.assertNotEqual(ens2_.T, ens_.T)
@@ -283,7 +286,43 @@ class test_LAMMPS(unittest.TestCase):
         for i, j in ens2_.rdf:
             self.assertEqual(ens2_.rdf[i, j].table.shape, (4, 2))
 
+    def test_writetrajectory(self):
+        """Test write trajectory simulation operation."""
+        ens, pot = self.ens_pot()
+        init = relentless.simulate.InitializeRandomly(
+            seed=1, N=ens.N, V=ens.V, T=ens.T, diameters={"1": 1, "2": 1}
+        )
+        analyzer = relentless.simulate.WriteTrajectory(
+            filename="test_writetrajectory.lammpstrj",
+            every=100,
+            velocities=True,
+            images=True,
+            types=True,
+            masses=True,
+        )
+        lgv = relentless.simulate.RunLangevinDynamics(
+            steps=500,
+            timestep=0.001,
+            T=ens.T,
+            friction=1.0,
+            seed=1,
+            analyzers=[analyzer],
+        )
+        h = relentless.simulate.LAMMPS(init, operations=lgv, dimension=self.dim)
+        sim = h.run(potentials=pot, directory=self.directory)
+
+        # read trajectory file
+        file = sim.directory.file("test_writetrajectory.lammpstrj")
+        traj = lammpsio.DumpFile(file)
+        for snap in traj:
+            self.assertEqual(snap.N, 5)
+            self.assertIsNotNone(snap.velocity)
+            self.assertIsNotNone(snap.image)
+            self.assertCountEqual(snap.typeid, [1, 1, 2, 2, 2])
+            self.assertCountEqual(snap.mass, [1, 1, 1, 1, 1])
+
     def tearDown(self):
+        relentless.mpi.world.barrier()
         if relentless.mpi.world.rank_is_root:
             self._tmp.cleanup()
             del self._tmp

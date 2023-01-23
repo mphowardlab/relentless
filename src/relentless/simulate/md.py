@@ -1,7 +1,7 @@
 from . import simulate
 
 
-class MinimizeEnergy(simulate.GenericOperation):
+class MinimizeEnergy(simulate.DelegatedSimulationOperation):
     """Perform energy minimization on a configuration.
 
     Description.
@@ -20,10 +20,58 @@ class MinimizeEnergy(simulate.GenericOperation):
     """
 
     def __init__(self, energy_tolerance, force_tolerance, max_iterations, options=None):
-        super().__init__(energy_tolerance, force_tolerance, max_iterations, options)
+        self.energy_tolerance = energy_tolerance
+        self.force_tolerance = force_tolerance
+        self.max_iterations = max_iterations
+        self.options = options
+
+    def _make_delegate(self, sim):
+        return self._get_delegate(
+            sim,
+            energy_tolerance=self.energy_tolerance,
+            force_tolerance=self.force_tolerance,
+            max_iterations=self.max_iterations,
+            options=self.options,
+        )
 
 
-class RunBrownianDynamics(simulate.GenericOperation):
+class _Integrator(simulate.DelegatedSimulationOperation):
+    """Base molecular dynamics integrator.
+
+    Parameters
+    ----------
+    steps : int
+        Number of simulation time steps.
+    timestep : float
+        Simulation time step.
+    analyzers : :class:`~relentless.simulate.AnalysisOperation` or list
+        Analysis operations to perform with run (defaults to ``None``).
+
+    """
+
+    def __init__(self, steps, timestep, analyzers):
+        self.steps = steps
+        self.timestep = timestep
+        self.analyzers = analyzers
+
+    @property
+    def analyzers(self):
+        return self._analyzers
+
+    @analyzers.setter
+    def analyzers(self, ops):
+        if ops is not None:
+            try:
+                ops_ = list(ops)
+            except TypeError:
+                ops_ = [ops]
+        else:
+            ops_ = []
+
+        self._analyzers = ops_
+
+
+class RunBrownianDynamics(_Integrator):
     """Perform a Brownian dynamics simulation.
 
     Description.
@@ -46,10 +94,24 @@ class RunBrownianDynamics(simulate.GenericOperation):
     """
 
     def __init__(self, steps, timestep, T, friction, seed, analyzers=None):
-        super().__init__(steps, timestep, T, friction, seed, analyzers)
+        super().__init__(steps, timestep, analyzers)
+        self.T = T
+        self.friction = friction
+        self.seed = seed
+
+    def _make_delegate(self, sim):
+        return self._get_delegate(
+            sim,
+            steps=self.steps,
+            timestep=self.timestep,
+            T=self.T,
+            friction=self.friction,
+            seed=self.seed,
+            analyzers=self.analyzers,
+        )
 
 
-class RunLangevinDynamics(simulate.GenericOperation):
+class RunLangevinDynamics(_Integrator):
     """Perform a Langevin dynamics simulation.
 
     Description.
@@ -72,10 +134,24 @@ class RunLangevinDynamics(simulate.GenericOperation):
     """
 
     def __init__(self, steps, timestep, T, friction, seed, analyzers=None):
-        super().__init__(steps, timestep, T, friction, seed, analyzers)
+        super().__init__(steps, timestep, analyzers)
+        self.T = T
+        self.friction = friction
+        self.seed = seed
+
+    def _make_delegate(self, sim):
+        return self._get_delegate(
+            sim,
+            steps=self.steps,
+            timestep=self.timestep,
+            T=self.T,
+            friction=self.friction,
+            seed=self.seed,
+            analyzers=self.analyzers,
+        )
 
 
-class RunMolecularDynamics(simulate.GenericOperation):
+class RunMolecularDynamics(_Integrator):
     """Perform a molecular dynamics simulation.
 
     The Verlet-style integrator is used to implement classical molecular
@@ -102,7 +178,19 @@ class RunMolecularDynamics(simulate.GenericOperation):
     """
 
     def __init__(self, steps, timestep, thermostat=None, barostat=None, analyzers=None):
-        super().__init__(steps, timestep, thermostat, barostat, analyzers)
+        super().__init__(steps, timestep, analyzers)
+        self.thermostat = thermostat
+        self.barostat = barostat
+
+    def _make_delegate(self, sim):
+        return self._get_delegate(
+            sim,
+            steps=self.steps,
+            timestep=self.timestep,
+            thermostat=self.thermostat,
+            barostat=self.barostat,
+            analyzers=self.analyzers,
+        )
 
 
 class Thermostat:

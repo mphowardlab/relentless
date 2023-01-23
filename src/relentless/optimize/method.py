@@ -2,7 +2,7 @@ import abc
 
 import numpy
 
-from relentless import data, math
+from relentless import data, math, mpi
 from relentless.model import variable
 
 from .criteria import ConvergenceTest, Tolerance
@@ -136,7 +136,8 @@ class LineSearch:
 
         """
         if directory is not None:
-            directory = data.Directory.cast(directory)
+            directory = data.Directory.cast(directory, create=mpi.world.rank_is_root)
+            mpi.world.barrier()
         ovars = {x: x.value for x in start.variables}
 
         # compute search direction
@@ -171,11 +172,13 @@ class LineSearch:
                 # adjust variables based on new step size, compute new target
                 for x in start.variables:
                     x.value = start.variables[x] + new_step * d[x]
-                new_dir = (
-                    directory.directory(str(iter_num))
-                    if directory is not None
-                    else None
-                )
+                if directory is not None:
+                    new_dir = directory.directory(
+                        str(iter_num), create=mpi.world.rank_is_root
+                    )
+                    mpi.world.barrier()
+                else:
+                    new_dir = None
                 new_res = objective.compute(start.variables, new_dir)
                 new_target = -d.dot(new_res.gradient)
 
@@ -347,7 +350,8 @@ class SteepestDescent(Optimizer):
             return None
 
         if directory is not None:
-            directory = data.Directory.cast(directory)
+            directory = data.Directory.cast(directory, create=mpi.world.rank_is_root)
+            mpi.world.barrier()
 
         # fix scaling parameters
         scale = math.KeyedArray(keys=design_variables)
@@ -361,7 +365,11 @@ class SteepestDescent(Optimizer):
                     scale[x] = 1.0
 
         iter_num = 0
-        cur_dir = directory.directory(str(iter_num)) if directory is not None else None
+        if directory is not None:
+            cur_dir = directory.directory(str(iter_num), create=mpi.world.rank_is_root)
+            mpi.world.barrier()
+        else:
+            cur_dir = None
         cur_res = objective.compute(design_variables, cur_dir)
         while not self.stop.converged(cur_res) and iter_num < self.max_iter:
             grad_y = scale * cur_res.gradient
@@ -370,12 +378,20 @@ class SteepestDescent(Optimizer):
             # steepest descent update
             for x in design_variables:
                 x.value = cur_res.variables[x] - update[x]
-            next_dir = cur_dir.directory(".next") if cur_dir is not None else None
+            if cur_dir is not None:
+                next_dir = cur_dir.directory(".next", create=mpi.world.rank_is_root)
+                mpi.world.barrier()
+            else:
+                next_dir = None
             next_res = objective.compute(design_variables, next_dir)
 
             # if line search, attempt backtracking in interval
             if self.line_search is not None:
-                line_dir = cur_dir.directory(".line") if cur_dir is not None else None
+                if cur_dir is not None:
+                    line_dir = cur_dir.directory(".line", create=mpi.world.rank_is_root)
+                    mpi.world.barrier()
+                else:
+                    line_dir = None
                 line_res = self.line_search.find(
                     objective=objective, start=cur_res, end=next_res, directory=line_dir
                 )
@@ -386,13 +402,18 @@ class SteepestDescent(Optimizer):
                     next_res = line_res
 
             # move the contents of the "next" result to the new "current" result
-            cur_dir = (
-                directory.directory(str(iter_num + 1))
-                if directory is not None
-                else None
-            )
+            if directory is not None:
+                cur_dir = directory.directory(
+                    str(iter_num + 1), create=mpi.world.rank_is_root
+                )
+                mpi.world.barrier()
+            else:
+                cur_dir = None
             if next_res.directory is not None:
-                next_res.directory.move_contents(cur_dir)
+                mpi.world.barrier()
+                if mpi.world.rank_is_root:
+                    next_res.directory.move_contents(cur_dir)
+                mpi.world.barrier()
 
             # recycle next result, updating directory to new location
             cur_res = next_res
