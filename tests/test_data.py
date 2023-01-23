@@ -201,7 +201,7 @@ class test_Directory(unittest.TestCase):
 
         # move file and directory from foo to baz
         if relentless.mpi.world.rank_is_root:
-            dfoo.move_contents(baz, overwrite=True)
+            dfoo.move_contents(baz)
         relentless.mpi.world.barrier()
         self.assertFalse(os.path.isfile(os.path.join(foo, "spam.txt")))
         self.assertFalse(os.path.isdir(os.path.join(foo, "fizz")))

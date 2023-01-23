@@ -1,4 +1,5 @@
 import abc
+import os
 
 import numpy
 
@@ -311,17 +312,17 @@ class SteepestDescent(Optimizer):
             k[i] = self.step_size
         return k
 
-    def optimize(self, objective, design_variables, directory=None):
+    def optimize(self, objective, design_variables, directory=None, overwrite=False):
         r"""Perform the steepest descent optimization for the given objective function.
 
         If specified, a :class:`LineSearch` is performed to choose an optimal step size.
 
-        If ``directory`` is specified, it will be cleared before the optimization
-        begins. The output will be saved into a directory
-        created for each iteration of the optimization, e.g., ``directory/0``.
-        To advance to the next iteration of the optimization (e.g., from iteration
-        0 to iteration 1), a directory ``directory/0/.next`` is created at
-        iteration 0 to hold the proposed result at iteration 1. If
+        If ``directory`` is specified and ``overwrite`` is ``True``, ``directory``
+        will be cleared before the optimization begins. The output will be saved
+        into a directory created for each iteration of the optimization, e.g.,
+        ``directory/0``. To advance to the next iteration of the optimization
+        (e.g., from iteration 0 to iteration 1), a directory ``directory/0/.next``
+        is created at iteration 0 to hold the proposed result at iteration 1. If
         :attr:`line_search` is `None`, its contents are immediately moved to
         ``directory/1`` (leaving ``directory/0/.next``) empty. If :attr:`line_search`
         is not `None`, ``directory/0/.line`` will be created for :meth:`LineSearch.find`
@@ -336,12 +337,19 @@ class SteepestDescent(Optimizer):
         directory : str or :class:`~relentless.data.Directory`
             Directory for writing output during optimization. Default of `None`
             requests no output is written.
+        overwrite : bool
+            Overwrites the directory, if specified, before begining optimization.
 
         Returns
         -------
         bool or None
             ``True`` if converged, ``False`` if not converged, ``None`` if no
             design variables are specified for the objective function.
+
+        Raises
+        ------
+        OSError
+            If ``directory`` is not empty and overwrite is ``False``.
 
         """
         design_variables = variable.graph.check_variables_and_types(
@@ -352,7 +360,15 @@ class SteepestDescent(Optimizer):
 
         if directory is not None:
             directory = data.Directory.cast(directory, create=mpi.world.rank_is_root)
-            directory.clear_contents()
+            if len(os.listdir(directory.path)) != 0:
+                if overwrite is True:
+                    directory.clear_contents()
+                else:
+                    raise OSError(
+                        "Directory {} is not empty and overwrite is not True".format(
+                            directory.path
+                        )
+                    )
             mpi.world.barrier()
 
         # fix scaling parameters
