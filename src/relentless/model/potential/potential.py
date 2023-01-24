@@ -158,7 +158,7 @@ class Potential(abc.ABC):
         The constructor of the ``container`` must accept two arguments: ``keys``
         and ``params``.
     name : str
-        Unique name of the potential. Defaults to ``__U[id]``, where ``id`` is the
+        Unique name of the potential. Defaults to ``__u[id]``, where ``id`` is the
         unique integer ID of the potential.
 
     """
@@ -184,10 +184,9 @@ class Potential(abc.ABC):
 
     @classmethod
     def from_json(cls, data):
-        """Create from JSON file.
+        """Create potential from JSON data.
 
-        The coefficients of the pair potential are initialized from the ``data``.
-        The ``name`` of the
+        It is assumed that the data is compatible with the pair potential.
 
         Parameters
         ----------
@@ -346,6 +345,9 @@ class Potential(abc.ABC):
 
     def to_json(self):
         """Export potential to a JSON-compatible dictionary.
+
+        The JSON dictionary will contain the ``id`` and ``name`` of the potential,
+        along with the JSON representation of its coefficients.
 
         Returns
         -------

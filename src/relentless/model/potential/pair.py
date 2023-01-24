@@ -200,6 +200,9 @@ class PairPotential(potential.Potential):
         Types.
     params : tuple[str]
         Required parameters.
+    name : str
+        Unique name of the potential. Defaults to ``__u[id]``, where ``id`` is the
+        unique integer ID of the potential.
 
     Attributes
     ----------
@@ -558,6 +561,9 @@ class Depletion(PairPotential):
     ----------
     types : tuple[str]
         Types.
+    name : str
+        Unique name of the potential. Defaults to ``__u[id]``, where ``id`` is the
+        unique integer ID of the potential.
 
     Attributes
     ----------
@@ -769,6 +775,9 @@ class LennardJones(PairPotential):
     ----------
     types : tuple[str]
         Types.
+    name : str
+        Unique name of the potential. Defaults to ``__u[id]``, where ``id`` is the
+        unique integer ID of the potential.
 
     Attributes
     ----------
@@ -862,6 +871,9 @@ class PairSpline(PairPotential):
         ``mode='diff'``, the amplitude of the *last* knot is stored directly,
         and differences between neighboring knots are stored for all other knots.
         Defaults to ``'diff'``.
+    name : str
+        Unique name of the potential. Defaults to ``__u[id]``, where ``id`` is the
+        unique integer ID of the potential.
 
     Raises
     ------
@@ -988,6 +1000,23 @@ class PairSpline(PairPotential):
         return "r-{}".format(i), "knot-{}".format(i)
 
     def _set_knot(self, pair, i, r, k):
+        """Set the value of knot variables.
+
+        The meaning of the value of the knot variable is defined by the ``mode``.
+        This method is mostly meant to coerce the knot variable types.
+
+        Parameters
+        ----------
+        pair : tuple[str]
+            The type pair ``(i,j)`` for which to set up the potential.
+        i : int
+            Index of the knot.
+        r : float
+            Position of each knot.
+        u : float
+            Value of the knot variable.
+
+        """
         ri, ki = self.knot_params(i)
         if isinstance(self.coeff[pair][ri], variable.IndependentVariable):
             self.coeff[pair][ri].value = r
@@ -1138,6 +1167,9 @@ class Yukawa(PairPotential):
     ----------
     types : tuple[str]
         Types.
+    name : str
+        Unique name of the potential. Defaults to ``__u[id]``, where ``id`` is the
+        unique integer ID of the potential.
 
     Attributes
     ----------
