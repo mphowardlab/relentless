@@ -1,5 +1,4 @@
 """Unit tests for pair module."""
-import json
 import tempfile
 import unittest
 
@@ -130,9 +129,10 @@ class LinPot(relentless.model.potential.PairPotential):
     def __init__(self, types, params):
         super().__init__(types, params)
 
-    @classmethod
-    def from_json(cls, data):
-        pass
+    def to_json(self):
+        data = super().to_json()
+        data["params"] = self.coeff.params
+        return data
 
     def _energy(self, r, m, **params):
         r, u, s = self._zeros(r)
@@ -165,7 +165,7 @@ class TwoVarPot(relentless.model.potential.PairPotential):
 
     @classmethod
     def from_json(cls, data):
-        pass
+        raise NotImplementedError()
 
     def _energy(self, r, x, y, **params):
         pass
@@ -472,6 +472,24 @@ class test_PairPotential(unittest.TestCase):
             {"m": 2.0, "rmin": 0.0, "rmax": 1.0, "shift": False},
         )
 
+    def test_json(self):
+        """Test saving to file"""
+        p = LinPot(types=("1",), params=("m", "rmin", "rmax"))
+        p.coeff["1", "1"]["m"] = 2.0
+        p.coeff["1", "1"]["rmin"] = 0.0
+        p.coeff["1", "1"]["rmax"] = 1.0
+        p.coeff["1", "1"]["shift"] = True
+
+        data = p.to_json()
+        self.assertEqual(data["id"], p.id)
+        self.assertEqual(data["name"], p.name)
+
+        p2 = LinPot.from_json(data)
+        self.assertEqual(p2.coeff["1", "1"]["m"], 2.0)
+        self.assertEqual(p2.coeff["1", "1"]["rmin"], 0.0)
+        self.assertEqual(p2.coeff["1", "1"]["rmax"], 1.0)
+        self.assertTrue(p2.coeff["1", "1"]["shift"])
+
     def test_save(self):
         """Test saving to file"""
         temp = tempfile.NamedTemporaryFile()
@@ -480,23 +498,13 @@ class test_PairPotential(unittest.TestCase):
         p.coeff["1", "1"]["rmin"] = 0.0
         p.coeff["1", "1"]["rmax"] = 1.0
         p.coeff["1", "1"]["shift"] = True
-
         p.save(temp.name)
-        with open(temp.name, "r") as f:
-            x = json.load(f)
 
-        self.assertEqual(
-            p.coeff["1", "1"]["m"], x["coeff"]["values"]["('1', '1')"]["m"]
-        )
-        self.assertEqual(
-            p.coeff["1", "1"]["rmin"], x["coeff"]["values"]["('1', '1')"]["rmin"]
-        )
-        self.assertEqual(
-            p.coeff["1", "1"]["rmax"], x["coeff"]["values"]["('1', '1')"]["rmax"]
-        )
-        self.assertEqual(
-            p.coeff["1", "1"]["shift"], x["coeff"]["values"]["('1', '1')"]["shift"]
-        )
+        p2 = LinPot.from_file(temp.name)
+        self.assertEqual(p2.coeff["1", "1"]["m"], 2.0)
+        self.assertEqual(p2.coeff["1", "1"]["rmin"], 0.0)
+        self.assertEqual(p2.coeff["1", "1"]["rmax"], 1.0)
+        self.assertTrue(p2.coeff["1", "1"]["shift"])
 
         temp.close()
 
@@ -594,6 +602,17 @@ class test_LennardJones(unittest.TestCase):
         # test invalid param
         with self.assertRaises(ValueError):
             lj._derivative(param="simga", r=r_input, epsilon=1.0, sigma=1.0)
+
+    def test_json(self):
+        lj = relentless.model.potential.LennardJones(types=("1",), name="lj")
+        lj.coeff["1", "1"].update(
+            epsilon=1.0, sigma=relentless.model.DesignVariable(2.0)
+        )
+        data = lj.to_json()
+
+        lj2 = relentless.model.potential.LennardJones.from_json(data)
+        self.assertEqual(lj2.coeff["1", "1"]["epsilon"], 1.0)
+        self.assertEqual(lj2.coeff["1", "1"]["sigma"], 2.0)
 
 
 class test_PairSpline(unittest.TestCase):
@@ -786,6 +805,20 @@ class test_PairSpline(unittest.TestCase):
         d = s.derivative(pair=("1", "1"), var=param, r=[1.5, 2.5, 3.5])
         numpy.testing.assert_allclose(d, d_actual)
 
+    def test_json(self):
+        r_arr = [1, 2, 3]
+        u_arr = [9, 4, 1]
+        u_arr_diff = [5, 3, 1]
+
+        s = relentless.model.potential.PairSpline(types=("1",), num_knots=3)
+        s.from_array(pair=("1", "1"), r=r_arr, u=u_arr)
+        data = s.to_json()
+
+        s2 = relentless.model.potential.PairSpline.from_json(data)
+        for i, (r, k) in enumerate(s2.knots(pair=("1", "1"))):
+            self.assertAlmostEqual(r.value, r_arr[i])
+            self.assertAlmostEqual(k.value, u_arr_diff[i])
+
 
 class test_Yukawa(unittest.TestCase):
     """Unit tests for relentless.model.potential.Yukawa"""
@@ -880,6 +913,17 @@ class test_Yukawa(unittest.TestCase):
         # test invalid param
         with self.assertRaises(ValueError):
             y._derivative(param="kapppa", r=r_input, epsilon=1.0, kappa=1.0)
+
+    def test_json(self):
+        y = relentless.model.potential.Yukawa(types=("1",), name="yukawa")
+        y.coeff["1", "1"].update(
+            epsilon=1.0, kappa=relentless.model.DesignVariable(0.5)
+        )
+        data = y.to_json()
+
+        y2 = relentless.model.potential.Yukawa.from_json(data)
+        self.assertEqual(y2.coeff["1", "1"]["epsilon"], 1.0)
+        self.assertEqual(y2.coeff["1", "1"]["kappa"], 0.5)
 
 
 class test_Depletion(unittest.TestCase):
@@ -1095,6 +1139,19 @@ class test_Depletion(unittest.TestCase):
         d = dp.derivative(pair=("1", "1"), var=P_var, r=r_input)
         numpy.testing.assert_allclose(d, d_actual)
         self.assertAlmostEqual(dp.coeff["1", "1"]["rmax"].value, 4.25)
+
+    def test_json(self):
+        d = relentless.model.potential.Depletion(types=("1",), name="depletion")
+        d.coeff["1", "1"].update(
+            P=1, sigma_i=1.5, sigma_j=2, sigma_d=relentless.model.DesignVariable(2.5)
+        )
+        data = d.to_json()
+
+        d2 = relentless.model.potential.Depletion.from_json(data)
+        self.assertEqual(d2.coeff["1", "1"]["P"], 1.0)
+        self.assertEqual(d2.coeff["1", "1"]["sigma_i"], 1.5)
+        self.assertEqual(d2.coeff["1", "1"]["sigma_j"], 2)
+        self.assertEqual(d2.coeff["1", "1"]["sigma_d"], 2.5)
 
 
 if __name__ == "__main__":

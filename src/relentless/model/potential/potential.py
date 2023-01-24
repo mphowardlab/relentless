@@ -1,9 +1,10 @@
 import abc
+import inspect
 import json
 
 import numpy
 
-from relentless import collections
+from relentless import collections, mpi
 from relentless.model import variable
 
 
@@ -53,7 +54,7 @@ class Parameters:
 
     @classmethod
     def from_json(cls, data):
-        params = Parameters(data["types"], data["params"])
+        params = cls(data["types"], data["params"])
         for key in params:
             params[key].update(data["values"][str(key)])
         return params
@@ -169,7 +170,7 @@ class Potential(abc.ABC):
         # set unique id and name
         self.id = Potential.count
         if name is None:
-            name = "__U[{}]".format(self.id)
+            name = "__u[{}]".format(self.id)
         if name in self.names:
             raise ValueError("Potential name already used")
         else:
@@ -180,6 +181,74 @@ class Potential(abc.ABC):
         if container is None:
             container = Parameters
         self.coeff = container(keys, params)
+
+    @classmethod
+    def from_json(cls, data):
+        """Create from JSON file.
+
+        The coefficients of the pair potential are initialized from the ``data``.
+        The ``name`` of the
+
+        Parameters
+        ----------
+        data : dict
+            JSON data for potential.
+
+        """
+        # build build constructor arguments from data and create object
+        args = []
+        kwargs = {}
+        for arg, arg_info in inspect.signature(cls.__init__).parameters.items():
+            # self does not need to be specified
+            if arg == "self":
+                continue
+
+            # extract value of parameter from JSON data
+            if arg == "types":
+                x = data["coeff"]["types"]
+            elif arg == "name":
+                x = data["name"] if data["name"] not in Potential.names else None
+            else:
+                x = data[arg]
+
+            # filter argument packs
+            if arg_info.kind == arg_info.POSITIONAL_ONLY:
+                args.append(x)
+            elif (
+                arg_info.kind == arg_info.POSITIONAL_OR_KEYWORD
+                or arg_info.kind == arg_info.KEYWORD_ONLY
+            ):
+                kwargs[arg] = x
+            else:
+                raise NotImplementedError("Argument type not supported")
+
+        u = cls(*args, **kwargs)
+
+        # set coefficient values, do this here in case u wants some to be variables
+        for key in u.coeff:
+            for param in u.coeff[key]:
+                data_value = data["coeff"]["values"][str(key)][param]
+                if isinstance(u.coeff[key][param], variable.IndependentVariable):
+                    u.coeff[key][param].value = data_value
+                else:
+                    u.coeff[key][param] = data_value
+
+        return u
+
+    @classmethod
+    def from_file(cls, filename):
+        """Create potential from a JSON file.
+
+        It is assumed that the JSON file is compatible with the potential type.
+
+        Parameters
+        ----------
+        filename : str
+            JSON file to load.
+
+        """
+        data = mpi.world.load_json(filename)
+        return cls.from_json(data)
 
     @abc.abstractmethod
     def energy(self, key, x):
