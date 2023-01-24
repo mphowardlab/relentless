@@ -1,5 +1,4 @@
 import abc
-import os
 
 import numpy
 
@@ -39,6 +38,8 @@ class Optimizer(abc.ABC):
         directory : str or :class:`~relentless.data.Directory`
             Directory for writing output during optimization. Default of ``None``
             requests no output is written.
+        overwrite : bool
+            Overwrites the directory, if specified, before begining optimization.
 
         """
         pass
@@ -360,9 +361,10 @@ class SteepestDescent(Optimizer):
 
         if directory is not None:
             directory = data.Directory.cast(directory, create=mpi.world.rank_is_root)
-            if len(os.listdir(directory.path)) != 0:
+            if not directory.is_empty():
                 if overwrite is True:
-                    directory.clear_contents()
+                    if mpi.world.rank_is_root:
+                        directory.clear_contents()
                 else:
                     raise OSError(
                         "Directory {} is not empty and overwrite is not True".format(

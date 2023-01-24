@@ -215,7 +215,7 @@ class Directory:
         """
         dest = Directory.cast(dest, create=True)
         for entry in os.scandir(self.path):
-            dest_entry = pathlib.Path(os.path.join(dest.path, entry.name))
+            dest_entry = pathlib.Path(dest.path, entry.name)
             if dest_entry.exists():
                 if dest_entry.is_dir() and entry.is_dir():
                     shutil.copytree(entry.path, dest_entry, dirs_exist_ok=True)
@@ -247,3 +247,17 @@ class Directory:
                 shutil.copy2(entry.path, dest.path)
             elif entry.is_dir():
                 shutil.copytree(entry.path, os.path.join(dest.path, entry.name))
+
+    def is_empty(self):
+        """Returns whether the directory is empty.
+
+        Returns
+        -------
+        :Bool
+            True if the directory is empty.
+
+        """
+        empty = True
+        if len(os.listdir(self.path)) != 0:
+            empty = False
+        return empty
