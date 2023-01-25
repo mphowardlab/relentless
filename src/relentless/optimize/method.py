@@ -24,7 +24,7 @@ class Optimizer(abc.ABC):
         self.stop = stop
 
     @abc.abstractmethod
-    def optimize(self, objective, design_variables, directory=None):
+    def optimize(self, objective, design_variables, directory=None, overwrite=False):
         """Minimize an objective function.
 
         The design variables of the objective function are adjusted until convergence.
@@ -55,6 +55,21 @@ class Optimizer(abc.ABC):
         if not isinstance(value, ConvergenceTest):
             raise TypeError("The stopping criterion must be a ConvergenceTest.")
         self._stop = value
+
+    def setup_directory(self, directory=None, overwrite=False):
+        if directory is not None:
+            directory = data.Directory.cast(directory, create=mpi.world.rank_is_root)
+            if not directory.is_empty():
+                if overwrite is True:
+                    if mpi.world.rank_is_root:
+                        directory.clear_contents()
+                else:
+                    raise OSError(
+                        "Directory {} is not empty and overwrite is not True".format(
+                            directory.path
+                        )
+                    )
+            mpi.world.barrier()
 
 
 class LineSearch:
@@ -359,19 +374,7 @@ class SteepestDescent(Optimizer):
         if len(design_variables) == 0:
             return None
 
-        if directory is not None:
-            directory = data.Directory.cast(directory, create=mpi.world.rank_is_root)
-            if not directory.is_empty():
-                if overwrite is True:
-                    if mpi.world.rank_is_root:
-                        directory.clear_contents()
-                else:
-                    raise OSError(
-                        "Directory {} is not empty and overwrite is not True".format(
-                            directory.path
-                        )
-                    )
-            mpi.world.barrier()
+        self.setup_directory(directory, overwrite)
 
         # fix scaling parameters
         scale = math.KeyedArray(keys=design_variables)
