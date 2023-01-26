@@ -215,6 +215,7 @@ class test_Directory(unittest.TestCase):
             open(dfoofizz.file("fred.txt"), "w").close()
             open(dbazfizz.file("buzz.txt"), "w").close()
             open(dbazfizz.file("jim.txt"), "w").close()
+        relentless.mpi.world.barrier()
 
         # move file and directory from foo to baz
         if relentless.mpi.world.rank_is_root:
