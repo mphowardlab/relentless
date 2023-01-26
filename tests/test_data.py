@@ -199,14 +199,36 @@ class test_Directory(unittest.TestCase):
         self.assertTrue(os.path.isfile(os.path.join(baz, "spam.txt")))
         self.assertTrue(os.path.isdir(os.path.join(baz, "fizz")))
 
+        # add one file to each fizz named the same and one named different
+        foofizz = os.path.join(foo, "fizz")
+        bazfizz = os.path.join(baz, "fizz")
+
+        dfoofizz = relentless.data.Directory(
+            foofizz, create=relentless.mpi.world.rank_is_root
+        )
+        dbazfizz = relentless.data.Directory(
+            bazfizz, create=relentless.mpi.world.rank_is_root
+        )
+
+        if relentless.mpi.world.rank_is_root:
+            open(dfoofizz.file("buzz.txt"), "w").close()
+            open(dfoofizz.file("fred.txt"), "w").close()
+            open(dbazfizz.file("buzz.txt"), "w").close()
+            open(dbazfizz.file("jim.txt"), "w").close()
+
         # move file and directory from foo to baz
         if relentless.mpi.world.rank_is_root:
             dfoo.move_contents(baz)
         relentless.mpi.world.barrier()
         self.assertFalse(os.path.isfile(os.path.join(foo, "spam.txt")))
         self.assertFalse(os.path.isdir(os.path.join(foo, "fizz")))
+        self.assertFalse(os.path.isdir(os.path.join(foofizz, "buzz.txt")))
+        self.assertFalse(os.path.isdir(os.path.join(foofizz, "fred.txt")))
         self.assertTrue(os.path.isfile(os.path.join(baz, "spam.txt")))
         self.assertTrue(os.path.isdir(os.path.join(baz, "fizz")))
+        self.assertTrue(os.path.isfile(os.path.join(bazfizz, "buzz.txt")))
+        self.assertTrue(os.path.isfile(os.path.join(bazfizz, "fred.txt")))
+        self.assertTrue(os.path.isfile(os.path.join(bazfizz, "jim.txt")))
 
     def test_copy_contents(self):
         foo = os.path.join(self.f, "foo")
