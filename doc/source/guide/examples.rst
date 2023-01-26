@@ -6,7 +6,7 @@ Examples
     :maxdepth: 1
     :caption: Basic Example
 
-    examples/wca_fluid/wca_fluid
+    examples/lj_fluid/lj_fluid
 
 .. toctree::
     :maxdepth: 1
