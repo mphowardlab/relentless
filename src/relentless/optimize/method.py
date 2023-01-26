@@ -39,7 +39,7 @@ class Optimizer(abc.ABC):
             Directory for writing output during optimization. Default of ``None``
             requests no output is written.
         overwrite : bool
-            Overwrites the directory, if specified, before begining optimization.
+            If ``True``, overwrite the directory before beginning optimization.
 
         """
         pass
@@ -56,20 +56,20 @@ class Optimizer(abc.ABC):
             raise TypeError("The stopping criterion must be a ConvergenceTest.")
         self._stop = value
 
-    def setup_directory(self, directory=None, overwrite=False):
-        if directory is not None:
-            directory = data.Directory.cast(directory, create=mpi.world.rank_is_root)
-            if not directory.is_empty():
-                if overwrite is True:
-                    if mpi.world.rank_is_root:
-                        directory.clear_contents()
-                else:
-                    raise OSError(
-                        "Directory {} is not empty and overwrite is not True".format(
-                            directory.path
-                        )
+    def _setup_directory(self, directory, overwrite):
+        directory = data.Directory.cast(directory, create=mpi.world.rank_is_root)
+        mpi.world.barrier()
+        if not directory.is_empty():
+            if overwrite is True:
+                if mpi.world.rank_is_root:
+                    directory.clear_contents()
+                mpi.world.barrier()
+            else:
+                raise OSError(
+                    "Directory {} is not empty and overwrite is not True".format(
+                        directory.path
                     )
-            mpi.world.barrier()
+                )
 
 
 class LineSearch:
@@ -354,7 +354,7 @@ class SteepestDescent(Optimizer):
             Directory for writing output during optimization. Default of `None`
             requests no output is written.
         overwrite : bool
-            Overwrites the directory, if specified, before begining optimization.
+            If ``True``, overwrite the directory before beginning optimization.
 
         Returns
         -------
@@ -374,7 +374,8 @@ class SteepestDescent(Optimizer):
         if len(design_variables) == 0:
             return None
 
-        self.setup_directory(directory, overwrite)
+        if directory is not None:
+            self._setup_directory(directory, overwrite)
 
         # fix scaling parameters
         scale = math.KeyedArray(keys=design_variables)

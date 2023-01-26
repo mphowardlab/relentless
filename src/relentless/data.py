@@ -249,15 +249,12 @@ class Directory:
                 shutil.copytree(entry.path, os.path.join(dest.path, entry.name))
 
     def is_empty(self):
-        """Returns whether the directory is empty.
+        """Check if the directory is empty.
 
         Returns
         -------
-        :Bool
+        :bool
             True if the directory is empty.
 
         """
-        empty = True
-        if len(os.listdir(self.path)) != 0:
-            empty = False
-        return empty
+        return len(os.listdir(self.path)) != 0
