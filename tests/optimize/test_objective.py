@@ -225,9 +225,13 @@ class test_RelativeEntropy(unittest.TestCase):
         res = relent.compute((self.epsilon, self.sigma), self.directory)
 
         x = relentless.mpi.world.load_json(self.directory.file("pair_potential.0.json"))
-        self.assertAlmostEqual(x["('1', '1')"]["epsilon"], self.epsilon.value)
-        self.assertAlmostEqual(x["('1', '1')"]["sigma"], self.sigma.value)
-        self.assertAlmostEqual(x["('1', '1')"]["rmax"], 2.7)
+        self.assertAlmostEqual(
+            x["coeff"]["values"]["('1', '1')"]["epsilon"], self.epsilon.value
+        )
+        self.assertAlmostEqual(
+            x["coeff"]["values"]["('1', '1')"]["sigma"], self.sigma.value
+        )
+        self.assertAlmostEqual(x["coeff"]["values"]["('1', '1')"]["rmax"], 2.7)
 
         z = relentless.mpi.world.load_json(self.directory.file("result.json"))
         self.assertDictEqual(

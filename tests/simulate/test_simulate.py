@@ -109,6 +109,10 @@ class QuadPairPot(relentless.model.potential.PairPotential):
     def __init__(self, types, params):
         super().__init__(types, params)
 
+    @classmethod
+    def from_json(cls, data):
+        pass
+
     def _energy(self, r, m, **params):
         r, u, s = self._zeros(r)
         u = m * (3 - r) ** 2

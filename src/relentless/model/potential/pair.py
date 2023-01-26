@@ -200,6 +200,9 @@ class PairPotential(potential.Potential):
         Types.
     params : tuple[str]
         Required parameters.
+    name : str
+        Unique name of the potential. Defaults to ``__u[id]``, where ``id`` is the
+        unique integer ID of the potential.
 
     Attributes
     ----------
@@ -208,7 +211,7 @@ class PairPotential(potential.Potential):
 
     """
 
-    def __init__(self, types, params):
+    def __init__(self, types, params, name=None):
         # force in standard potential parameters if they are not explicitly set
         params = list(params)
         if "rmin" not in params:
@@ -218,7 +221,7 @@ class PairPotential(potential.Potential):
         if "shift" not in params:
             params.append("shift")
 
-        super().__init__(types, params, PairParameters)
+        super().__init__(types, params, PairParameters, name)
 
         for p in self.coeff:
             self.coeff[p]["rmin"] = False
@@ -558,6 +561,9 @@ class Depletion(PairPotential):
     ----------
     types : tuple[str]
         Types.
+    name : str
+        Unique name of the potential. Defaults to ``__u[id]``, where ``id`` is the
+        unique integer ID of the potential.
 
     Attributes
     ----------
@@ -576,8 +582,10 @@ class Depletion(PairPotential):
 
     """
 
-    def __init__(self, types):
-        super().__init__(types=types, params=("P", "sigma_i", "sigma_j", "sigma_d"))
+    def __init__(self, types, name=None):
+        super().__init__(
+            types=types, params=("P", "sigma_i", "sigma_j", "sigma_d"), name=name
+        )
 
     class Cutoff(variable.DependentVariable):
         r"""Physical cutoff for depletion potential.
@@ -767,6 +775,9 @@ class LennardJones(PairPotential):
     ----------
     types : tuple[str]
         Types.
+    name : str
+        Unique name of the potential. Defaults to ``__u[id]``, where ``id`` is the
+        unique integer ID of the potential.
 
     Attributes
     ----------
@@ -786,8 +797,8 @@ class LennardJones(PairPotential):
 
     """
 
-    def __init__(self, types):
-        super().__init__(types=types, params=("epsilon", "sigma"))
+    def __init__(self, types, name=None):
+        super().__init__(types=types, params=("epsilon", "sigma"), name=name)
 
     def _energy(self, r, epsilon, sigma, **params):
         if sigma < 0:
@@ -860,6 +871,9 @@ class PairSpline(PairPotential):
         ``mode='diff'``, the amplitude of the *last* knot is stored directly,
         and differences between neighboring knots are stored for all other knots.
         Defaults to ``'diff'``.
+    name : str
+        Unique name of the potential. Defaults to ``__u[id]``, where ``id`` is the
+        unique integer ID of the potential.
 
     Raises
     ------
@@ -885,7 +899,7 @@ class PairSpline(PairPotential):
 
     valid_modes = ("value", "diff")
 
-    def __init__(self, types, num_knots, mode="diff"):
+    def __init__(self, types, num_knots, mode="diff", name=None):
         if isinstance(num_knots, int) and num_knots >= 2:
             self._num_knots = num_knots
         else:
@@ -898,10 +912,20 @@ class PairSpline(PairPotential):
 
         params = []
         for i in range(self.num_knots):
-            ri, ki = self._knot_params(i)
+            ri, ki = self.knot_params(i)
             params.append(ri)
             params.append(ki)
-        super().__init__(types=types, params=params)
+        super().__init__(types=types, params=params, name=name)
+
+    @classmethod
+    def from_json(cls, data):
+        u = super().from_json(data)
+        # reset the knot values as variables since they were set as floats
+        for pair in u.coeff:
+            for i, (r, k) in enumerate(u.knots(pair)):
+                u._set_knot(pair, i, r, k)
+
+        return u
 
     def from_array(self, pair, r, u):
         r"""Set up the potential from knot points.
@@ -942,20 +966,15 @@ class PairSpline(PairPotential):
 
         # make all knots variables, but hold all r and the last knot const
         for i in range(self.num_knots):
-            ri, ki = self._knot_params(i)
-            if self.coeff[pair][ri] is None:
-                self.coeff[pair][ri] = variable.IndependentVariable(rs[i])
-            else:
-                self.coeff[pair][ri].value = rs[i]
-            if self.coeff[pair][ki] is None:
-                if i < self.num_knots - 1:
-                    self.coeff[pair][ki] = variable.DesignVariable(ks[i])
-                else:
-                    self.coeff[pair][ki] = variable.IndependentVariable(ks[i])
-            else:
-                self.coeff[pair][ki].value = ks[i]
+            self._set_knot(pair, i, rs[i], ks[i])
 
-    def _knot_params(self, i):
+    def to_json(self):
+        data = super().to_json()
+        data["num_knots"] = self.num_knots
+        data["mode"] = self.mode
+        return data
+
+    def knot_params(self, i):
         r"""Get the parameter names for a given knot.
 
         Parameters
@@ -979,6 +998,37 @@ class PairSpline(PairPotential):
         if not isinstance(i, int):
             raise TypeError("Knots are keyed by integers")
         return "r-{}".format(i), "knot-{}".format(i)
+
+    def _set_knot(self, pair, i, r, k):
+        """Set the value of knot variables.
+
+        The meaning of the value of the knot variable is defined by the ``mode``.
+        This method is mostly meant to coerce the knot variable types.
+
+        Parameters
+        ----------
+        pair : tuple[str]
+            The type pair ``(i,j)`` for which to set up the potential.
+        i : int
+            Index of the knot.
+        r : float
+            Position of each knot.
+        u : float
+            Value of the knot variable.
+
+        """
+        ri, ki = self.knot_params(i)
+        if isinstance(self.coeff[pair][ri], variable.IndependentVariable):
+            self.coeff[pair][ri].value = r
+        else:
+            self.coeff[pair][ri] = variable.IndependentVariable(r)
+        if isinstance(self.coeff[pair][ki], variable.IndependentVariable):
+            self.coeff[pair][ki].value = k
+        else:
+            if i < self.num_knots - 1:
+                self.coeff[pair][ki] = variable.DesignVariable(k)
+            else:
+                self.coeff[pair][ki] = variable.IndependentVariable(k)
 
     def _energy(self, r, **params):
         r, u, s = self._zeros(r)
@@ -1028,7 +1078,7 @@ class PairSpline(PairPotential):
         r = numpy.zeros(self.num_knots)
         u = numpy.zeros(self.num_knots)
         for i in range(self.num_knots):
-            ri, ki = self._knot_params(i)
+            ri, ki = self.knot_params(i)
             r[i] = params[ri]
             u[i] = params[ki]
         # reconstruct the energies from differences, starting from the end
@@ -1063,7 +1113,7 @@ class PairSpline(PairPotential):
 
         """
         for i in range(self.num_knots):
-            ri, ki = self._knot_params(i)
+            ri, ki = self.knot_params(i)
             r = self.coeff[pair][ri]
             k = self.coeff[pair][ki]
             yield r, k
@@ -1117,6 +1167,9 @@ class Yukawa(PairPotential):
     ----------
     types : tuple[str]
         Types.
+    name : str
+        Unique name of the potential. Defaults to ``__u[id]``, where ``id`` is the
+        unique integer ID of the potential.
 
     Attributes
     ----------
@@ -1134,8 +1187,8 @@ class Yukawa(PairPotential):
 
     """
 
-    def __init__(self, types):
-        super().__init__(types=types, params=("epsilon", "kappa"))
+    def __init__(self, types, name=None):
+        super().__init__(types=types, params=("epsilon", "kappa"), name=name)
 
     def _energy(self, r, epsilon, kappa, **params):
         if kappa < 0:
