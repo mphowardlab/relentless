@@ -201,10 +201,14 @@ class test_SteepestDescent(unittest.TestCase):
         q = QuadraticObjective(x=x)
         t = relentless.optimize.GradientTest(tolerance=1e-8, variables=x)
         o = relentless.optimize.SteepestDescent(stop=t, max_iter=1, step_size=0.25)
+        d = self.directory
+
+        # test that overwrite raises error when False
+        with self.assertRaises(OSError):
+            o.optimize(q, x, d, overwrite=False)
 
         # optimize with output
-        d = self.directory
-        o.optimize(q, x, d)
+        o.optimize(q, x, d, overwrite=True)
 
         # 0/ holds the initial value
         self.assertTrue(os.path.isdir(os.path.join(d.path, "0")))
@@ -228,10 +232,14 @@ class test_SteepestDescent(unittest.TestCase):
         t = relentless.optimize.GradientTest(tolerance=1e-8, variables=x)
         o = relentless.optimize.SteepestDescent(stop=t, max_iter=1, step_size=2.0)
         o.line_search = relentless.optimize.LineSearch(tolerance=1e-5, max_iter=1)
+        d = self.directory
+
+        # test that overwrite raises error when False
+        with self.assertRaises(OSError):
+            o.optimize(q, x, d, overwrite=False)
 
         # optimize with output
-        d = self.directory
-        o.optimize(q, x, d)
+        o.optimize(q, x, d, overwrite=True)
 
         # 0/ holds the initial value
         self.assertTrue(os.path.isdir(os.path.join(d.path, "0")))
