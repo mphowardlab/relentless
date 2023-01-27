@@ -8,3 +8,4 @@ dist
 doc/build
 doc/source/api/generated
 examples/*/workspace
+*.gsd
