@@ -1,5 +1,5 @@
-sphinx==5.3.0
-pydata_sphinx_theme==0.12.0
-sphinx_design==0.3.0
-nbsphinx==0.8.12
 ipython==8.8.0
+nbsphinx==0.8.12
+pydata_sphinx_theme==0.12.0
+sphinx==5.3.0
+sphinx_design==0.3.0
