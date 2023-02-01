@@ -4,29 +4,61 @@ relentless
 
 Overview
 
-.. grid:: 2
+.. rubric:: :doc:`guide/index`
+.. grid:: 2 2 4 4
 
     .. grid-item-card::
 
-        User guide
-
-        .. button-ref:: guide/index
+        .. button-ref:: guide/install
             :expand:
             :color: secondary
             :click-parent:
 
-            Go to user guide
+    .. grid-item-card::
+
+        .. button-ref:: guide/examples/index
+            :expand:
+            :color: secondary
+            :click-parent:
+
+.. rubric:: :doc:`api/index`
+.. grid:: 2 2 4 4
 
     .. grid-item-card::
 
-        API reference
+        .. button-ref:: api/model
+            :expand:
+            :color: primary
+            :click-parent:
+
+            Model
+
+    .. grid-item-card::
+
+        .. button-ref:: api/simulate
+            :expand:
+            :color: primary
+            :click-parent:
+
+            Simulate
+
+    .. grid-item-card::
+
+        .. button-ref:: api/optimize
+            :expand:
+            :color: primary
+            :click-parent:
+
+            Optimize
+
+    .. grid-item-card::
 
         .. button-ref:: api/index
             :expand:
-            :color: secondary
+            :color: primary
             :click-parent:
 
-            Go to API reference
+            More
 
 .. toctree::
     :maxdepth: 1
@@ -35,8 +67,7 @@ Overview
     guide/index
     api/index
 
-Indices and tables
-==================
+.. rubric:: Indices and tables
 
 * :ref:`genindex`
 * :ref:`modindex`
