@@ -230,21 +230,25 @@ class test_Parameters(unittest.TestCase):
         with self.assertRaises(TypeError):
             m.evaluate("A")
 
-    def test_save(self):
-        """Test saving to file"""
-        temp = tempfile.NamedTemporaryFile()
-
+    def test_json(self):
+        """Test JSON in/out"""
         # test dumping/re-loading data with scalar parameter values
         m = relentless.model.potential.Parameters(
             types=("A",), params=("energy", "mass")
         )
         m["A"]["energy"] = 1.5
         m["A"]["mass"] = 2.5
-        m.save(temp.name)
-        with open(temp.name, "r") as f:
-            x = json.load(f)
-        self.assertEqual(m["A"]["energy"], x["A"]["energy"])
-        self.assertEqual(m["A"]["mass"], x["A"]["mass"])
+        x = m.to_json()
+        self.assertCountEqual(x["types"], ["A"])
+        self.assertCountEqual(x["params"], ["energy", "mass"])
+        self.assertEqual(m["A"]["energy"], x["values"]["A"]["energy"])
+        self.assertEqual(m["A"]["mass"], x["values"]["A"]["mass"])
+
+        # reload from json
+        n = relentless.model.potential.Parameters.from_json(x)
+        self.assertCountEqual(m.types, n.types)
+        self.assertCountEqual(m.params, n.params)
+        self.assertDictEqual(m.evaluate("A"), n.evaluate("A"))
 
         # test dumping/re-loading data with DesignVariable parameter values
         m = relentless.model.potential.Parameters(
@@ -252,13 +256,11 @@ class test_Parameters(unittest.TestCase):
         )
         m["A"]["energy"] = relentless.model.DesignVariable(value=0.5)
         m["A"]["mass"] = relentless.model.DesignVariable(value=2.0)
-        m.save(temp.name)
-        with open(temp.name, "r") as f:
-            x = json.load(f)
-        self.assertEqual(m["A"]["energy"].value, x["A"]["energy"])
-        self.assertEqual(m["A"]["mass"].value, x["A"]["mass"])
-
-        temp.close()
+        x = m.to_json()
+        self.assertCountEqual(x["types"], ["A"])
+        self.assertCountEqual(x["params"], ["energy", "mass"])
+        self.assertEqual(m["A"]["energy"].value, x["values"]["A"]["energy"])
+        self.assertEqual(m["A"]["mass"].value, x["values"]["A"]["mass"])
 
 
 class MockPotential(relentless.model.potential.Potential):
@@ -369,9 +371,11 @@ class test_Potential(unittest.TestCase):
         with open(temp.name, "r") as f:
             x = json.load(f)
 
-        self.assertEqual(p.coeff["1"]["m"], x["1"]["m"])
-        self.assertEqual(p.coeff["1"]["rmin"], x["1"]["rmin"])
-        self.assertEqual(p.coeff["1"]["rmax"], x["1"]["rmax"])
+        self.assertEqual(p.id, x["id"])
+        self.assertEqual(p.name, x["name"])
+        self.assertEqual(p.coeff["1"]["m"], x["coeff"]["values"]["1"]["m"])
+        self.assertEqual(p.coeff["1"]["rmin"], x["coeff"]["values"]["1"]["rmin"])
+        self.assertEqual(p.coeff["1"]["rmax"], x["coeff"]["values"]["1"]["rmax"])
 
         temp.close()
 

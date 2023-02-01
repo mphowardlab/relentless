@@ -12,6 +12,7 @@ Data management (`relentless.data`)
 
 """
 import os
+import pathlib
 import shutil
 
 
@@ -206,10 +207,30 @@ class Directory:
         dest : :class:`Directory` or :class:`str`
             Destination directory.
 
+        Raises
+        ------
+        OSError
+            If the destination exists and does not match the type of the source.
+
         """
         dest = Directory.cast(dest, create=True)
         for entry in os.scandir(self.path):
-            shutil.move(entry.path, dest.path)
+            dest_entry = pathlib.Path(dest.path, entry.name)
+            if dest_entry.exists():
+                if dest_entry.is_dir() and entry.is_dir():
+                    shutil.copytree(entry.path, dest_entry, dirs_exist_ok=True)
+                    shutil.rmtree(entry.path)
+                elif dest_entry.is_file() and entry.is_file():
+                    shutil.move(entry.path, dest_entry)
+                else:
+                    raise OSError(
+                        "Destination "
+                        "{} exists and does not match type of source {}".format(
+                            dest_entry, entry.name
+                        )
+                    )
+            else:
+                shutil.move(entry.path, dest_entry)
 
     def copy_contents(self, dest):
         """Copy the contents of the directory.
@@ -226,3 +247,14 @@ class Directory:
                 shutil.copy2(entry.path, dest.path)
             elif entry.is_dir():
                 shutil.copytree(entry.path, os.path.join(dest.path, entry.name))
+
+    def is_empty(self):
+        """Check if the directory is empty.
+
+        Returns
+        -------
+        :bool
+            True if the directory is empty.
+
+        """
+        return len(os.listdir(self.path)) != 0
