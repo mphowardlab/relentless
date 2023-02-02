@@ -5,11 +5,15 @@ repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.4.0
     hooks:
-      - id: end-of-file-fixer
-      - id: trailing-whitespace
+      - id: check-added-large-files
+      - id: check-merge-conflict
       - id: check-yaml
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+      - id: requirements-txt-fixer
+      - id: trailing-whitespace
   - repo: https://github.com/PyCQA/isort
-    rev: 5.11.4
+    rev: 5.12.0
     hooks:
       - id: isort
   - repo: https://github.com/psf/black
@@ -20,3 +24,15 @@ repos:
     rev: 6.0.0
     hooks:
       - id: flake8
+  - repo: https://github.com/kynan/nbstripout
+    rev: 0.6.1
+    hooks:
+      - id: nbstripout
+        args:
+          - --keep-count
+          - --keep-output
+  - repo: https://github.com/nbQA-dev/nbQA
+    rev: 1.6.1
+    hooks:
+      - id: nbqa-isort
+      - id: nbqa-flake8
