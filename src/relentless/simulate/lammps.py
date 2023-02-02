@@ -1109,9 +1109,12 @@ class LAMMPS(simulate.Simulation):
             file_ = mpi.world.bcast(file_)
 
             # only launch process on the root rank with MPI launcher
-            run_cmd = sim[sim.initializer]["_lammps"] + ["-i", file_]
             if mpi.world.rank_is_root:
-                result = subprocess.run("mpirun " + " ".join(run_cmd), shell=True)
+                run_cmd = sim[sim.initializer]["_lammps"] + ["-i", file_]
+                run_cmd = " ".join(run_cmd)
+                if mpi.world.enabled:
+                    run_cmd = "mpiexec " + run_cmd
+                result = subprocess.run(run_cmd, shell=True)
                 returncode = result.returncode
             else:
                 returncode = None
