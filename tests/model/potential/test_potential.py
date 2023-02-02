@@ -51,18 +51,6 @@ class test_Parameters(unittest.TestCase):
             types=("A", "B"), params=("energy", "mass")
         )
 
-        self.assertEqual(m.shared["energy"], None)
-        self.assertEqual(m.shared["mass"], None)
-        self.assertEqual(m["A"]["energy"], None)
-        self.assertEqual(m["A"]["mass"], None)
-        self.assertEqual(m["B"]["energy"], None)
-        self.assertEqual(m["B"]["mass"], None)
-
-        # test setting shared params
-        m.shared.update(energy=1.0, mass=2.0)
-
-        self.assertEqual(m.shared["energy"], 1.0)
-        self.assertEqual(m.shared["mass"], 2.0)
         self.assertEqual(m["A"]["energy"], None)
         self.assertEqual(m["A"]["mass"], None)
         self.assertEqual(m["B"]["energy"], None)
@@ -71,9 +59,6 @@ class test_Parameters(unittest.TestCase):
         # test setting per-type params
         m["A"].update(energy=0.1, mass=0.2)
         m["B"].update(energy=0.2, mass=0.1)
-
-        self.assertEqual(m.shared["energy"], 1.0)
-        self.assertEqual(m.shared["mass"], 2.0)
         self.assertEqual(m["A"]["energy"], 0.1)
         self.assertEqual(m["A"]["mass"], 0.2)
         self.assertEqual(m["B"]["energy"], 0.2)
@@ -194,23 +179,14 @@ class test_Parameters(unittest.TestCase):
         with self.assertRaises(KeyError):
             m.evaluate("C")
 
-        # test evaluation with initialized shared parameter values
+        # test evaluation
         m = relentless.model.potential.Parameters(
             types=("A", "B"), params=("energy", "mass")
         )
-        m.shared["energy"] = 0.0
-        m.shared["mass"] = 0.5
-        self.assertEqual(m.evaluate("A"), {"energy": 0.0, "mass": 0.5})
-        self.assertEqual(m.evaluate("B"), {"energy": 0.0, "mass": 0.5})
-
-        # test evaluation with initialized shared and individual parameter values
-        m = relentless.model.potential.Parameters(
-            types=("A", "B"), params=("energy", "mass")
-        )
-        m.shared["energy"] = 0.0
-        m.shared["mass"] = 0.5
-        m["B"]["energy"] = 1.5
-        self.assertEqual(m.evaluate("A"), {"energy": 0.0, "mass": 0.5})
+        m["A"]["energy"] = 0.0
+        m["A"]["mass"] = 1.0
+        m["B"].update({"energy": 1.5, "mass": 0.5})
+        self.assertEqual(m.evaluate("A"), {"energy": 0.0, "mass": 1.0})
         self.assertEqual(m.evaluate("B"), {"energy": 1.5, "mass": 0.5})
 
         # test evaluation with initialized parameter values as DesignVariable types
@@ -220,15 +196,6 @@ class test_Parameters(unittest.TestCase):
         m["A"]["energy"] = relentless.model.DesignVariable(value=-1.0, low=0.1)
         m["A"]["mass"] = relentless.model.DesignVariable(value=1.0, high=0.3)
         self.assertEqual(m.evaluate("A"), {"energy": 0.1, "mass": 0.3})
-
-        # test evaluation with initialized parameter values as unrecognized types
-        m = relentless.model.potential.Parameters(
-            types=("A", "B"), params=("energy", "mass")
-        )
-        m.shared["energy"] = relentless.math.Interpolator(x=(-1, 0, 1), y=(-2, 0, 2))
-        m.shared["mass"] = relentless.math.Interpolator(x=(-1, 0, 1), y=(-2, 0, 2))
-        with self.assertRaises(TypeError):
-            m.evaluate("A")
 
     def test_json(self):
         """Test JSON in/out"""

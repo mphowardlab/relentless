@@ -14,8 +14,7 @@ class PairParameters(potential.Parameters):
     A pair is a tuple of two types, and each type is a :class:`str`. A named
     list of parameters can be set for each pair of types. The parameters for a
     pair are assumed to be symmetric, so the pair ``(i,j)`` is the same as the
-    pair ``(j,i)``. An optional shared value can be set for any of the parameters,
-    and this value will be used if the per-pair value is not set.
+    pair ``(j,i)``.
 
     The same parameters can also be set for each type. These values are not
     used directly in evaluating the per-pair coefficients, but they can be used
@@ -66,12 +65,6 @@ class PairParameters(potential.Parameters):
         >>> print(coeff['A','A'])
         {'epsilon':None, 'sigma':2.5}
 
-    Parameters can also be assigned to the shared list::
-
-        coeff.shared['epsilon'] = 0.5
-        >>> print(coeff.shared)
-        {'epsilon':0.5, 'sigma':None}
-
     Parameters can be a mix of constants and :class:`~relentless.variable.Variable`
     objects. To get the *value* of all parameters, use :meth:`evaluate`::
 
@@ -79,44 +72,19 @@ class PairParameters(potential.Parameters):
         >>> print(coeff.evaluate(('A','A')))
         {'epsilon':1.0, 'sigma':2.5}
 
-    Shared parameters will be used in :meth:`evaluate` if the per-pair parameter
-    is not set::
-
-        >>> coeff['B','B'] = {'sigma': 0.1}
-        >>> print(coeff['B','B'])
-        {'epsilon': None, 'sigma': 0.1}
-        >>> print(coeff.shared)
-        {'epsilon': 0.5, 'sigma': None}
-        >>> print(coeff.evaluate(('B','B'))
-        {'epsilon':0.5, 'sigma':0.1}
-
     """
 
     def __init__(self, types, params):
         super().__init__(types, params)
-
-        # per-pair params
-        self._per_pair = collections.PairMatrix(types)
+        # override data container of parent to use pair matrix
+        self._data = collections.PairMatrix(types)
         for pair in self:
-            self._per_pair[pair] = collections.FixedKeyDict(keys=self.params)
-
-    def __getitem__(self, pair):
-        """Get parameters for the (i,j) pair."""
-        if isinstance(pair, str):
-            return self._per_type[pair]
-        else:
-            return self._per_pair[pair]
-
-    def __iter__(self):
-        return iter(self._per_pair)
-
-    def __next__(self):
-        return next(self._per_pair)
+            self._data[pair] = collections.FixedKeyDict(keys=self.params)
 
     @property
     def pairs(self):
         """tuple[tuple[str]]: Pairs in matrix."""
-        return self._per_pair.pairs
+        return self._data.pairs
 
 
 class PairPotential(potential.Potential):
@@ -552,10 +520,10 @@ class Depletion(PairPotential):
     | ``shift``   | If ``True``, shift potential to zero at ``rmax``.| ``False`` |
     +-------------+--------------------------------------------------+-----------+
 
-    For most physical systems, it is advisable to set ``P`` and ``sigma_d`` as
-    shared coefficients that are the same for all pairs. It is also recommended
-    to leave ``rmax=False`` so that the potential is cutoff at the distance set
-    by the diameters in the model.
+    For most physical systems, it is advisable to set ``P`` and ``sigma_d`` to
+    the same value for all pairs. It is also recommended to leave ``rmax=False``
+    so that the potential is cutoff at the distance set by the diameters in the
+    model.
 
     Parameters
     ----------
@@ -572,13 +540,11 @@ class Depletion(PairPotential):
 
     Examples
     --------
-    Depletion attraction with shared depletion parameters::
+    Depletion attraction::
 
-        >>> u = relentless.potential.pair.Depletion(('A','B'))
-        >>> u.coeff.shared = {'P': 2.0, 'sigma_d': 0.1}
-        >>> u.coeff['A','A'].update({'sigma_i': 1.0, 'sigma_j': 1.0})
-        >>> u.coeff['B','B'].update({'sigma_i': 2.0, 'sigma_j': 2.0})
-        >>> u.coeff['A','B'].update({'sigma_i': 1.0, 'sigma_j': 2.0})
+        >>> u = relentless.potential.pair.Depletion(('A',))
+        >>> u.coeff['A','A'].update({
+            'P': 2.0, 'sigma_i': 1.0, 'sigma_j': 1.0, 'sigma_d': 0.1})
 
     """
 

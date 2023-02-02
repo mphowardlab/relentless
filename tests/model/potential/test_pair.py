@@ -58,69 +58,24 @@ class test_PairParameters(unittest.TestCase):
             types=("A", "B"), params=("energy", "mass")
         )
 
-        self.assertEqual(m.shared["energy"], None)
-        self.assertEqual(m.shared["mass"], None)
         self.assertEqual(m["A", "A"]["energy"], None)
         self.assertEqual(m["A", "A"]["mass"], None)
         self.assertEqual(m["A", "B"]["energy"], None)
         self.assertEqual(m["A", "B"]["mass"], None)
         self.assertEqual(m["B", "B"]["energy"], None)
         self.assertEqual(m["B", "B"]["mass"], None)
-        self.assertEqual(m["A"]["energy"], None)
-        self.assertEqual(m["A"]["mass"], None)
-        self.assertEqual(m["B"]["energy"], None)
-        self.assertEqual(m["B"]["mass"], None)
-
-        # test setting shared params
-        m.shared.update(energy=1.0, mass=2.0)
-
-        self.assertEqual(m.shared["energy"], 1.0)
-        self.assertEqual(m.shared["mass"], 2.0)
-        self.assertEqual(m["A", "A"]["energy"], None)
-        self.assertEqual(m["A", "A"]["mass"], None)
-        self.assertEqual(m["A", "B"]["energy"], None)
-        self.assertEqual(m["A", "B"]["mass"], None)
-        self.assertEqual(m["B", "B"]["energy"], None)
-        self.assertEqual(m["B", "B"]["mass"], None)
-        self.assertEqual(m["A"]["energy"], None)
-        self.assertEqual(m["A"]["mass"], None)
-        self.assertEqual(m["B"]["energy"], None)
-        self.assertEqual(m["B"]["mass"], None)
 
         # test setting per-pair params
         m["A", "A"].update(energy=1.5, mass=2.5)
         m["A", "B"].update(energy=2.0, mass=3.0)
         m["B", "B"].update(energy=0.5, mass=0.7)
 
-        self.assertEqual(m.shared["energy"], 1.0)
-        self.assertEqual(m.shared["mass"], 2.0)
         self.assertEqual(m["A", "A"]["energy"], 1.5)
         self.assertEqual(m["A", "A"]["mass"], 2.5)
         self.assertEqual(m["A", "B"]["energy"], 2.0)
         self.assertEqual(m["A", "B"]["mass"], 3.0)
         self.assertEqual(m["B", "B"]["energy"], 0.5)
         self.assertEqual(m["B", "B"]["mass"], 0.7)
-        self.assertEqual(m["A"]["energy"], None)
-        self.assertEqual(m["A"]["mass"], None)
-        self.assertEqual(m["B"]["energy"], None)
-        self.assertEqual(m["B"]["mass"], None)
-
-        # test setting per-type params
-        m["A"].update(energy=0.1, mass=0.2)
-        m["B"].update(energy=0.2, mass=0.1)
-
-        self.assertEqual(m.shared["energy"], 1.0)
-        self.assertEqual(m.shared["mass"], 2.0)
-        self.assertEqual(m["A", "A"]["energy"], 1.5)
-        self.assertEqual(m["A", "A"]["mass"], 2.5)
-        self.assertEqual(m["A", "B"]["energy"], 2.0)
-        self.assertEqual(m["A", "B"]["mass"], 3.0)
-        self.assertEqual(m["B", "B"]["energy"], 0.5)
-        self.assertEqual(m["B", "B"]["mass"], 0.7)
-        self.assertEqual(m["A"]["energy"], 0.1)
-        self.assertEqual(m["A"]["mass"], 0.2)
-        self.assertEqual(m["B"]["energy"], 0.2)
-        self.assertEqual(m["B"]["mass"], 0.1)
 
 
 class LinPot(relentless.model.potential.PairPotential):

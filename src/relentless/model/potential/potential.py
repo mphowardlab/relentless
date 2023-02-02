@@ -12,8 +12,6 @@ class Parameters:
     """Parameters for types.
 
     Each type is a :class:`str`. A named list of parameters can be set for type.
-    An optional shared value can be set for any of the parameters,
-    and this value will be used if the per-type value is not set.
 
     Parameters
     ----------
@@ -39,18 +37,14 @@ class Parameters:
         self.types = tuple(types)
 
         if len(params) == 0:
-            raise ValueError("params cannot be initialized as empty")
+            raise ValueError("Params cannot be initialized as empty")
         if not all(isinstance(p, str) for p in params):
             raise TypeError("All parameters must be strings")
         self.params = tuple(params)
 
-        # shared params
-        self._shared = collections.FixedKeyDict(keys=self.params)
-
-        # per-type params
-        self._per_type = collections.FixedKeyDict(keys=self.types)
+        self._data = collections.FixedKeyDict(keys=self.types)
         for t in self.types:
-            self._per_type[t] = collections.FixedKeyDict(keys=self.params)
+            self._data[t] = collections.FixedKeyDict(keys=self.params)
 
     @classmethod
     def from_json(cls, data):
@@ -72,31 +66,13 @@ class Parameters:
         params : dict
             The evaluated parameters.
 
-        Raises
-        ------
-        TypeError
-            If a parameter has a type that can't be evaluated.
-        ValueError
-            If a parameter is not set for the specified key.
-
         """
         params = {}
         for p in self.params:
-            # use keyed parameter if set, otherwise use shared parameter
             if self[key][p] is not None:
-                v = self[key][p]
-            elif self.shared[p] is not None:
-                v = self.shared[p]
+                params[p] = variable.evaluate(self[key][p])
             else:
                 raise ValueError("Parameter {} is not set for {}.".format(p, str(key)))
-
-            # evaluate the variable
-            params[p] = variable.evaluate(v)
-
-            # final check: error if variable is still not set
-            if v is None:
-                raise ValueError("Parameter {} is not set for {}.".format(p, str(key)))
-
         return params
 
     def to_json(self):
@@ -116,27 +92,21 @@ class Parameters:
         return data
 
     def __getitem__(self, key):
-        return self._per_type[key]
+        return self._data[key]
 
     def __setitem__(self, key, value):
         for p in value:
             if p not in self.params:
-                raise KeyError(
-                    "Only the known parameters can be set in the coefficient matrix."
-                )
+                raise KeyError("Only known parameters can be set.")
+
         self[key].clear()
         self[key].update(value)
 
     def __iter__(self):
-        return iter(self._per_type)
+        return iter(self._data)
 
     def __next__(self):
-        return next(self._per_type)
-
-    @property
-    def shared(self):
-        """:class:`~relentless.collections.FixedKeyDict`: The shared parameters."""
-        return self._shared
+        return next(self._data)
 
 
 class Potential(abc.ABC):
