@@ -180,13 +180,17 @@ class Simulation:
         # run the operations
         for op in self.operations:
             op(sim)
+        # execute post run commands
+        self._post_run(sim)
+
+        return sim
+
+    def _post_run(self, sim):
         # finalize the analysis operations
         for op in self.operations:
             if hasattr(op, "analyzers"):
                 for analyzer in op.analyzers:
                     analyzer.process(sim, op)
-
-        return sim
 
     @property
     def initializer(self):
