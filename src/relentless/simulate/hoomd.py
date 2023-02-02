@@ -28,7 +28,7 @@ except ImportError:
 
 
 # initializers
-class _Initialize(simulate.SimulationOperation):
+class _Initialize(simulate.InitializationOperation):
     """Initialize a simulation.
 
     This is an abstract base class that needs to have its :meth:`initialize`

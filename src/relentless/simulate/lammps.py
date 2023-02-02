@@ -139,7 +139,7 @@ class LAMMPSOperation(simulate.SimulationOperation):
 
 
 # initializers
-class _Initialize(LAMMPSOperation):
+class _Initialize(simulate.InitializationOperation, LAMMPSOperation):
     """Initialize a simulation."""
 
     def __call__(self, sim):
