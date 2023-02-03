@@ -23,12 +23,12 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ['3.8', '3.9', '3.10', '3.11']
-        mpi: ['serial', 'mpich', 'openmpi']
+        mpi: ['nompi', 'mpich', 'openmpi']
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
       - name: Setup MPI
-        if: ${{ matrix.mpi != 'serial' }}
+        if: ${{ matrix.mpi != 'nompi' }}
         uses: mpi4py/setup-mpi@v1
         with:
           mpi: ${{ matrix.mpi }}
@@ -46,11 +46,11 @@ jobs:
         run: |
           python -m unittest discover -v -s ./tests -p 'test_*.py'
       - name: Install mpi4py
-        if: ${{ matrix.mpi != 'serial' }}
+        if: ${{ matrix.mpi != 'nompi' }}
         run: |
           pip install --no-cache-dir mpi4py
       - name: Test MPI [${{ matrix.mpi }}]
-        if: ${{ matrix.mpi != 'serial' }}
+        if: ${{ matrix.mpi != 'nompi' }}
         run: |
           mpiexec -n 2 python -m unittest discover -v -s ./tests -p 'test_*.py'
 
