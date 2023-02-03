@@ -103,6 +103,10 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+      - name: Setup MPI
+        uses: mpi4py/setup-mpi@v1
+        with:
+          mpi: ${{ matrix.mpi }}
       - name: Setup Python ${{ matrix.python-version }}
         uses: conda-incubator/setup-miniconda@v2
         with:
@@ -110,7 +114,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install test dependencies
         run: |
-          conda install -c conda-forge "lammps=${{ matrix.lammps-version }}=*${{ matrix.mpi }}*" mpi4py
+          conda install -c conda-forge "${{ matrix.mpi }}=*=external_*" mpi4py "lammps=${{ matrix.lammps-version }}"
           pip install -r tests/requirements.txt
           pip install lammpsio>=0.2.0
       - name: Install
