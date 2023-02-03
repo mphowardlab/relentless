@@ -27,6 +27,8 @@ class InitializationOperation(SimulationOperation):
 
     * Set `sim.dimension`, the dimensionality of the simulation.
     * Set `sim.types`, the list of particle types in the simulation.
+    * Set `sim.masses`, the dictionary of masses for each particle type in the
+      simulation.py
     * Attach the :class:`Potentials` given by `sim.potentials`.
 
     The initialization operation may additionally stash any data required to

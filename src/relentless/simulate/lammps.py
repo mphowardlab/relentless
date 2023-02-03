@@ -628,7 +628,7 @@ class RunLangevinDynamics(_MDIntegrator):
         if Ntypes > 1:
             scale = damp / damp_ref
             scale_str = " ".join(
-                ["scale {} {}".format(i + 1, s) for i, s in enumerate(scale[1:])]
+                ["scale {} {}".format(i + 2, s) for i, s in enumerate(scale[1:])]
             )
         else:
             scale_str = ""
