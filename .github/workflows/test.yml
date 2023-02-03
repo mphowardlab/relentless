@@ -100,9 +100,6 @@ jobs:
         python-version: ['3.8', '3.9', '3.10']
         lammps-version: ['2021.09.29', '2022.06.23']
         mpi: ['mpich', 'openmpi']
-        exclude:
-          - lammps-version: '2021.09.29'
-            mpi: 'openmpi'
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
