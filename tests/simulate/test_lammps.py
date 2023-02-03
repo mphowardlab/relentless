@@ -154,26 +154,21 @@ class test_LAMMPS(unittest.TestCase):
         h.run(potentials=pot, directory=self.directory)
 
         # T + diameters
-        op = relentless.simulate.InitializeRandomly(
+        h.initializer = relentless.simulate.InitializeRandomly(
             seed=1, N=ens.N, V=ens.V, diameters={"1": 1.0, "2": 2.0}
-        )
-        h = relentless.simulate.LAMMPS(
-            op, dimension=self.dim, executable=self.executable
         )
         h.run(potentials=pot, directory=self.directory)
 
         # no T + mass
         m = {i: idx + 1 for idx, i in enumerate(ens.N)}
-        op = relentless.simulate.InitializeRandomly(seed=1, N=ens.N, V=ens.V, masses=m)
-        h = relentless.simulate.LAMMPS(op, dimension=self.dim)
+        h.initializer = relentless.simulate.InitializeRandomly(
+            seed=1, N=ens.N, V=ens.V, masses=m
+        )
         h.run(potentials=pot, directory=self.directory)
 
         # T + mass
-        op = relentless.simulate.InitializeRandomly(
+        h.initializer = relentless.simulate.InitializeRandomly(
             seed=1, N=ens.N, V=ens.V, T=ens.T, masses=m
-        )
-        h = relentless.simulate.LAMMPS(
-            op, dimension=self.dim, executable=self.executable
         )
         h.run(potentials=pot, directory=self.directory)
 
@@ -204,13 +199,7 @@ class test_LAMMPS(unittest.TestCase):
         emin = relentless.simulate.MinimizeEnergy(
             energy_tolerance=1e-7, force_tolerance=1e-7, max_iterations=1000, options={}
         )
-        lmp = relentless.simulate.LAMMPS(
-            init,
-            operations=[emin],
-            dimension=self.dim,
-            lammps_types={"1": 1, "2": 2},
-            executable=self.executable,
-        )
+        lmp.operations = emin
         lmp.run(potentials=pot, directory=self.directory)
         self.assertEqual(emin.options["max_evaluations"], 100 * emin.max_iterations)
 

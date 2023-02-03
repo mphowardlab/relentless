@@ -12,7 +12,7 @@ try:
 except ImportError:
     pass
 
-has_mpi = relentless.mpi._mpi_running()
+has_mpi = relentless.mpi._mpi_running
 
 
 class test_Communicator(unittest.TestCase):

@@ -43,34 +43,20 @@ import os
 
 import numpy
 
-try:
-    from mpi4py import MPI
-
-    _has_mpi4py = True
-except ImportError:
-    _has_mpi4py = False
-
-
-def _mpi_running():
-    """Check if MPI is running.
-
-    Most MPI launchers set an environment variable, which can be checked to
-    detect if the script was launched by MPI. This function is useful for
-    detecting MPI execution in cases where :mod:`mpi4py` is not installed.
-
-    Returns
-    -------
-    bool
-        True if MPI seems to be running.
-
-    """
-    hints = (
-        "MV2_COMM_WORLD_LOCAL_RANK",
-        "OMPI_COMM_WORLD_RANK",
-        "PMI_RANK",
-        "ALPS_APP_PE",
-    )
-    return any(h in os.environ for h in hints)
+_mpi_env_hints = (
+    "MV2_COMM_WORLD_LOCAL_RANK",
+    "OMPI_COMM_WORLD_RANK",
+    "PMI_RANK",
+    "ALPS_APP_PE",
+)
+_mpi_running = any(h in os.environ for h in _mpi_env_hints)
+if _mpi_running:
+    try:
+        from mpi4py import MPI
+    except ImportError as exc:
+        raise ImportError(
+            "relentless seems to running in MPI, but mpi4py is not installed."
+        ) from exc
 
 
 class Communicator:
@@ -96,17 +82,12 @@ class Communicator:
     """
 
     def __init__(self, comm=None, root=0):
-        if _mpi_running():
-            if _has_mpi4py:
-                if comm is None:
-                    self._comm = MPI.COMM_WORLD
-                else:
-                    self._comm = comm
-                self._comm.Set_errhandler(MPI.ERRORS_ARE_FATAL)
+        if _mpi_running:
+            if comm is None:
+                self._comm = MPI.COMM_WORLD
             else:
-                raise RuntimeError(
-                    "Python seems to running in MPI, but mpi4py is not installed."
-                )
+                self._comm = comm
+            self._comm.Set_errhandler(MPI.ERRORS_ARE_FATAL)
         else:
             self._comm = None
 
