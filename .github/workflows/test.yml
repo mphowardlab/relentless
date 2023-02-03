@@ -106,17 +106,15 @@ jobs:
       - name: Setup Python ${{ matrix.python-version }}
         uses: conda-incubator/setup-miniconda@v2
         with:
-          mamba-version: "*"
-          channels: conda-forge,defaults
-          channel-priority: true
+          miniconda-version: latest
           python-version: ${{ matrix.python-version }}
-      - name: Setup conda MPI workaround
+      - name: Install conda MPI workaround
         if: ${{ matrix.lammps-version == '2021.09.29' && matrix.mpi == 'openmpi' }}
         run: |
-          mamba install "openmpi=4.1.4=ha*"
+          conda install -c conda-forge "openmpi=4.1.4=ha*"
       - name: Install test dependencies
         run: |
-          mamba install "lammps=${{ matrix.lammps-version }}=*${{ matrix.mpi }}*" mpi4py
+          conda install -c conda-forge "lammps=${{ matrix.lammps-version }}=*${{ matrix.mpi }}*" mpi4py
           pip install -r tests/requirements.txt
           pip install lammpsio>=0.2.0
       - name: Install

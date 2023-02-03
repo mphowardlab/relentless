@@ -1034,9 +1034,20 @@ class LAMMPS(simulate.Simulation):
     GPUs, as a single process or with MPI parallelism. The launch configuration
     will be automatically selected for you when the simulation is run.
 
-    LAMMPS must be built with its
-    `Python interface <https://docs.lammps.org/Python_head.html>`_ and must be
-    version 29 Sep 2021 or newer.
+    The version of LAMMPS must be 29 Sep 2021 or newer. It is recommended to build
+    LAMMPS with its `Python interface <https://docs.lammps.org/Python_head.html>`_.
+    However, it is possible to run LAMMPS as a binary by specifying ``executable``::
+
+        relentless.simulate.LAMMPS(init, ops, executable="lmp_serial")
+
+    This can be helpful if you do not have a build of LAMMPS with Python support
+    enabled; however, it will typically be a bit slower than running LAMMPS via
+    Python. To run LAMMPS as an executable with MPI support, you should **not**
+    launch ``relentless`` with ``mpirexec``, and instead should include the
+    ``mpiexec` command and options in the ``executable``::
+
+        relentless.simulate.LAMMPS(init, ops, executable="mpiexec -n 8 lmp_mpi")
+
 
     .. warning::
 
@@ -1058,6 +1069,12 @@ class LAMMPS(simulate.Simulation):
         If ``True``, silence LAMMPS screen output. Setting this to ``False`` can
         be helpful for debugging but would be very noisy in a long production
         simulation.
+    lammps_types : dict
+        Mapping from relentless types to LAMMPS integer types. This mapping may
+        be used during initialization (and is required for some operations).
+    executable : str
+        LAMMPS executable. If specified, LAMMPS will be run as a binary
+        application rather than its Python library.
 
     Raises
     ------
