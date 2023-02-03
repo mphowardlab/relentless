@@ -1,5 +1,25 @@
 """Unit tests for relentless.simulate.lammps."""
-import shutil
+# if being run directly, we may have arguments to handle
+import argparse
+import os
+import sys
+
+if __name__ == "__main__":
+    # get optional lammps executable from command line
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--lammps", default=None)
+    options, args = parser.parse_known_args()
+
+    # set executable and test args
+    _lammps_executable = options.lammps
+    test_args = sys.argv[:1] + args
+
+    # we also need to inject the test module onto the path when being run directly
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
+else:
+    _lammps_executable = None
+    test_args = sys.argv
+
 import tempfile
 import unittest
 
@@ -14,30 +34,19 @@ except ImportError:
 import relentless
 from tests.model.potential.test_pair import LinPot
 
-_has_modules = (
-    relentless.simulate.lammps._lammps_found
-    and relentless.simulate.lammps._lammpsio_found
-)
-
-# try to find an executable
-_lammps_executable = None
-for exec in ("lmp_mpi", "lmp_serial", "lmp"):
-    exec_ = shutil.which(exec)
-    if exec_ is not None:
-        _lammps_executable = exec_
-        break
-
 # parametrize testing fixture
-test_params = []
-if _has_modules:
-    test_params += [(2, None), (3, None)]
 if _lammps_executable is not None:
-    test_params += [(2, _lammps_executable), (3, _lammps_executable)]
+    test_params = [(2, _lammps_executable), (3, _lammps_executable)]
+elif relentless.simulate.lammps._lammps_found:
+    test_params = [(2, None), (3, None)]
+else:
+    test_params = []
+
+_has_lammps_dependencies = relentless.simulate.lammps._lammpsio_found
 
 
-@unittest.skipIf(
-    not _has_modules and _lammps_executable is None, "LAMMPS dependencies not installed"
-)
+@unittest.skipIf(not _has_lammps_dependencies, "LAMMPS dependencies not installed")
+@unittest.skipIf(len(test_params) == 0, "No version of LAMMPS installed")
 @parameterized.parameterized_class(
     ("dim", "executable"),
     test_params,
@@ -384,4 +393,4 @@ class test_LAMMPS(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main()
+    unittest.main(argv=test_args)

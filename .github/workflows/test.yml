@@ -112,9 +112,11 @@ jobs:
       - name: Test
         run: |
           python -m unittest -v tests/simulate/test_lammps.py
+          python tests/simulate/test_lammps.py -v --lammps lmp_serial
       - name: Test MPI
         run: |
           mpiexec -n 2 python -m unittest -v tests/simulate/test_lammps.py
+          python tests/simulate/test_lammps.py -v --lammps "mpiexec -n 2 lmp_mpi"
 
   # final exit point for unit tests on PRs, which can be a required check
   test-exit:

@@ -1,5 +1,5 @@
 import abc
-import shutil
+import datetime
 import subprocess
 import uuid
 
@@ -1075,17 +1075,50 @@ class LAMMPS(simulate.Simulation):
         lammps_types=None,
         executable=None,
     ):
-        # try to find executable if it is specified
+        # test executable if it is specified
         if executable is not None:
-            executable_ = shutil.which(executable)
-            if executable_ is None:
-                raise OSError("LAMMPS executable {} not found".format(executable))
-            self.executable = executable_
+            # disallow launching LAMMPS under MPI. this may be slightly too strict,
+            # but we can relax it later if needed.
+            if mpi.world.enabled:
+                raise RuntimeError(
+                    "LAMMPS cannot be run under MPI with an executable."
+                    " Put mpiexec in the executable instead."
+                )
+            # test the executable
+            result = subprocess.run(
+                executable + " -help", shell=True, capture_output=True, text=True
+            )
+            if result.returncode != 0:
+                raise OSError(
+                    "LAMMPS executable {} failed to launch.".format(executable)
+                )
+            self.executable = executable
+            # these split indexes are hardcoded based on standard help output
+            version_str = result.stdout.splitlines()[1].split("-")[2].strip()
+            # then this coerces the version into the LAMMPS integer format
+            self.version = int(
+                datetime.datetime.strptime(version_str, "%d %b %Y").strftime("%Y%m%d")
+            )
         else:
-            self.executable = None
+            if not _lammps_found:
+                raise ImportError("LAMMPS not found.")
 
-        if self.executable is None and not _lammps_found:
-            raise ImportError("LAMMPS not found.")
+            self.executable = None
+            lmp = lammps.lammps(
+                cmdargs=[
+                    "-echo",
+                    "none",
+                    "-log",
+                    "none",
+                    "-screen",
+                    "none",
+                    "-nocite",
+                ]
+            )
+            self.version = lmp.version()
+            del lmp
+        if self.version < 20210929:
+            raise ImportError("Only LAMMPS 29 Sep 2021 or newer is supported.")
 
         if not _lammpsio_found:
             raise ImportError("lammpsio not found.")
@@ -1099,6 +1132,7 @@ class LAMMPS(simulate.Simulation):
         # force all the lammps commands to execute, since the operations did
         # not actually do it
         if not sim[sim.initializer]["_lammps_python"]:
+            # send the commands to file
             if mpi.world.rank_is_root:
                 file_ = sim.directory.file(str(uuid.uuid4().hex))
                 with open(file_, "w") as f:
@@ -1108,19 +1142,9 @@ class LAMMPS(simulate.Simulation):
                 file_ = None
             file_ = mpi.world.bcast(file_)
 
-            # only launch process on the root rank with MPI launcher
-            if mpi.world.rank_is_root:
-                run_cmd = sim[sim.initializer]["_lammps"] + ["-i", file_]
-                run_cmd = " ".join(run_cmd)
-                if mpi.world.enabled:
-                    run_cmd = "mpiexec " + run_cmd
-                result = subprocess.run(run_cmd, shell=True)
-                returncode = result.returncode
-            else:
-                returncode = None
-            returncode = mpi.world.bcast(returncode)
-            if returncode != 0:
-                raise OSError("Call to LAMMPS failed")
+            # then run lammps as an executable
+            run_cmd = sim[sim.initializer]["_lammps"] + ["-i", file_]
+            subprocess.run(" ".join(run_cmd), shell=True, check=True)
 
         # then keep going
         super()._post_run(sim)
@@ -1150,16 +1174,14 @@ class LAMMPS(simulate.Simulation):
                 "-nocite",
             ]
 
-        sim[sim.initializer]["_lammps_commands"] = []
+        sim[sim.initializer]["_lammps_version"] = self.version
         if self.executable is not None:
             sim[sim.initializer]["_lammps_python"] = False
             sim[sim.initializer]["_lammps"] = [self.executable] + launch_args
         else:
-            lmp = lammps.lammps(cmdargs=launch_args)
-            if lmp.version() < 20210929:
-                raise ImportError("Only LAMMPS 29 Sep 2021 or newer is supported.")
             sim[sim.initializer]["_lammps_python"] = True
-            sim[sim.initializer]["_lammps"] = lmp
+            sim[sim.initializer]["_lammps"] = lammps.lammps(cmdargs=launch_args)
+        sim[sim.initializer]["_lammps_commands"] = []
 
         sim[sim.initializer]["lammps_types"] = self.lammps_types
         sim[sim.initializer]["units"] = "lj"
