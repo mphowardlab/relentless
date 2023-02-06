@@ -20,6 +20,26 @@ class SimulationOperation(abc.ABC):
         pass
 
 
+class InitializationOperation(SimulationOperation):
+    """Operation that initializes a :class:`Simulation`.
+
+    An initialization operation must do the following:
+
+    * Set `sim.dimension`, the dimensionality of the simulation.
+    * Set `sim.types`, the list of particle types in the simulation.
+    * Set `sim.masses`, the dictionary of masses for each particle type in the
+      simulation.py
+    * Attach the :class:`Potentials` given by `sim.potentials`.
+
+    The initialization operation may additionally stash any data required to
+    run the simulation (e.g., a specific instance of the simulation engine).
+    These should be stored as private data keys beginning with an `_`.
+
+    """
+
+    pass
+
+
 class AnalysisOperation(abc.ABC):
     """Analysis operation to be performed by a :class:`Simulation`."""
 
@@ -58,6 +78,12 @@ class DelegatedSimulationOperation(SimulationOperation):
     @abc.abstractmethod
     def _make_delegate(self, sim):
         pass
+
+
+class DelegatedInitializationOperation(
+    DelegatedSimulationOperation, InitializationOperation
+):
+    pass
 
 
 class DelegatedAnalysisOperation(AnalysisOperation):
@@ -156,13 +182,17 @@ class Simulation:
         # run the operations
         for op in self.operations:
             op(sim)
+        # execute post run commands
+        self._post_run(sim)
+
+        return sim
+
+    def _post_run(self, sim):
         # finalize the analysis operations
         for op in self.operations:
             if hasattr(op, "analyzers"):
                 for analyzer in op.analyzers:
                     analyzer.process(sim, op)
-
-        return sim
 
     @property
     def initializer(self):
@@ -171,8 +201,8 @@ class Simulation:
 
     @initializer.setter
     def initializer(self, op):
-        if not isinstance(op, SimulationOperation):
-            return TypeError("Initializer must be SimulationOperation")
+        if not isinstance(op, InitializationOperation):
+            return TypeError("Initializer must be an InitializationOperation")
         self._initializer = op
 
     @property

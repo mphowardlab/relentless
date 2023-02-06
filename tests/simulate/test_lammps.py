@@ -1,8 +1,29 @@
 """Unit tests for relentless.simulate.lammps."""
+# if being run directly, we may have arguments to handle
+import argparse
+import os
+import sys
+
+if __name__ == "__main__":
+    # get optional lammps executable from command line
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--lammps", default=None)
+    options, args = parser.parse_known_args()
+
+    # set executable and test args
+    _lammps_executable = options.lammps
+    test_args = sys.argv[:1] + args
+
+    # we also need to inject the test module onto the path when being run directly
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
+else:
+    _lammps_executable = None
+    test_args = sys.argv
+
 import tempfile
 import unittest
 
-from parameterized import parameterized_class
+import parameterized
 
 try:
     import lammps
@@ -13,17 +34,26 @@ except ImportError:
 import relentless
 from tests.model.potential.test_pair import LinPot
 
-_has_modules = (
-    relentless.simulate.lammps._lammps_found
-    and relentless.simulate.lammps._lammpsio_found
-)
+# parametrize testing fixture
+if _lammps_executable is not None:
+    test_params = [(2, _lammps_executable), (3, _lammps_executable)]
+elif relentless.simulate.lammps._lammps_found:
+    test_params = [(2, None), (3, None)]
+else:
+    test_params = []
+
+_has_lammps_dependencies = relentless.simulate.lammps._lammpsio_found
 
 
-@unittest.skipIf(not _has_modules, "LAMMPS dependencies not installed")
-@parameterized_class(
-    [{"dim": 2}, {"dim": 3}],
-    class_name_func=lambda cls, num, params_dict: "{}_{}d".format(
-        cls.__name__, params_dict["dim"]
+@unittest.skipIf(not _has_lammps_dependencies, "LAMMPS dependencies not installed")
+@unittest.skipIf(len(test_params) == 0, "No version of LAMMPS installed")
+@parameterized.parameterized_class(
+    ("dim", "executable"),
+    test_params,
+    class_name_func=lambda cls, num, params_dict: "{}_{}d-{}".format(
+        cls.__name__,
+        params_dict["dim"],
+        "python" if params_dict["executable"] is None else "executable",
     ),
 )
 class test_LAMMPS(unittest.TestCase):
@@ -90,44 +120,56 @@ class test_LAMMPS(unittest.TestCase):
         file_ = self.create_file()
         op = relentless.simulate.InitializeFromFile(filename=file_)
         lmp = relentless.simulate.LAMMPS(
-            op, dimension=self.dim, lammps_types={"1": 1, "2": 2}
+            op,
+            dimension=self.dim,
+            lammps_types={"1": 1, "2": 2},
+            executable=self.executable,
         )
         sim = lmp.run(potentials=pot, directory=self.directory)
-        self.assertIsInstance(sim[sim.initializer]["_lammps"], lammps.lammps)
-        self.assertEqual(sim[sim.initializer]["_lammps"].get_natoms(), 5)
+        if self.executable is None:
+            self.assertIsInstance(sim[sim.initializer]["_lammps"], lammps.lammps)
+            self.assertEqual(sim[sim.initializer]["_lammps"].get_natoms(), 5)
+        else:
+            self.assertEqual(sim[sim.initializer]["_lammps"][0], self.executable)
 
         # InitializeRandomly
         op = relentless.simulate.InitializeRandomly(seed=1, N=ens.N, V=ens.V, T=ens.T)
-        lmp = relentless.simulate.LAMMPS(op, dimension=self.dim)
+        lmp = relentless.simulate.LAMMPS(
+            op, dimension=self.dim, executable=self.executable
+        )
         sim = lmp.run(potentials=pot, directory=self.directory)
-        self.assertIsInstance(sim[sim.initializer]["_lammps"], lammps.lammps)
-        self.assertEqual(sim[sim.initializer]["_lammps"].get_natoms(), 5)
+        if self.executable is None:
+            self.assertIsInstance(sim[sim.initializer]["_lammps"], lammps.lammps)
+            self.assertEqual(sim[sim.initializer]["_lammps"].get_natoms(), 5)
+        else:
+            self.assertEqual(sim[sim.initializer]["_lammps"][0], self.executable)
 
     def test_random_initialize_options(self):
         # no T
         ens, pot = self.ens_pot()
         op = relentless.simulate.InitializeRandomly(seed=1, N=ens.N, V=ens.V)
-        h = relentless.simulate.LAMMPS(op, dimension=self.dim)
+        h = relentless.simulate.LAMMPS(
+            op, dimension=self.dim, executable=self.executable
+        )
         h.run(potentials=pot, directory=self.directory)
 
         # T + diameters
-        op = relentless.simulate.InitializeRandomly(
+        h.initializer = relentless.simulate.InitializeRandomly(
             seed=1, N=ens.N, V=ens.V, diameters={"1": 1.0, "2": 2.0}
         )
-        h = relentless.simulate.LAMMPS(op, dimension=self.dim)
         h.run(potentials=pot, directory=self.directory)
 
         # no T + mass
         m = {i: idx + 1 for idx, i in enumerate(ens.N)}
-        op = relentless.simulate.InitializeRandomly(seed=1, N=ens.N, V=ens.V, masses=m)
-        h = relentless.simulate.LAMMPS(op, dimension=self.dim)
+        h.initializer = relentless.simulate.InitializeRandomly(
+            seed=1, N=ens.N, V=ens.V, masses=m
+        )
         h.run(potentials=pot, directory=self.directory)
 
         # T + mass
-        op = relentless.simulate.InitializeRandomly(
+        h.initializer = relentless.simulate.InitializeRandomly(
             seed=1, N=ens.N, V=ens.V, T=ens.T, masses=m
         )
-        h = relentless.simulate.LAMMPS(op, dimension=self.dim)
         h.run(potentials=pot, directory=self.directory)
 
     def test_minimization(self):
@@ -144,7 +186,11 @@ class test_LAMMPS(unittest.TestCase):
             options={"max_evaluations": 10000},
         )
         lmp = relentless.simulate.LAMMPS(
-            init, operations=[emin], dimension=self.dim, lammps_types={"1": 1, "2": 2}
+            init,
+            operations=[emin],
+            dimension=self.dim,
+            lammps_types={"1": 1, "2": 2},
+            executable=self.executable,
         )
         lmp.run(potentials=pot, directory=self.directory)
         self.assertEqual(emin.options["max_evaluations"], 10000)
@@ -153,16 +199,16 @@ class test_LAMMPS(unittest.TestCase):
         emin = relentless.simulate.MinimizeEnergy(
             energy_tolerance=1e-7, force_tolerance=1e-7, max_iterations=1000, options={}
         )
-        lmp = relentless.simulate.LAMMPS(
-            init, operations=[emin], dimension=self.dim, lammps_types={"1": 1, "2": 2}
-        )
+        lmp.operations = emin
         lmp.run(potentials=pot, directory=self.directory)
         self.assertEqual(emin.options["max_evaluations"], 100 * emin.max_iterations)
 
     def test_langevin_dynamics(self):
         ens, pot = self.ens_pot()
         init = relentless.simulate.InitializeRandomly(seed=1, N=ens.N, V=ens.V, T=ens.T)
-        lmp = relentless.simulate.LAMMPS(init, dimension=self.dim)
+        lmp = relentless.simulate.LAMMPS(
+            init, dimension=self.dim, executable=self.executable
+        )
 
         # float friction
         lgv = relentless.simulate.RunLangevinDynamics(
@@ -196,7 +242,9 @@ class test_LAMMPS(unittest.TestCase):
     def test_molecular_dynamics(self):
         ens, pot = self.ens_pot()
         init = relentless.simulate.InitializeRandomly(seed=1, N=ens.N, V=ens.V, T=ens.T)
-        lmp = relentless.simulate.LAMMPS(init, dimension=self.dim)
+        lmp = relentless.simulate.LAMMPS(
+            init, dimension=self.dim, executable=self.executable
+        )
 
         # VerletIntegrator - NVE
         vrl = relentless.simulate.RunMolecularDynamics(steps=1, timestep=1e-3)
@@ -256,7 +304,9 @@ class test_LAMMPS(unittest.TestCase):
             seed=1,
             analyzers=[analyzer, analyzer2],
         )
-        h = relentless.simulate.LAMMPS(init, operations=lgv, dimension=self.dim)
+        h = relentless.simulate.LAMMPS(
+            init, operations=lgv, dimension=self.dim, executable=self.executable
+        )
         sim = h.run(potentials=pot, directory=self.directory)
 
         # extract ensemble
@@ -308,7 +358,9 @@ class test_LAMMPS(unittest.TestCase):
             seed=1,
             analyzers=[analyzer],
         )
-        h = relentless.simulate.LAMMPS(init, operations=lgv, dimension=self.dim)
+        h = relentless.simulate.LAMMPS(
+            init, operations=lgv, dimension=self.dim, executable=self.executable
+        )
         sim = h.run(potentials=pot, directory=self.directory)
 
         # read trajectory file
@@ -330,4 +382,4 @@ class test_LAMMPS(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main()
+    unittest.main(argv=test_args)

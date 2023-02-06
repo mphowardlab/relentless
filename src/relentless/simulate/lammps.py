@@ -1,9 +1,11 @@
 import abc
+import datetime
+import subprocess
 import uuid
 
 import numpy
 
-from relentless import mpi
+from relentless import collections, mpi
 from relentless.model import ensemble, extent, variable
 
 from . import initialize, md, simulate
@@ -46,7 +48,12 @@ class LAMMPSOperation(simulate.SimulationOperation):
 
         """
         cmds = self.to_commands(sim)
-        sim[sim.initializer]["_lammps"].commands_list(cmds)
+        if cmds is None or len(cmds) == 0:
+            return
+
+        sim[sim.initializer]["_lammps_commands"] += cmds
+        if sim[sim.initializer]["_lammps_python"]:
+            sim[sim.initializer]["_lammps"].commands_list(cmds)
 
     @classmethod
     def new_compute_id(cls):
@@ -138,8 +145,36 @@ class LAMMPSOperation(simulate.SimulationOperation):
         pass
 
 
+class LAMMPSAnalysisOperation(simulate.AnalysisOperation):
+    def pre_run(self, sim, sim_op):
+        cmds = self.pre_run_commands(sim, sim_op)
+        if cmds is None or len(cmds) == 0:
+            return
+
+        sim[sim.initializer]["_lammps_commands"] += cmds
+        if sim[sim.initializer]["_lammps_python"]:
+            sim[sim.initializer]["_lammps"].commands_list(cmds)
+
+    def post_run(self, sim, sim_op):
+        cmds = self.post_run_commands(sim, sim_op)
+        if cmds is None or len(cmds) == 0:
+            return
+
+        sim[sim.initializer]["_lammps_commands"] += cmds
+        if sim[sim.initializer]["_lammps_python"]:
+            sim[sim.initializer]["_lammps"].commands_list(cmds)
+
+    @abc.abstractmethod
+    def pre_run_commands(self, sim, sim_op):
+        pass
+
+    @abc.abstractmethod
+    def post_run_commands(self, sim, sim_op):
+        pass
+
+
 # initializers
-class _Initialize(LAMMPSOperation):
+class _Initialize(simulate.InitializationOperation, LAMMPSOperation):
     """Initialize a simulation."""
 
     def __call__(self, sim):
@@ -158,6 +193,21 @@ class _Initialize(LAMMPSOperation):
 
         cmds += self.initialize_commands(sim)
         sim.types = sim[self]["lammps_types"].keys()
+
+        sim.masses = collections.FixedKeyDict(sim.types)
+        # file is opened only valid on root and result is broadcast
+        masses = {}
+        if mpi.world.rank_is_root:
+            snap = lammpsio.DataFile(sim[self]["_datafile"]).read()
+            for i in sim.types:
+                mi = snap.mass[snap.typeid == sim[self]["lammps_types"][i]]
+                if len(mi) == 0:
+                    raise KeyError("Type {} not present in simulation".format(i))
+                elif not numpy.all(mi == mi[0]):
+                    raise ValueError("All masses for a type must be equal")
+                masses[i] = mi[0]
+        masses = mpi.world.bcast(masses)
+        sim.masses.update(masses)
 
         # attach the potentials
         if sim.potentials.pair.start == 0:
@@ -282,6 +332,7 @@ class InitializeFromFile(_Initialize):
     def initialize_commands(self, sim):
         if sim[self]["lammps_types"] is None:
             raise ValueError("lammps_types needs to be manually specified with a file")
+        sim[self]["_datafile"] = self.filename
         return ["read_data {filename}".format(filename=self.filename)]
 
 
@@ -412,6 +463,7 @@ class InitializeRandomly(_Initialize):
             init_file = None
         init_file = mpi.world.bcast(init_file)
 
+        sim[self]["_datafile"] = init_file
         return ["read_data {}".format(init_file)]
 
 
@@ -555,30 +607,28 @@ class RunLangevinDynamics(_MDIntegrator):
         self.seed = seed
 
     def to_commands(self, sim):
-        # obtain per-type mass (arrays 1-indexed using lammps convention)
-        Ntypes = len(sim.types)
-        mass = sim[sim.initializer]["_lammps"].numpy.extract_atom("mass")
-        if mass is None or mass.shape != (Ntypes + 1,):
-            raise ValueError("Per-type masses not set.")
-        mass = numpy.squeeze(mass)
-
         # obtain per-type friction factor
-        friction = numpy.zeros_like(mass)
+        Ntypes = len(sim.types)
+        mass = numpy.zeros(Ntypes)
+        friction = numpy.zeros(Ntypes)
         for t in sim.types:
+            typeidx = sim[sim.initializer]["lammps_types"][t] - 1
             try:
-                friction[sim[sim.initializer]["lammps_types"][t]] = self.friction[t]
+                friction[typeidx] = self.friction[t]
             except TypeError:
-                friction[sim[sim.initializer]["lammps_types"][t]] = self.friction
+                friction[typeidx] = self.friction
             except KeyError:
                 raise KeyError("The friction factor for type {} is not set.".format(t))
 
+            mass[typeidx] = sim.masses[t]
+
         # compute per-type damping parameter and rescale if multiple types
         damp = numpy.divide(mass, friction, where=(friction > 0))
-        damp_ref = damp[1]
+        damp_ref = damp[0]
         if Ntypes > 1:
             scale = damp / damp_ref
             scale_str = " ".join(
-                ["scale {} {}".format(i + 1, s) for i, s in enumerate(scale[2:])]
+                ["scale {} {}".format(i + 2, s) for i, s in enumerate(scale[1:])]
             )
         else:
             scale_str = ""
@@ -733,7 +783,7 @@ class RunMolecularDynamics(_MDIntegrator):
         return cmds
 
 
-class EnsembleAverage(simulate.AnalysisOperation):
+class EnsembleAverage(LAMMPSAnalysisOperation):
     """Analyzes the simulation ensemble and rdf at specified timestep intervals.
 
     Parameters
@@ -759,7 +809,7 @@ class EnsembleAverage(simulate.AnalysisOperation):
         self.check_rdf_every = check_rdf_every
         self.rdf_dr = rdf_dr
 
-    def pre_run(self, sim, sim_op):
+    def pre_run_commands(self, sim, sim_op):
         fix_ids = {
             "thermo_avg": LAMMPSOperation.new_fix_id(),
             "rdf_avg": LAMMPSOperation.new_fix_id(),
@@ -868,10 +918,10 @@ class EnsembleAverage(simulate.AnalysisOperation):
             ),
         ]
 
-        sim[sim.initializer]["_lammps"].commands_list(cmds)
+        return cmds
 
-    def post_run(self, sim, sim_op):
-        pass
+    def post_run_commands(self, sim, sim_op):
+        return None
 
     def process(self, sim, sim_op):
         # extract thermo properties
@@ -911,7 +961,7 @@ class EnsembleAverage(simulate.AnalysisOperation):
         sim[self]["num_rdf_samples"] = None
 
 
-class WriteTrajectory(simulate.AnalysisOperation):
+class WriteTrajectory(LAMMPSAnalysisOperation):
     """Writes a LAMMPS dump file.
 
     When all options are set to True the file has the following format::
@@ -946,7 +996,7 @@ class WriteTrajectory(simulate.AnalysisOperation):
         self.types = types
         self.masses = masses
 
-    def pre_run(self, sim, sim_op):
+    def pre_run_commands(self, sim, sim_op):
         dump_format = "id"
         if self.types is True:
             dump_format += " type"
@@ -967,10 +1017,10 @@ class WriteTrajectory(simulate.AnalysisOperation):
             "dump_modify {} append no pbc yes flush yes".format(dump_id),
         ]
 
-        sim[sim.initializer]["_lammps"].commands_list(cmds)
+        return cmds
 
-    def post_run(self, sim, sim_op):
-        pass
+    def post_run_commands(self, sim, sim_op):
+        return None
 
     def process(self, sim, sim_op):
         pass
@@ -984,9 +1034,20 @@ class LAMMPS(simulate.Simulation):
     GPUs, as a single process or with MPI parallelism. The launch configuration
     will be automatically selected for you when the simulation is run.
 
-    LAMMPS must be built with its
-    `Python interface <https://docs.lammps.org/Python_head.html>`_ and must be
-    version 29 Sep 2021 or newer.
+    The version of LAMMPS must be 29 Sep 2021 or newer. It is recommended to build
+    LAMMPS with its `Python interface <https://docs.lammps.org/Python_head.html>`_.
+    However, it is possible to run LAMMPS as a binary by specifying ``executable``::
+
+        relentless.simulate.LAMMPS(init, ops, executable="lmp_serial")
+
+    This can be helpful if you do not have a build of LAMMPS with Python support
+    enabled; however, it will typically be a bit slower than running LAMMPS via
+    Python. To run LAMMPS as an executable with MPI support, you should **not**
+    launch ``relentless`` with ``mpirexec``, and instead should include the
+    ``mpiexec` command and options in the ``executable``::
+
+        relentless.simulate.LAMMPS(init, ops, executable="mpiexec -n 8 lmp_mpi")
+
 
     .. warning::
 
@@ -1008,6 +1069,12 @@ class LAMMPS(simulate.Simulation):
         If ``True``, silence LAMMPS screen output. Setting this to ``False`` can
         be helpful for debugging but would be very noisy in a long production
         simulation.
+    lammps_types : dict
+        Mapping from relentless types to LAMMPS integer types. This mapping may
+        be used during initialization (and is required for some operations).
+    executable : str
+        LAMMPS executable. If specified, LAMMPS will be run as a binary
+        application rather than its Python library.
 
     Raises
     ------
@@ -1017,10 +1084,58 @@ class LAMMPS(simulate.Simulation):
     """
 
     def __init__(
-        self, initializer, operations=None, dimension=3, quiet=True, lammps_types=None
+        self,
+        initializer,
+        operations=None,
+        dimension=3,
+        quiet=True,
+        lammps_types=None,
+        executable=None,
     ):
-        if not _lammps_found:
-            raise ImportError("LAMMPS not found.")
+        # test executable if it is specified
+        if executable is not None:
+            # disallow launching LAMMPS under MPI. this may be slightly too strict,
+            # but we can relax it later if needed.
+            if mpi.world.enabled:
+                raise RuntimeError(
+                    "LAMMPS cannot be run under MPI with an executable."
+                    " Put mpiexec in the executable instead."
+                )
+            # test the executable
+            result = subprocess.run(
+                executable + " -help", shell=True, capture_output=True, text=True
+            )
+            if result.returncode != 0:
+                raise OSError(
+                    "LAMMPS executable {} failed to launch.".format(executable)
+                )
+            self.executable = executable
+            # these split indexes are hardcoded based on standard help output
+            version_str = result.stdout.splitlines()[1].split("-")[2].strip()
+            # then this coerces the version into the LAMMPS integer format
+            self.version = int(
+                datetime.datetime.strptime(version_str, "%d %b %Y").strftime("%Y%m%d")
+            )
+        else:
+            if not _lammps_found:
+                raise ImportError("LAMMPS not found.")
+
+            self.executable = None
+            lmp = lammps.lammps(
+                cmdargs=[
+                    "-echo",
+                    "none",
+                    "-log",
+                    "none",
+                    "-screen",
+                    "none",
+                    "-nocite",
+                ]
+            )
+            self.version = lmp.version()
+            del lmp
+        if self.version < 20210929:
+            raise ImportError("Only LAMMPS 29 Sep 2021 or newer is supported.")
 
         if not _lammpsio_found:
             raise ImportError("lammpsio not found.")
@@ -1029,6 +1144,27 @@ class LAMMPS(simulate.Simulation):
         self.dimension = dimension
         self.quiet = quiet
         self.lammps_types = lammps_types
+
+    def _post_run(self, sim):
+        # force all the lammps commands to execute, since the operations did
+        # not actually do it
+        if not sim[sim.initializer]["_lammps_python"]:
+            # send the commands to file
+            if mpi.world.rank_is_root:
+                file_ = sim.directory.file(str(uuid.uuid4().hex))
+                with open(file_, "w") as f:
+                    for cmd in sim[sim.initializer]["_lammps_commands"]:
+                        f.write(cmd + "\n")
+            else:
+                file_ = None
+            file_ = mpi.world.bcast(file_)
+
+            # then run lammps as an executable
+            run_cmd = sim[sim.initializer]["_lammps"] + ["-i", file_]
+            subprocess.run(" ".join(run_cmd), shell=True, check=True)
+
+        # then keep going
+        super()._post_run(sim)
 
     def _new_instance(self, potentials, directory):
         sim = simulate.SimulationInstance(
@@ -1054,10 +1190,16 @@ class LAMMPS(simulate.Simulation):
                 sim.directory.file("log.lammps"),
                 "-nocite",
             ]
-        lmp = lammps.lammps(cmdargs=launch_args)
-        if lmp.version() < 20210929:
-            raise ImportError("Only LAMMPS 29 Sep 2021 or newer is supported.")
-        sim[sim.initializer]["_lammps"] = lmp
+
+        sim[sim.initializer]["_lammps_version"] = self.version
+        if self.executable is not None:
+            sim[sim.initializer]["_lammps_python"] = False
+            sim[sim.initializer]["_lammps"] = [self.executable] + launch_args
+        else:
+            sim[sim.initializer]["_lammps_python"] = True
+            sim[sim.initializer]["_lammps"] = lammps.lammps(cmdargs=launch_args)
+        sim[sim.initializer]["_lammps_commands"] = []
+
         sim[sim.initializer]["lammps_types"] = self.lammps_types
         sim[sim.initializer]["units"] = "lj"
         sim[sim.initializer]["atom_style"] = "atomic"

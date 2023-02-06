@@ -9,7 +9,7 @@ from . import simulate
 
 
 # initializers
-class InitializeFromFile(simulate.DelegatedSimulationOperation):
+class InitializeFromFile(simulate.DelegatedInitializationOperation):
     """Initialize a simulation from a file.
 
     Description.
@@ -28,7 +28,7 @@ class InitializeFromFile(simulate.DelegatedSimulationOperation):
         return self._get_delegate(sim, filename=self.filename)
 
 
-class InitializeRandomly(simulate.DelegatedSimulationOperation):
+class InitializeRandomly(simulate.DelegatedInitializationOperation):
     """Initialize a randomly generated simulation box.
 
     If ``diameters`` is ``None``, the particles are randomly placed in the box.

@@ -28,7 +28,7 @@ except ImportError:
 
 
 # initializers
-class _Initialize(simulate.SimulationOperation):
+class _Initialize(simulate.InitializationOperation):
     """Initialize a simulation.
 
     This is an abstract base class that needs to have its :meth:`initialize`
@@ -47,6 +47,25 @@ class _Initialize(simulate.SimulationOperation):
         sim[self]["_system"] = self.initialize(sim)
         sim.dimension = sim[self]["_system"].box.dimensions
         sim.types = sim[self]["_system"].particles.types
+
+        # parse masses by type
+        sim.masses = FixedKeyDict(sim.types)
+        with sim[self]["_context"]:
+            snap = sim[self]["_system"].take_snapshot(particles=True)
+            masses = {}
+            # snapshot is only valid on root, so read there and broadcast
+            if mpi.world.rank == 0:
+                for i in sim.types:
+                    mi = snap.particles.mass[
+                        snap.particles.typeid == snap.particles.types.index(i)
+                    ]
+                    if len(mi) == 0:
+                        raise KeyError("Type {} not present in simulation".format(i))
+                    elif not numpy.all(mi == mi[0]):
+                        raise ValueError("All masses for a type must be equal")
+                    masses[i] = mi[0]
+            masses = mpi.world.bcast(masses, root=0)
+            sim.masses.update(masses)
 
         # attach the potentials
         def _table_eval(r_i, rmin, rmax, **coeff):
