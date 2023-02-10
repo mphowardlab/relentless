@@ -634,6 +634,13 @@ class EnsembleAverage(simulate.AnalysisOperation):
     def process(self, sim, sim_op):
         rdf_recorder = sim[self]["_rdf_callback"]
         thermo_recorder = sim[self]["_thermo_callback"]
+
+        # make sure samples were collected
+        if thermo_recorder.num_samples == 0:
+            raise RuntimeError("No thermo samples were collected")
+        if rdf_recorder.num_samples == 0:
+            raise RuntimeError("No RDF samples were collected")
+
         ens = ensemble.Ensemble(
             T=thermo_recorder.T,
             N=rdf_recorder.N,
