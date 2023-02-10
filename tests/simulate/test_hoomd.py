@@ -175,6 +175,10 @@ class test_HOOMD(unittest.TestCase):
         brn.friction = {"A": 1.5, "B": 2.5}
         h.run(pot, self.directory)
 
+        # temperature annealing
+        brn.T = (ens.T, 1.5 * ens.T)
+        h.run(pot, self.directory)
+
     def test_langevin_dynamics(self):
         ens, pot = self.ens_pot()
         init = relentless.simulate.InitializeRandomly(seed=1, N=ens.N, V=ens.V, T=ens.T)
@@ -185,6 +189,10 @@ class test_HOOMD(unittest.TestCase):
         h.run(pot, self.directory)
 
         lgv.friction = {"A": 1.5, "B": 2.5}
+        h.run(pot, self.directory)
+
+        # temperature annealing
+        lgv.T = (ens.T, 1.5 * ens.T)
         h.run(pot, self.directory)
 
     def test_molecular_dynamics(self):
@@ -198,6 +206,11 @@ class test_HOOMD(unittest.TestCase):
         # VerletIntegrator - NVT
         vrl.thermostat = relentless.simulate.NoseHooverThermostat(T=1, tau=0.5)
         h.run(pot, self.directory)
+
+        # VerletIntegrator - NVT annealed
+        vrl.thermostat.T = (1, 1.5)
+        h.run(pot, self.directory)
+        vrl.thermostat.T = 1
 
         # VerletIntegrator - NPT
         vrl.barostat = relentless.simulate.MTKBarostat(P=1, tau=0.5)

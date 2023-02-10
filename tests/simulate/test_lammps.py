@@ -232,6 +232,10 @@ class test_LAMMPS(unittest.TestCase):
         lmp.operations = lgv
         lmp.run(pot, self.directory)
 
+        # temperature annealing
+        lgv.T = (ens.T, 1.5 * ens.T)
+        lmp.run(pot, self.directory)
+
         # invalid-type friction
         lgv.friction = {"2": 5.0, "3": 2.0}
         lmp.initializer = init
@@ -254,6 +258,11 @@ class test_LAMMPS(unittest.TestCase):
         # NVT - Berendesen
         vrl.thermostat = relentless.simulate.BerendsenThermostat(T=1, tau=0.5)
         lmp.run(pot, self.directory)
+
+        # NVT - Berendsen annealed
+        vrl.thermostat.T = (1, 1.5)
+        lmp.run(pot, self.directory)
+        vrl.thermostat.T = 1
 
         # NPT - Berendsen
         vrl.barostat = relentless.simulate.BerendsenBarostat(P=1, tau=0.5)

@@ -577,6 +577,18 @@ class _MDIntegrator(LAMMPSOperation):
 
         return cmds
 
+    @staticmethod
+    def _make_T(thermostat):
+        """Cast thermostat into a T parameter for LAMMPS integrators."""
+        # force the type of thermostat, in case it's a float
+        if not isinstance(thermostat, md.Thermostat):
+            thermostat = md.Thermostat(thermostat)
+
+        if thermostat.anneal:
+            return (thermostat.T[0], thermostat.T[1])
+        else:
+            return (thermostat.T, thermostat.T)
+
 
 class RunLangevinDynamics(_MDIntegrator):
     """Perform a Langevin dynamics simulation.
@@ -633,6 +645,7 @@ class RunLangevinDynamics(_MDIntegrator):
         else:
             scale_str = ""
 
+        T = self._make_T(self.T)
         fix_ids = {"nve": self.new_fix_id(), "langevin": self.new_fix_id()}
         cmds = [
             "timestep {}".format(self.timestep),
@@ -643,8 +656,8 @@ class RunLangevinDynamics(_MDIntegrator):
             ).format(
                 idx=fix_ids["langevin"],
                 group_idx="all",
-                t_start=self.T,
-                t_stop=self.T,
+                t_start=T[0],
+                t_stop=T[1],
                 damp=damp_ref,
                 seed=self.seed,
                 scaling=scale_str,
@@ -694,6 +707,11 @@ class RunMolecularDynamics(_MDIntegrator):
     def to_commands(self, sim):
         fix_ids = {"ig": self.new_fix_id()}
 
+        if self.thermostat is not None:
+            T = self._make_T(self.thermostat)
+        else:
+            T = None
+
         cmds = ["timestep {}".format(self.timestep)]
         if (
             self.thermostat is None
@@ -711,8 +729,8 @@ class RunMolecularDynamics(_MDIntegrator):
                 "fix {idx} {group_idx} nvt temp {Tstart} {Tstop} {Tdamp}".format(
                     idx=fix_ids["ig"],
                     group_idx="all",
-                    Tstart=self.thermostat.T,
-                    Tstop=self.thermostat.T,
+                    Tstart=T[0],
+                    Tstop=T[0],
                     Tdamp=self.thermostat.tau,
                 )
             ]
@@ -739,8 +757,8 @@ class RunMolecularDynamics(_MDIntegrator):
                 ).format(
                     idx=fix_ids["ig"],
                     group_idx="all",
-                    Tstart=self.thermostat.T,
-                    Tstop=self.thermostat.T,
+                    Tstart=T[0],
+                    Tstop=T[1],
                     Tdamp=self.thermostat.tau,
                     Pstart=self.barostat.P,
                     Pstop=self.barostat.P,
@@ -758,8 +776,8 @@ class RunMolecularDynamics(_MDIntegrator):
                 "fix {idx} {group_idx} temp/berendsen {Tstart} {Tstop} {Tdamp}".format(
                     idx=fix_ids["berendsen_temp"],
                     group_idx="all",
-                    Tstart=self.thermostat.T,
-                    Tstop=self.thermostat.T,
+                    Tstart=T[0],
+                    Tstop=T[1],
                     Tdamp=self.thermostat.tau,
                 )
             ]
