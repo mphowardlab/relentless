@@ -929,8 +929,8 @@ class EnsembleAverage(LAMMPSAnalysisOperation):
         # timestep from col. 0
         try:
             thermo = mpi.world.loadtxt(sim[self]["_thermo_file"], skiprows=2)[1:]
-        except FileNotFoundError as e:
-            raise FileNotFoundError("No LAMMPS thermo file generated") from e
+        except Exception as e:
+            raise RuntimeError("No LAMMPS thermo file generated") from e
         N = {i: Ni for i, Ni in zip(sim.types, thermo[8 : 8 + len(sim.types)])}
         if sim.dimension == 3:
             V = extent.TriclinicBox(
@@ -957,8 +957,8 @@ class EnsembleAverage(LAMMPSAnalysisOperation):
         # first column
         try:
             rdf = mpi.world.loadtxt(sim[self]["_rdf_file"], skiprows=4)[:, 1:]
-        except FileNotFoundError as e:
-            raise FileNotFoundError("No LAMMPS RDF file generated") from e
+        except Exception as e:
+            raise RuntimeError("LAMMPS RDF file could not be read") from e
         for i, pair in enumerate(sim[self]["_rdf_pairs"]):
             ens.rdf[pair] = ensemble.RDF(rdf[:, 0], rdf[:, i + 1])
 
