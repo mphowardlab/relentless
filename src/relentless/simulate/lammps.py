@@ -730,7 +730,7 @@ class RunMolecularDynamics(_MDIntegrator):
                     idx=fix_ids["ig"],
                     group_idx="all",
                     Tstart=T[0],
-                    Tstop=T[0],
+                    Tstop=T[1],
                     Tdamp=self.thermostat.tau,
                 )
             ]
