@@ -246,6 +246,14 @@ class test_HOOMD(unittest.TestCase):
         self.assertEqual(sim[analyzer]["num_thermo_samples"], 100)
         self.assertEqual(sim[analyzer]["num_rdf_samples"], 50)
 
+        # make sure we get an error if this doesn't actually run
+        if relentless.mpi.world.rank_is_root:
+            self.directory.clear_contents()
+        relentless.mpi.world.barrier()
+        lgv.steps = 0
+        with self.assertRaises(RuntimeError):
+            h.run(pot, self.directory)
+
     def test_writetrajectory(self):
         """Test write trajectory simulation operation."""
         ens, pot = self.ens_pot()

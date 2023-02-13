@@ -927,7 +927,10 @@ class EnsembleAverage(LAMMPSAnalysisOperation):
         # extract thermo properties
         # we skip the first 2 rows, which are LAMMPS junk, and slice out the
         # timestep from col. 0
-        thermo = mpi.world.loadtxt(sim[self]["_thermo_file"], skiprows=2)[1:]
+        try:
+            thermo = mpi.world.loadtxt(sim[self]["_thermo_file"], skiprows=2)[1:]
+        except Exception as e:
+            raise RuntimeError("No LAMMPS thermo file generated") from e
         N = {i: Ni for i, Ni in zip(sim.types, thermo[8 : 8 + len(sim.types)])}
         if sim.dimension == 3:
             V = extent.TriclinicBox(
@@ -952,7 +955,10 @@ class EnsembleAverage(LAMMPSAnalysisOperation):
         # LAMMPS injects a column for the row index, so we start at column 1 for r
         # we skip the first 4 rows, which are LAMMPS junk, and slice out the
         # first column
-        rdf = mpi.world.loadtxt(sim[self]["_rdf_file"], skiprows=4)[:, 1:]
+        try:
+            rdf = mpi.world.loadtxt(sim[self]["_rdf_file"], skiprows=4)[:, 1:]
+        except Exception as e:
+            raise RuntimeError("LAMMPS RDF file could not be read") from e
         for i, pair in enumerate(sim[self]["_rdf_pairs"]):
             ens.rdf[pair] = ensemble.RDF(rdf[:, 0], rdf[:, i + 1])
 
