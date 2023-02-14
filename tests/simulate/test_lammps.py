@@ -312,7 +312,9 @@ class test_LAMMPS(unittest.TestCase):
             seed=2,
             analyzers=logger,
         )
-        lmp = relentless.simulate.LAMMPS(init, brn, dimension=self.dim)
+        lmp = relentless.simulate.LAMMPS(
+            init, brn, dimension=self.dim, executable=self.executable
+        )
 
         pot = relentless.simulate.Potentials()
         pot.pair.start = 1e-6
