@@ -199,15 +199,48 @@ class Thermostat:
     Controls the temperature of the simulation by modifying the particle
     velocities according to a given scheme.
 
+    Either 1 or 2 values can be specified for ``T``. If 1 value is given, the
+    temperature will be held constant. If 2 values are given, the temperature
+    will be varied linearly (annealed) between the values.
+
     Parameters
     ----------
-    T : float
-        Target temperature.
+    T : float or tuple
+        Target temperature(s).
 
     """
 
     def __init__(self, T):
         self.T = T
+
+    @property
+    def T(self):
+        """float or tuple: Temperature set point(s)."""
+        return self._T
+
+    @T.setter
+    def T(self, value):
+        try:
+            num_temps = len(value)
+            if num_temps > 2:
+                raise ValueError("Only up to 2 temperatures supported")
+
+            if num_temps == 2:
+                self._T = tuple(value)
+                self._anneal = True
+            elif num_temps == 1:
+                self._T = value[0]
+                self._anneal = False
+            else:
+                raise ValueError("At least 1 temperature must be specified")
+        except TypeError:
+            self._T = value
+            self._anneal = False
+
+    @property
+    def anneal(self):
+        """bool: True if temperature annealing will be done."""
+        return self._anneal
 
 
 class BerendsenThermostat(Thermostat):

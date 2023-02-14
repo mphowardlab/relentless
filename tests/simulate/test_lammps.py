@@ -23,7 +23,9 @@ else:
 import tempfile
 import unittest
 
+import numpy
 import parameterized
+import scipy.stats
 
 try:
     import lammps
@@ -232,6 +234,10 @@ class test_LAMMPS(unittest.TestCase):
         lmp.operations = lgv
         lmp.run(pot, self.directory)
 
+        # temperature annealing
+        lgv.T = (ens.T, 1.5 * ens.T)
+        lmp.run(pot, self.directory)
+
         # invalid-type friction
         lgv.friction = {"2": 5.0, "3": 2.0}
         lmp.initializer = init
@@ -254,6 +260,11 @@ class test_LAMMPS(unittest.TestCase):
         # NVT - Berendesen
         vrl.thermostat = relentless.simulate.BerendsenThermostat(T=1, tau=0.5)
         lmp.run(pot, self.directory)
+
+        # NVT - Berendsen annealed
+        vrl.thermostat.T = (1, 1.5)
+        lmp.run(pot, self.directory)
+        vrl.thermostat.T = 1
 
         # NPT - Berendsen
         vrl.barostat = relentless.simulate.BerendsenBarostat(P=1, tau=0.5)
@@ -283,6 +294,40 @@ class test_LAMMPS(unittest.TestCase):
         # NPH - MTK
         vrl.thermostat = None
         lmp.run(pot, self.directory)
+
+    def test_temperature_ramp(self):
+        if self.dim == 3:
+            V = relentless.model.Cube(100.0)
+        else:
+            V = relentless.model.Square(100.0)
+        init = relentless.simulate.InitializeRandomly(
+            seed=1, N={"1": 10000}, V=V, T=2.0
+        )
+        logger = relentless.simulate.Record(quantities=["temperature"], every=100)
+        brn = relentless.simulate.RunLangevinDynamics(
+            steps=1000,
+            timestep=1.0e-3,
+            T=(2.0, 1.0),
+            friction=10.0,
+            seed=2,
+            analyzers=logger,
+        )
+        lmp = relentless.simulate.LAMMPS(
+            init, brn, dimension=self.dim, executable=self.executable
+        )
+
+        pot = relentless.simulate.Potentials()
+        pot.pair.start = 1e-6
+        pot.pair.stop = 0.01
+        pot.pair.num = 10
+        pot.pair.neighbor_buffer = 0.5
+        sim = lmp.run(pot, self.directory)
+
+        t = sim[logger]["timestep"]
+        T = sim[logger]["temperature"]
+        result = scipy.stats.linregress(x=t, y=T)
+        self.assertAlmostEqual(result.intercept, 2.0, places=1)
+        self.assertAlmostEqual(result.slope, -1.0 / brn.steps, places=4)
 
     def test_analyzer(self):
         """Test ensemble analyzer simulation operation."""
@@ -335,6 +380,21 @@ class test_LAMMPS(unittest.TestCase):
         self.assertEqual(ens2_.V.extent, ens_.V.extent)
         for i, j in ens2_.rdf:
             self.assertEqual(ens2_.rdf[i, j].table.shape, (4, 2))
+
+        # repeat same analysis with logger, and make sure it still works
+        logger = relentless.simulate.Record(
+            quantities=["temperature", "pressure"], every=5
+        )
+        lgv.analyzers = logger
+        sim = h.run(pot, self.directory)
+        self.assertEqual(len(sim[logger]["timestep"]), 101)
+        self.assertEqual(len(sim[logger]["temperature"]), 101)
+        self.assertEqual(len(sim[logger]["pressure"]), 101)
+        numpy.testing.assert_array_equal(
+            sim[logger]["timestep"], numpy.linspace(0, 500, 101)
+        )
+        self.assertAlmostEqual(numpy.mean(sim[logger]["temperature"]), ens_.T)
+        self.assertAlmostEqual(numpy.mean(sim[logger]["pressure"]), ens_.P)
 
     def test_writetrajectory(self):
         """Test write trajectory simulation operation."""

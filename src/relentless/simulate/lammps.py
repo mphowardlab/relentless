@@ -262,24 +262,27 @@ class _Initialize(simulate.InitializationOperation, LAMMPSOperation):
                         )
 
                     # find r where potential and force are zero
-                    all_rmax = [
-                        variable.evaluate(pair_pot.coeff[i, j]["rmax"])
-                        for pair_pot in sim.potentials.pair.potentials
-                    ]
-                    if None not in all_rmax:
-                        # use rmax if set for all potentials
-                        rcut[(i, j)] = min(max(all_rmax), sim.potentials.pair.stop)
-                    else:
-                        # otherwise, deduce safe cutoff from tabulated values
-                        nonzero_r = numpy.flatnonzero(
-                            numpy.logical_and(
-                                ~numpy.isclose(u, 0), ~numpy.isclose(f, 0)
+                    if len(sim.potentials.pair.potentials) > 0:
+                        all_rmax = [
+                            variable.evaluate(pair_pot.coeff[i, j]["rmax"])
+                            for pair_pot in sim.potentials.pair.potentials
+                        ]
+                        if None not in all_rmax:
+                            # use rmax if set for all potentials
+                            rcut[(i, j)] = min(max(all_rmax), sim.potentials.pair.stop)
+                        else:
+                            # otherwise, deduce safe cutoff from tabulated values
+                            nonzero_r = numpy.flatnonzero(
+                                numpy.logical_and(
+                                    ~numpy.isclose(u, 0), ~numpy.isclose(f, 0)
+                                )
                             )
-                        )
-                        # cutoff at last nonzero r (cannot be first r)
-                        # we add 1 to make sure we include the last point if
-                        # potential happens to go smoothly to zero
-                        rcut[(i, j)] = r[min(nonzero_r[-1] + 1, len(r) - 1)]
+                            # cutoff at last nonzero r (cannot be first r)
+                            # we add 1 to make sure we include the last point if
+                            # potential happens to go smoothly to zero
+                            rcut[(i, j)] = r[min(nonzero_r[-1] + 1, len(r) - 1)]
+                    else:
+                        rcut[(i, j)] = sim.potentials.pair.stop
         else:
             rcut = None
             file_ = None
@@ -577,6 +580,18 @@ class _MDIntegrator(LAMMPSOperation):
 
         return cmds
 
+    @staticmethod
+    def _make_T(thermostat):
+        """Cast thermostat into a T parameter for LAMMPS integrators."""
+        # force the type of thermostat, in case it's a float
+        if not isinstance(thermostat, md.Thermostat):
+            thermostat = md.Thermostat(thermostat)
+
+        if thermostat.anneal:
+            return (thermostat.T[0], thermostat.T[1])
+        else:
+            return (thermostat.T, thermostat.T)
+
 
 class RunLangevinDynamics(_MDIntegrator):
     """Perform a Langevin dynamics simulation.
@@ -633,6 +648,7 @@ class RunLangevinDynamics(_MDIntegrator):
         else:
             scale_str = ""
 
+        T = self._make_T(self.T)
         fix_ids = {"nve": self.new_fix_id(), "langevin": self.new_fix_id()}
         cmds = [
             "timestep {}".format(self.timestep),
@@ -643,8 +659,8 @@ class RunLangevinDynamics(_MDIntegrator):
             ).format(
                 idx=fix_ids["langevin"],
                 group_idx="all",
-                t_start=self.T,
-                t_stop=self.T,
+                t_start=T[0],
+                t_stop=T[1],
                 damp=damp_ref,
                 seed=self.seed,
                 scaling=scale_str,
@@ -694,6 +710,11 @@ class RunMolecularDynamics(_MDIntegrator):
     def to_commands(self, sim):
         fix_ids = {"ig": self.new_fix_id()}
 
+        if self.thermostat is not None:
+            T = self._make_T(self.thermostat)
+        else:
+            T = None
+
         cmds = ["timestep {}".format(self.timestep)]
         if (
             self.thermostat is None
@@ -711,8 +732,8 @@ class RunMolecularDynamics(_MDIntegrator):
                 "fix {idx} {group_idx} nvt temp {Tstart} {Tstop} {Tdamp}".format(
                     idx=fix_ids["ig"],
                     group_idx="all",
-                    Tstart=self.thermostat.T,
-                    Tstop=self.thermostat.T,
+                    Tstart=T[0],
+                    Tstop=T[1],
                     Tdamp=self.thermostat.tau,
                 )
             ]
@@ -739,8 +760,8 @@ class RunMolecularDynamics(_MDIntegrator):
                 ).format(
                     idx=fix_ids["ig"],
                     group_idx="all",
-                    Tstart=self.thermostat.T,
-                    Tstop=self.thermostat.T,
+                    Tstart=T[0],
+                    Tstop=T[1],
                     Tdamp=self.thermostat.tau,
                     Pstart=self.barostat.P,
                     Pstop=self.barostat.P,
@@ -758,8 +779,8 @@ class RunMolecularDynamics(_MDIntegrator):
                 "fix {idx} {group_idx} temp/berendsen {Tstart} {Tstop} {Tdamp}".format(
                     idx=fix_ids["berendsen_temp"],
                     group_idx="all",
-                    Tstart=self.thermostat.T,
-                    Tstop=self.thermostat.T,
+                    Tstart=T[0],
+                    Tstop=T[1],
                     Tdamp=self.thermostat.tau,
                 )
             ]
@@ -918,10 +939,34 @@ class EnsembleAverage(LAMMPSAnalysisOperation):
             ),
         ]
 
+        # save ids so we can remove them later
+        sim[self]["_fix_ids"] = fix_ids
+        sim[self]["_compute_ids"] = compute_ids
+        sim[self]["_var_ids"] = var_ids
+        sim[self]["_group_ids"] = group_ids
+
         return cmds
 
     def post_run_commands(self, sim, sim_op):
-        return None
+        cmds = []
+        # unfix
+        for fixid in sim[self]["_fix_ids"].values():
+            cmds.append("unfix {}".format(fixid))
+        del sim[self]["_fix_ids"]
+        # uncommand
+        for compute_id in sim[self]["_compute_ids"].values():
+            cmds.append("uncompute {}".format(compute_id))
+        del sim[self]["_compute_ids"]
+        # delete variables
+        for var_id in sim[self]["_var_ids"].values():
+            cmds.append("variable {} delete".format(var_id))
+        del sim[self]["_var_ids"]
+        # delete groups
+        for group_id in sim[self]["_group_ids"].values():
+            cmds.append("group {} delete".format(group_id))
+        del sim[self]["_group_ids"]
+
+        return cmds
 
     def process(self, sim, sim_op):
         # extract thermo properties
@@ -965,6 +1010,65 @@ class EnsembleAverage(LAMMPSAnalysisOperation):
         sim[self]["ensemble"] = ens
         sim[self]["num_thermo_samples"] = None
         sim[self]["num_rdf_samples"] = None
+
+
+class Record(LAMMPSAnalysisOperation):
+    def __init__(self, quantities, every):
+        self.quantities = quantities
+        self.every = every
+
+    def pre_run_commands(self, sim, sim_op):
+        # translate quantities into lammps variables
+        quantity_map = {
+            "potential_energy": "pe",
+            "kinetic_energy": "ke",
+            "temperature": "temp",
+            "pressure": "press",
+        }
+        var_ids = {}
+        cmds = []
+        for q in self.quantities:
+            var_ids[q] = LAMMPSOperation.new_variable_id()
+            cmds.append("variable {} equal {}".format(var_ids[q], quantity_map[q]))
+
+        # write quantities to file with fix ave/time
+        if mpi.world.rank == 0:
+            file_ = sim.directory.file(str(uuid.uuid4().hex))
+        else:
+            file_ = None
+        sim[self]["_fix_id"] = LAMMPSOperation.new_fix_id()
+        sim[self]["_log_file"] = mpi.world.bcast(file_)
+        cmds.append(
+            (
+                "fix {fixid} all ave/time {every} 1 {every} {vars}"
+                ' mode scalar ave one file {filename} format " %.18e"'
+            ).format(
+                fixid=sim[self]["_fix_id"],
+                every=self.every,
+                filename=sim[self]["_log_file"],
+                vars=" ".join(["v_" + str(var_ids[q]) for q in self.quantities]),
+            )
+        )
+
+        # stash variable ids to delete them later
+        sim[self]["_var_ids"] = var_ids
+        return cmds
+
+    def post_run_commands(self, sim, sim_op):
+        cmds = ["unfix {}".format(sim[self]["_fix_id"])]
+        del sim[self]["_fix_id"]
+        # delete variables
+        for var_id in sim[self]["_var_ids"].values():
+            cmds.append("variable {} delete".format(var_id))
+        del sim[self]["_var_ids"]
+
+        return cmds
+
+    def process(self, sim, sim_op):
+        data = mpi.world.loadtxt(sim[self]["_log_file"])
+        sim[self]["timestep"] = data[:, 0].astype(int)
+        for i, q in enumerate(self.quantities, start=1):
+            sim[self][q] = data[:, i]
 
 
 class WriteTrajectory(LAMMPSAnalysisOperation):
@@ -1023,10 +1127,14 @@ class WriteTrajectory(LAMMPSAnalysisOperation):
             "dump_modify {} append no pbc yes flush yes".format(dump_id),
         ]
 
+        sim[self]["_dump_id"] = dump_id
+
         return cmds
 
     def post_run_commands(self, sim, sim_op):
-        return None
+        cmds = ["undump {}".format(sim[self]["_dump_id"])]
+        del sim[self]["_dump_id"]
+        return cmds
 
     def process(self, sim, sim_op):
         pass
@@ -1226,4 +1334,5 @@ class LAMMPS(simulate.Simulation):
 
     # analyze
     _EnsembleAverage = EnsembleAverage
+    _Record = Record
     _WriteTrajectory = WriteTrajectory

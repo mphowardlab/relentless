@@ -1,5 +1,6 @@
 import abc
 import os
+import uuid
 
 import numpy
 from packaging import version
@@ -354,6 +355,25 @@ class _MDIntegrator(simulate.SimulationOperation):
 
         self._analyzers = ops_
 
+    @staticmethod
+    def _make_kT(kB, thermostat, steps):
+        """Cast thermostat into a kT parameter for HOOMD integrators."""
+        # force the type of thermostat, in case it's a float
+        if not isinstance(thermostat, md.Thermostat):
+            thermostat = md.Thermostat(thermostat)
+
+        if thermostat.anneal:
+            if steps > 1:
+                return hoomd.variant.linear_interp(
+                    ((0, kB * thermostat.T[0]), (steps - 1, kB * thermostat.T[1])),
+                    zero="now",
+                )
+            else:
+                # if only 1 step, use the end point value. this is a corner case
+                return kB * thermostat.T[1]
+        else:
+            return kB * thermostat.T
+
 
 class RunBrownianDynamics(_MDIntegrator):
     """Perform a Brownian dynamics simulation.
@@ -386,8 +406,9 @@ class RunBrownianDynamics(_MDIntegrator):
     def __call__(self, sim):
         with sim[sim.initializer]["_context"]:
             ig = hoomd.md.integrate.mode_standard(self.timestep)
+            kT = self._make_kT(sim.potentials.kB, self.T, self.steps)
             bd = hoomd.md.integrate.brownian(
-                group=hoomd.group.all(), kT=sim.potentials.kB * self.T, seed=self.seed
+                group=hoomd.group.all(), kT=kT, seed=self.seed
             )
             for t in sim.types:
                 try:
@@ -440,8 +461,9 @@ class RunLangevinDynamics(_MDIntegrator):
     def __call__(self, sim):
         with sim[sim.initializer]["_context"]:
             ig = hoomd.md.integrate.mode_standard(self.timestep)
+            kT = self._make_kT(sim.potentials.kB, self.T, self.steps)
             ld = hoomd.md.integrate.langevin(
-                group=hoomd.group.all(), kT=sim.potentials.kB * self.T, seed=self.seed
+                group=hoomd.group.all(), kT=kT, seed=self.seed
             )
             for t in sim.types:
                 try:
@@ -501,6 +523,10 @@ class RunMolecularDynamics(_MDIntegrator):
     def __call__(self, sim):
         with sim[sim.initializer]["_context"]:
             ig = hoomd.md.integrate.mode_standard(self.timestep)
+            if self.thermostat is not None:
+                kT = self._make_kT(sim.potentials.kB, self.thermostat, self.steps)
+            else:
+                kT = None
             if self.thermostat is None and self.barostat is None:
                 ig_method = hoomd.md.integrate.nve(group=hoomd.group.all())
             elif (
@@ -509,7 +535,7 @@ class RunMolecularDynamics(_MDIntegrator):
             ):
                 ig_method = hoomd.md.integrate.berendsen(
                     group=hoomd.group.all(),
-                    kT=sim.potentials.kB * self.thermostat.T,
+                    kT=kT,
                     tau=self.thermostat.tau,
                 )
             elif (
@@ -518,7 +544,7 @@ class RunMolecularDynamics(_MDIntegrator):
             ):
                 ig_method = hoomd.md.integrate.nvt(
                     group=hoomd.group.all(),
-                    kT=sim.potentials.kB * self.thermostat.T,
+                    kT=kT,
                     tau=self.thermostat.tau,
                 )
             elif self.thermostat is None and isinstance(self.barostat, md.MTKBarostat):
@@ -530,7 +556,7 @@ class RunMolecularDynamics(_MDIntegrator):
             ):
                 ig_method = hoomd.md.integrate.npt(
                     group=hoomd.group.all(),
-                    kT=sim.potentials.kB * self.thermostat.T,
+                    kT=kT,
                     tau=self.thermostat.tau,
                     P=self.barostat.P,
                     tauP=self.barostat.tau,
@@ -839,6 +865,41 @@ class EnsembleAverage(simulate.AnalysisOperation):
             # rdf will be reset on next call
 
 
+class Record(simulate.AnalysisOperation):
+    def __init__(self, quantities, every):
+        self.quantities = quantities
+        self.every = every
+
+    def pre_run(self, sim, sim_op):
+        with sim[sim.initializer]["_context"]:
+            # make filename for logging
+            if mpi.world.rank == 0:
+                file_ = sim.directory.file(str(uuid.uuid4().hex))
+            else:
+                file_ = None
+            sim[self]["_log_file"] = mpi.world.bcast(file_)
+
+            sim[self]["_logger"] = hoomd.analyze.log(
+                filename=sim[self]["_log_file"],
+                quantities=self.quantities,
+                period=self.every,
+                overwrite=True,
+            )
+
+    def post_run(self, sim, sim_op):
+        sim[self]["_logger"].disable()
+        del sim[self]["_logger"]
+
+    def process(self, sim, sim_op):
+        data = mpi.world.loadtxt(sim[self]["_log_file"], skiprows=1)
+        sim[self]["timestep"] = data[:, 0].astype(int)
+        for i, q in enumerate(self.quantities, start=1):
+            sim[self][q] = data[:, i]
+            # HOOMD actually reports kT as temperature, so scale by kB
+            if q == "temperature":
+                sim[self][q] /= sim.potentials.kB
+
+
 class WriteTrajectory(simulate.AnalysisOperation):
     def __init__(self, filename, every, velocities, images, types, masses):
         self.filename = filename
@@ -938,4 +999,5 @@ class HOOMD(simulate.Simulation):
 
     # analyze
     _EnsembleAverage = EnsembleAverage
+    _Record = Record
     _WriteTrajectory = WriteTrajectory

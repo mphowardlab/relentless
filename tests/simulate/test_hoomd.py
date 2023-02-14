@@ -4,6 +4,7 @@ import unittest
 
 import gsd.hoomd
 import numpy
+import scipy.stats
 from parameterized import parameterized_class
 
 import relentless
@@ -175,6 +176,10 @@ class test_HOOMD(unittest.TestCase):
         brn.friction = {"A": 1.5, "B": 2.5}
         h.run(pot, self.directory)
 
+        # temperature annealing
+        brn.T = (ens.T, 1.5 * ens.T)
+        h.run(pot, self.directory)
+
     def test_langevin_dynamics(self):
         ens, pot = self.ens_pot()
         init = relentless.simulate.InitializeRandomly(seed=1, N=ens.N, V=ens.V, T=ens.T)
@@ -185,6 +190,10 @@ class test_HOOMD(unittest.TestCase):
         h.run(pot, self.directory)
 
         lgv.friction = {"A": 1.5, "B": 2.5}
+        h.run(pot, self.directory)
+
+        # temperature annealing
+        lgv.T = (ens.T, 1.5 * ens.T)
         h.run(pot, self.directory)
 
     def test_molecular_dynamics(self):
@@ -198,6 +207,11 @@ class test_HOOMD(unittest.TestCase):
         # VerletIntegrator - NVT
         vrl.thermostat = relentless.simulate.NoseHooverThermostat(T=1, tau=0.5)
         h.run(pot, self.directory)
+
+        # VerletIntegrator - NVT annealed
+        vrl.thermostat.T = (1, 1.5)
+        h.run(pot, self.directory)
+        vrl.thermostat.T = 1
 
         # VerletIntegrator - NPT
         vrl.barostat = relentless.simulate.MTKBarostat(P=1, tau=0.5)
@@ -217,6 +231,37 @@ class test_HOOMD(unittest.TestCase):
             with self.assertRaises(TypeError):
                 vrl.barostat = relentless.simulate.MTKBarostat(P=1, tau=0.5)
                 h.run(pot, self.directory)
+
+    def test_temperature_ramp(self):
+        if self.dim == 3:
+            V = relentless.model.Cube(100.0)
+        else:
+            V = relentless.model.Square(100.0)
+        init = relentless.simulate.InitializeRandomly(
+            seed=1, N={"A": 10000}, V=V, T=2.0
+        )
+        logger = relentless.simulate.Record(quantities=["temperature"], every=100)
+        brn = relentless.simulate.RunLangevinDynamics(
+            steps=1000,
+            timestep=1.0e-3,
+            T=(2.0, 1.0),
+            friction=10.0,
+            seed=2,
+            analyzers=logger,
+        )
+        h = relentless.simulate.HOOMD(init, brn)
+
+        pot = relentless.simulate.Potentials()
+        pot.pair.stop = 0.01
+        pot.pair.num = 10
+        pot.pair.neighbor_buffer = 0.5
+        sim = h.run(pot, self.directory)
+
+        t = sim[logger]["timestep"]
+        T = sim[logger]["temperature"]
+        result = scipy.stats.linregress(x=t, y=T)
+        self.assertAlmostEqual(result.intercept, 2.0, places=1)
+        self.assertAlmostEqual(result.slope, -1.0 / brn.steps, places=4)
 
     def test_analyzer(self):
         """Test ensemble analyzer simulation operation."""
@@ -246,11 +291,28 @@ class test_HOOMD(unittest.TestCase):
         self.assertEqual(sim[analyzer]["num_thermo_samples"], 100)
         self.assertEqual(sim[analyzer]["num_rdf_samples"], 50)
 
+        # repeat same analysis with logger, and make sure it still works
+        logger = relentless.simulate.Record(
+            quantities=["temperature", "pressure"], every=5
+        )
+        lgv.analyzers = logger
+        sim = h.run(pot, self.directory)
+
+        self.assertEqual(len(sim[logger]["timestep"]), 100)
+        self.assertEqual(len(sim[logger]["temperature"]), 100)
+        self.assertEqual(len(sim[logger]["pressure"]), 100)
+        numpy.testing.assert_array_equal(
+            sim[logger]["timestep"], numpy.linspace(0, 495, 100)
+        )
+        self.assertAlmostEqual(numpy.mean(sim[logger]["temperature"]), ens_.T)
+        self.assertAlmostEqual(numpy.mean(sim[logger]["pressure"]), ens_.P)
+
         # make sure we get an error if this doesn't actually run
         if relentless.mpi.world.rank_is_root:
             self.directory.clear_contents()
         relentless.mpi.world.barrier()
         lgv.steps = 0
+        lgv.analyzers = analyzer
         with self.assertRaises(RuntimeError):
             h.run(pot, self.directory)
 
