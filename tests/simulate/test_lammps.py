@@ -129,10 +129,10 @@ class test_LAMMPS(unittest.TestCase):
         )
         sim = lmp.run(potentials=pot, directory=self.directory)
         if self.executable is None:
-            self.assertIsInstance(sim[sim.initializer]["_lammps"], lammps.lammps)
-            self.assertEqual(sim[sim.initializer]["_lammps"].get_natoms(), 5)
+            self.assertIsInstance(sim["_engine"]["_lammps"], lammps.lammps)
+            self.assertEqual(sim["_engine"]["_lammps"].get_natoms(), 5)
         else:
-            self.assertEqual(sim[sim.initializer]["_lammps"][0], self.executable)
+            self.assertEqual(sim["_engine"]["_lammps"][0], self.executable)
 
         # InitializeRandomly
         op = relentless.simulate.InitializeRandomly(seed=1, N=ens.N, V=ens.V, T=ens.T)
@@ -141,10 +141,10 @@ class test_LAMMPS(unittest.TestCase):
         )
         sim = lmp.run(potentials=pot, directory=self.directory)
         if self.executable is None:
-            self.assertIsInstance(sim[sim.initializer]["_lammps"], lammps.lammps)
-            self.assertEqual(sim[sim.initializer]["_lammps"].get_natoms(), 5)
+            self.assertIsInstance(sim["_engine"]["_lammps"], lammps.lammps)
+            self.assertEqual(sim["_engine"]["_lammps"].get_natoms(), 5)
         else:
-            self.assertEqual(sim[sim.initializer]["_lammps"][0], self.executable)
+            self.assertEqual(sim["_engine"]["_lammps"][0], self.executable)
 
     def test_random_initialize_options(self):
         # no T
