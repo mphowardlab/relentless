@@ -259,14 +259,30 @@ class test_HOOMD(unittest.TestCase):
         self.assertEqual(sim[analyzer]["num_thermo_samples"], 100)
         self.assertEqual(sim[analyzer]["num_rdf_samples"], 50)
 
-        # make sure we get an error if this doesn't actually run
+        # repeat same analysis with logger, and make sure it still works
+        logger = relentless.simulate.analyze.Record(
+            quantities=["temperature", "pressure"], every=5
+        )
+        lgv.analyzers = logger
+        sim = h.run(pot, self.directory)
+
+        self.assertEqual(len(sim[logger]["timestep"]), 100)
+        self.assertEqual(len(sim[logger]["temperature"]), 100)
+        self.assertEqual(len(sim[logger]["pressure"]), 100)
+        numpy.testing.assert_array_equal(
+            sim[logger]["timestep"], numpy.linspace(0, 495, 100)
+        )
+        self.assertAlmostEqual(numpy.mean(sim[logger]["temperature"]), ens_.T)
+        self.assertAlmostEqual(numpy.mean(sim[logger]["pressure"]), ens_.P)
+
+       # make sure we get an error if this doesn't actually run
         if relentless.mpi.world.rank_is_root:
             self.directory.clear_contents()
         relentless.mpi.world.barrier()
         lgv.steps = 0
+        lgv.analyzers = analyzer
         with self.assertRaises(RuntimeError):
             h.run(pot, self.directory)
-
     def test_writetrajectory(self):
         """Test write trajectory simulation operation."""
         ens, pot = self.ens_pot()

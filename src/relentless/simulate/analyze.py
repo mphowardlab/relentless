@@ -30,6 +30,55 @@ class EnsembleAverage(simulate.DelegatedAnalysisOperation):
         )
 
 
+class Record(simulate.DelegatedAnalysisOperation):
+    """Record quantities during a simulation.
+
+    This analysis operation records a time series of values during a simulation.
+    The data associated with each quantity is stored in a data key for this
+    operation. Additionally, the ``"timestep"`` key gives the simulation steps
+    that the quantities were recorded at.
+
+    Parameters
+    ----------
+    quantities : str or list
+        One or more quantities to record. Valid values are:
+
+        - ``"potential_energy"``: Total potential energy.
+        - ``"kinetic_energy"``: Total kinetic energy.
+        - ``"temperature"``: Temperature.
+        - ``"pressure"``: Pressure.
+
+    every : int
+        Interval of time steps at which to record values.
+
+    """
+
+    def __init__(self, quantities, every):
+        self.quantities = quantities
+        self.every = every
+
+    def _make_delegate(self, sim):
+        return self._get_delegate(
+            sim,
+            quantities=self.quantities,
+            every=self.every,
+        )
+
+    @property
+    def quantities(self):
+        return self._quantities
+
+    @quantities.setter
+    def quantities(self, value):
+        if isinstance(value, str):
+            value = [
+                value,
+            ]
+        else:
+            value = list(value)
+        self._quantities = value
+
+
 class WriteTrajectory(simulate.DelegatedAnalysisOperation):
     """Write a simulation trajectory to file.
 

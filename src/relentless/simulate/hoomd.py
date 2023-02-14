@@ -1,5 +1,6 @@
 import abc
 import os
+import uuid
 
 import numpy
 from packaging import version
@@ -864,6 +865,38 @@ class EnsembleAverage(simulate.AnalysisOperation):
             # rdf will be reset on next call
 
 
+class Record(simulate.AnalysisOperation):
+    def __init__(self, quantities, every):
+        self.quantities = quantities
+        self.every = every
+
+    def pre_run(self, sim, sim_op):
+        with sim[sim.initializer]["_context"]:
+            # make filename for logging
+            if mpi.world.rank == 0:
+                file_ = sim.directory.file(str(uuid.uuid4().hex))
+            else:
+                file_ = None
+            sim[self]["_log_file"] = mpi.world.bcast(file_)
+
+            sim[self]["_logger"] = hoomd.analyze.log(
+                filename=sim[self]["_log_file"],
+                quantities=self.quantities,
+                period=self.every,
+                overwrite=True,
+            )
+
+    def post_run(self, sim, sim_op):
+        sim[self]["_logger"].disable()
+        del sim[self]["_logger"]
+
+    def process(self, sim, sim_op):
+        data = mpi.world.loadtxt(sim[self]["_log_file"], skiprows=1)
+        sim[self]["timestep"] = data[:, 0].astype(int)
+        for i, q in enumerate(self.quantities, start=1):
+            sim[self][q] = data[:, i]
+
+
 class WriteTrajectory(simulate.AnalysisOperation):
     def __init__(self, filename, every, velocities, images, types, masses):
         self.filename = filename
@@ -963,4 +996,5 @@ class HOOMD(simulate.Simulation):
 
     # analyze
     _EnsembleAverage = EnsembleAverage
+    _Record = Record
     _WriteTrajectory = WriteTrajectory

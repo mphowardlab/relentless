@@ -23,6 +23,7 @@ else:
 import tempfile
 import unittest
 
+import numpy
 import parameterized
 
 try:
@@ -344,6 +345,21 @@ class test_LAMMPS(unittest.TestCase):
         self.assertEqual(ens2_.V.extent, ens_.V.extent)
         for i, j in ens2_.rdf:
             self.assertEqual(ens2_.rdf[i, j].table.shape, (4, 2))
+
+        # repeat same analysis with logger, and make sure it still works
+        logger = relentless.simulate.analyze.Record(
+            quantities=["temperature", "pressure"], every=5
+        )
+        lgv.analyzers = logger
+        sim = h.run(pot, self.directory)
+        self.assertEqual(len(sim[logger]["timestep"]), 101)
+        self.assertEqual(len(sim[logger]["temperature"]), 101)
+        self.assertEqual(len(sim[logger]["pressure"]), 101)
+        numpy.testing.assert_array_equal(
+            sim[logger]["timestep"], numpy.linspace(0, 500, 101)
+        )
+        self.assertAlmostEqual(numpy.mean(sim[logger]["temperature"]), ens_.T)
+        self.assertAlmostEqual(numpy.mean(sim[logger]["pressure"]), ens_.P)
 
     def test_writetrajectory(self):
         """Test write trajectory simulation operation."""
