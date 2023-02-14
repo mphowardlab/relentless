@@ -307,7 +307,7 @@ class test_HOOMD(unittest.TestCase):
         self.assertAlmostEqual(numpy.mean(sim[logger]["temperature"]), ens_.T)
         self.assertAlmostEqual(numpy.mean(sim[logger]["pressure"]), ens_.P)
 
-       # make sure we get an error if this doesn't actually run
+        # make sure we get an error if this doesn't actually run
         if relentless.mpi.world.rank_is_root:
             self.directory.clear_contents()
         relentless.mpi.world.barrier()
@@ -315,6 +315,7 @@ class test_HOOMD(unittest.TestCase):
         lgv.analyzers = analyzer
         with self.assertRaises(RuntimeError):
             h.run(pot, self.directory)
+
     def test_writetrajectory(self):
         """Test write trajectory simulation operation."""
         ens, pot = self.ens_pot()
