@@ -895,6 +895,9 @@ class Record(simulate.AnalysisOperation):
         sim[self]["timestep"] = data[:, 0].astype(int)
         for i, q in enumerate(self.quantities, start=1):
             sim[self][q] = data[:, i]
+            # HOOMD actually reports kT as temperature, so scale by kB
+            if q == "temperature":
+                sim[self][q] /= sim.potentials.kB
 
 
 class WriteTrajectory(simulate.AnalysisOperation):

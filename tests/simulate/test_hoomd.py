@@ -4,6 +4,7 @@ import unittest
 
 import gsd.hoomd
 import numpy
+import scipy.stats
 from parameterized import parameterized_class
 
 import relentless
@@ -231,6 +232,37 @@ class test_HOOMD(unittest.TestCase):
                 vrl.barostat = relentless.simulate.MTKBarostat(P=1, tau=0.5)
                 h.run(pot, self.directory)
 
+    def test_temperature_ramp(self):
+        if self.dim == 3:
+            V = relentless.model.Cube(100.0)
+        else:
+            V = relentless.model.Square(100.0)
+        init = relentless.simulate.InitializeRandomly(
+            seed=1, N={"A": 10000}, V=V, T=2.0
+        )
+        logger = relentless.simulate.Record(quantities=["temperature"], every=100)
+        brn = relentless.simulate.RunLangevinDynamics(
+            steps=1000,
+            timestep=1.0e-3,
+            T=(2.0, 1.0),
+            friction=10.0,
+            seed=2,
+            analyzers=logger,
+        )
+        h = relentless.simulate.HOOMD(init, brn)
+
+        pot = relentless.simulate.Potentials()
+        pot.pair.stop = 0.01
+        pot.pair.num = 10
+        pot.pair.neighbor_buffer = 0.5
+        sim = h.run(pot, self.directory)
+
+        t = sim[logger]["timestep"]
+        T = sim[logger]["temperature"]
+        result = scipy.stats.linregress(x=t, y=T)
+        self.assertAlmostEqual(result.intercept, 2.0, places=1)
+        self.assertAlmostEqual(result.slope, -1.0 / brn.steps, places=4)
+
     def test_analyzer(self):
         """Test ensemble analyzer simulation operation."""
         ens, pot = self.ens_pot()
@@ -260,7 +292,7 @@ class test_HOOMD(unittest.TestCase):
         self.assertEqual(sim[analyzer]["num_rdf_samples"], 50)
 
         # repeat same analysis with logger, and make sure it still works
-        logger = relentless.simulate.analyze.Record(
+        logger = relentless.simulate.Record(
             quantities=["temperature", "pressure"], every=5
         )
         lgv.analyzers = logger
