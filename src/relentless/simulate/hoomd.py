@@ -38,20 +38,14 @@ class _Initialize(simulate.InitializationOperation):
     """
 
     def __call__(self, sim):
-        # initialize hoomd exec conf once
-        if hoomd.context.exec_conf is None:
-            hoomd.context.initialize("--notice-level=0")
-            hoomd.util.quiet_status()
-
         # initialize
-        sim[self]["_context"] = hoomd.context.SimulationContext()
         sim[self]["_system"] = self.initialize(sim)
         sim.dimension = sim[self]["_system"].box.dimensions
         sim.types = sim[self]["_system"].particles.types
 
         # parse masses by type
         sim.masses = FixedKeyDict(sim.types)
-        with sim[self]["_context"]:
+        with sim["_engine"]["_context"]:
             snap = sim[self]["_system"].take_snapshot(particles=True)
             masses = {}
             # snapshot is only valid on root, so read there and broadcast
@@ -77,7 +71,7 @@ class _Initialize(simulate.InitializationOperation):
             f_r = Interpolator(r, f)
             return (u_r(r_i), f_r(r_i))
 
-        with sim[self]["_context"]:
+        with sim["_engine"]["_context"]:
             neighbor_list = hoomd.md.nlist.tree(
                 r_buff=sim.potentials.pair.neighbor_buffer
             )
@@ -131,7 +125,7 @@ class InitializeFromFile(_Initialize):
         self.filename = os.path.realpath(filename)
 
     def initialize(self, sim):
-        with sim[self]["_context"]:
+        with sim["_engine"]["_context"]:
             return hoomd.init.read_gsd(self.filename)
 
 
@@ -180,7 +174,7 @@ class InitializeRandomly(_Initialize):
         self.diameters = diameters
 
     def initialize(self, sim):
-        with sim[self]["_context"]:
+        with sim["_engine"]["_context"]:
             # make the box and snapshot
             if isinstance(self.V, extent.TriclinicBox):
                 box_array = self.V.as_array("HOOMD")
@@ -295,7 +289,7 @@ class MinimizeEnergy(simulate.SimulationOperation):
             self.options["steps_per_iteration"] = 100
 
     def __call__(self, sim):
-        with sim[sim.initializer]["_context"]:
+        with sim["_engine"]["_context"]:
             # setup FIRE minimization
             fire = hoomd.md.integrate.mode_minimize_fire(
                 dt=self.options["max_displacement"],
@@ -404,7 +398,7 @@ class RunBrownianDynamics(_MDIntegrator):
         self.seed = seed
 
     def __call__(self, sim):
-        with sim[sim.initializer]["_context"]:
+        with sim["_engine"]["_context"]:
             ig = hoomd.md.integrate.mode_standard(self.timestep)
             kT = self._make_kT(sim.potentials.kB, self.T, self.steps)
             bd = hoomd.md.integrate.brownian(
@@ -459,7 +453,7 @@ class RunLangevinDynamics(_MDIntegrator):
         self.seed = seed
 
     def __call__(self, sim):
-        with sim[sim.initializer]["_context"]:
+        with sim["_engine"]["_context"]:
             ig = hoomd.md.integrate.mode_standard(self.timestep)
             kT = self._make_kT(sim.potentials.kB, self.T, self.steps)
             ld = hoomd.md.integrate.langevin(
@@ -521,7 +515,7 @@ class RunMolecularDynamics(_MDIntegrator):
         self.barostat = barostat
 
     def __call__(self, sim):
-        with sim[sim.initializer]["_context"]:
+        with sim["_engine"]["_context"]:
             ig = hoomd.md.integrate.mode_standard(self.timestep)
             if self.thermostat is not None:
                 kT = self._make_kT(sim.potentials.kB, self.thermostat, self.steps)
@@ -604,7 +598,7 @@ class EnsembleAverage(simulate.AnalysisOperation):
         self.rdf_dr = rdf_dr
 
     def pre_run(self, sim, sim_op):
-        with sim[sim.initializer]["_context"]:
+        with sim["_engine"]["_context"]:
             # thermodynamic properties
             if sim.dimension == 3:
                 quantities_logged = [
@@ -647,7 +641,7 @@ class EnsembleAverage(simulate.AnalysisOperation):
             )
 
     def post_run(self, sim, sim_op):
-        with sim[sim.initializer]["_context"]:
+        with sim["_engine"]["_context"]:
             sim[self]["_logger"].disable()
             del sim[self]["_logger"]
 
@@ -871,7 +865,7 @@ class Record(simulate.AnalysisOperation):
         self.every = every
 
     def pre_run(self, sim, sim_op):
-        with sim[sim.initializer]["_context"]:
+        with sim["_engine"]["_context"]:
             # make filename for logging
             if mpi.world.rank == 0:
                 file_ = sim.directory.file(str(uuid.uuid4().hex))
@@ -916,7 +910,7 @@ class WriteTrajectory(simulate.AnalysisOperation):
         if self.velocities is True or self.images is True:
             _dynamic.append("momentum")
 
-        with sim[sim.initializer]["_context"]:
+        with sim["_engine"]["_context"]:
             # selects all particles to be part of the trajectory file
             all_ = hoomd.group.all()
 
@@ -977,8 +971,6 @@ class HOOMD(simulate.Simulation):
     def __init__(self, initializer, operations=None):
         if not _hoomd_found:
             raise ImportError("HOOMD not found.")
-        elif version.parse(hoomd.__version__).major != 2:
-            raise ImportError("Only HOOMD 2.x is supported.")
 
         if not _freud_found:
             raise ImportError("freud not found.")
@@ -986,6 +978,23 @@ class HOOMD(simulate.Simulation):
             raise ImportError("Only freud 2.x is supported.")
 
         super().__init__(initializer, operations)
+
+    def _new_instance(self, potentials, directory):
+        sim = simulate.SimulationInstance(
+            type(self), self.initializer, potentials, directory
+        )
+
+        # initialize hoomd exec conf once, then make a context
+        if hoomd.context.exec_conf is None:
+            hoomd.context.initialize("--notice-level=0")
+            hoomd.util.quiet_status()
+        sim["_engine"]["_context"] = hoomd.context.SimulationContext()
+        sim["_engine"]["_hoomd_version"] = version.parse(hoomd.__version__)
+
+        # then invoke initializer
+        sim.initializer(sim)
+
+        return sim
 
     # initialize
     _InitializeFromFile = InitializeFromFile
