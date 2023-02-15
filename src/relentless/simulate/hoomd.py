@@ -1,4 +1,3 @@
-import abc
 import os
 import uuid
 
@@ -28,39 +27,96 @@ except ImportError:
     _freud_found = False
 
 
-# initializers
-class _Initialize(simulate.InitializationOperation):
-    """Initialize a simulation.
-
-    This is an abstract base class that needs to have its :meth:`initialize`
-    method implemented.
-
-    """
-
+class HOOMDSimulationOperation(simulate.SimulationOperation):
     def __call__(self, sim):
+        if sim["_engine"]["_hoomd_version"].major == 3:
+            self._call_v3(sim)
+        elif sim["_engine"]["_hoomd_version"].major == 2:
+            self._call_v2(sim)
+        else:
+            raise ValueError(
+                "HOOMD {} not supported".format(sim["_engine"]["_hoomd_version"])
+            )
+
+    def _call_v3(self, sim):
+        raise NotImplementedError("Operation not implemented in HOOMD 3")
+
+    def _call_v2(self, sim):
+        raise NotImplementedError("Operation not implemented in HOOMD 2")
+
+
+class HOOMDAnalysisOperation(simulate.AnalysisOperation):
+    def pre_run(self, sim, sim_op):
+        if sim["_engine"]["_hoomd_version"].major == 3:
+            self._pre_run_v3(sim, sim_op)
+        elif sim["_engine"]["_hoomd_version"].major == 2:
+            self._pre_run_v2(sim, sim_op)
+        else:
+            raise ValueError(
+                "HOOMD {} not supported".format(sim["_engine"]["_hoomd_version"])
+            )
+
+    def post_run(self, sim, sim_op):
+        if sim["_engine"]["_hoomd_version"].major == 3:
+            self._post_run_v3(sim, sim_op)
+        elif sim["_engine"]["_hoomd_version"].major == 2:
+            self._post_run_v2(sim, sim_op)
+        else:
+            raise ValueError(
+                "HOOMD {} not supported".format(sim["_engine"]["_hoomd_version"])
+            )
+
+    def _pre_run_v3(self, sim, sim_op):
+        raise NotImplementedError("Operation not implemented in HOOMD 3")
+
+    def _pre_run_v2(self, sim, sim_op):
+        raise NotImplementedError("Operation not implemented in HOOMD 2")
+
+    def _post_run_v3(self, sim, sim_op):
+        raise NotImplementedError("Operation not implemented in HOOMD 3")
+
+    def _post_run_v2(self, sim, sim_op):
+        raise NotImplementedError("Operation not implemented in HOOMD 2")
+
+
+# initializers
+class HOOMDInitializationOperation(
+    simulate.InitializationOperation, HOOMDSimulationOperation
+):
+    def _call_v3(self, sim):
+        self._initialize_v3(sim)
+        sim.dimension = sim.state.box.dimensions
+        sim.types = sim.state.particle_types
+
+        # parse masses by type
+        snap = sim.state.get_snapshot()
+        sim.masses = self._get_masses_from_snapshot(sim, snap)
+
+        # create the potentials, defer attaching until later
+        neighbor_list = hoomd.md.nlist.Tree(buffer=sim.potentials.pair.neighbor_buffer)
+        pair_potential = hoomd.md.pair.Table(nlist=neighbor_list)
+        for i, j in sim.pairs:
+            r = sim.potentials.pair.x
+            u = sim.potentials.pair.energy((i, j))
+            f = sim.potentials.pair.force((i, j))
+            if numpy.any(numpy.isinf(u)) or numpy.any(numpy.isinf(f)):
+                raise ValueError("Pair potential/force is infinite at evaluated r")
+            pair_potential.params[(i, j)] = dict(r_min=r[0], U=u, F=f)
+            # this could be trimmed shorter, as in lammps
+            pair_potential.r_cut[(i, j)] = r[-1]
+        sim[self]["_potentials"] = [pair_potential]
+
+    def _call_v2(self, sim):
         # initialize
-        sim[self]["_system"] = self.initialize(sim)
+        sim[self]["_system"] = self._initialize_v2(sim)
         sim.dimension = sim[self]["_system"].box.dimensions
         sim.types = sim[self]["_system"].particles.types
 
         # parse masses by type
-        sim.masses = FixedKeyDict(sim.types)
-        with sim["_engine"]["_context"]:
+
+        with sim["_engine"]["_hoomd"]:
             snap = sim[self]["_system"].take_snapshot(particles=True)
-            masses = {}
-            # snapshot is only valid on root, so read there and broadcast
-            if mpi.world.rank == 0:
-                for i in sim.types:
-                    mi = snap.particles.mass[
-                        snap.particles.typeid == snap.particles.types.index(i)
-                    ]
-                    if len(mi) == 0:
-                        raise KeyError("Type {} not present in simulation".format(i))
-                    elif not numpy.all(mi == mi[0]):
-                        raise ValueError("All masses for a type must be equal")
-                    masses[i] = mi[0]
-            masses = mpi.world.bcast(masses, root=0)
-            sim.masses.update(masses)
+            sim.masses = self._get_masses_from_snapshot(sim, snap)
 
         # attach the potentials
         def _table_eval(r_i, rmin, rmax, **coeff):
@@ -71,7 +127,7 @@ class _Initialize(simulate.InitializationOperation):
             f_r = Interpolator(r, f)
             return (u_r(r_i), f_r(r_i))
 
-        with sim["_engine"]["_context"]:
+        with sim["_engine"]["_hoomd"]:
             neighbor_list = hoomd.md.nlist.tree(
                 r_buff=sim.potentials.pair.neighbor_buffer
             )
@@ -93,25 +149,32 @@ class _Initialize(simulate.InitializationOperation):
                     coeff=dict(r=r, u=u, f=f),
                 )
 
-    @abc.abstractmethod
-    def initialize(self, sim):
-        """Initialize the simulation.
+    def _initialize_v3(self, sim):
+        raise NotImplementedError("Operation not implemented in HOOMD 3")
 
-        Parameters
-        ----------
-        sim : :class:`~relentless.simulate.SimulationInstance`
-            Simulation instance.
+    def _initialize_v2(self, sim):
+        raise NotImplementedError("Operation not implemented in HOOMD 2")
 
-        Returns
-        -------
-        :class:`hoomd.data.system_data`
-            HOOMD system.
+    def _get_masses_from_snapshot(self, sim, snap):
+        masses = FixedKeyDict(sim.types)
+        masses_ = {}
+        # snapshot is only valid on root, so read there and broadcast
+        if mpi.world.rank == 0:
+            for i in sim.types:
+                mi = snap.particles.mass[
+                    snap.particles.typeid == snap.particles.types.index(i)
+                ]
+                if len(mi) == 0:
+                    raise KeyError("Type {} not present in simulation".format(i))
+                elif not numpy.all(mi == mi[0]):
+                    raise ValueError("All masses for a type must be equal")
+                masses_[i] = mi[0]
+        masses_ = mpi.world.bcast(masses_, root=0)
+        masses.update(masses_)
+        return masses
 
-        """
-        pass
 
-
-class InitializeFromFile(_Initialize):
+class InitializeFromFile(HOOMDInitializationOperation):
     """Initialize a simulation from a GSD file.
 
     Parameters
@@ -124,12 +187,15 @@ class InitializeFromFile(_Initialize):
     def __init__(self, filename):
         self.filename = os.path.realpath(filename)
 
-    def initialize(self, sim):
-        with sim["_engine"]["_context"]:
+    def _initialize_v3(self, sim):
+        sim["_engine"]["_hoomd"].create_state_from_gsd(self.filename)
+
+    def _initialize_v2(self, sim):
+        with sim["_engine"]["_hoomd"]:
             return hoomd.init.read_gsd(self.filename)
 
 
-class InitializeRandomly(_Initialize):
+class InitializeRandomly(HOOMDInitializationOperation):
     """Initialize a randomly generated simulation box.
 
     If ``diameters`` is ``None``, the particles are randomly placed in the box.
@@ -173,81 +239,97 @@ class InitializeRandomly(_Initialize):
         self.masses = masses
         self.diameters = diameters
 
-    def initialize(self, sim):
-        with sim["_engine"]["_context"]:
-            # make the box and snapshot
-            if isinstance(self.V, extent.TriclinicBox):
-                box_array = self.V.as_array("HOOMD")
+    def _initialize_v3(self, sim):
+        snap = self._make_snapshot(sim)
+        sim["_engine"]["_hoomd"].create_state_from_snapshot(snap)
+
+    def _initialize_v2(self, sim):
+        with sim["_engine"]["_hoomd"]:
+            snap = self._make_snapshot(sim)
+            return hoomd.init.read_snapshot(snap)
+
+    def _make_snapshot(self, sim):
+        # make the box and snapshot
+        if isinstance(self.V, extent.TriclinicBox):
+            box_array = self.V.as_array("HOOMD")
+            if sim["_engine"]["_hoomd_version"].major == 3:
+                box = hoomd.Box(*box_array)
+            elif sim["_engine"]["_hoomd_version"].major == 2:
                 box = hoomd.data.boxdim(*box_array, dimensions=3)
-            elif isinstance(self.V, extent.ObliqueArea):
-                Lx, Ly, xy = self.V.as_array("HOOMD")
+        elif isinstance(self.V, extent.ObliqueArea):
+            Lx, Ly, xy = self.V.as_array("HOOMD")
+            if sim["_engine"]["_hoomd_version"].major == 3:
+                box = hoomd.Box(Lx=Lx, Ly=Ly, xy=xy)
+            elif sim["_engine"]["_hoomd_version"].major == 2:
                 box = hoomd.data.boxdim(
                     Lx=Lx, Ly=Ly, Lz=1, xy=xy, xz=0, yz=0, dimensions=2
                 )
-            else:
-                raise ValueError("HOOMD supports 2d and 3d simulations")
+        else:
+            raise ValueError("HOOMD supports 2d and 3d simulations")
 
-            types = tuple(self.N.keys())
-            typeids = {i: typeid for typeid, i in enumerate(types)}
+        types = tuple(self.N.keys())
+        typeids = {i: typeid for typeid, i in enumerate(types)}
+        if sim["_engine"]["_hoomd_version"].major == 3:
+            snap = hoomd.Snapshot(communicator=mpi.world.comm)
+            snap.configuration.box = box
+            snap.particles.N = sum(self.N.values())
+            snap.particles.types = list(types)
+        elif sim["_engine"]["_hoomd_version"].major == 2:
             snap = hoomd.data.make_snapshot(
                 N=sum(self.N.values()), box=box, particle_types=list(types)
             )
 
-            # randomly place particles in fractional coordinates
-            if mpi.world.rank == 0:
-                # generate the positions and types
-                if self.diameters is not None:
-                    (
-                        positions,
-                        all_types,
-                    ) = initialize.InitializeRandomly._pack_particles(
-                        self.seed, self.N, self.V, self.diameters
-                    )
-                else:
-                    (
-                        positions,
-                        all_types,
-                    ) = initialize.InitializeRandomly._random_particles(
-                        self.seed, self.N, self.V
-                    )
+        # randomly place particles in fractional coordinates
+        if mpi.world.rank == 0:
+            # generate the positions and types
+            if self.diameters is not None:
+                (positions, all_types,) = initialize.InitializeRandomly._pack_particles(
+                    self.seed, self.N, self.V, self.diameters
+                )
+            else:
+                (
+                    positions,
+                    all_types,
+                ) = initialize.InitializeRandomly._random_particles(
+                    self.seed, self.N, self.V
+                )
 
-                # set the positions
-                snap.particles.position[:, : box.dimensions] = positions
+            # set the positions
+            snap.particles.position[:, : box.dimensions] = positions
 
-                # set the typeids
-                snap.particles.typeid[:] = [typeids[i] for i in all_types]
+            # set the typeids
+            snap.particles.typeid[:] = [typeids[i] for i in all_types]
 
-                # set masses, defaulting to unit mass
-                if self.masses is not None:
-                    snap.particles.mass[:] = [self.masses[i] for i in all_types]
-                else:
-                    snap.particles.mass[:] = 1.0
+            # set masses, defaulting to unit mass
+            if self.masses is not None:
+                snap.particles.mass[:] = [self.masses[i] for i in all_types]
+            else:
+                snap.particles.mass[:] = 1.0
 
-                # set velocities, defaulting to zeros
-                vel = numpy.zeros((snap.particles.N, 3))
-                if self.T is not None:
-                    rng = numpy.random.default_rng(self.seed + 1)
-                    # Maxwell-Boltzmann = normal with variance kT/m per component
-                    v_mb = rng.normal(
-                        scale=numpy.sqrt(sim.potentials.kB * self.T),
-                        size=(snap.particles.N, box.dimensions),
-                    )
-                    v_mb /= numpy.sqrt(snap.particles.mass[:, None])
+            # set velocities, defaulting to zeros
+            vel = numpy.zeros((snap.particles.N, 3))
+            if self.T is not None:
+                rng = numpy.random.default_rng(self.seed + 1)
+                # Maxwell-Boltzmann = normal with variance kT/m per component
+                v_mb = rng.normal(
+                    scale=numpy.sqrt(sim.potentials.kB * self.T),
+                    size=(snap.particles.N, box.dimensions),
+                )
+                v_mb /= numpy.sqrt(snap.particles.mass[:, None])
 
-                    # zero the linear momentum
-                    p_mb = numpy.sum(snap.particles.mass[:, None] * v_mb, axis=0)
-                    v_cm = p_mb / numpy.sum(snap.particles.mass)
-                    v_mb -= v_cm
+                # zero the linear momentum
+                p_mb = numpy.sum(snap.particles.mass[:, None] * v_mb, axis=0)
+                v_cm = p_mb / numpy.sum(snap.particles.mass)
+                v_mb -= v_cm
 
-                    vel[:, : box.dimensions] = v_mb
-                snap.particles.velocity[:] = vel
+                vel[:, : box.dimensions] = v_mb
+            snap.particles.velocity[:] = vel
 
-            # read snapshot
-            return hoomd.init.read_snapshot(snap)
+        return snap
 
 
 # integrators
-class MinimizeEnergy(simulate.SimulationOperation):
+class MinimizeEnergy(HOOMDSimulationOperation):
     """Run energy minimization until convergence.
 
     Valid **options** include:
@@ -288,8 +370,8 @@ class MinimizeEnergy(simulate.SimulationOperation):
         if "steps_per_iteration" not in self.options:
             self.options["steps_per_iteration"] = 100
 
-    def __call__(self, sim):
-        with sim["_engine"]["_context"]:
+    def _call_v2(self, sim):
+        with sim["_engine"]["_hoomd"]:
             # setup FIRE minimization
             fire = hoomd.md.integrate.mode_minimize_fire(
                 dt=self.options["max_displacement"],
@@ -314,7 +396,7 @@ class MinimizeEnergy(simulate.SimulationOperation):
             del fire
 
 
-class _MDIntegrator(simulate.SimulationOperation):
+class _MDIntegrator(HOOMDSimulationOperation):
     """Base HOOMD molecular dynamics integrator.
 
     Parameters
@@ -397,8 +479,8 @@ class RunBrownianDynamics(_MDIntegrator):
         self.friction = friction
         self.seed = seed
 
-    def __call__(self, sim):
-        with sim["_engine"]["_context"]:
+    def _call_v2(self, sim):
+        with sim["_engine"]["_hoomd"]:
             ig = hoomd.md.integrate.mode_standard(self.timestep)
             kT = self._make_kT(sim.potentials.kB, self.T, self.steps)
             bd = hoomd.md.integrate.brownian(
@@ -452,8 +534,8 @@ class RunLangevinDynamics(_MDIntegrator):
         self.friction = friction
         self.seed = seed
 
-    def __call__(self, sim):
-        with sim["_engine"]["_context"]:
+    def _call_v2(self, sim):
+        with sim["_engine"]["_hoomd"]:
             ig = hoomd.md.integrate.mode_standard(self.timestep)
             kT = self._make_kT(sim.potentials.kB, self.T, self.steps)
             ld = hoomd.md.integrate.langevin(
@@ -514,8 +596,8 @@ class RunMolecularDynamics(_MDIntegrator):
         self.thermostat = thermostat
         self.barostat = barostat
 
-    def __call__(self, sim):
-        with sim["_engine"]["_context"]:
+    def _call_v2(self, sim):
+        with sim["_engine"]["_hoomd"]:
             ig = hoomd.md.integrate.mode_standard(self.timestep)
             if self.thermostat is not None:
                 kT = self._make_kT(sim.potentials.kB, self.thermostat, self.steps)
@@ -574,7 +656,7 @@ class RunMolecularDynamics(_MDIntegrator):
 
 
 # analyzers
-class EnsembleAverage(simulate.AnalysisOperation):
+class EnsembleAverage(HOOMDAnalysisOperation):
     """Analyzer for the simulation ensemble.
 
     The simulation ensemble is analyzed online while it is running. The
@@ -597,8 +679,8 @@ class EnsembleAverage(simulate.AnalysisOperation):
         self.check_rdf_every = check_rdf_every
         self.rdf_dr = rdf_dr
 
-    def pre_run(self, sim, sim_op):
-        with sim["_engine"]["_context"]:
+    def _pre_run_v2(self, sim, sim_op):
+        with sim["_engine"]["_hoomd"]:
             # thermodynamic properties
             if sim.dimension == 3:
                 quantities_logged = [
@@ -640,8 +722,8 @@ class EnsembleAverage(simulate.AnalysisOperation):
                 callback=sim[self]["_rdf_callback"], period=self.check_rdf_every
             )
 
-    def post_run(self, sim, sim_op):
-        with sim["_engine"]["_context"]:
+    def _post_run_v2(self, sim, sim_op):
+        with sim["_engine"]["_hoomd"]:
             sim[self]["_logger"].disable()
             del sim[self]["_logger"]
 
@@ -859,13 +941,13 @@ class EnsembleAverage(simulate.AnalysisOperation):
             # rdf will be reset on next call
 
 
-class Record(simulate.AnalysisOperation):
+class Record(HOOMDAnalysisOperation):
     def __init__(self, quantities, every):
         self.quantities = quantities
         self.every = every
 
-    def pre_run(self, sim, sim_op):
-        with sim["_engine"]["_context"]:
+    def _pre_run_v2(self, sim, sim_op):
+        with sim["_engine"]["_hoomd"]:
             # make filename for logging
             if mpi.world.rank == 0:
                 file_ = sim.directory.file(str(uuid.uuid4().hex))
@@ -880,7 +962,7 @@ class Record(simulate.AnalysisOperation):
                 overwrite=True,
             )
 
-    def post_run(self, sim, sim_op):
+    def _post_run_v2(self, sim, sim_op):
         sim[self]["_logger"].disable()
         del sim[self]["_logger"]
 
@@ -894,7 +976,7 @@ class Record(simulate.AnalysisOperation):
                 sim[self][q] /= sim.potentials.kB
 
 
-class WriteTrajectory(simulate.AnalysisOperation):
+class WriteTrajectory(HOOMDAnalysisOperation):
     def __init__(self, filename, every, velocities, images, types, masses):
         self.filename = filename
         self.every = every
@@ -903,14 +985,14 @@ class WriteTrajectory(simulate.AnalysisOperation):
         self.types = types
         self.masses = masses
 
-    def pre_run(self, sim, sim_op):
+    def _pre_run_v2(self, sim, sim_op):
         # property group is always dyanmic in the trajectory file since it logs position
         _dynamic = ["property"]
         # momentum group makes particle velocities and particles images dynamic
         if self.velocities is True or self.images is True:
             _dynamic.append("momentum")
 
-        with sim["_engine"]["_context"]:
+        with sim["_engine"]["_hoomd"]:
             # selects all particles to be part of the trajectory file
             all_ = hoomd.group.all()
 
@@ -924,7 +1006,7 @@ class WriteTrajectory(simulate.AnalysisOperation):
                 dynamic=_dynamic,
             )
 
-    def post_run(self, sim, sim_op):
+    def _post_run_v2(self, sim, sim_op):
         sim[self]["_gsd"].disable()
         del sim[self]["_gsd"]
 
@@ -979,22 +1061,24 @@ class HOOMD(simulate.Simulation):
 
         super().__init__(initializer, operations)
 
-    def _new_instance(self, potentials, directory):
-        sim = simulate.SimulationInstance(
-            type(self), self.initializer, potentials, directory
-        )
-
-        # initialize hoomd exec conf once, then make a context
-        if hoomd.context.exec_conf is None:
-            hoomd.context.initialize("--notice-level=0")
-            hoomd.util.quiet_status()
-        sim["_engine"]["_context"] = hoomd.context.SimulationContext()
+    def _initialize_engine(self, sim):
         sim["_engine"]["_hoomd_version"] = version.parse(hoomd.__version__)
 
-        # then invoke initializer
-        sim.initializer(sim)
-
-        return sim
+        if sim["_engine"]["_hoomd_version"].major == 3:
+            device = hoomd.device.auto_select(
+                communicator=mpi.world.comm, notice_level=0
+            )
+            sim["_engine"]["_hoomd"] = hoomd.Simulation(device)
+        elif sim["_engine"]["_hoomd_version"].major == 2:
+            # initialize hoomd exec conf once, then make a context
+            if hoomd.context.exec_conf is None:
+                hoomd.context.initialize("--notice-level=0")
+                hoomd.util.quiet_status()
+            sim["_engine"]["_hoomd"] = hoomd.context.SimulationContext()
+        else:
+            raise ValueError(
+                "HOOMD {} not supported".format(sim["_engine"]["_hoomd_version"])
+            )
 
     # initialize
     _InitializeFromFile = InitializeFromFile

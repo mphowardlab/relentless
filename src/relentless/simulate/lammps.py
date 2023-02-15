@@ -1275,12 +1275,7 @@ class LAMMPS(simulate.Simulation):
         # then keep going
         super()._post_run(sim)
 
-    def _new_instance(self, potentials, directory):
-        sim = simulate.SimulationInstance(
-            type(self), self.initializer, potentials, directory
-        )
-        # setup LAMMPS **before** the initializer, since it needs some things from
-        # the simulation level to be forwarded into the data
+    def _initialize_engine(self, sim):
         if self.quiet:
             launch_args = [
                 "-echo",
@@ -1313,11 +1308,6 @@ class LAMMPS(simulate.Simulation):
         sim["_engine"]["units"] = "lj"
         sim["_engine"]["atom_style"] = "atomic"
         sim["_engine"]["dimension"] = self.dimension
-
-        # then invoke the initializer to finish it
-        sim.initializer(sim)
-
-        return sim
 
     # initialize
     _InitializeFromFile = InitializeFromFile

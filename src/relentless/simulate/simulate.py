@@ -222,8 +222,12 @@ class Simulation:
 
     def _new_instance(self, potentials, directory):
         sim = SimulationInstance(type(self), self.initializer, potentials, directory)
+        self._initialize_engine(sim)
         sim.initializer(sim)
         return sim
+
+    def _initialize_engine(self, sim):
+        pass
 
 
 class SimulationInstance:
