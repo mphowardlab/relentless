@@ -31,7 +31,7 @@ else:
 
 if _hoomd_found and _version.major == 3:
     from hoomd.custom import Action
-elif not _hoomd_found or _version.major == 2:
+else:
     # we need to spoof this Action class to use later in v2 callbacks
     class Action:
         pass
@@ -52,13 +52,17 @@ class SimulationOperation(simulate.SimulationOperation):
         elif _version.major == 2:
             self._call_v2(sim)
         else:
-            raise ValueError("HOOMD {} not supported".format(_version))
+            raise NotImplementedError(f"HOOMD {_version} not supported")
 
     def _call_v3(self, sim):
-        raise NotImplementedError("Operation not implemented in HOOMD 3")
+        raise NotImplementedError(
+            f"{self.__class__.__name__} not implemented in HOOMD 3"
+        )
 
     def _call_v2(self, sim):
-        raise NotImplementedError("Operation not implemented in HOOMD 2")
+        raise NotImplementedError(
+            f"{self.__class__.__name__} not implemented in HOOMD 2"
+        )
 
 
 class AnalysisOperation(simulate.AnalysisOperation):
@@ -68,7 +72,7 @@ class AnalysisOperation(simulate.AnalysisOperation):
         elif _version.major == 2:
             self._pre_run_v2(sim, sim_op)
         else:
-            raise ValueError("HOOMD {} not supported".format(_version))
+            raise NotImplementedError(f"HOOMD {_version} not supported")
 
     def post_run(self, sim, sim_op):
         if _version.major == 3:
@@ -76,19 +80,27 @@ class AnalysisOperation(simulate.AnalysisOperation):
         elif _version.major == 2:
             self._post_run_v2(sim, sim_op)
         else:
-            raise ValueError("HOOMD {} not supported".format(_version))
+            raise NotImplementedError(f"HOOMD {_version} not supported")
 
     def _pre_run_v3(self, sim, sim_op):
-        raise NotImplementedError("Operation not implemented in HOOMD 3")
+        raise NotImplementedError(
+            f"{self.__class__.__name__} not implemented in HOOMD 3"
+        )
 
     def _pre_run_v2(self, sim, sim_op):
-        raise NotImplementedError("Operation not implemented in HOOMD 2")
+        raise NotImplementedError(
+            f"{self.__class__.__name__} not implemented in HOOMD 2"
+        )
 
     def _post_run_v3(self, sim, sim_op):
-        raise NotImplementedError("Operation not implemented in HOOMD 3")
+        raise NotImplementedError(
+            f"{self.__class__.__name__} not implemented in HOOMD 3"
+        )
 
     def _post_run_v2(self, sim, sim_op):
-        raise NotImplementedError("Operation not implemented in HOOMD 2")
+        raise NotImplementedError(
+            f"{self.__class__.__name__} not implemented in HOOMD 2"
+        )
 
 
 # initializers
@@ -160,10 +172,14 @@ class InitializationOperation(simulate.InitializationOperation, SimulationOperat
                 )
 
     def _initialize_v3(self, sim):
-        raise NotImplementedError("Operation not implemented in HOOMD 3")
+        raise NotImplementedError(
+            f"{self.__class__.__name__} not implemented in HOOMD 3"
+        )
 
     def _initialize_v2(self, sim):
-        raise NotImplementedError("Operation not implemented in HOOMD 2")
+        raise NotImplementedError(
+            f"{self.__class__.__name__} not implemented in HOOMD 2"
+        )
 
     def _get_masses_from_snapshot(self, sim, snap):
         masses = FixedKeyDict(sim.types)
@@ -175,7 +191,7 @@ class InitializationOperation(simulate.InitializationOperation, SimulationOperat
                     snap.particles.typeid == snap.particles.types.index(i)
                 ]
                 if len(mi) == 0:
-                    raise KeyError("Type {} not present in simulation".format(i))
+                    raise KeyError(f"Type {i} not present in simulation")
                 elif not numpy.all(mi == mi[0]):
                     raise ValueError("All masses for a type must be equal")
                 masses_[i] = mi[0]
@@ -266,6 +282,8 @@ class InitializeRandomly(InitializationOperation):
                 box = hoomd.Box(*box_array)
             elif _version.major == 2:
                 box = hoomd.data.boxdim(*box_array, dimensions=3)
+            else:
+                raise NotImplementedError(f"HOOMD {_version} not supported")
         elif isinstance(self.V, extent.ObliqueArea):
             Lx, Ly, xy = self.V.as_array("HOOMD")
             if _version.major == 3:
@@ -274,6 +292,8 @@ class InitializeRandomly(InitializationOperation):
                 box = hoomd.data.boxdim(
                     Lx=Lx, Ly=Ly, Lz=1, xy=xy, xz=0, yz=0, dimensions=2
                 )
+            else:
+                raise NotImplementedError(f"HOOMD {_version} not supported")
         else:
             raise ValueError("HOOMD supports 2d and 3d simulations")
 
@@ -288,6 +308,8 @@ class InitializeRandomly(InitializationOperation):
             snap = hoomd.data.make_snapshot(
                 N=sum(self.N.values()), box=box, particle_types=list(types)
             )
+        else:
+            raise NotImplementedError(f"HOOMD {_version} not supported")
 
         # randomly place particles in fractional coordinates
         if mpi.world.rank == 0:
@@ -492,7 +514,7 @@ class _MDIntegrator(SimulationOperation):
                         zero="now",
                     )
                 else:
-                    raise ValueError("HOOMD {} not supported".format(_version))
+                    raise NotImplementedError(f"HOOMD {_version} not supported")
             else:
                 # if only 1 step, use the end point value. this is a corner case
                 return kB * thermostat.T[1]
@@ -1021,13 +1043,14 @@ class EnsembleAverage(AnalysisOperation):
                 for key in self._V:
                     self._V[key] += getattr(self._state.box, key)
                 self.num_samples += 1
-
             elif _version.major == 2:
                 self._T += self.thermo.query("temperature")
                 self._P += self.thermo.query("pressure")
                 for key in self._V:
                     self._V[key] += self.thermo.query(key.lower())
                 self.num_samples += 1
+            else:
+                raise NotImplementedError(f"HOOMD {_version} not supported")
 
         def reset(self):
             """Resets sample number, ``T``, ``P``, and all ``V`` parameters to 0."""
@@ -1098,12 +1121,14 @@ class EnsembleAverage(AnalysisOperation):
                 snap = self.system.get_snapshot()
             elif _version.major == 2:
                 snap = self.system.take_snapshot()
+            else:
+                raise NotImplementedError(f"HOOMD {_version} not supported")
 
             if mpi.world.rank == 0:
                 if _version.major == 3:
                     dimensions = snap.configuration.dimensions
                     box_array = numpy.array(snap.configuration.box)
-                else:
+                elif _version.major == 2:
                     dimensions = snap.box.dimensions
                     box_array = numpy.array(
                         [
@@ -1118,6 +1143,8 @@ class EnsembleAverage(AnalysisOperation):
                     if snap.box.dimensions == 2:
                         box_array[2] = 0.0
                         box_array[-2:] = 0.0
+                else:
+                    raise NotImplementedError(f"HOOMD {_version} not supported")
 
                 box = freud.box.Box.from_box(box_array, dimensions=dimensions)
                 # pre build aabbs per type and count particles by type
@@ -1269,6 +1296,8 @@ class Record(AnalysisOperation):
                         val = getattr(self.thermo, q)
                 elif _version.major == 2:
                     val = self.thermo.query(q)
+                else:
+                    raise NotImplementedError(f"HOOMD {_version} not supported")
                 self._data[q].append(val)
 
         def __getattr__(self, item):
@@ -1398,7 +1427,7 @@ class HOOMD(simulate.Simulation):
                 hoomd.util.quiet_status()
             sim["engine"]["_hoomd"] = hoomd.context.SimulationContext()
         else:
-            raise ValueError("HOOMD {} not supported".format(_version))
+            raise NotImplementedError(f"HOOMD {_version} not supported")
 
     # initialize
     _InitializeFromFile = InitializeFromFile
