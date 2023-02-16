@@ -104,7 +104,7 @@ class AnalysisOperation(simulate.AnalysisOperation):
 
 
 # initializers
-class InitializationOperation(simulate.InitializationOperation, SimulationOperation):
+class InitializationOperation(SimulationOperation, simulate.InitializationOperation):
     def _call_v3(self, sim):
         self._initialize_v3(sim)
         sim.dimension = sim["engine"]["_hoomd"].state.box.dimensions
@@ -125,7 +125,9 @@ class InitializationOperation(simulate.InitializationOperation, SimulationOperat
                 raise ValueError("Pair potential/force is infinite at evaluated r")
             pair_potential.params[(i, j)] = dict(r_min=r[0], U=u, F=f)
             # this could be trimmed shorter, as in lammps
-            pair_potential.r_cut[(i, j)] = r[-1]
+            pair_potential.r_cut[(i, j)] = self._get_tight_rcut(
+                sim.potentials.pair, (i, j), r, u, f
+            )
         sim[self]["_potentials"] = [pair_potential]
 
     def _call_v2(self, sim):
@@ -1372,16 +1374,15 @@ class HOOMD(simulate.Simulation):
     `HOOMD-blue <https://hoomd-blue.readthedocs.io/en/stable>`_.
     HOOMD-blue is a molecular dynamics program that can execute on both CPUs and
     GPUs, as a single process or with MPI parallelism. The launch configuration
-    will be automatically selected for you when the simulation is run.
+    will be automatically selected for you when the simulation is run. Both
+    HOOMD 2.x and 3.x are supported.
 
-    Currently, this class only supports operations for HOOMD 2.x. Support for
-    HOOMD 3.x will be added in future. The `freud <https://freud.readthedocs.io>`_
-    analysis package (version 2.x) is also required for initialization and analysis.
-    To use this simulation backend, you will need to install both :mod:`hoomd` and
-    :mod:`freud` into your Python environment. :mod:`hoomd` is available through
-    conda-forge or can be built from source, while :mod`freud` is available through
-    both PyPI and conda-forge. Please refer to the package documentation for
-    details of how to install these.
+    The `freud <https://freud.readthedocs.io>`_ analysis package (version 2.x)
+    is also required for initialization and analysis. To use this simulation backend,
+    you will need to install both :mod:`hoomd` and :mod:`freud` into your Python
+    environment. :mod:`hoomd` is available through conda-forge or can be built
+    from source, while :mod`freud` is available through both PyPI and conda-forge.
+    Please refer to the package documentation for details of how to install these.
 
     .. warning::
 
