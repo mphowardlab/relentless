@@ -77,11 +77,11 @@ class AnalysisOperation(simulate.AnalysisOperation):
 class InitializationOperation(simulate.InitializationOperation, SimulationOperation):
     def _call_v3(self, sim):
         self._initialize_v3(sim)
-        sim.dimension = sim.state.box.dimensions
-        sim.types = sim.state.particle_types
+        sim.dimension = sim["_engine"]["_hoomd"].state.box.dimensions
+        sim.types = sim["_engine"]["_hoomd"].state.particle_types
 
         # parse masses by type
-        snap = sim.state.get_snapshot()
+        snap = sim["_engine"]["_hoomd"].state.get_snapshot()
         sim.masses = self._get_masses_from_snapshot(sim, snap)
 
         # create the potentials, defer attaching until later
@@ -364,7 +364,7 @@ class MinimizeEnergy(SimulationOperation):
 
     def _call_v3(self, sim):
         # setup FIRE minimization
-        nve = md.methods.NVE(filter=hoomd.filter.All())
+        nve = hoomd.md.methods.NVE(filter=hoomd.filter.All())
         fire = hoomd.md.minimize.FIRE(
             dt=self.options["max_displacement"],
             force_tol=self.force_tolerance,
@@ -712,7 +712,10 @@ class RunMolecularDynamics(_MDIntegrator):
             )
         elif self.thermostat is None and isinstance(self.barostat, md.MTKBarostat):
             ig_method = hoomd.md.methods.NPH(
-                group=hoomd.filter.All(), S=self.barostat.P, tauS=self.barostat.tau
+                filter=hoomd.filter.All(),
+                S=self.barostat.P,
+                tauS=self.barostat.tau,
+                couple="xyz",
             )
         elif isinstance(self.thermostat, md.NoseHooverThermostat) and isinstance(
             self.barostat, md.MTKBarostat
@@ -723,6 +726,7 @@ class RunMolecularDynamics(_MDIntegrator):
                 tau=self.thermostat.tau,
                 S=self.barostat.P,
                 tauS=self.barostat.tau,
+                couple="xyz",
             )
         else:
             raise TypeError(
@@ -1214,7 +1218,11 @@ class HOOMD(simulate.Simulation):
         super().__init__(initializer, operations)
 
     def _initialize_engine(self, sim):
-        sim["_engine"]["version"] = version.parse(hoomd.__version__)
+        try:
+            hoomd_version = hoomd.version.version
+        except AttributeError:
+            hoomd_version = hoomd.__version__
+        sim["_engine"]["version"] = version.parse(hoomd_version)
 
         if sim["_engine"]["version"].major == 3:
             device = hoomd.device.auto_select(

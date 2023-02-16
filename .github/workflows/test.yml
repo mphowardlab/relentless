@@ -55,7 +55,7 @@ jobs:
           mpiexec -n 2 python -m unittest discover -v -s ./tests -p 'test_*.py'
 
   test-hoomd:
-    name: unit test [python-${{ matrix.python-version }}, hoomd-2.9.7]
+    name: unit test [python-${{ matrix.python-version }}, hoomd-${{ matrix.hoomd-version }}]
     needs: test
     runs-on: ubuntu-latest
     defaults:
@@ -64,7 +64,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ['3.8', '3.9', '3.10']
+        python-version: ['3.8', '3.9', '3.10', '3.11']
+        hoomd-version: ['2.9.7', '3.9.0']
+        exclude:
+          - python-version: '3.11'
+            hoomd-version: '2.9.7'
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -75,7 +79,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install test dependencies
         run: |
-          conda install -c conda-forge hoomd=2.9.7
+          conda install -c conda-forge hoomd=${{ matrix.hoomd-version }}
           pip install -r tests/requirements.txt
           pip install freud-analysis>=2
       - name: Install
