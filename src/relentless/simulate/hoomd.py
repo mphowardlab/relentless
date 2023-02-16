@@ -362,6 +362,31 @@ class MinimizeEnergy(SimulationOperation):
         if "steps_per_iteration" not in self.options:
             self.options["steps_per_iteration"] = 100
 
+    def _call_v3(self, sim):
+        # setup FIRE minimization
+        nve = md.methods.NVE(filter=hoomd.filter.All())
+        fire = hoomd.md.minimize.FIRE(
+            dt=self.options["max_displacement"],
+            force_tol=self.force_tolerance,
+            angmom_tol=self.force_tolerance,
+            energy_tol=self.energy_tolerance,
+            forces=sim[sim.initializer]["_potentials"],
+            methods=[nve],
+        )
+        sim["_engine"]["_hoomd"].operations.integrator = fire
+
+        # run while not yet converged
+        it = 0
+        while not fire.converged and it < self.max_iterations:
+            sim["_engine"]["_hoomd"].run(self.options["steps_per_iteration"])
+            it += 1
+        if not fire.converged:
+            raise RuntimeError("Energy minimization failed to converge.")
+
+        # cleanup
+        sim["_engine"]["_hoomd"].integrator = None
+        del fire, nve
+
     def _call_v2(self, sim):
         with sim["_engine"]["_hoomd"]:
             # setup FIRE minimization
@@ -424,18 +449,31 @@ class _MDIntegrator(SimulationOperation):
         self._analyzers = ops_
 
     @staticmethod
-    def _make_kT(kB, thermostat, steps):
+    def _make_kT(sim, thermostat, steps):
         """Cast thermostat into a kT parameter for HOOMD integrators."""
         # force the type of thermostat, in case it's a float
         if not isinstance(thermostat, md.Thermostat):
             thermostat = md.Thermostat(thermostat)
 
+        kB = sim.potentials.kB
         if thermostat.anneal:
             if steps > 1:
-                return hoomd.variant.linear_interp(
-                    ((0, kB * thermostat.T[0]), (steps - 1, kB * thermostat.T[1])),
-                    zero="now",
-                )
+                if sim["_engine"]["version"].major == 3:
+                    return hoomd.variant.Ramp(
+                        A=kB * thermostat.T[0],
+                        B=kB * thermostat.T[1],
+                        t_start=sim["_engine"]["_hoomd"].timestep,
+                        t_ramp=steps - 1,
+                    )
+                elif sim["_engine"]["version"].major == 2:
+                    return hoomd.variant.linear_interp(
+                        ((0, kB * thermostat.T[0]), (steps - 1, kB * thermostat.T[1])),
+                        zero="now",
+                    )
+                else:
+                    raise ValueError(
+                        "HOOMD {} not supported".format(sim["_engine"]["version"])
+                    )
             else:
                 # if only 1 step, use the end point value. this is a corner case
                 return kB * thermostat.T[1]
@@ -471,10 +509,39 @@ class RunBrownianDynamics(_MDIntegrator):
         self.friction = friction
         self.seed = seed
 
+    def _call_v3(self, sim):
+        kT = self._make_kT(sim, self.T, self.steps)
+        bd = hoomd.md.methods.Brownian(filter=hoomd.filter.All(), kT=kT)
+        for t in sim.types:
+            try:
+                gamma = self.friction[t]
+            except TypeError:
+                gamma = self.friction
+            bd.gamma[t] = gamma
+        ig = hoomd.md.Integrator(
+            dt=self.timestep,
+            forces=sim[sim.initializer]["_potentials"],
+            methods=[bd],
+        )
+        sim["_engine"]["_hoomd"].integrator = ig
+        sim["_engine"]["_hoomd"].seed = self.seed
+
+        # run + analysis
+        for analyzer in self.analyzers:
+            analyzer.pre_run(sim, self)
+
+        sim["_engine"]["_hoomd"].run(self.steps)
+
+        for analyzer in self.analyzers:
+            analyzer.post_run(sim, self)
+
+        sim["_engine"]["_hoomd"].integrator = None
+        del ig, bd
+
     def _call_v2(self, sim):
         with sim["_engine"]["_hoomd"]:
             ig = hoomd.md.integrate.mode_standard(self.timestep)
-            kT = self._make_kT(sim.potentials.kB, self.T, self.steps)
+            kT = self._make_kT(sim, self.T, self.steps)
             bd = hoomd.md.integrate.brownian(
                 group=hoomd.group.all(), kT=kT, seed=self.seed
             )
@@ -526,10 +593,39 @@ class RunLangevinDynamics(_MDIntegrator):
         self.friction = friction
         self.seed = seed
 
+    def _call_v3(self, sim):
+        kT = self._make_kT(sim, self.T, self.steps)
+        ld = hoomd.md.methods.Langevin(filter=hoomd.filter.All(), kT=kT)
+        for t in sim.types:
+            try:
+                gamma = self.friction[t]
+            except TypeError:
+                gamma = self.friction
+            ld.gamma[t] = gamma
+        ig = hoomd.md.Integrator(
+            dt=self.timestep,
+            forces=sim[sim.initializer]["_potentials"],
+            methods=[ld],
+        )
+        sim["_engine"]["_hoomd"].integrator = ig
+        sim["_engine"]["_hoomd"].seed = self.seed
+
+        # run + analysis
+        for analyzer in self.analyzers:
+            analyzer.pre_run(sim, self)
+
+        sim["_engine"]["_hoomd"].run(self.steps)
+
+        for analyzer in self.analyzers:
+            analyzer.post_run(sim, self)
+
+        sim["_engine"]["_hoomd"].integrator = None
+        del ig, ld
+
     def _call_v2(self, sim):
         with sim["_engine"]["_hoomd"]:
             ig = hoomd.md.integrate.mode_standard(self.timestep)
-            kT = self._make_kT(sim.potentials.kB, self.T, self.steps)
+            kT = self._make_kT(sim, self.T, self.steps)
             ld = hoomd.md.integrate.langevin(
                 group=hoomd.group.all(), kT=kT, seed=self.seed
             )
@@ -588,11 +684,75 @@ class RunMolecularDynamics(_MDIntegrator):
         self.thermostat = thermostat
         self.barostat = barostat
 
+    def _call_v3(self, sim):
+        if self.thermostat is not None:
+            kT = self._make_kT(sim, self.thermostat, self.steps)
+        else:
+            kT = None
+
+        if self.thermostat is None and self.barostat is None:
+            ig_method = hoomd.md.methods.NVE(filter=hoomd.filter.All())
+        elif (
+            isinstance(self.thermostat, md.BerendsenThermostat)
+            and self.barostat is None
+        ):
+            ig_method = hoomd.md.methods.Berendsen(
+                filter=hoomd.filter.All(),
+                kT=kT,
+                tau=self.thermostat.tau,
+            )
+        elif (
+            isinstance(self.thermostat, md.NoseHooverThermostat)
+            and self.barostat is None
+        ):
+            ig_method = hoomd.md.methods.NVT(
+                filter=hoomd.filter.All(),
+                kT=kT,
+                tau=self.thermostat.tau,
+            )
+        elif self.thermostat is None and isinstance(self.barostat, md.MTKBarostat):
+            ig_method = hoomd.md.methods.NPH(
+                group=hoomd.filter.All(), S=self.barostat.P, tauS=self.barostat.tau
+            )
+        elif isinstance(self.thermostat, md.NoseHooverThermostat) and isinstance(
+            self.barostat, md.MTKBarostat
+        ):
+            ig_method = hoomd.md.methods.NPT(
+                filter=hoomd.filter.All(),
+                kT=kT,
+                tau=self.thermostat.tau,
+                S=self.barostat.P,
+                tauS=self.barostat.tau,
+            )
+        else:
+            raise TypeError(
+                "An appropriate combination of thermostat and barostat must be set."
+            )
+
+        ig = hoomd.md.Integrator(
+            dt=self.timestep,
+            forces=sim[sim.initializer]["_potentials"],
+            methods=[ig_method],
+        )
+        sim["_engine"]["_hoomd"].integrator = ig
+
+        # run + analysis
+        for analyzer in self.analyzers:
+            analyzer.pre_run(sim, self)
+
+        sim["_engine"]["_hoomd"].run(self.steps)
+
+        for analyzer in self.analyzers:
+            analyzer.post_run(sim, self)
+
+        sim["_engine"]["_hoomd"].integrator = None
+        del ig, ig_method
+
     def _call_v2(self, sim):
         with sim["_engine"]["_hoomd"]:
             ig = hoomd.md.integrate.mode_standard(self.timestep)
             if self.thermostat is not None:
-                kT = self._make_kT(sim.potentials.kB, self.thermostat, self.steps)
+                kT = self._make_kT(sim, self.thermostat, self.steps)
             else:
                 kT = None
             if self.thermostat is None and self.barostat is None:
