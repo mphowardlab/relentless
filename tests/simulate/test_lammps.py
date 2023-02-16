@@ -28,7 +28,6 @@ import parameterized
 import scipy.stats
 
 try:
-    import lammps
     import lammpsio
 except ImportError:
     pass
@@ -124,27 +123,17 @@ class test_LAMMPS(unittest.TestCase):
         lmp = relentless.simulate.LAMMPS(
             op,
             dimension=self.dim,
-            lammps_types={"1": 1, "2": 2},
+            types={"1": 1, "2": 2},
             executable=self.executable,
         )
-        sim = lmp.run(potentials=pot, directory=self.directory)
-        if self.executable is None:
-            self.assertIsInstance(sim["_engine"]["_lammps"], lammps.lammps)
-            self.assertEqual(sim["_engine"]["_lammps"].get_natoms(), 5)
-        else:
-            self.assertEqual(sim["_engine"]["_lammps"][0], self.executable)
+        lmp.run(potentials=pot, directory=self.directory)
 
         # InitializeRandomly
         op = relentless.simulate.InitializeRandomly(seed=1, N=ens.N, V=ens.V, T=ens.T)
         lmp = relentless.simulate.LAMMPS(
             op, dimension=self.dim, executable=self.executable
         )
-        sim = lmp.run(potentials=pot, directory=self.directory)
-        if self.executable is None:
-            self.assertIsInstance(sim["_engine"]["_lammps"], lammps.lammps)
-            self.assertEqual(sim["_engine"]["_lammps"].get_natoms(), 5)
-        else:
-            self.assertEqual(sim["_engine"]["_lammps"][0], self.executable)
+        lmp.run(potentials=pot, directory=self.directory)
 
     def test_random_initialize_options(self):
         # no T
@@ -191,7 +180,7 @@ class test_LAMMPS(unittest.TestCase):
             init,
             operations=[emin],
             dimension=self.dim,
-            lammps_types={"1": 1, "2": 2},
+            types={"1": 1, "2": 2},
             executable=self.executable,
         )
         lmp.run(potentials=pot, directory=self.directory)

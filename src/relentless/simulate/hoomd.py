@@ -95,11 +95,11 @@ class AnalysisOperation(simulate.AnalysisOperation):
 class InitializationOperation(simulate.InitializationOperation, SimulationOperation):
     def _call_v3(self, sim):
         self._initialize_v3(sim)
-        sim.dimension = sim["_engine"]["_hoomd"].state.box.dimensions
-        sim.types = sim["_engine"]["_hoomd"].state.particle_types
+        sim.dimension = sim["engine"]["_hoomd"].state.box.dimensions
+        sim.types = sim["engine"]["_hoomd"].state.particle_types
 
         # parse masses by type
-        snap = sim["_engine"]["_hoomd"].state.get_snapshot()
+        snap = sim["engine"]["_hoomd"].state.get_snapshot()
         sim.masses = self._get_masses_from_snapshot(sim, snap)
 
         # create the potentials, defer attaching until later
@@ -124,7 +124,7 @@ class InitializationOperation(simulate.InitializationOperation, SimulationOperat
 
         # parse masses by type
 
-        with sim["_engine"]["_hoomd"]:
+        with sim["engine"]["_hoomd"]:
             snap = sim[self]["_system"].take_snapshot(particles=True)
             sim.masses = self._get_masses_from_snapshot(sim, snap)
 
@@ -137,7 +137,7 @@ class InitializationOperation(simulate.InitializationOperation, SimulationOperat
             f_r = Interpolator(r, f)
             return (u_r(r_i), f_r(r_i))
 
-        with sim["_engine"]["_hoomd"]:
+        with sim["engine"]["_hoomd"]:
             neighbor_list = hoomd.md.nlist.tree(
                 r_buff=sim.potentials.pair.neighbor_buffer
             )
@@ -198,10 +198,10 @@ class InitializeFromFile(InitializationOperation):
         self.filename = os.path.realpath(filename)
 
     def _initialize_v3(self, sim):
-        sim["_engine"]["_hoomd"].create_state_from_gsd(self.filename)
+        sim["engine"]["_hoomd"].create_state_from_gsd(self.filename)
 
     def _initialize_v2(self, sim):
-        with sim["_engine"]["_hoomd"]:
+        with sim["engine"]["_hoomd"]:
             return hoomd.init.read_gsd(self.filename)
 
 
@@ -251,10 +251,10 @@ class InitializeRandomly(InitializationOperation):
 
     def _initialize_v3(self, sim):
         snap = self._make_snapshot(sim)
-        sim["_engine"]["_hoomd"].create_state_from_snapshot(snap)
+        sim["engine"]["_hoomd"].create_state_from_snapshot(snap)
 
     def _initialize_v2(self, sim):
-        with sim["_engine"]["_hoomd"]:
+        with sim["engine"]["_hoomd"]:
             snap = self._make_snapshot(sim)
             return hoomd.init.read_snapshot(snap)
 
@@ -383,7 +383,7 @@ class MinimizeEnergy(SimulationOperation):
     def _call_v3(self, sim):
         # setup FIRE minimization
         with warnings.catch_warnings():
-            if _version >= version.Version("3.9"):
+            if _version >= version.Version("3.8"):
                 warnings.simplefilter(action="ignore", category=FutureWarning)
             nve = hoomd.md.methods.NVE(filter=hoomd.filter.All())
         fire = hoomd.md.minimize.FIRE(
@@ -394,22 +394,22 @@ class MinimizeEnergy(SimulationOperation):
             forces=sim[sim.initializer]["_potentials"],
             methods=[nve],
         )
-        sim["_engine"]["_hoomd"].operations.integrator = fire
+        sim["engine"]["_hoomd"].operations.integrator = fire
 
         # run while not yet converged
         it = 0
         while not fire.converged and it < self.max_iterations:
-            sim["_engine"]["_hoomd"].run(self.options["steps_per_iteration"])
+            sim["engine"]["_hoomd"].run(self.options["steps_per_iteration"])
             it += 1
         if not fire.converged:
             raise RuntimeError("Energy minimization failed to converge.")
 
         # cleanup
-        sim["_engine"]["_hoomd"].operations.integrator = None
+        sim["engine"]["_hoomd"].operations.integrator = None
         del fire, nve
 
     def _call_v2(self, sim):
-        with sim["_engine"]["_hoomd"]:
+        with sim["engine"]["_hoomd"]:
             # setup FIRE minimization
             fire = hoomd.md.integrate.mode_minimize_fire(
                 dt=self.options["max_displacement"],
@@ -483,7 +483,7 @@ class _MDIntegrator(SimulationOperation):
                     return hoomd.variant.Ramp(
                         A=kB * thermostat.T[0],
                         B=kB * thermostat.T[1],
-                        t_start=sim["_engine"]["_hoomd"].timestep,
+                        t_start=sim["engine"]["_hoomd"].timestep,
                         t_ramp=steps - 1,
                     )
                 elif _version.major == 2:
@@ -542,23 +542,23 @@ class RunBrownianDynamics(_MDIntegrator):
             forces=sim[sim.initializer]["_potentials"],
             methods=[bd],
         )
-        sim["_engine"]["_hoomd"].operations.integrator = ig
-        sim["_engine"]["_hoomd"].seed = self.seed
+        sim["engine"]["_hoomd"].operations.integrator = ig
+        sim["engine"]["_hoomd"].seed = self.seed
 
         # run + analysis
         for analyzer in self.analyzers:
             analyzer.pre_run(sim, self)
 
-        sim["_engine"]["_hoomd"].run(self.steps, write_at_start=True)
+        sim["engine"]["_hoomd"].run(self.steps, write_at_start=True)
 
         for analyzer in self.analyzers:
             analyzer.post_run(sim, self)
 
-        sim["_engine"]["_hoomd"].operations.integrator = None
+        sim["engine"]["_hoomd"].operations.integrator = None
         del ig, bd
 
     def _call_v2(self, sim):
-        with sim["_engine"]["_hoomd"]:
+        with sim["engine"]["_hoomd"]:
             ig = hoomd.md.integrate.mode_standard(self.timestep)
             kT = self._make_kT(sim, self.T, self.steps)
             bd = hoomd.md.integrate.brownian(
@@ -626,23 +626,23 @@ class RunLangevinDynamics(_MDIntegrator):
             forces=sim[sim.initializer]["_potentials"],
             methods=[ld],
         )
-        sim["_engine"]["_hoomd"].operations.integrator = ig
-        sim["_engine"]["_hoomd"].seed = self.seed
+        sim["engine"]["_hoomd"].operations.integrator = ig
+        sim["engine"]["_hoomd"].seed = self.seed
 
         # run + analysis
         for analyzer in self.analyzers:
             analyzer.pre_run(sim, self)
 
-        sim["_engine"]["_hoomd"].run(self.steps, write_at_start=True)
+        sim["engine"]["_hoomd"].run(self.steps, write_at_start=True)
 
         for analyzer in self.analyzers:
             analyzer.post_run(sim, self)
 
-        sim["_engine"]["_hoomd"].operations.integrator = None
+        sim["engine"]["_hoomd"].operations.integrator = None
         del ig, ld
 
     def _call_v2(self, sim):
-        with sim["_engine"]["_hoomd"]:
+        with sim["engine"]["_hoomd"]:
             ig = hoomd.md.integrate.mode_standard(self.timestep)
             kT = self._make_kT(sim, self.T, self.steps)
             ld = hoomd.md.integrate.langevin(
@@ -711,7 +711,7 @@ class RunMolecularDynamics(_MDIntegrator):
 
         if self.thermostat is None and self.barostat is None:
             with warnings.catch_warnings():
-                if _version >= version.Version("3.9"):
+                if _version >= version.Version("3.8"):
                     warnings.simplefilter(action="ignore", category=FutureWarning)
                 ig_method = hoomd.md.methods.NVE(filter=hoomd.filter.All())
         elif (
@@ -719,7 +719,7 @@ class RunMolecularDynamics(_MDIntegrator):
             and self.barostat is None
         ):
             with warnings.catch_warnings():
-                if _version >= version.Version("3.9"):
+                if _version >= version.Version("3.8"):
                     warnings.simplefilter(action="ignore", category=FutureWarning)
                 ig_method = hoomd.md.methods.Berendsen(
                     filter=hoomd.filter.All(),
@@ -731,7 +731,7 @@ class RunMolecularDynamics(_MDIntegrator):
             and self.barostat is None
         ):
             with warnings.catch_warnings():
-                if _version >= version.Version("3.9"):
+                if _version >= version.Version("3.8"):
                     warnings.simplefilter(action="ignore", category=FutureWarning)
                 ig_method = hoomd.md.methods.NVT(
                     filter=hoomd.filter.All(),
@@ -740,7 +740,7 @@ class RunMolecularDynamics(_MDIntegrator):
                 )
         elif self.thermostat is None and isinstance(self.barostat, md.MTKBarostat):
             with warnings.catch_warnings():
-                if _version >= version.Version("3.9"):
+                if _version >= version.Version("3.8"):
                     warnings.simplefilter(action="ignore", category=FutureWarning)
                 ig_method = hoomd.md.methods.NPH(
                     filter=hoomd.filter.All(),
@@ -752,7 +752,7 @@ class RunMolecularDynamics(_MDIntegrator):
             self.barostat, md.MTKBarostat
         ):
             with warnings.catch_warnings():
-                if _version >= version.Version("3.9"):
+                if _version >= version.Version("3.8"):
                     warnings.simplefilter(action="ignore", category=FutureWarning)
                 ig_method = hoomd.md.methods.NPT(
                     filter=hoomd.filter.All(),
@@ -772,22 +772,22 @@ class RunMolecularDynamics(_MDIntegrator):
             forces=sim[sim.initializer]["_potentials"],
             methods=[ig_method],
         )
-        sim["_engine"]["_hoomd"].operations.integrator = ig
+        sim["engine"]["_hoomd"].operations.integrator = ig
 
         # run + analysis
         for analyzer in self.analyzers:
             analyzer.pre_run(sim, self)
 
-        sim["_engine"]["_hoomd"].run(self.steps, write_at_start=True)
+        sim["engine"]["_hoomd"].run(self.steps, write_at_start=True)
 
         for analyzer in self.analyzers:
             analyzer.post_run(sim, self)
 
-        sim["_engine"]["_hoomd"].operations.integrator = None
+        sim["engine"]["_hoomd"].operations.integrator = None
         del ig, ig_method
 
     def _call_v2(self, sim):
-        with sim["_engine"]["_hoomd"]:
+        with sim["engine"]["_hoomd"]:
             ig = hoomd.md.integrate.mode_standard(self.timestep)
             if self.thermostat is not None:
                 kT = self._make_kT(sim, self.thermostat, self.steps)
@@ -875,34 +875,34 @@ class EnsembleAverage(AnalysisOperation):
             hoomd.filter.All()
         )
         sim[self]["_thermo_callback"] = self.ThermodynamicsCallback(
-            logger=sim[self]["_thermo"],
+            thermo=sim[self]["_thermo"],
             dimension=sim.dimension,
         )
         sim[self]["_hoomd_thermo_callback"] = hoomd.write.CustomWriter(
             trigger=self.check_thermo_every,
             action=sim[self]["_thermo_callback"],
         )
-        sim["_engine"]["_hoomd"].operations.computes.append(sim[self]["_thermo"])
-        sim["_engine"]["_hoomd"].operations.writers.append(
+        sim["engine"]["_hoomd"].operations.computes.append(sim[self]["_thermo"])
+        sim["engine"]["_hoomd"].operations.writers.append(
             sim[self]["_hoomd_thermo_callback"]
         )
 
         # RDF
         rdf_params = self._get_rdf_params(sim)
         sim[self]["_rdf_callback"] = self.RDFCallback(
-            system=sim["_engine"]["_hoomd"].state,
+            system=sim["engine"]["_hoomd"].state,
             params=rdf_params,
         )
         sim[self]["_hoomd_rdf_callback"] = hoomd.write.CustomWriter(
             trigger=self.check_rdf_every,
             action=sim[self]["_rdf_callback"],
         )
-        sim["_engine"]["_hoomd"].operations.writers.append(
+        sim["engine"]["_hoomd"].operations.writers.append(
             sim[self]["_hoomd_rdf_callback"]
         )
 
     def _pre_run_v2(self, sim, sim_op):
-        with sim["_engine"]["_hoomd"]:
+        with sim["engine"]["_hoomd"]:
             # thermodynamic properties
             if sim.dimension == 3:
                 quantities_logged = [
@@ -919,13 +919,14 @@ class EnsembleAverage(AnalysisOperation):
                 quantities_logged = ["temperature", "pressure", "lx", "ly", "xy"]
             else:
                 raise ValueError("HOOMD only supports 2d or 3d simulations")
-            sim[self]["_logger"] = hoomd.analyze.log(
+            sim[self]["_thermo"] = hoomd.analyze.log(
                 filename=None,
                 quantities=quantities_logged,
                 period=self.check_thermo_every,
             )
             sim[self]["_thermo_callback"] = self.ThermodynamicsCallback(
-                sim[self]["_logger"], sim.dimension
+                thermo=sim[self]["_thermo"],
+                dimension=sim.dimension,
             )
             sim[self]["_hoomd_thermo_callback"] = hoomd.analyze.callback(
                 callback=sim[self]["_thermo_callback"].act,
@@ -935,32 +936,33 @@ class EnsembleAverage(AnalysisOperation):
             # pair distribution function
             rdf_params = self._get_rdf_params(sim)
             sim[self]["_rdf_callback"] = self.RDFCallback(
-                sim[sim.initializer]["_system"], rdf_params
+                system=sim[sim.initializer]["_system"],
+                params=rdf_params,
             )
             sim[self]["_hoomd_rdf_callback"] = hoomd.analyze.callback(
                 callback=sim[self]["_rdf_callback"].act, period=self.check_rdf_every
             )
 
     def _post_run_v3(self, sim, sim_op):
-        sim["_engine"]["_hoomd"].operations.writers.remove(
+        sim["engine"]["_hoomd"].operations.writers.remove(
             sim[self]["_hoomd_thermo_callback"]
         )
-        sim["_engine"]["_hoomd"].operations.computes.remove(sim[self]["_thermo"])
+        sim["engine"]["_hoomd"].operations.computes.remove(sim[self]["_thermo"])
         del sim[self]["_hoomd_thermo_callback"], sim[self]["_thermo"]
 
-        sim["_engine"]["_hoomd"].operations.writers.remove(
+        sim["engine"]["_hoomd"].operations.writers.remove(
             sim[self]["_hoomd_rdf_callback"]
         )
         del sim[self]["_hoomd_rdf_callback"]
 
     def _post_run_v2(self, sim, sim_op):
-        with sim["_engine"]["_hoomd"]:
+        with sim["engine"]["_hoomd"]:
             sim[self]["_hoomd_thermo_callback"].disable()
-            sim[self]["_logger"].disable()
+            sim[self]["_thermo"].disable()
 
             sim[self]["_hoomd_rdf_callback"].disable()
 
-        del sim[self]["_hoomd_thermo_callback"], sim[self]["_logger"]
+        del sim[self]["_hoomd_thermo_callback"], sim[self]["_thermo"]
         del sim[self]["_hoomd_rdf_callback"]
 
     def process(self, sim, sim_op):
@@ -1004,27 +1006,27 @@ class EnsembleAverage(AnalysisOperation):
         if _version.major == 3:
             flags = [Action.Flags.PRESSURE_TENSOR]
 
-        def __init__(self, logger, dimension):
+        def __init__(self, thermo, dimension):
             if dimension not in (2, 3):
                 raise ValueError("Only 2 or 3 dimensions supported")
 
-            self.logger = logger
+            self.thermo = thermo
             self.dimension = dimension
             self.reset()
 
         def act(self, timestep):
             if _version.major == 3:
-                self._T += self.logger.kinetic_temperature
-                self._P += self.logger.pressure
+                self._T += self.thermo.kinetic_temperature
+                self._P += self.thermo.pressure
                 for key in self._V:
                     self._V[key] += getattr(self._state.box, key)
                 self.num_samples += 1
 
             elif _version.major == 2:
-                self._T += self.logger.query("temperature")
-                self._P += self.logger.query("pressure")
+                self._T += self.thermo.query("temperature")
+                self._P += self.thermo.query("pressure")
                 for key in self._V:
-                    self._V[key] += self.logger.query(key.lower())
+                    self._V[key] += self.thermo.query(key.lower())
                 self.num_samples += 1
 
         def reset(self):
@@ -1197,49 +1199,45 @@ class Record(AnalysisOperation):
         sim[self]["_thermo"] = hoomd.md.compute.ThermodynamicQuantities(
             hoomd.filter.All()
         )
-        sim[self]["_recorder_callback"] = self.RecorderCallback(
-            logger=sim[self]["_thermo"],
+        sim[self]["_recorder"] = self.RecorderCallback(
+            thermo=sim[self]["_thermo"],
             quantities=self.quantities,
         )
-        sim[self]["_hoomd_recorder_callback"] = hoomd.write.CustomWriter(
+        sim[self]["_hoomd_recorder"] = hoomd.write.CustomWriter(
             trigger=self.every,
-            action=sim[self]["_recorder_callback"],
+            action=sim[self]["_recorder"],
         )
-        sim["_engine"]["_hoomd"].operations.computes.append(sim[self]["_thermo"])
-        sim["_engine"]["_hoomd"].operations.writers.append(
-            sim[self]["_hoomd_recorder_callback"]
-        )
+        sim["engine"]["_hoomd"].operations.computes.append(sim[self]["_thermo"])
+        sim["engine"]["_hoomd"].operations.writers.append(sim[self]["_hoomd_recorder"])
 
     def _pre_run_v2(self, sim, sim_op):
-        with sim["_engine"]["_hoomd"]:
-            sim[self]["_logger"] = hoomd.analyze.log(
+        with sim["engine"]["_hoomd"]:
+            sim[self]["_thermo"] = hoomd.analyze.log(
                 filename=None,
                 quantities=self.quantities,
                 period=self.every,
             )
-            sim[self]["_recorder_callback"] = self.RecorderCallback(
-                logger=sim[self]["_logger"],
+            sim[self]["_recorder"] = self.RecorderCallback(
+                thermo=sim[self]["_thermo"],
                 quantities=self.quantities,
             )
-            sim[self]["_hoomd_recorder_callback"] = hoomd.analyze.callback(
-                callback=sim[self]["_recorder_callback"].act, period=self.every
+            sim[self]["_hoomd_recorder"] = hoomd.analyze.callback(
+                callback=sim[self]["_recorder"].act, period=self.every
             )
 
     def _post_run_v3(self, sim, sim_op):
-        sim["_engine"]["_hoomd"].operations.writers.remove(
-            sim[self]["_hoomd_recorder_callback"]
-        )
-        sim["_engine"]["_hoomd"].operations.computes.remove(sim[self]["_thermo"])
-        del sim[self]["_hoomd_recorder_callback"], sim[self]["_thermo"]
+        sim["engine"]["_hoomd"].operations.writers.remove(sim[self]["_hoomd_recorder"])
+        sim["engine"]["_hoomd"].operations.computes.remove(sim[self]["_thermo"])
+        del sim[self]["_hoomd_recorder"], sim[self]["_thermo"]
 
     def _post_run_v2(self, sim, sim_op):
-        with sim["_engine"]["_hoomd"]:
-            sim[self]["_hoomd_recorder_callback"].disable()
-            sim[self]["_logger"].disable()
-        del sim[self]["_hoomd_recorder_callback"], sim[self]["_logger"]
+        with sim["engine"]["_hoomd"]:
+            sim[self]["_hoomd_recorder"].disable()
+            sim[self]["_thermo"].disable()
+        del sim[self]["_hoomd_recorder"], sim[self]["_thermo"]
 
     def process(self, sim, sim_op):
-        recorder = sim[self]["_recorder_callback"]
+        recorder = sim[self]["_recorder"]
         sim[self]["timestep"] = recorder.timestep
         for q in self.quantities:
             values = numpy.array(getattr(recorder, q))
@@ -1248,7 +1246,7 @@ class Record(AnalysisOperation):
                 values /= sim.potentials.kB
             sim[self][q] = values
 
-        del sim[self]["_recorder_callback"]
+        del sim[self]["_recorder"]
 
     class RecorderCallback(Action):
         """HOOMD callback for recording thermodynamic properties."""
@@ -1256,8 +1254,8 @@ class Record(AnalysisOperation):
         if _version.major == 3:
             flags = [Action.Flags.PRESSURE_TENSOR]
 
-        def __init__(self, logger, quantities):
-            self.logger = logger
+        def __init__(self, thermo, quantities):
+            self.thermo = thermo
             self.quantities = quantities
             self.reset()
 
@@ -1266,11 +1264,11 @@ class Record(AnalysisOperation):
             for q in self.quantities:
                 if _version.major == 3:
                     if q == "temperature":
-                        val = getattr(self.logger, "kinetic_temperature")
+                        val = getattr(self.thermo, "kinetic_temperature")
                     else:
-                        val = getattr(self.logger, q)
+                        val = getattr(self.thermo, q)
                 elif _version.major == 2:
-                    val = self.logger.query(q)
+                    val = self.thermo.query(q)
                 self._data[q].append(val)
 
         def __getattr__(self, item):
@@ -1303,10 +1301,10 @@ class WriteTrajectory(AnalysisOperation):
             mode="wb",
             dynamic=self._get_dynamic(),
         )
-        sim["_engine"]["_hoomd"].operations.writers.append(sim[self]["_gsd"])
+        sim["engine"]["_hoomd"].operations.writers.append(sim[self]["_gsd"])
 
     def _pre_run_v2(self, sim, sim_op):
-        with sim["_engine"]["_hoomd"]:
+        with sim["engine"]["_hoomd"]:
             # dump the .gsd file into the directory
             # Note: the .gsd file is overwritten for each call of the function
             sim[self]["_gsd"] = hoomd.dump.gsd(
@@ -1318,11 +1316,11 @@ class WriteTrajectory(AnalysisOperation):
             )
 
     def _post_run_v3(self, sim, sim_op):
-        sim["_engine"]["_hoomd"].operations.writers.remove(sim[self]["_gsd"])
+        sim["engine"]["_hoomd"].operations.writers.remove(sim[self]["_gsd"])
         del sim[self]["_gsd"]
 
     def _post_run_v2(self, sim, sim_op):
-        with sim["_engine"]["_hoomd"]:
+        with sim["engine"]["_hoomd"]:
             sim[self]["_gsd"].disable()
         del sim[self]["_gsd"]
 
@@ -1386,19 +1384,19 @@ class HOOMD(simulate.Simulation):
         super().__init__(initializer, operations)
 
     def _initialize_engine(self, sim):
-        sim["_engine"]["version"] = _version
+        sim["engine"]["version"] = _version
 
         if _version.major == 3:
             device = hoomd.device.auto_select(
                 communicator=mpi.world.comm, notice_level=0
             )
-            sim["_engine"]["_hoomd"] = hoomd.Simulation(device)
+            sim["engine"]["_hoomd"] = hoomd.Simulation(device)
         elif _version.major == 2:
             # initialize hoomd exec conf once, then make a context
             if hoomd.context.exec_conf is None:
                 hoomd.context.initialize("--notice-level=0")
                 hoomd.util.quiet_status()
-            sim["_engine"]["_hoomd"] = hoomd.context.SimulationContext()
+            sim["engine"]["_hoomd"] = hoomd.context.SimulationContext()
         else:
             raise ValueError("HOOMD {} not supported".format(_version))
 
