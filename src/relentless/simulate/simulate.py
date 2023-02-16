@@ -13,15 +13,7 @@ from relentless import data, mpi
 from relentless.model import variable
 
 
-class SimulationOperation(abc.ABC):
-    """Operation to be performed by a :class:`Simulation`."""
-
-    @abc.abstractmethod
-    def __call__(self, sim):
-        pass
-
-
-class InitializationOperation(SimulationOperation):
+class InitializationOperation(abc.ABC):
     """Operation that initializes a :class:`Simulation`.
 
     An initialization operation must do the following:
@@ -38,7 +30,9 @@ class InitializationOperation(SimulationOperation):
 
     """
 
-    pass
+    @abc.abstractmethod
+    def __call__(self, sim):
+        pass
 
     @staticmethod
     def _get_tight_rcut(potential, pair, r, u, f):
@@ -66,6 +60,33 @@ class InitializationOperation(SimulationOperation):
         return rcut
 
 
+class SimulationOperation(abc.ABC):
+    """Operation to be performed by a :class:`Simulation`."""
+
+    def __init__(self, analyzers):
+        self.analyzers = analyzers
+
+    @abc.abstractmethod
+    def __call__(self, sim):
+        pass
+
+    @property
+    def analyzers(self):
+        return self._analyzers
+
+    @analyzers.setter
+    def analyzers(self, ops):
+        if ops is not None:
+            try:
+                ops_ = list(ops)
+            except TypeError:
+                ops_ = [ops]
+        else:
+            ops_ = []
+
+        self._analyzers = ops_
+
+
 class AnalysisOperation(abc.ABC):
     """Analysis operation to be performed by a :class:`Simulation`."""
 
@@ -79,6 +100,18 @@ class AnalysisOperation(abc.ABC):
 
     @abc.abstractmethod
     def process(self, sim, sim_op):
+        pass
+
+
+class DelegatedInitializationOperation(InitializationOperation):
+    def __call__(self, sim):
+        DelegatedSimulationOperation.__call__(self, sim)
+
+    def _get_delegate(self, sim, *args, **kwargs):
+        return DelegatedSimulationOperation._get_delegate(self, sim, *args, **kwargs)
+
+    @abc.abstractmethod
+    def _make_delegate(self, sim):
         pass
 
 
@@ -97,19 +130,13 @@ class DelegatedSimulationOperation(SimulationOperation):
         delegate = getattr(sim.backend, "_" + op_name, None)
         if delegate is None:
             raise NotImplementedError(
-                "{} is not implemented for {}.".format(op_name, sim.backend.__name__)
+                f"{op_name} is not implemented for {sim.backend.__name__}."
             )
         return delegate(*args, **kwargs)
 
     @abc.abstractmethod
     def _make_delegate(self, sim):
         pass
-
-
-class DelegatedInitializationOperation(
-    DelegatedSimulationOperation, InitializationOperation
-):
-    pass
 
 
 class DelegatedAnalysisOperation(AnalysisOperation):
@@ -141,7 +168,8 @@ class DelegatedAnalysisOperation(AnalysisOperation):
         del sim[self]["_delegate"]
         del sim[self]["_delegate_state"]
 
-    _get_delegate = DelegatedSimulationOperation._get_delegate
+    def _get_delegate(self, sim, *args, **kwargs):
+        return DelegatedSimulationOperation._get_delegate(self, sim, *args, **kwargs)
 
     @abc.abstractmethod
     def _make_delegate(self, sim):
@@ -165,7 +193,7 @@ class Simulation:
 
     Parameters
     ----------
-    initializer : :class:`SimulationOperation`
+    initializer : :class:`InitializationOperation`
         Operation to initialize the simulation.
     operations : array_like
         Sequence of :class:`SimulationOperation`\s to call.
@@ -194,20 +222,19 @@ class Simulation:
 
         Returns
         -------
-        :class:`Simulation`
+        :class:`SimulationInstance`
             The simulation instance after the operations are performed.
-
-        Raises
-        ------
-        TypeError
-            If all operations are not :class:`SimulationOperation`\s.
 
         """
         # initialize the instance
-        sim = self._new_instance(potentials, directory)
+        sim = SimulationInstance(type(self), self.initializer, potentials, directory)
+        self._initialize_engine(sim)
+        sim.initializer(sim)
+
         # run the operations
         for op in self.operations:
             op(sim)
+
         # execute post run commands
         self._post_run(sim)
 
@@ -216,13 +243,12 @@ class Simulation:
     def _post_run(self, sim):
         # finalize the analysis operations
         for op in self.operations:
-            if hasattr(op, "analyzers"):
-                for analyzer in op.analyzers:
-                    analyzer.process(sim, op)
+            for analyzer in op.analyzers:
+                analyzer.process(sim, op)
 
     @property
     def initializer(self):
-        """:class:`SimulationOperation`: Initialization operation."""
+        """:class:`InitializationOperation`: Initialization operation."""
         return self._initializer
 
     @initializer.setter
@@ -245,12 +271,6 @@ class Simulation:
         if not all([isinstance(op, SimulationOperation) for op in ops_]):
             raise TypeError("All operations must be SimulationOperations.")
         self._operations = ops_
-
-    def _new_instance(self, potentials, directory):
-        sim = SimulationInstance(type(self), self.initializer, potentials, directory)
-        self._initialize_engine(sim)
-        sim.initializer(sim)
-        return sim
 
     def _initialize_engine(self, sim):
         pass
