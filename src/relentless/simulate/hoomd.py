@@ -27,16 +27,14 @@ except ImportError:
     _freud_found = False
 
 
-class HOOMDSimulationOperation(simulate.SimulationOperation):
+class SimulationOperation(simulate.SimulationOperation):
     def __call__(self, sim):
-        if sim["_engine"]["_hoomd_version"].major == 3:
+        if sim["_engine"]["version"].major == 3:
             self._call_v3(sim)
-        elif sim["_engine"]["_hoomd_version"].major == 2:
+        elif sim["_engine"]["version"].major == 2:
             self._call_v2(sim)
         else:
-            raise ValueError(
-                "HOOMD {} not supported".format(sim["_engine"]["_hoomd_version"])
-            )
+            raise ValueError("HOOMD {} not supported".format(sim["_engine"]["version"]))
 
     def _call_v3(self, sim):
         raise NotImplementedError("Operation not implemented in HOOMD 3")
@@ -45,26 +43,22 @@ class HOOMDSimulationOperation(simulate.SimulationOperation):
         raise NotImplementedError("Operation not implemented in HOOMD 2")
 
 
-class HOOMDAnalysisOperation(simulate.AnalysisOperation):
+class AnalysisOperation(simulate.AnalysisOperation):
     def pre_run(self, sim, sim_op):
-        if sim["_engine"]["_hoomd_version"].major == 3:
+        if sim["_engine"]["version"].major == 3:
             self._pre_run_v3(sim, sim_op)
-        elif sim["_engine"]["_hoomd_version"].major == 2:
+        elif sim["_engine"]["version"].major == 2:
             self._pre_run_v2(sim, sim_op)
         else:
-            raise ValueError(
-                "HOOMD {} not supported".format(sim["_engine"]["_hoomd_version"])
-            )
+            raise ValueError("HOOMD {} not supported".format(sim["_engine"]["version"]))
 
     def post_run(self, sim, sim_op):
-        if sim["_engine"]["_hoomd_version"].major == 3:
+        if sim["_engine"]["version"].major == 3:
             self._post_run_v3(sim, sim_op)
-        elif sim["_engine"]["_hoomd_version"].major == 2:
+        elif sim["_engine"]["version"].major == 2:
             self._post_run_v2(sim, sim_op)
         else:
-            raise ValueError(
-                "HOOMD {} not supported".format(sim["_engine"]["_hoomd_version"])
-            )
+            raise ValueError("HOOMD {} not supported".format(sim["_engine"]["version"]))
 
     def _pre_run_v3(self, sim, sim_op):
         raise NotImplementedError("Operation not implemented in HOOMD 3")
@@ -80,9 +74,7 @@ class HOOMDAnalysisOperation(simulate.AnalysisOperation):
 
 
 # initializers
-class HOOMDInitializationOperation(
-    simulate.InitializationOperation, HOOMDSimulationOperation
-):
+class InitializationOperation(simulate.InitializationOperation, SimulationOperation):
     def _call_v3(self, sim):
         self._initialize_v3(sim)
         sim.dimension = sim.state.box.dimensions
@@ -174,7 +166,7 @@ class HOOMDInitializationOperation(
         return masses
 
 
-class InitializeFromFile(HOOMDInitializationOperation):
+class InitializeFromFile(InitializationOperation):
     """Initialize a simulation from a GSD file.
 
     Parameters
@@ -195,7 +187,7 @@ class InitializeFromFile(HOOMDInitializationOperation):
             return hoomd.init.read_gsd(self.filename)
 
 
-class InitializeRandomly(HOOMDInitializationOperation):
+class InitializeRandomly(InitializationOperation):
     """Initialize a randomly generated simulation box.
 
     If ``diameters`` is ``None``, the particles are randomly placed in the box.
@@ -252,15 +244,15 @@ class InitializeRandomly(HOOMDInitializationOperation):
         # make the box and snapshot
         if isinstance(self.V, extent.TriclinicBox):
             box_array = self.V.as_array("HOOMD")
-            if sim["_engine"]["_hoomd_version"].major == 3:
+            if sim["_engine"]["version"].major == 3:
                 box = hoomd.Box(*box_array)
-            elif sim["_engine"]["_hoomd_version"].major == 2:
+            elif sim["_engine"]["version"].major == 2:
                 box = hoomd.data.boxdim(*box_array, dimensions=3)
         elif isinstance(self.V, extent.ObliqueArea):
             Lx, Ly, xy = self.V.as_array("HOOMD")
-            if sim["_engine"]["_hoomd_version"].major == 3:
+            if sim["_engine"]["version"].major == 3:
                 box = hoomd.Box(Lx=Lx, Ly=Ly, xy=xy)
-            elif sim["_engine"]["_hoomd_version"].major == 2:
+            elif sim["_engine"]["version"].major == 2:
                 box = hoomd.data.boxdim(
                     Lx=Lx, Ly=Ly, Lz=1, xy=xy, xz=0, yz=0, dimensions=2
                 )
@@ -269,12 +261,12 @@ class InitializeRandomly(HOOMDInitializationOperation):
 
         types = tuple(self.N.keys())
         typeids = {i: typeid for typeid, i in enumerate(types)}
-        if sim["_engine"]["_hoomd_version"].major == 3:
+        if sim["_engine"]["version"].major == 3:
             snap = hoomd.Snapshot(communicator=mpi.world.comm)
             snap.configuration.box = box
             snap.particles.N = sum(self.N.values())
             snap.particles.types = list(types)
-        elif sim["_engine"]["_hoomd_version"].major == 2:
+        elif sim["_engine"]["version"].major == 2:
             snap = hoomd.data.make_snapshot(
                 N=sum(self.N.values()), box=box, particle_types=list(types)
             )
@@ -329,7 +321,7 @@ class InitializeRandomly(HOOMDInitializationOperation):
 
 
 # integrators
-class MinimizeEnergy(HOOMDSimulationOperation):
+class MinimizeEnergy(SimulationOperation):
     """Run energy minimization until convergence.
 
     Valid **options** include:
@@ -396,7 +388,7 @@ class MinimizeEnergy(HOOMDSimulationOperation):
             del fire
 
 
-class _MDIntegrator(HOOMDSimulationOperation):
+class _MDIntegrator(SimulationOperation):
     """Base HOOMD molecular dynamics integrator.
 
     Parameters
@@ -656,7 +648,7 @@ class RunMolecularDynamics(_MDIntegrator):
 
 
 # analyzers
-class EnsembleAverage(HOOMDAnalysisOperation):
+class EnsembleAverage(AnalysisOperation):
     """Analyzer for the simulation ensemble.
 
     The simulation ensemble is analyzed online while it is running. The
@@ -941,7 +933,7 @@ class EnsembleAverage(HOOMDAnalysisOperation):
             # rdf will be reset on next call
 
 
-class Record(HOOMDAnalysisOperation):
+class Record(AnalysisOperation):
     def __init__(self, quantities, every):
         self.quantities = quantities
         self.every = every
@@ -976,7 +968,7 @@ class Record(HOOMDAnalysisOperation):
                 sim[self][q] /= sim.potentials.kB
 
 
-class WriteTrajectory(HOOMDAnalysisOperation):
+class WriteTrajectory(AnalysisOperation):
     def __init__(self, filename, every, velocities, images, types, masses):
         self.filename = filename
         self.every = every
@@ -1062,23 +1054,21 @@ class HOOMD(simulate.Simulation):
         super().__init__(initializer, operations)
 
     def _initialize_engine(self, sim):
-        sim["_engine"]["_hoomd_version"] = version.parse(hoomd.__version__)
+        sim["_engine"]["version"] = version.parse(hoomd.__version__)
 
-        if sim["_engine"]["_hoomd_version"].major == 3:
+        if sim["_engine"]["version"].major == 3:
             device = hoomd.device.auto_select(
                 communicator=mpi.world.comm, notice_level=0
             )
             sim["_engine"]["_hoomd"] = hoomd.Simulation(device)
-        elif sim["_engine"]["_hoomd_version"].major == 2:
+        elif sim["_engine"]["version"].major == 2:
             # initialize hoomd exec conf once, then make a context
             if hoomd.context.exec_conf is None:
                 hoomd.context.initialize("--notice-level=0")
                 hoomd.util.quiet_status()
             sim["_engine"]["_hoomd"] = hoomd.context.SimulationContext()
         else:
-            raise ValueError(
-                "HOOMD {} not supported".format(sim["_engine"]["_hoomd_version"])
-            )
+            raise ValueError("HOOMD {} not supported".format(sim["_engine"]["version"]))
 
     # initialize
     _InitializeFromFile = InitializeFromFile
