@@ -1,5 +1,6 @@
 import os
 import uuid
+import warnings
 
 import numpy
 from packaging import version
@@ -19,6 +20,15 @@ try:
 except ImportError:
     _hoomd_found = False
 
+if _hoomd_found:
+    try:
+        _version = hoomd.version.version
+    except AttributeError:
+        _version = hoomd.__version__
+    _version = version.parse(_version)
+else:
+    _version = None
+
 try:
     import freud
 
@@ -29,12 +39,12 @@ except ImportError:
 
 class SimulationOperation(simulate.SimulationOperation):
     def __call__(self, sim):
-        if sim["_engine"]["version"].major == 3:
+        if _version.major == 3:
             self._call_v3(sim)
-        elif sim["_engine"]["version"].major == 2:
+        elif _version.major == 2:
             self._call_v2(sim)
         else:
-            raise ValueError("HOOMD {} not supported".format(sim["_engine"]["version"]))
+            raise ValueError("HOOMD {} not supported".format(_version))
 
     def _call_v3(self, sim):
         raise NotImplementedError("Operation not implemented in HOOMD 3")
@@ -45,20 +55,20 @@ class SimulationOperation(simulate.SimulationOperation):
 
 class AnalysisOperation(simulate.AnalysisOperation):
     def pre_run(self, sim, sim_op):
-        if sim["_engine"]["version"].major == 3:
+        if _version.major == 3:
             self._pre_run_v3(sim, sim_op)
-        elif sim["_engine"]["version"].major == 2:
+        elif _version.major == 2:
             self._pre_run_v2(sim, sim_op)
         else:
-            raise ValueError("HOOMD {} not supported".format(sim["_engine"]["version"]))
+            raise ValueError("HOOMD {} not supported".format(_version))
 
     def post_run(self, sim, sim_op):
-        if sim["_engine"]["version"].major == 3:
+        if _version.major == 3:
             self._post_run_v3(sim, sim_op)
-        elif sim["_engine"]["version"].major == 2:
+        elif _version.major == 2:
             self._post_run_v2(sim, sim_op)
         else:
-            raise ValueError("HOOMD {} not supported".format(sim["_engine"]["version"]))
+            raise ValueError("HOOMD {} not supported".format(_version))
 
     def _pre_run_v3(self, sim, sim_op):
         raise NotImplementedError("Operation not implemented in HOOMD 3")
@@ -244,15 +254,15 @@ class InitializeRandomly(InitializationOperation):
         # make the box and snapshot
         if isinstance(self.V, extent.TriclinicBox):
             box_array = self.V.as_array("HOOMD")
-            if sim["_engine"]["version"].major == 3:
+            if _version.major == 3:
                 box = hoomd.Box(*box_array)
-            elif sim["_engine"]["version"].major == 2:
+            elif _version.major == 2:
                 box = hoomd.data.boxdim(*box_array, dimensions=3)
         elif isinstance(self.V, extent.ObliqueArea):
             Lx, Ly, xy = self.V.as_array("HOOMD")
-            if sim["_engine"]["version"].major == 3:
+            if _version.major == 3:
                 box = hoomd.Box(Lx=Lx, Ly=Ly, xy=xy)
-            elif sim["_engine"]["version"].major == 2:
+            elif _version.major == 2:
                 box = hoomd.data.boxdim(
                     Lx=Lx, Ly=Ly, Lz=1, xy=xy, xz=0, yz=0, dimensions=2
                 )
@@ -261,12 +271,12 @@ class InitializeRandomly(InitializationOperation):
 
         types = tuple(self.N.keys())
         typeids = {i: typeid for typeid, i in enumerate(types)}
-        if sim["_engine"]["version"].major == 3:
+        if _version.major == 3:
             snap = hoomd.Snapshot(communicator=mpi.world.comm)
             snap.configuration.box = box
             snap.particles.N = sum(self.N.values())
             snap.particles.types = list(types)
-        elif sim["_engine"]["version"].major == 2:
+        elif _version.major == 2:
             snap = hoomd.data.make_snapshot(
                 N=sum(self.N.values()), box=box, particle_types=list(types)
             )
@@ -364,7 +374,10 @@ class MinimizeEnergy(SimulationOperation):
 
     def _call_v3(self, sim):
         # setup FIRE minimization
-        nve = hoomd.md.methods.NVE(filter=hoomd.filter.All())
+        with warnings.catch_warnings():
+            if _version >= version.Version("3.9"):
+                warnings.simplefilter(action="ignore", category=FutureWarning)
+            nve = hoomd.md.methods.NVE(filter=hoomd.filter.All())
         fire = hoomd.md.minimize.FIRE(
             dt=self.options["max_displacement"],
             force_tol=self.force_tolerance,
@@ -458,22 +471,20 @@ class _MDIntegrator(SimulationOperation):
         kB = sim.potentials.kB
         if thermostat.anneal:
             if steps > 1:
-                if sim["_engine"]["version"].major == 3:
+                if _version.major == 3:
                     return hoomd.variant.Ramp(
                         A=kB * thermostat.T[0],
                         B=kB * thermostat.T[1],
                         t_start=sim["_engine"]["_hoomd"].timestep,
                         t_ramp=steps - 1,
                     )
-                elif sim["_engine"]["version"].major == 2:
+                elif _version.major == 2:
                     return hoomd.variant.linear_interp(
                         ((0, kB * thermostat.T[0]), (steps - 1, kB * thermostat.T[1])),
                         zero="now",
                     )
                 else:
-                    raise ValueError(
-                        "HOOMD {} not supported".format(sim["_engine"]["version"])
-                    )
+                    raise ValueError("HOOMD {} not supported".format(_version))
             else:
                 # if only 1 step, use the end point value. this is a corner case
                 return kB * thermostat.T[1]
@@ -691,43 +702,58 @@ class RunMolecularDynamics(_MDIntegrator):
             kT = None
 
         if self.thermostat is None and self.barostat is None:
-            ig_method = hoomd.md.methods.NVE(filter=hoomd.filter.All())
+            with warnings.catch_warnings():
+                if _version >= version.Version("3.9"):
+                    warnings.simplefilter(action="ignore", category=FutureWarning)
+                ig_method = hoomd.md.methods.NVE(filter=hoomd.filter.All())
         elif (
             isinstance(self.thermostat, md.BerendsenThermostat)
             and self.barostat is None
         ):
-            ig_method = hoomd.md.methods.Berendsen(
-                filter=hoomd.filter.All(),
-                kT=kT,
-                tau=self.thermostat.tau,
-            )
+            with warnings.catch_warnings():
+                if _version >= version.Version("3.9"):
+                    warnings.simplefilter(action="ignore", category=FutureWarning)
+                ig_method = hoomd.md.methods.Berendsen(
+                    filter=hoomd.filter.All(),
+                    kT=kT,
+                    tau=self.thermostat.tau,
+                )
         elif (
             isinstance(self.thermostat, md.NoseHooverThermostat)
             and self.barostat is None
         ):
-            ig_method = hoomd.md.methods.NVT(
-                filter=hoomd.filter.All(),
-                kT=kT,
-                tau=self.thermostat.tau,
-            )
+            with warnings.catch_warnings():
+                if _version >= version.Version("3.9"):
+                    warnings.simplefilter(action="ignore", category=FutureWarning)
+                ig_method = hoomd.md.methods.NVT(
+                    filter=hoomd.filter.All(),
+                    kT=kT,
+                    tau=self.thermostat.tau,
+                )
         elif self.thermostat is None and isinstance(self.barostat, md.MTKBarostat):
-            ig_method = hoomd.md.methods.NPH(
-                filter=hoomd.filter.All(),
-                S=self.barostat.P,
-                tauS=self.barostat.tau,
-                couple="xyz",
-            )
+            with warnings.catch_warnings():
+                if _version >= version.Version("3.9"):
+                    warnings.simplefilter(action="ignore", category=FutureWarning)
+                ig_method = hoomd.md.methods.NPH(
+                    filter=hoomd.filter.All(),
+                    S=self.barostat.P,
+                    tauS=self.barostat.tau,
+                    couple="xyz",
+                )
         elif isinstance(self.thermostat, md.NoseHooverThermostat) and isinstance(
             self.barostat, md.MTKBarostat
         ):
-            ig_method = hoomd.md.methods.NPT(
-                filter=hoomd.filter.All(),
-                kT=kT,
-                tau=self.thermostat.tau,
-                S=self.barostat.P,
-                tauS=self.barostat.tau,
-                couple="xyz",
-            )
+            with warnings.catch_warnings():
+                if _version >= version.Version("3.9"):
+                    warnings.simplefilter(action="ignore", category=FutureWarning)
+                ig_method = hoomd.md.methods.NPT(
+                    filter=hoomd.filter.All(),
+                    kT=kT,
+                    tau=self.thermostat.tau,
+                    S=self.barostat.P,
+                    tauS=self.barostat.tau,
+                    couple="xyz",
+                )
         else:
             raise TypeError(
                 "An appropriate combination of thermostat and barostat must be set."
@@ -1141,26 +1167,31 @@ class WriteTrajectory(AnalysisOperation):
         self.types = types
         self.masses = masses
 
+    def _pre_run_v3(self, sim, sim_op):
+        sim[self]["_gsd"] = hoomd.write.GSD(
+            trigger=self.every,
+            filename=sim.directory.file(self.filename),
+            filter=hoomd.filter.All(),
+            mode="wb",
+            dynamic=self._get_dynamic(),
+        )
+        sim["_engine"]["_hoomd"].operations.writers.append(sim[self]["_gsd"])
+
     def _pre_run_v2(self, sim, sim_op):
-        # property group is always dyanmic in the trajectory file since it logs position
-        _dynamic = ["property"]
-        # momentum group makes particle velocities and particles images dynamic
-        if self.velocities is True or self.images is True:
-            _dynamic.append("momentum")
-
         with sim["_engine"]["_hoomd"]:
-            # selects all particles to be part of the trajectory file
-            all_ = hoomd.group.all()
-
             # dump the .gsd file into the directory
             # Note: the .gsd file is overwritten for each call of the function
             sim[self]["_gsd"] = hoomd.dump.gsd(
                 filename=sim.directory.file(self.filename),
                 period=self.every,
-                group=all_,
+                group=hoomd.group.all(),
                 overwrite=True,
-                dynamic=_dynamic,
+                dynamic=self._get_dynamic(),
             )
+
+    def _post_run_v3(self, sim, sim_op):
+        sim["_engine"]["_hoomd"].operations.writers.remove(sim[self]["_gsd"])
+        del sim[self]["_gsd"]
 
     def _post_run_v2(self, sim, sim_op):
         sim[self]["_gsd"].disable()
@@ -1168,6 +1199,14 @@ class WriteTrajectory(AnalysisOperation):
 
     def process(self, sim, sim_op):
         pass
+
+    def _get_dynamic(self):
+        # property group is always dyanmic in the trajectory file since it logs position
+        dynamic = ["property"]
+        # momentum group makes particle velocities and particles images dynamic
+        if self.velocities is True or self.images is True:
+            dynamic.append("momentum")
+        return dynamic
 
 
 class HOOMD(simulate.Simulation):
@@ -1218,25 +1257,21 @@ class HOOMD(simulate.Simulation):
         super().__init__(initializer, operations)
 
     def _initialize_engine(self, sim):
-        try:
-            hoomd_version = hoomd.version.version
-        except AttributeError:
-            hoomd_version = hoomd.__version__
-        sim["_engine"]["version"] = version.parse(hoomd_version)
+        sim["_engine"]["version"] = _version
 
-        if sim["_engine"]["version"].major == 3:
+        if _version.major == 3:
             device = hoomd.device.auto_select(
                 communicator=mpi.world.comm, notice_level=0
             )
             sim["_engine"]["_hoomd"] = hoomd.Simulation(device)
-        elif sim["_engine"]["version"].major == 2:
+        elif _version.major == 2:
             # initialize hoomd exec conf once, then make a context
             if hoomd.context.exec_conf is None:
                 hoomd.context.initialize("--notice-level=0")
                 hoomd.util.quiet_status()
             sim["_engine"]["_hoomd"] = hoomd.context.SimulationContext()
         else:
-            raise ValueError("HOOMD {} not supported".format(sim["_engine"]["version"]))
+            raise ValueError("HOOMD {} not supported".format(_version))
 
     # initialize
     _InitializeFromFile = InitializeFromFile
