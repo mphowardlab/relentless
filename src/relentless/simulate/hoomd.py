@@ -1003,7 +1003,7 @@ class EnsembleAverage(AnalysisOperation):
     class ThermodynamicsCallback(Action):
         """HOOMD callback for averaging thermodynamic properties."""
 
-        if _version.major == 3:
+        if _version is not None and _version.major == 3:
             flags = [Action.Flags.PRESSURE_TENSOR]
 
         def __init__(self, thermo, dimension):
@@ -1251,7 +1251,7 @@ class Record(AnalysisOperation):
     class RecorderCallback(Action):
         """HOOMD callback for recording thermodynamic properties."""
 
-        if _version.major == 3:
+        if _version is not None and _version.major == 3:
             flags = [Action.Flags.PRESSURE_TENSOR]
 
         def __init__(self, thermo, quantities):
