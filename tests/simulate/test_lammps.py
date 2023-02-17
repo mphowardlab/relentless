@@ -194,6 +194,36 @@ class test_LAMMPS(unittest.TestCase):
         lmp.run(potentials=pot, directory=self.directory)
         self.assertEqual(emin.options["max_evaluations"], 100 * emin.max_iterations)
 
+    def test_brownian_dynamics(self):
+        ens, pot = self.ens_pot()
+        init = relentless.simulate.InitializeRandomly(seed=1, N=ens.N, V=ens.V, T=ens.T)
+        brn = relentless.simulate.RunBrownianDynamics(
+            steps=1, timestep=1.0e-3, T=ens.T, friction=1.0, seed=2
+        )
+        h = relentless.simulate.LAMMPS(init, brn, dimension=self.dim)
+        try:
+            h.run(pot, self.directory)
+        except NotImplementedError as e:
+            msg = str(e)
+            if "support Brownian dynamics" in msg:
+                self.skipTest("LAMMPS version does not support Brownian dynamics")
+            else:
+                raise e
+        except Exception as e:
+            msg = str(e)
+            if "brownian" in msg and "not enabled" in msg:
+                self.skipTest("LAMMPS BROWNIAN package not installed")
+            else:
+                raise e
+
+        brn.friction = {"A": 1.5, "B": 2.5}
+        h.run(pot, self.directory)
+
+        # temperature annealing
+        brn.T = (ens.T, 1.5 * ens.T)
+        with self.assertRaises(NotImplementedError):
+            h.run(pot, self.directory)
+
     def test_langevin_dynamics(self):
         ens, pot = self.ens_pot()
         init = relentless.simulate.InitializeRandomly(seed=1, N=ens.N, V=ens.V, T=ens.T)

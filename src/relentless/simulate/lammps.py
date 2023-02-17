@@ -528,6 +528,93 @@ class _Integrator(SimulationOperation):
             return (thermostat.T, thermostat.T)
 
 
+class RunBrownianDynamics(_Integrator):
+    """Perform a Langevin dynamics simulation.
+
+    See :class:`relentless.simulate.RunBrownianDynamics` for details.
+
+    Parameters
+    ----------
+    steps : int
+        Number of simulation time steps.
+    timestep : float
+        Simulation time step.
+    T : float
+        Temperature.
+    friction : float or dict
+        Sets drag coefficient for each particle type (shared or per-type).
+    seed : int
+        Seed used to randomly generate a uniform force.
+    analyzers : :class:`~relentless.simulate.AnalysisOperation` or list
+        Analysis operations to perform with run (defaults to ``None``).
+
+    """
+
+    def __init__(self, steps, timestep, T, friction, seed, analyzers):
+        super().__init__(steps, timestep, analyzers)
+        self.T = T
+        self.friction = friction
+        self.seed = seed
+
+    def call_commands(self, sim):
+        if sim["engine"]["version"] < 20220623:
+            raise NotImplementedError(
+                "LAMMPS versions prior to 23Jun2022 stable release do not"
+                " properly support Brownian dynamics."
+            )
+
+        T = self._make_T(self.T)
+        if T[0] != T[1]:
+            raise NotImplementedError(
+                "Brownian dynamics cannot do temperature annealing in LAMMPS."
+            )
+
+        try:
+            len(self.friction)
+            same_friction = False
+        except TypeError:
+            same_friction = True
+
+        fix_ids = []
+        group_ids = []
+        cmd_template = "fix {fixid} {groupid} brownian {T} {seed} gamma_t {friction}"
+
+        cmds = ["timestep {}".format(self.timestep)]
+        if same_friction:
+            fixid = self.new_fix_id()
+            cmds.append(
+                cmd_template.format(
+                    fixid=fixid,
+                    groupid="all",
+                    T=T[0],
+                    seed=self.seed,
+                    friction=self.friction,
+                )
+            )
+            fix_ids.append(fixid)
+        else:
+            for i, t in enumerate(sim.types):
+                typeidx = sim["engine"]["types"][t]
+                groupid = self.new_group_id()
+                fixid = self.new_fix_id()
+                cmds += [
+                    f"group {groupid} type {typeidx}",
+                    cmd_template.format(
+                        fixid=fixid,
+                        groupid=groupid,
+                        T=T[0],
+                        seed=self.seed + i,
+                        friction=self.friction[t],
+                    ),
+                ]
+                fix_ids.append(fixid)
+                group_ids.append(groupid)
+        cmds += self._run_commands(sim)
+        cmds += ["unfix {}".format(idx) for idx in fix_ids]
+        cmds += ["ungroup {}".format(idx) for idx in group_ids]
+        return cmds
+
+
 class RunLangevinDynamics(_Integrator):
     """Perform a Langevin dynamics simulation.
 
@@ -1284,6 +1371,7 @@ class LAMMPS(simulate.Simulation):
 
     # md
     _MinimizeEnergy = MinimizeEnergy
+    _RunBrownianDynamics = RunBrownianDynamics
     _RunLangevinDynamics = RunLangevinDynamics
     _RunMolecularDynamics = RunMolecularDynamics
 
