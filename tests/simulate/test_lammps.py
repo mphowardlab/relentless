@@ -200,7 +200,9 @@ class test_LAMMPS(unittest.TestCase):
         brn = relentless.simulate.RunBrownianDynamics(
             steps=1, timestep=1.0e-3, T=ens.T, friction=1.0, seed=2
         )
-        h = relentless.simulate.LAMMPS(init, brn, dimension=self.dim)
+        h = relentless.simulate.LAMMPS(
+            init, brn, dimension=self.dim, executable=self.executable
+        )
         try:
             h.run(pot, self.directory)
         except NotImplementedError as e:
@@ -216,6 +218,7 @@ class test_LAMMPS(unittest.TestCase):
             else:
                 raise e
 
+        # different friction coefficients
         brn.friction = {"A": 1.5, "B": 2.5}
         h.run(pot, self.directory)
 
