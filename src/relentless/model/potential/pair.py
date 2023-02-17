@@ -1050,7 +1050,7 @@ class PairSpline(PairPotential):
         # reconstruct the energies from differences, starting from the end
         if self.mode == "diff":
             u = numpy.flip(numpy.cumsum(numpy.flip(u)))
-        return math.Interpolator(x=r, y=u)
+        return math.AkimaSpline(x=r, y=u)
 
     @property
     def num_knots(self):

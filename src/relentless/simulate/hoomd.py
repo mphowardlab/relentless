@@ -6,7 +6,6 @@ from packaging import version
 
 from relentless import mpi
 from relentless.collections import FixedKeyDict, PairMatrix
-from relentless.math import Interpolator
 from relentless.model import ensemble, extent
 
 from . import initialize, md, simulate
@@ -150,9 +149,7 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
             r = coeff["r"]
             u = coeff["u"]
             f = coeff["f"]
-            u_r = Interpolator(r, u)
-            f_r = Interpolator(r, f)
-            return (u_r(r_i), f_r(r_i))
+            return (numpy.interp(r_i, r, u), numpy.interp(r_i, r, f))
 
         with sim["engine"]["_hoomd"]:
             neighbor_list = hoomd.md.nlist.tree(
