@@ -28,7 +28,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
       - name: Setup MPI
-        if: ${{ matrix.mpi != "nompi" }}
+        if: ${{ matrix.mpi != 'nompi' }}
         uses: mpi4py/setup-mpi@v1
         with:
           mpi: ${{ matrix.mpi }}
@@ -46,11 +46,11 @@ jobs:
         run: |
           python -m unittest discover -v -s ./tests -p "test_*.py"
       - name: Install mpi4py
-        if: ${{ matrix.mpi != "nompi" }}
+        if: ${{ matrix.mpi != 'nompi' }}
         run: |
           pip install --no-cache-dir mpi4py
       - name: Test MPI [${{ matrix.mpi }}]
-        if: ${{ matrix.mpi != "nompi" }}
+        if: ${{ matrix.mpi != 'nompi' }}
         run: |
           mpiexec -n 2 python -m unittest discover -v -s ./tests -p "test_*.py"
 
@@ -116,7 +116,7 @@ jobs:
           miniconda-version: latest
           python-version: ${{ matrix.python-version }}
       - name: Install conda MPI workaround
-        if: ${{ matrix.lammps-version == "2021.09.29" && matrix.mpi == "openmpi" }}
+        if: ${{ matrix.lammps-version == '2021.09.29' && matrix.mpi == 'openmpi' }}
         run: |
           conda install -c conda-forge "openmpi=4.1.4=ha*"
       - name: Install test dependencies
@@ -144,15 +144,15 @@ jobs:
   test-exit:
     name: unit test
     needs: [test, test-hoomd, test-lammps]
-    if: ${{ always() && github.event_name == "pull_request" }}
+    if: ${{ always() && github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     steps:
       - name: Check core tests
-        if: needs.test.result != "success"
+        if: needs.test.result != 'success'
         run: echo "::error ::core tests failed." && exit 1
       - name: Check hoomd tests
-        if: needs.test-hoomd.result != "success"
+        if: needs.test-hoomd.result != 'success'
         run: echo "::error ::hoomd tests failed." && exit 1
       - name: Check lammps tests
-        if: needs.test-lammps.result != "success"
+        if: needs.test-lammps.result != 'success'
         run: echo "::error ::lammps tests failed." && exit 1
