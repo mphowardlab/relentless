@@ -833,20 +833,13 @@ class PairSpline(PairPotential):
     mode : str
         Mode for storing the values of the knots in
         :class:`~relentless.variable.Variable` that can be optimized. If
-        ``mode='value'``, the knot amplitudes are stored directly. If
-        ``mode='diff'``, the amplitude of the *last* knot is stored directly,
-        and differences between neighboring knots are stored for all other knots.
-        Defaults to ``'diff'``.
+        ``mode='akima-value'``, the Akima spline knot amplitudes are stored directly.
+        If ``mode='akima-diff'``, the Akima spline amplitude of the *last* knot is
+        stored directly, and differences between neighboring knots are stored for
+        all other knots. Defaults to ``'akima-diff'``.
     name : str
         Unique name of the potential. Defaults to ``__u[id]``, where ``id`` is the
         unique integer ID of the potential.
-
-    Raises
-    ------
-    ValueError
-        If there are not at least two knots.
-    ValueError
-        If the mode is not ``'value'`` or ``'diff'``.
 
     Examples
     --------
@@ -863,9 +856,9 @@ class PairSpline(PairPotential):
 
     """
 
-    valid_modes = ("value", "diff")
+    valid_modes = ("akima-value", "akima-diff")
 
-    def __init__(self, types, num_knots, mode="diff", name=None):
+    def __init__(self, types, num_knots, mode="akima-diff", name=None):
         if isinstance(num_knots, int) and num_knots >= 2:
             self._num_knots = num_knots
         else:
@@ -925,7 +918,7 @@ class PairSpline(PairPotential):
         # convert to r,knot form given the mode
         rs = numpy.asarray(r, dtype=numpy.float64)
         ks = numpy.asarray(u, dtype=numpy.float64)
-        if self.mode == "diff":
+        if self.mode == "akima-diff":
             # difference is next knot minus my knot,
             # with last knot fixed at its current value
             ks[:-1] -= ks[1:]
@@ -963,7 +956,7 @@ class PairSpline(PairPotential):
         """
         if not isinstance(i, int):
             raise TypeError("Knots are keyed by integers")
-        return "r-{}".format(i), "knot-{}".format(i)
+        return f"r-{i}", f"{self.mode}-{i}"
 
     def _set_knot(self, pair, i, r, k):
         """Set the value of knot variables.
@@ -1048,7 +1041,7 @@ class PairSpline(PairPotential):
             r[i] = params[ri]
             u[i] = params[ki]
         # reconstruct the energies from differences, starting from the end
-        if self.mode == "diff":
+        if self.mode == "akima-diff":
             u = numpy.flip(numpy.cumsum(numpy.flip(u)))
         return math.AkimaSpline(x=r, y=u)
 
@@ -1090,8 +1083,6 @@ class PairSpline(PairPotential):
         dvars = []
         for pair in self.coeff:
             for r, k in self.knots(pair):
-                if isinstance(r, variable.DesignVariable):
-                    dvars.append(r)
                 if isinstance(k, variable.DesignVariable):
                     dvars.append(k)
         return tuple(dvars)
