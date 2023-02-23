@@ -119,15 +119,18 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
         pair_potential = hoomd.md.pair.Table(nlist=neighbor_list)
         for i, j in sim.pairs:
             r = sim.potentials.pair.x
+            if len(r) < 2:
+                raise ValueError(
+                    "There must be at least two points in the pair potential table"
+                )
             u = sim.potentials.pair.energy((i, j))
             f = sim.potentials.pair.force((i, j))
             if numpy.any(numpy.isinf(u)) or numpy.any(numpy.isinf(f)):
                 raise ValueError("Pair potential/force is infinite at evaluated r")
-            pair_potential.params[(i, j)] = dict(r_min=r[0], U=u, F=f)
-            # this could be trimmed shorter, as in lammps
-            pair_potential.r_cut[(i, j)] = self._get_tight_rcut(
-                sim.potentials.pair, (i, j), r, u, f
-            )
+            # this could be trimmed shorter, as in lammps. what we have here is
+            # a temporary implementation that will be corrected later
+            pair_potential.params[(i, j)] = dict(r_min=r[0], U=u[:-1], F=f[:-1])
+            pair_potential.r_cut[(i, j)] = r[-1]
         sim[self]["_potentials"] = [pair_potential]
 
     def _call_v2(self, sim):
