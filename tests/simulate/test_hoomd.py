@@ -278,6 +278,14 @@ class test_HOOMD(unittest.TestCase):
         h = relentless.simulate.HOOMD(init, lgv)
         sim = h.run(pot, self.directory)
 
+        # HOOMD behavior for sampling differs between version 2 and 3
+        if relentless.simulate.hoomd._version.major == 3:
+            expected_thermo_samples = 101
+            expected_rdf_samples = 51
+        elif relentless.simulate.hoomd._version.major == 2:
+            expected_thermo_samples = 100
+            expected_rdf_samples = 50
+
         # extract ensemble
         ens_ = sim[analyzer]["ensemble"]
         self.assertIsNotNone(ens_.T)
@@ -288,8 +296,8 @@ class test_HOOMD(unittest.TestCase):
         self.assertNotEqual(ens_.V.extent, 0)
         for i, j in ens_.rdf:
             self.assertEqual(ens_.rdf[i, j].table.shape, (len(pot.pair.x) - 1, 2))
-        self.assertEqual(sim[analyzer]["num_thermo_samples"], 100)
-        self.assertEqual(sim[analyzer]["num_rdf_samples"], 50)
+        self.assertEqual(sim[analyzer]["num_thermo_samples"], expected_thermo_samples)
+        self.assertEqual(sim[analyzer]["num_rdf_samples"], expected_rdf_samples)
 
         # repeat same analysis with logger, and make sure it still works
         logger = relentless.simulate.Record(
@@ -298,21 +306,37 @@ class test_HOOMD(unittest.TestCase):
         lgv.analyzers = logger
         sim = h.run(pot, self.directory)
 
-        self.assertEqual(len(sim[logger]["timestep"]), 100)
-        self.assertEqual(len(sim[logger]["temperature"]), 100)
-        self.assertEqual(len(sim[logger]["pressure"]), 100)
+        self.assertEqual(len(sim[logger]["timestep"]), expected_thermo_samples)
+        self.assertEqual(len(sim[logger]["temperature"]), expected_thermo_samples)
+        self.assertEqual(len(sim[logger]["pressure"]), expected_thermo_samples)
         numpy.testing.assert_array_equal(
-            sim[logger]["timestep"], numpy.linspace(0, 495, 100)
+            sim[logger]["timestep"], 5 * numpy.arange(expected_thermo_samples)
         )
         self.assertAlmostEqual(numpy.mean(sim[logger]["temperature"]), ens_.T)
         self.assertAlmostEqual(numpy.mean(sim[logger]["pressure"]), ens_.P)
 
-        # make sure we get an error if this doesn't actually run
-        if relentless.mpi.world.rank_is_root:
-            self.directory.clear_contents()
-        relentless.mpi.world.barrier()
-        lgv.steps = 0
-        lgv.analyzers = analyzer
+    def test_analyzer_no_run(self):
+        ens, pot = self.ens_pot()
+        init = relentless.simulate.InitializeRandomly(
+            seed=1, N=ens.N, V=ens.V, T=ens.T, diameters={"A": 1, "B": 1}
+        )
+        lgv = relentless.simulate.RunLangevinDynamics(
+            steps=1, timestep=0.001, T=ens.T, friction=1.0, seed=1
+        )
+        analyzer = relentless.simulate.EnsembleAverage(
+            check_thermo_every=5, check_rdf_every=10, rdf_dr=1.0
+        )
+        lgv2 = relentless.simulate.RunLangevinDynamics(
+            steps=1, timestep=0.001, T=ens.T, friction=1.0, seed=1, analyzers=analyzer
+        )
+        h = relentless.simulate.HOOMD(init, [lgv, lgv2])
+
+        # error on the ensemble average
+        with self.assertRaises(RuntimeError):
+            h.run(pot, self.directory)
+
+        # error on the RDF
+        lgv2.steps = 5
         with self.assertRaises(RuntimeError):
             h.run(pot, self.directory)
 
