@@ -1,4 +1,3 @@
-import copy
 import itertools
 
 import numpy
@@ -124,12 +123,11 @@ class InitializeRandomly(simulate.DelegatedInitializationOperation):
         types = []
         trees = {}
         Nadded = 0
-        evaluated_diameters = copy.deepcopy(diameters)
-        for keys in evaluated_diameters:
-            evaluated_diameters[keys] = variable.evaluate(evaluated_diameters[keys])
         # insert the particles, big to small
         sorted_diameters = sorted(
-            evaluated_diameters.items(), key=lambda x: x[1], reverse=True
+            ((i, variable.evaluate(diameters[i])) for i in N),
+            key=lambda x: x[1],
+            reverse=True,
         )
         for i, di in sorted_diameters:
             # generate site coordinates, on orthorhombic lattices
