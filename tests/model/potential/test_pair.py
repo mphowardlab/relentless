@@ -578,16 +578,16 @@ class test_PairSpline(unittest.TestCase):
         # test diff mode
         s = relentless.model.potential.PairSpline(types=("1",), num_knots=3)
         self.assertEqual(s.num_knots, 3)
-        self.assertEqual(s.mode, "akima-diff")
+        self.assertEqual(s.mode, "diff")
         coeff = relentless.model.potential.PairParameters(
             types=("1",),
             params=(
                 "dr-0",
                 "dr-1",
                 "dr-2",
-                "akima-diff-0",
-                "akima-diff-1",
-                "akima-diff-2",
+                "diff-0",
+                "diff-1",
+                "diff-2",
                 "rmin",
                 "rmax",
                 "shift",
@@ -598,19 +598,19 @@ class test_PairSpline(unittest.TestCase):
 
         # test value mode
         s = relentless.model.potential.PairSpline(
-            types=("1",), num_knots=3, mode="akima-value"
+            types=("1",), num_knots=3, mode="value"
         )
         self.assertEqual(s.num_knots, 3)
-        self.assertEqual(s.mode, "akima-value")
+        self.assertEqual(s.mode, "value")
         coeff = relentless.model.potential.PairParameters(
             types=("1",),
             params=(
                 "dr-0",
                 "dr-1",
                 "dr-2",
-                "akima-value-0",
-                "akima-value-1",
-                "akima-value-2",
+                "value-0",
+                "value-1",
+                "value-2",
                 "rmin",
                 "rmax",
                 "shift",
@@ -653,7 +653,7 @@ class test_PairSpline(unittest.TestCase):
 
         # test value mode
         s = relentless.model.potential.PairSpline(
-            types=("1",), num_knots=3, mode="akima-value"
+            types=("1",), num_knots=3, mode="value"
         )
         s.from_array(pair=("1", "1"), r=r_arr, u=u_arr)
 
@@ -693,7 +693,7 @@ class test_PairSpline(unittest.TestCase):
 
         # test value mode
         s = relentless.model.potential.PairSpline(
-            types=("1",), num_knots=3, mode="akima-value"
+            types=("1",), num_knots=3, mode="value"
         )
         s.from_array(pair=("1", "1"), r=r_arr, u=u_arr)
         u_actual = numpy.array([6.25, 2.25, 1])
@@ -702,7 +702,7 @@ class test_PairSpline(unittest.TestCase):
 
         # test PairSpline with 2 knots
         s = relentless.model.potential.PairSpline(
-            types=("1",), num_knots=2, mode="akima-value"
+            types=("1",), num_knots=2, mode="value"
         )
         s.from_array(pair=("1", "1"), r=[1, 2], u=[4, 2])
         u = s.energy(pair=("1", "1"), r=1.5)
@@ -722,7 +722,7 @@ class test_PairSpline(unittest.TestCase):
 
         # test value mode
         s = relentless.model.potential.PairSpline(
-            types=("1",), num_knots=3, mode="akima-value"
+            types=("1",), num_knots=3, mode="value"
         )
         s.from_array(pair=("1", "1"), r=r_arr, u=u_arr)
         f_actual = numpy.array([5, 3, 0])
@@ -731,7 +731,7 @@ class test_PairSpline(unittest.TestCase):
 
         # test PairSpline with 2 knots
         s = relentless.model.potential.PairSpline(
-            types=("1",), num_knots=2, mode="akima-value"
+            types=("1",), num_knots=2, mode="value"
         )
         s.from_array(pair=("1", "1"), r=[1, 2], u=[4, 2])
         f = s.force(pair=("1", "1"), r=1.5)
@@ -752,7 +752,7 @@ class test_PairSpline(unittest.TestCase):
 
         # test value mode
         s = relentless.model.potential.PairSpline(
-            types=("1",), num_knots=3, mode="akima-value"
+            types=("1",), num_knots=3, mode="value"
         )
         s.from_array(pair=("1", "1"), r=r_arr, u=u_arr)
         d_actual = numpy.array([0.75, 0.75, 0])

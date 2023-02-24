@@ -833,10 +833,10 @@ class PairSpline(PairPotential):
     mode : str
         Mode for storing the values of the knots in
         :class:`~relentless.variable.Variable` that can be optimized. If
-        ``mode='akima-value'``, the Akima spline knot amplitudes are stored directly.
-        If ``mode='akima-diff'``, the Akima spline amplitude of the *last* knot is
-        stored directly, and differences between neighboring knots are stored for
-        all other knots. Defaults to ``'akima-diff'``.
+        ``mode='value'``, the knot amplitudes are manipulated directly.
+        If ``mode='diff'``, the amplitude of the *last* knot is fixed, and
+        differences between neighboring knots are manipulated for all other
+        knots. Defaults to ``'diff'``.
     name : str
         Unique name of the potential. Defaults to ``__u[id]``, where ``id`` is the
         unique integer ID of the potential.
@@ -856,9 +856,9 @@ class PairSpline(PairPotential):
 
     """
 
-    valid_modes = ("akima-value", "akima-diff")
+    valid_modes = ("value", "diff")
 
-    def __init__(self, types, num_knots, mode="akima-diff", name=None):
+    def __init__(self, types, num_knots, mode="diff", name=None):
         if isinstance(num_knots, int) and num_knots >= 2:
             self._num_knots = num_knots
         else:
@@ -918,7 +918,7 @@ class PairSpline(PairPotential):
         # convert to r,knot form given the mode
         rs = numpy.asarray(r, dtype=numpy.float64)
         ks = numpy.asarray(u, dtype=numpy.float64)
-        if self.mode == "akima-diff":
+        if self.mode == "diff":
             # difference is next knot minus my knot,
             # with last knot fixed at its current value
             ks[:-1] -= ks[1:]
@@ -1021,7 +1021,7 @@ class PairSpline(PairPotential):
             f_high = self._interpolate(params)(r)
             params[param] = knot_p
             d = (f_high - f_low) / h
-        elif "akima-" in param:
+        elif self.mode + "-" in param:
             # perturb knot param value
             knot_p = params[param]
             params[param] = knot_p + h
@@ -1065,7 +1065,7 @@ class PairSpline(PairPotential):
         r = numpy.cumsum(dr)
 
         # reconstruct the energies from differences, starting from the end
-        if self.mode == "akima-diff":
+        if self.mode == "diff":
             u = numpy.flip(numpy.cumsum(numpy.flip(u)))
 
         return math.AkimaSpline(x=r, y=u)
