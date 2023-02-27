@@ -1,3 +1,4 @@
+import enum
 import os
 import warnings
 
@@ -33,7 +34,8 @@ if _hoomd_found and _version.major == 3:
 else:
     # we need to spoof this Action class to use later in v2 callbacks
     class Action:
-        pass
+        class Flags(enum.IntEnum):
+            PRESSURE_TENSOR = 0
 
 
 try:
@@ -44,66 +46,11 @@ except ImportError:
     _freud_found = False
 
 
-class SimulationOperation(simulate.SimulationOperation):
-    def __call__(self, sim):
-        if _version.major == 3:
-            self._call_v3(sim)
-        elif _version.major == 2:
-            self._call_v2(sim)
-        else:
-            raise NotImplementedError(f"HOOMD {_version} not supported")
-
-    def _call_v3(self, sim):
-        raise NotImplementedError(
-            f"{self.__class__.__name__} not implemented in HOOMD 3"
-        )
-
-    def _call_v2(self, sim):
-        raise NotImplementedError(
-            f"{self.__class__.__name__} not implemented in HOOMD 2"
-        )
-
-
-class AnalysisOperation(simulate.AnalysisOperation):
-    def pre_run(self, sim, sim_op):
-        if _version.major == 3:
-            self._pre_run_v3(sim, sim_op)
-        elif _version.major == 2:
-            self._pre_run_v2(sim, sim_op)
-        else:
-            raise NotImplementedError(f"HOOMD {_version} not supported")
-
-    def post_run(self, sim, sim_op):
-        if _version.major == 3:
-            self._post_run_v3(sim, sim_op)
-        elif _version.major == 2:
-            self._post_run_v2(sim, sim_op)
-        else:
-            raise NotImplementedError(f"HOOMD {_version} not supported")
-
-    def _pre_run_v3(self, sim, sim_op):
-        raise NotImplementedError(
-            f"{self.__class__.__name__} not implemented in HOOMD 3"
-        )
-
-    def _pre_run_v2(self, sim, sim_op):
-        raise NotImplementedError(
-            f"{self.__class__.__name__} not implemented in HOOMD 2"
-        )
-
-    def _post_run_v3(self, sim, sim_op):
-        raise NotImplementedError(
-            f"{self.__class__.__name__} not implemented in HOOMD 3"
-        )
-
-    def _post_run_v2(self, sim, sim_op):
-        raise NotImplementedError(
-            f"{self.__class__.__name__} not implemented in HOOMD 2"
-        )
-
-
 # initializers
-class InitializationOperation(SimulationOperation, simulate.InitializationOperation):
+class InitializationOperation(simulate.InitializationOperation):
+    def __call__(self, sim):
+        SimulationOperation.__call__(self, sim)
+
     def _call_v3(self, sim):
         self._initialize_v3(sim)
         sim.dimension = sim["engine"]["_hoomd"].state.box.dimensions
@@ -139,7 +86,6 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
         sim.types = sim[self]["_system"].particles.types
 
         # parse masses by type
-
         with sim["engine"]["_hoomd"]:
             snap = sim[self]["_system"].take_snapshot(particles=True)
             sim.masses = self._get_masses_from_snapshot(sim, snap)
@@ -175,12 +121,12 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
 
     def _initialize_v3(self, sim):
         raise NotImplementedError(
-            f"{self.__class__.__name__} not implemented in HOOMD 3"
+            f"{self.__class__.__name__} not implemented in HOOMD {_version}"
         )
 
     def _initialize_v2(self, sim):
         raise NotImplementedError(
-            f"{self.__class__.__name__} not implemented in HOOMD 2"
+            f"{self.__class__.__name__} not implemented in HOOMD {_version}"
         )
 
     def _get_masses_from_snapshot(self, sim, snap):
@@ -362,7 +308,27 @@ class InitializeRandomly(InitializationOperation):
         return snap
 
 
-# integrators
+# simulation operations
+class SimulationOperation(simulate.SimulationOperation):
+    def __call__(self, sim):
+        if _version.major == 3:
+            self._call_v3(sim)
+        elif _version.major == 2:
+            self._call_v2(sim)
+        else:
+            raise NotImplementedError(f"HOOMD {_version} not supported")
+
+    def _call_v3(self, sim):
+        raise NotImplementedError(
+            f"{self.__class__.__name__} not implemented in HOOMD {_version}"
+        )
+
+    def _call_v2(self, sim):
+        raise NotImplementedError(
+            f"{self.__class__.__name__} not implemented in HOOMD {_version}"
+        )
+
+
 class MinimizeEnergy(SimulationOperation):
     """Run energy minimization until convergence.
 
@@ -458,7 +424,7 @@ class MinimizeEnergy(SimulationOperation):
             del fire
 
 
-class _MDIntegrator(SimulationOperation):
+class _Integrator(SimulationOperation):
     """Base HOOMD molecular dynamics integrator.
 
     Parameters
@@ -473,25 +439,9 @@ class _MDIntegrator(SimulationOperation):
     """
 
     def __init__(self, steps, timestep, analyzers):
+        super().__init__(analyzers)
         self.steps = steps
         self.timestep = timestep
-        self.analyzers = analyzers
-
-    @property
-    def analyzers(self):
-        return self._analyzers
-
-    @analyzers.setter
-    def analyzers(self, ops):
-        if ops is not None:
-            try:
-                ops_ = list(ops)
-            except TypeError:
-                ops_ = [ops]
-        else:
-            ops_ = []
-
-        self._analyzers = ops_
 
     @staticmethod
     def _make_kT(sim, thermostat, steps):
@@ -524,7 +474,7 @@ class _MDIntegrator(SimulationOperation):
             return kB * thermostat.T
 
 
-class RunBrownianDynamics(_MDIntegrator):
+class RunBrownianDynamics(_Integrator):
     """Perform a Brownian dynamics simulation.
 
     See :class:`relentless.simulate.RunBrownianDynamics` for details.
@@ -608,7 +558,7 @@ class RunBrownianDynamics(_MDIntegrator):
             del bd, ig
 
 
-class RunLangevinDynamics(_MDIntegrator):
+class RunLangevinDynamics(_Integrator):
     """Perform a Langevin dynamics simulation.
 
     See :class:`relentless.simulate.RunLangevinDynamics` for details.
@@ -692,7 +642,7 @@ class RunLangevinDynamics(_MDIntegrator):
             del ld, ig
 
 
-class RunMolecularDynamics(_MDIntegrator):
+class RunMolecularDynamics(_Integrator):
     """Perform a molecular dynamics simulation.
 
     This method supports:
@@ -870,6 +820,44 @@ class RunMolecularDynamics(_MDIntegrator):
 
 
 # analyzers
+class AnalysisOperation(simulate.AnalysisOperation):
+    def pre_run(self, sim, sim_op):
+        if _version.major == 3:
+            self._pre_run_v3(sim, sim_op)
+        elif _version.major == 2:
+            self._pre_run_v2(sim, sim_op)
+        else:
+            raise NotImplementedError(f"HOOMD {_version} not supported")
+
+    def post_run(self, sim, sim_op):
+        if _version.major == 3:
+            self._post_run_v3(sim, sim_op)
+        elif _version.major == 2:
+            self._post_run_v2(sim, sim_op)
+        else:
+            raise NotImplementedError(f"HOOMD {_version} not supported")
+
+    def _pre_run_v3(self, sim, sim_op):
+        raise NotImplementedError(
+            f"{self.__class__.__name__} not implemented in HOOMD {_version}"
+        )
+
+    def _pre_run_v2(self, sim, sim_op):
+        raise NotImplementedError(
+            f"{self.__class__.__name__} not implemented in HOOMD {_version}"
+        )
+
+    def _post_run_v3(self, sim, sim_op):
+        raise NotImplementedError(
+            f"{self.__class__.__name__} not implemented in HOOMD {_version}"
+        )
+
+    def _post_run_v2(self, sim, sim_op):
+        raise NotImplementedError(
+            f"{self.__class__.__name__} not implemented in HOOMD {_version}"
+        )
+
+
 class EnsembleAverage(AnalysisOperation):
     """Analyzer for the simulation ensemble.
 
@@ -1025,10 +1013,7 @@ class EnsembleAverage(AnalysisOperation):
         return rdf_params
 
     class ThermodynamicsCallback(Action):
-        """HOOMD callback for averaging thermodynamic properties."""
-
-        if _version is not None and _version.major == 3:
-            flags = [Action.Flags.PRESSURE_TENSOR]
+        flags = [Action.Flags.PRESSURE_TENSOR]
 
         def __init__(self, thermo, dimension):
             if dimension not in (2, 3):
@@ -1278,10 +1263,7 @@ class Record(AnalysisOperation):
         del sim[self]["_recorder"]
 
     class RecorderCallback(Action):
-        """HOOMD callback for recording thermodynamic properties."""
-
-        if _version is not None and _version.major == 3:
-            flags = [Action.Flags.PRESSURE_TENSOR]
+        flags = [Action.Flags.PRESSURE_TENSOR]
 
         def __init__(self, thermo, quantities):
             self.thermo = thermo

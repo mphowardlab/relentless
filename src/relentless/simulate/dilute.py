@@ -14,7 +14,6 @@ import numpy
 from relentless.model import ensemble, extent
 
 from . import simulate
-from .hoomd import _MDIntegrator
 
 
 class NullOperation(simulate.SimulationOperation):
@@ -27,7 +26,7 @@ class NullOperation(simulate.SimulationOperation):
         pass
 
 
-class InitializeRandomly(simulate.SimulationOperation):
+class InitializeRandomly(simulate.InitializationOperation):
     """Initializes a "randomly" generated simulation.
 
     Since this is a dilute system, there is not actual particle configuration.
@@ -68,7 +67,14 @@ class InitializeRandomly(simulate.SimulationOperation):
         sim.types = ens.types
 
 
-class RunBrownianDynamics(_MDIntegrator):
+class _Integrator(simulate.SimulationOperation):
+    def __init__(self, steps, timestep, analyzers):
+        super().__init__(analyzers)
+        self.steps = steps
+        self.timestep = timestep
+
+
+class RunBrownianDynamics(_Integrator):
     def __init__(self, steps, timestep, T, friction, seed, analyzers):
         super().__init__(steps, timestep, analyzers)
         self.T = T
@@ -83,7 +89,7 @@ class RunBrownianDynamics(_MDIntegrator):
             analyzer.post_run(sim, self)
 
 
-class RunLangevinDynamics(_MDIntegrator):
+class RunLangevinDynamics(_Integrator):
     def __init__(self, steps, timestep, T, friction, seed, analyzers):
         super().__init__(steps, timestep, analyzers)
         self.T = T
@@ -98,7 +104,7 @@ class RunLangevinDynamics(_MDIntegrator):
             analyzer.post_run(sim, self)
 
 
-class RunMolecularDynamics(_MDIntegrator):
+class RunMolecularDynamics(_Integrator):
     def __init__(self, steps, timestep, thermostat, barostat, analyzers):
         super().__init__(steps, timestep, analyzers)
         self.thermostat = thermostat
@@ -226,7 +232,6 @@ class Dilute(simulate.Simulation):
     """
 
     # initialize
-    # InitializeFromFile = simulate.NotImplementedOperation
     _InitializeRandomly = InitializeRandomly
 
     # md

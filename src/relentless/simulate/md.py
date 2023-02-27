@@ -20,6 +20,7 @@ class MinimizeEnergy(simulate.DelegatedSimulationOperation):
     """
 
     def __init__(self, energy_tolerance, force_tolerance, max_iterations, options=None):
+        super().__init__(None)
         self.energy_tolerance = energy_tolerance
         self.force_tolerance = force_tolerance
         self.max_iterations = max_iterations
@@ -50,25 +51,9 @@ class _Integrator(simulate.DelegatedSimulationOperation):
     """
 
     def __init__(self, steps, timestep, analyzers):
+        super().__init__(analyzers)
         self.steps = steps
         self.timestep = timestep
-        self.analyzers = analyzers
-
-    @property
-    def analyzers(self):
-        return self._analyzers
-
-    @analyzers.setter
-    def analyzers(self, ops):
-        if ops is not None:
-            try:
-                ops_ = list(ops)
-            except TypeError:
-                ops_ = [ops]
-        else:
-            ops_ = []
-
-        self._analyzers = ops_
 
 
 class RunBrownianDynamics(_Integrator):
