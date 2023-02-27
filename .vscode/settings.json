@@ -18,4 +18,8 @@
         "-p",
         "test_*.py"
     ],
+    "python.analysis.exclude": [
+        "**/env*"
+    ],
+    "cSpell.diagnosticLevel": "Hint",
 }

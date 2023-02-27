@@ -6,7 +6,7 @@ import uuid
 import numpy
 
 from relentless import collections, mpi
-from relentless.model import ensemble, extent, variable
+from relentless.model import ensemble, extent
 
 from . import initialize, md, simulate
 
@@ -25,174 +25,24 @@ except ImportError:
     _lammpsio_found = False
 
 
-class LAMMPSOperation(simulate.SimulationOperation):
-    """LAMMPS simulation operation."""
-
-    _compute_counter = 1
-    _dump_counter = 1
-    _fix_counter = 1
-    _group_counter = 1
-    _variable_counter = 1
-
-    def __call__(self, sim):
-        """Evaluate the LAMMPS simulation operation.
-
-        Each deriving class of :class:`LAMMPSOperation` must implement a
-        :meth:`to_commands()` method that returns a list or tuple of LAMMPS
-        commands that can be executed by :meth:`lammps.commands_list()`.
-
-        Parameters
-        ----------
-        sim : :class:`~relentless.simulate.SimulationInstance`
-            The simulation instance.
-
-        """
-        cmds = self.to_commands(sim)
-        if cmds is None or len(cmds) == 0:
-            return
-
-        sim[sim.initializer]["_lammps_commands"] += cmds
-        if sim[sim.initializer]["_lammps_python"]:
-            sim[sim.initializer]["_lammps"].commands_list(cmds)
-
-    @classmethod
-    def new_compute_id(cls):
-        """Make a unique new compute ID.
-
-        Returns
-        -------
-        int
-            The compute ID.
-
-        """
-        idx = int(LAMMPSOperation._compute_counter)
-        LAMMPSOperation._compute_counter += 1
-        return "c{}".format(idx)
-
-    @classmethod
-    def new_dump_id(cls):
-        """Make a unique new dump ID.
-
-        Returns
-        -------
-        int
-            The dump ID.
-
-        """
-        idx = int(LAMMPSOperation._dump_counter)
-        LAMMPSOperation._dump_counter += 1
-        return "d{}".format(idx)
-
-    @classmethod
-    def new_fix_id(cls):
-        """Make a unique new fix ID.
-
-        Returns
-        -------
-        int
-            The fix ID.
-
-        """
-        idx = int(LAMMPSOperation._fix_counter)
-        LAMMPSOperation._fix_counter += 1
-        return "f{}".format(idx)
-
-    @classmethod
-    def new_group_id(cls):
-        """Make a unique new fix ID.
-
-        Returns
-        -------
-        int
-            The fix ID.
-
-        """
-        idx = int(LAMMPSOperation._group_counter)
-        LAMMPSOperation._group_counter += 1
-        return "g{}".format(idx)
-
-    @classmethod
-    def new_variable_id(cls):
-        """Make a unique new variable ID.
-
-        Returns
-        -------
-        int
-            The variable ID.
-
-        """
-        idx = int(LAMMPSOperation._variable_counter)
-        LAMMPSOperation._variable_counter += 1
-        return "v{}".format(idx)
-
-    @abc.abstractmethod
-    def to_commands(self, sim):
-        """Create the LAMMPS commands for the simulation operation.
-
-        All deriving classes must implement this method.
-
-        Parameters
-        ----------
-        sim : :class:`~relentless.simulate.SimulationInstance`
-            The simulation instance.
-
-        Returns
-        -------
-        array_like
-            The LAMMPS commands for this operation.
-
-        """
-        pass
-
-
-class LAMMPSAnalysisOperation(simulate.AnalysisOperation):
-    def pre_run(self, sim, sim_op):
-        cmds = self.pre_run_commands(sim, sim_op)
-        if cmds is None or len(cmds) == 0:
-            return
-
-        sim[sim.initializer]["_lammps_commands"] += cmds
-        if sim[sim.initializer]["_lammps_python"]:
-            sim[sim.initializer]["_lammps"].commands_list(cmds)
-
-    def post_run(self, sim, sim_op):
-        cmds = self.post_run_commands(sim, sim_op)
-        if cmds is None or len(cmds) == 0:
-            return
-
-        sim[sim.initializer]["_lammps_commands"] += cmds
-        if sim[sim.initializer]["_lammps_python"]:
-            sim[sim.initializer]["_lammps"].commands_list(cmds)
-
-    @abc.abstractmethod
-    def pre_run_commands(self, sim, sim_op):
-        pass
-
-    @abc.abstractmethod
-    def post_run_commands(self, sim, sim_op):
-        pass
-
-
 # initializers
-class _Initialize(simulate.InitializationOperation, LAMMPSOperation):
+class InitializationOperation(simulate.InitializationOperation):
     """Initialize a simulation."""
 
     def __call__(self, sim):
-        # copy data if _new_instance has already injected some and it doesn't match
-        if self != sim.initializer:
-            sim[self] = dict(sim[sim.initializer])
-        super().__call__(sim)
+        SimulationOperation.__call__(self, sim)
 
-    def to_commands(self, sim):
+    def call_commands(self, sim):
         cmds = [
-            "units {style}".format(style=sim[self]["units"]),
+            "units {style}".format(style=sim["engine"]["units"]),
             "boundary p p p",
-            "dimension {dim}".format(dim=sim.dimension),
-            "atom_style {style}".format(style=sim[self]["atom_style"]),
+            "dimension {dim}".format(dim=sim["engine"]["dimension"]),
+            "atom_style {style}".format(style=sim["engine"]["atom_style"]),
         ]
 
+        sim.dimension = sim["engine"]["dimension"]
         cmds += self.initialize_commands(sim)
-        sim.types = sim[self]["lammps_types"].keys()
+        sim.types = sim["engine"]["types"].keys()
 
         sim.masses = collections.FixedKeyDict(sim.types)
         # file is opened only valid on root and result is broadcast
@@ -200,7 +50,7 @@ class _Initialize(simulate.InitializationOperation, LAMMPSOperation):
         if mpi.world.rank_is_root:
             snap = lammpsio.DataFile(sim[self]["_datafile"]).read()
             for i in sim.types:
-                mi = snap.mass[snap.typeid == sim[self]["lammps_types"][i]]
+                mi = snap.mass[snap.typeid == sim["engine"]["types"][i]]
                 if len(mi) == 0:
                     raise KeyError("Type {} not present in simulation".format(i))
                 elif not numpy.all(mi == mi[0]):
@@ -223,8 +73,8 @@ class _Initialize(simulate.InitializationOperation, LAMMPSOperation):
         def pair_map(sim, pair):
             # Map lammps type indexes as a pair, lowest type first
             i, j = pair
-            id_i = sim[self]["lammps_types"][i]
-            id_j = sim[self]["lammps_types"][j]
+            id_i = sim["engine"]["types"][i]
+            id_j = sim["engine"]["types"][j]
             if id_i > id_j:
                 id_i, id_j = id_j, id_i
 
@@ -262,27 +112,9 @@ class _Initialize(simulate.InitializationOperation, LAMMPSOperation):
                         )
 
                     # find r where potential and force are zero
-                    if len(sim.potentials.pair.potentials) > 0:
-                        all_rmax = [
-                            variable.evaluate(pair_pot.coeff[i, j]["rmax"])
-                            for pair_pot in sim.potentials.pair.potentials
-                        ]
-                        if None not in all_rmax:
-                            # use rmax if set for all potentials
-                            rcut[(i, j)] = min(max(all_rmax), sim.potentials.pair.stop)
-                        else:
-                            # otherwise, deduce safe cutoff from tabulated values
-                            nonzero_r = numpy.flatnonzero(
-                                numpy.logical_and(
-                                    ~numpy.isclose(u, 0), ~numpy.isclose(f, 0)
-                                )
-                            )
-                            # cutoff at last nonzero r (cannot be first r)
-                            # we add 1 to make sure we include the last point if
-                            # potential happens to go smoothly to zero
-                            rcut[(i, j)] = r[min(nonzero_r[-1] + 1, len(r) - 1)]
-                    else:
-                        rcut[(i, j)] = sim.potentials.pair.stop
+                    rcut[i, j] = self._get_tight_rcut(
+                        sim.potentials.pair, (i, j), r, u, f
+                    )
         else:
             rcut = None
             file_ = None
@@ -313,14 +145,14 @@ class _Initialize(simulate.InitializationOperation, LAMMPSOperation):
         pass
 
 
-class InitializeFromFile(_Initialize):
+class InitializeFromFile(InitializationOperation):
     """Initialize a simulation from a LAMMPS data file.
 
     Because LAMMPS data files only contain the LAMMPS integer types for particles,
     you are required to specify the type map as an attribute of this operation.::
 
         init = InitializeFromFile('lammps.data')
-        init.lammps_types = {'A': 2, 'B': 1}
+        init.types = {'A': 2, 'B': 1}
 
     Parameters
     ----------
@@ -333,13 +165,13 @@ class InitializeFromFile(_Initialize):
         self.filename = filename
 
     def initialize_commands(self, sim):
-        if sim[self]["lammps_types"] is None:
-            raise ValueError("lammps_types needs to be manually specified with a file")
+        if sim["engine"]["types"] is None:
+            raise ValueError("types needs to be manually specified with a file")
         sim[self]["_datafile"] = self.filename
         return ["read_data {filename}".format(filename=self.filename)]
 
 
-class InitializeRandomly(_Initialize):
+class InitializeRandomly(InitializationOperation):
     """Initialize a randomly generated simulation box.
 
     If ``diameters`` is ``None``, the particles are randomly placed in the box.
@@ -393,10 +225,8 @@ class InitializeRandomly(_Initialize):
         ):
             raise TypeError("Mismatch between extent type and dimension")
 
-        if sim[self]["lammps_types"] is None:
-            sim[self]["lammps_types"] = {
-                i: idx + 1 for idx, i in enumerate(self.N.keys())
-            }
+        if sim["engine"]["types"] is None:
+            sim["engine"]["types"] = {i: idx + 1 for idx, i in enumerate(self.N.keys())}
 
         if mpi.world.rank_is_root:
             # make box
@@ -433,7 +263,7 @@ class InitializeRandomly(_Initialize):
             snap.position[:, : sim.dimension] = positions
 
             # set the typeids
-            snap.typeid = [sim[self]["lammps_types"][i] for i in all_types]
+            snap.typeid = [sim["engine"]["types"][i] for i in all_types]
 
             # set masses, defaulting to unit mass
             if self.masses is not None:
@@ -461,7 +291,7 @@ class InitializeRandomly(_Initialize):
             snap.velocity[:, : sim.dimension] = vel
 
             init_file = sim.directory.file(str(uuid.uuid4().hex))
-            lammpsio.DataFile.create(init_file, snap, sim[self]["atom_style"])
+            lammpsio.DataFile.create(init_file, snap, sim["engine"]["atom_style"])
         else:
             init_file = None
         init_file = mpi.world.bcast(init_file)
@@ -470,7 +300,128 @@ class InitializeRandomly(_Initialize):
         return ["read_data {}".format(init_file)]
 
 
-class MinimizeEnergy(LAMMPSOperation):
+# simulation operations
+class SimulationOperation(simulate.SimulationOperation):
+    """LAMMPS simulation operation."""
+
+    _compute_counter = 1
+    _dump_counter = 1
+    _fix_counter = 1
+    _group_counter = 1
+    _variable_counter = 1
+
+    def __call__(self, sim):
+        """Evaluate the LAMMPS simulation operation.
+
+        Each deriving class of :class:`SimulationOperation` must implement a
+        :meth:`call_commands()` method that returns a list or tuple of LAMMPS
+        commands that can be executed by :meth:`lammps.commands_list()`.
+
+        Parameters
+        ----------
+        sim : :class:`~relentless.simulate.SimulationInstance`
+            The simulation instance.
+
+        """
+        cmds = self.call_commands(sim)
+        if cmds is None or len(cmds) == 0:
+            return
+
+        sim["engine"]["_lammps_commands"] += cmds
+        if sim["engine"]["use_python"]:
+            sim["engine"]["_lammps"].commands_list(cmds)
+
+    @classmethod
+    def new_compute_id(cls):
+        """Make a unique new compute ID.
+
+        Returns
+        -------
+        int
+            The compute ID.
+
+        """
+        idx = int(SimulationOperation._compute_counter)
+        SimulationOperation._compute_counter += 1
+        return "c{}".format(idx)
+
+    @classmethod
+    def new_dump_id(cls):
+        """Make a unique new dump ID.
+
+        Returns
+        -------
+        int
+            The dump ID.
+
+        """
+        idx = int(SimulationOperation._dump_counter)
+        SimulationOperation._dump_counter += 1
+        return "d{}".format(idx)
+
+    @classmethod
+    def new_fix_id(cls):
+        """Make a unique new fix ID.
+
+        Returns
+        -------
+        int
+            The fix ID.
+
+        """
+        idx = int(SimulationOperation._fix_counter)
+        SimulationOperation._fix_counter += 1
+        return "f{}".format(idx)
+
+    @classmethod
+    def new_group_id(cls):
+        """Make a unique new fix ID.
+
+        Returns
+        -------
+        int
+            The fix ID.
+
+        """
+        idx = int(SimulationOperation._group_counter)
+        SimulationOperation._group_counter += 1
+        return "g{}".format(idx)
+
+    @classmethod
+    def new_variable_id(cls):
+        """Make a unique new variable ID.
+
+        Returns
+        -------
+        int
+            The variable ID.
+
+        """
+        idx = int(SimulationOperation._variable_counter)
+        SimulationOperation._variable_counter += 1
+        return "v{}".format(idx)
+
+    @abc.abstractmethod
+    def call_commands(self, sim):
+        """Create the LAMMPS commands for the simulation operation.
+
+        All deriving classes must implement this method.
+
+        Parameters
+        ----------
+        sim : :class:`~relentless.simulate.SimulationInstance`
+            The simulation instance.
+
+        Returns
+        -------
+        array_like
+            The LAMMPS commands for this operation.
+
+        """
+        pass
+
+
+class MinimizeEnergy(SimulationOperation):
     """Perform energy minimization on a configuration.
 
     Valid **options** include:
@@ -499,7 +450,7 @@ class MinimizeEnergy(LAMMPSOperation):
         if "max_evaluations" not in self.options:
             self.options["max_evaluations"] = None
 
-    def to_commands(self, sim):
+    def call_commands(self, sim):
         if self.options["max_evaluations"] is None:
             self.options["max_evaluations"] = 100 * self.max_iterations
 
@@ -522,7 +473,7 @@ class MinimizeEnergy(LAMMPSOperation):
         return cmds
 
 
-class _MDIntegrator(LAMMPSOperation):
+class _Integrator(SimulationOperation):
     """Base LAMMPS molecular dynamics integrator.
 
     Parameters
@@ -537,9 +488,9 @@ class _MDIntegrator(LAMMPSOperation):
     """
 
     def __init__(self, steps, timestep, analyzers):
+        super().__init__(analyzers)
         self.steps = steps
         self.timestep = timestep
-        self.analyzers = analyzers
 
     def __call__(self, sim):
         for analyzer in self.analyzers:
@@ -549,22 +500,6 @@ class _MDIntegrator(LAMMPSOperation):
 
         for analyzer in self.analyzers:
             analyzer.post_run(sim, self)
-
-    @property
-    def analyzers(self):
-        return self._analyzers
-
-    @analyzers.setter
-    def analyzers(self, ops):
-        if ops is not None:
-            try:
-                ops_ = list(ops)
-            except TypeError:
-                ops_ = [ops]
-        else:
-            ops_ = []
-
-        self._analyzers = ops_
 
     def _run_commands(self, sim):
         cmds = ["run {N}".format(N=self.steps)]
@@ -593,7 +528,7 @@ class _MDIntegrator(LAMMPSOperation):
             return (thermostat.T, thermostat.T)
 
 
-class RunLangevinDynamics(_MDIntegrator):
+class RunLangevinDynamics(_Integrator):
     """Perform a Langevin dynamics simulation.
 
     See :class:`relentless.simulate.RunLangevinDynamics` for details.
@@ -621,13 +556,13 @@ class RunLangevinDynamics(_MDIntegrator):
         self.friction = friction
         self.seed = seed
 
-    def to_commands(self, sim):
+    def call_commands(self, sim):
         # obtain per-type friction factor
         Ntypes = len(sim.types)
         mass = numpy.zeros(Ntypes)
         friction = numpy.zeros(Ntypes)
         for t in sim.types:
-            typeidx = sim[sim.initializer]["lammps_types"][t] - 1
+            typeidx = sim["engine"]["types"][t] - 1
             try:
                 friction[typeidx] = self.friction[t]
             except TypeError:
@@ -671,7 +606,7 @@ class RunLangevinDynamics(_MDIntegrator):
         return cmds
 
 
-class RunMolecularDynamics(_MDIntegrator):
+class RunMolecularDynamics(_Integrator):
     """Perform a molecular dynamics simulation.
 
     This method supports:
@@ -707,7 +642,7 @@ class RunMolecularDynamics(_MDIntegrator):
         self.thermostat = thermostat
         self.barostat = barostat
 
-    def to_commands(self, sim):
+    def call_commands(self, sim):
         fix_ids = {"ig": self.new_fix_id()}
 
         if self.thermostat is not None:
@@ -804,7 +739,36 @@ class RunMolecularDynamics(_MDIntegrator):
         return cmds
 
 
-class EnsembleAverage(LAMMPSAnalysisOperation):
+# analyzers
+class AnalysisOperation(simulate.AnalysisOperation):
+    def pre_run(self, sim, sim_op):
+        cmds = self.pre_run_commands(sim, sim_op)
+        if cmds is None or len(cmds) == 0:
+            return
+
+        sim["engine"]["_lammps_commands"] += cmds
+        if sim["engine"]["use_python"]:
+            sim["engine"]["_lammps"].commands_list(cmds)
+
+    def post_run(self, sim, sim_op):
+        cmds = self.post_run_commands(sim, sim_op)
+        if cmds is None or len(cmds) == 0:
+            return
+
+        sim["engine"]["_lammps_commands"] += cmds
+        if sim["engine"]["use_python"]:
+            sim["engine"]["_lammps"].commands_list(cmds)
+
+    @abc.abstractmethod
+    def pre_run_commands(self, sim, sim_op):
+        pass
+
+    @abc.abstractmethod
+    def post_run_commands(self, sim, sim_op):
+        pass
+
+
+class EnsembleAverage(AnalysisOperation):
     """Analyzes the simulation ensemble and rdf at specified timestep intervals.
 
     Parameters
@@ -832,27 +796,27 @@ class EnsembleAverage(LAMMPSAnalysisOperation):
 
     def pre_run_commands(self, sim, sim_op):
         fix_ids = {
-            "thermo_avg": LAMMPSOperation.new_fix_id(),
-            "rdf_avg": LAMMPSOperation.new_fix_id(),
+            "thermo_avg": SimulationOperation.new_fix_id(),
+            "rdf_avg": SimulationOperation.new_fix_id(),
         }
-        compute_ids = {"rdf": LAMMPSOperation.new_compute_id()}
+        compute_ids = {"rdf": SimulationOperation.new_compute_id()}
         var_ids = {
-            "T": LAMMPSOperation.new_variable_id(),
-            "P": LAMMPSOperation.new_variable_id(),
-            "Lx": LAMMPSOperation.new_variable_id(),
-            "Ly": LAMMPSOperation.new_variable_id(),
-            "Lz": LAMMPSOperation.new_variable_id(),
-            "xy": LAMMPSOperation.new_variable_id(),
-            "xz": LAMMPSOperation.new_variable_id(),
-            "yz": LAMMPSOperation.new_variable_id(),
+            "T": SimulationOperation.new_variable_id(),
+            "P": SimulationOperation.new_variable_id(),
+            "Lx": SimulationOperation.new_variable_id(),
+            "Ly": SimulationOperation.new_variable_id(),
+            "Lz": SimulationOperation.new_variable_id(),
+            "xy": SimulationOperation.new_variable_id(),
+            "xz": SimulationOperation.new_variable_id(),
+            "yz": SimulationOperation.new_variable_id(),
         }
 
         group_ids = {}
         for i in sim.types:
-            typeid = sim[sim.initializer]["lammps_types"][i]
+            typeid = sim["engine"]["types"][i]
             typekey = "N_{}".format(typeid)
-            group_ids[typekey] = LAMMPSOperation.new_group_id()
-            var_ids[typekey] = LAMMPSOperation.new_variable_id()
+            group_ids[typekey] = SimulationOperation.new_group_id()
+            var_ids[typekey] = SimulationOperation.new_variable_id()
 
         # generate temporary file names
         if mpi.world.rank_is_root:
@@ -878,7 +842,7 @@ class EnsembleAverage(LAMMPSAnalysisOperation):
         ]
         N_vars = []
         for i in sim.types:
-            typeid = sim[sim.initializer]["lammps_types"][i]
+            typeid = sim["engine"]["types"][i]
             typekey = "N_{}".format(typeid)
             cmds += [
                 "group {gid} type {typeid}".format(
@@ -918,8 +882,8 @@ class EnsembleAverage(LAMMPSAnalysisOperation):
         for idx, (i, j) in enumerate(sim[self]["_rdf_pairs"]):
             _pairs.append(
                 "{} {}".format(
-                    sim[sim.initializer]["lammps_types"][i],
-                    sim[sim.initializer]["lammps_types"][j],
+                    sim["engine"]["types"][i],
+                    sim["engine"]["types"][j],
                 )
             )
             _computes.append("c_{}[{}]".format(compute_ids["rdf"], 2 * (idx + 1)))
@@ -1012,7 +976,7 @@ class EnsembleAverage(LAMMPSAnalysisOperation):
         sim[self]["num_rdf_samples"] = None
 
 
-class Record(LAMMPSAnalysisOperation):
+class Record(AnalysisOperation):
     def __init__(self, quantities, every):
         self.quantities = quantities
         self.every = every
@@ -1028,7 +992,7 @@ class Record(LAMMPSAnalysisOperation):
         var_ids = {}
         cmds = []
         for q in self.quantities:
-            var_ids[q] = LAMMPSOperation.new_variable_id()
+            var_ids[q] = SimulationOperation.new_variable_id()
             cmds.append("variable {} equal {}".format(var_ids[q], quantity_map[q]))
 
         # write quantities to file with fix ave/time
@@ -1036,7 +1000,7 @@ class Record(LAMMPSAnalysisOperation):
             file_ = sim.directory.file(str(uuid.uuid4().hex))
         else:
             file_ = None
-        sim[self]["_fix_id"] = LAMMPSOperation.new_fix_id()
+        sim[self]["_fix_id"] = SimulationOperation.new_fix_id()
         sim[self]["_log_file"] = mpi.world.bcast(file_)
         cmds.append(
             (
@@ -1071,7 +1035,7 @@ class Record(LAMMPSAnalysisOperation):
             sim[self][q] = data[:, i]
 
 
-class WriteTrajectory(LAMMPSAnalysisOperation):
+class WriteTrajectory(AnalysisOperation):
     """Writes a LAMMPS dump file.
 
     When all options are set to True the file has the following format::
@@ -1119,7 +1083,7 @@ class WriteTrajectory(LAMMPSAnalysisOperation):
         if self.images is True:
             dump_format += " ix iy iz"
 
-        dump_id = LAMMPSOperation.new_dump_id()
+        dump_id = SimulationOperation.new_dump_id()
         cmds = [
             "dump {} all custom {} {} {}".format(
                 dump_id, self.every, sim.directory.file(self.filename), dump_format
@@ -1183,7 +1147,7 @@ class LAMMPS(simulate.Simulation):
         If ``True``, silence LAMMPS screen output. Setting this to ``False`` can
         be helpful for debugging but would be very noisy in a long production
         simulation.
-    lammps_types : dict
+    types : dict
         Mapping from relentless types to LAMMPS integer types. This mapping may
         be used during initialization (and is required for some operations).
     executable : str
@@ -1203,7 +1167,7 @@ class LAMMPS(simulate.Simulation):
         operations=None,
         dimension=3,
         quiet=True,
-        lammps_types=None,
+        types=None,
         executable=None,
     ):
         # test executable if it is specified
@@ -1257,35 +1221,30 @@ class LAMMPS(simulate.Simulation):
         super().__init__(initializer, operations)
         self.dimension = dimension
         self.quiet = quiet
-        self.lammps_types = lammps_types
+        self.types = types
 
     def _post_run(self, sim):
         # force all the lammps commands to execute, since the operations did
         # not actually do it
-        if not sim[sim.initializer]["_lammps_python"]:
+        if not sim["engine"]["use_python"]:
             # send the commands to file
             if mpi.world.rank_is_root:
                 file_ = sim.directory.file(str(uuid.uuid4().hex))
                 with open(file_, "w") as f:
-                    for cmd in sim[sim.initializer]["_lammps_commands"]:
+                    for cmd in sim["engine"]["_lammps_commands"]:
                         f.write(cmd + "\n")
             else:
                 file_ = None
             file_ = mpi.world.bcast(file_)
 
             # then run lammps as an executable
-            run_cmd = sim[sim.initializer]["_lammps"] + ["-i", file_]
+            run_cmd = sim["engine"]["_lammps"] + ["-i", file_]
             subprocess.run(" ".join(run_cmd), shell=True, check=True)
 
         # then keep going
         super()._post_run(sim)
 
-    def _new_instance(self, potentials, directory):
-        sim = simulate.SimulationInstance(
-            type(self), self.initializer, potentials, directory
-        )
-        # setup LAMMPS **before** the initializer, since it needs some things from
-        # the simulation level to be forwarded into the data
+    def _initialize_engine(self, sim):
         if self.quiet:
             launch_args = [
                 "-echo",
@@ -1305,23 +1264,19 @@ class LAMMPS(simulate.Simulation):
                 "-nocite",
             ]
 
-        sim[sim.initializer]["_lammps_version"] = self.version
+        sim["engine"]["version"] = self.version
         if self.executable is not None:
-            sim[sim.initializer]["_lammps_python"] = False
-            sim[sim.initializer]["_lammps"] = [self.executable] + launch_args
+            sim["engine"]["use_python"] = False
+            sim["engine"]["_lammps"] = [self.executable] + launch_args
         else:
-            sim[sim.initializer]["_lammps_python"] = True
-            sim[sim.initializer]["_lammps"] = lammps.lammps(cmdargs=launch_args)
-        sim[sim.initializer]["_lammps_commands"] = []
+            sim["engine"]["use_python"] = True
+            sim["engine"]["_lammps"] = lammps.lammps(cmdargs=launch_args)
+        sim["engine"]["_lammps_commands"] = []
 
-        sim[sim.initializer]["lammps_types"] = self.lammps_types
-        sim[sim.initializer]["units"] = "lj"
-        sim[sim.initializer]["atom_style"] = "atomic"
-        sim.dimension = self.dimension
-        # then invoke the initializer to finish it
-        sim.initializer(sim)
-
-        return sim
+        sim["engine"]["types"] = self.types
+        sim["engine"]["units"] = "lj"
+        sim["engine"]["atom_style"] = "atomic"
+        sim["engine"]["dimension"] = self.dimension
 
     # initialize
     _InitializeFromFile = InitializeFromFile

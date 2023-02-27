@@ -582,12 +582,12 @@ class test_PairSpline(unittest.TestCase):
         coeff = relentless.model.potential.PairParameters(
             types=("1",),
             params=(
-                "r-0",
-                "r-1",
-                "r-2",
-                "knot-0",
-                "knot-1",
-                "knot-2",
+                "dr-0",
+                "dr-1",
+                "dr-2",
+                "diff-0",
+                "diff-1",
+                "diff-2",
                 "rmin",
                 "rmax",
                 "shift",
@@ -605,12 +605,12 @@ class test_PairSpline(unittest.TestCase):
         coeff = relentless.model.potential.PairParameters(
             types=("1",),
             params=(
-                "r-0",
-                "r-1",
-                "r-2",
-                "knot-0",
-                "knot-1",
-                "knot-2",
+                "dr-0",
+                "dr-1",
+                "dr-2",
+                "value-0",
+                "value-1",
+                "value-2",
                 "rmin",
                 "rmax",
                 "shift",
@@ -641,7 +641,7 @@ class test_PairSpline(unittest.TestCase):
 
         dvars = []
         for i, (r, k) in enumerate(s.knots(pair=("1", "1"))):
-            self.assertAlmostEqual(r.value, r_arr[i])
+            self.assertAlmostEqual(r.value, 1.0)
             self.assertAlmostEqual(k.value, u_arr_diff[i])
             self.assertIsInstance(r, relentless.model.IndependentVariable)
             if i == s.num_knots - 1:
@@ -659,7 +659,7 @@ class test_PairSpline(unittest.TestCase):
 
         dvars = []
         for i, (r, k) in enumerate(s.knots(pair=("1", "1"))):
-            self.assertAlmostEqual(r.value, r_arr[i])
+            self.assertAlmostEqual(r.value, 1.0)
             self.assertAlmostEqual(k.value, u_arr[i])
             self.assertIsInstance(r, relentless.model.IndependentVariable)
             if i == s.num_knots - 1:
@@ -771,7 +771,7 @@ class test_PairSpline(unittest.TestCase):
 
         s2 = relentless.model.potential.PairSpline.from_json(data)
         for i, (r, k) in enumerate(s2.knots(pair=("1", "1"))):
-            self.assertAlmostEqual(r.value, r_arr[i])
+            self.assertAlmostEqual(r.value, 1.0)
             self.assertAlmostEqual(k.value, u_arr_diff[i])
 
 

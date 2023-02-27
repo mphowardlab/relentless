@@ -25,16 +25,13 @@ using an Akima spline.
 import copy
 import json
 
-import numpy
-
-from relentless import mpi
+from relentless import math, mpi
 from relentless.collections import FixedKeyDict, PairMatrix
-from relentless.math import Interpolator
 
 from . import extent
 
 
-class RDF(Interpolator):
+class RDF:
     r"""Radial distribution function.
 
     Represents the pair distribution function :math:`g(r)` as a ``(N,2)``
@@ -50,8 +47,14 @@ class RDF(Interpolator):
     """
 
     def __init__(self, r, g):
-        super().__init__(r, g)
-        self.table = numpy.column_stack((r, g))
+        self._spline = math.AkimaSpline(r, g)
+
+    def __call__(self, r):
+        return self._spline(r)
+
+    @property
+    def table(self):
+        return self._spline.table
 
 
 class Ensemble:

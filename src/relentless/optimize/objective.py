@@ -412,12 +412,16 @@ class RelativeEntropy(ObjectiveFunction):
                     continue
 
                 # interpolate derivative wrt design variable with r
-                dudvar = math.Interpolator(rs, dus)
+                dudvar = math.AkimaSpline(rs, dus)
 
                 # find common domain to compare rdfs
-                r0 = max(g_sim[i, j].domain[0], g_tgt[i, j].domain[0], dudvar.domain[0])
+                r0 = max(
+                    g_sim[i, j].table[0, 0], g_tgt[i, j].table[0, 0], dudvar.table[0, 0]
+                )
                 r1 = min(
-                    g_sim[i, j].domain[-1], g_tgt[i, j].domain[-1], dudvar.domain[-1]
+                    g_sim[i, j].table[-1, 0],
+                    g_tgt[i, j].table[-1, 0],
+                    dudvar.table[-1, 0],
                 )
                 sim_dr = numpy.min(numpy.diff(g_sim[i, j].table[:, 0]))
                 tgt_dr = numpy.min(numpy.diff(g_tgt[i, j].table[:, 0]))
