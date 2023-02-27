@@ -124,10 +124,14 @@ class InitializeRandomly(simulate.DelegatedInitializationOperation):
         trees = {}
         Nadded = 0
         # insert the particles, big to small
-        sorted_N = sorted(N.items(), key=lambda x: x[1], reverse=True)
-        for i, Ni in sorted_N:
+        sorted_diameters = sorted(
+            ((i, variable.evaluate(diameters[i])) for i in N),
+            key=lambda x: x[1],
+            reverse=True,
+        )
+        for i, di in sorted_diameters:
             # generate site coordinates, on orthorhombic lattices
-            di = variable.evaluate(diameters[i])
+            Ni = N[i]
             if dimension == 3:
                 # fcc lattice
                 a = numpy.sqrt(2.0) * di
@@ -165,7 +169,7 @@ class InitializeRandomly(simulate.DelegatedInitializationOperation):
             if len(trees) > 0:
                 mask = numpy.ones(sites.shape[0], dtype=bool)
                 for j, treej in trees.items():
-                    dj = diameters[j]
+                    dj = variable.evaluate(diameters[j])
                     num_overlap = treej.query_ball_point(
                         sites, 0.5 * (di + dj), return_length=True
                     )
