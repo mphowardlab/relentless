@@ -25,159 +25,14 @@ except ImportError:
     _lammpsio_found = False
 
 
-class SimulationOperation(simulate.SimulationOperation):
-    """LAMMPS simulation operation."""
-
-    _compute_counter = 1
-    _dump_counter = 1
-    _fix_counter = 1
-    _group_counter = 1
-    _variable_counter = 1
-
-    def __call__(self, sim):
-        """Evaluate the LAMMPS simulation operation.
-
-        Each deriving class of :class:`SimulationOperation` must implement a
-        :meth:`to_commands()` method that returns a list or tuple of LAMMPS
-        commands that can be executed by :meth:`lammps.commands_list()`.
-
-        Parameters
-        ----------
-        sim : :class:`~relentless.simulate.SimulationInstance`
-            The simulation instance.
-
-        """
-        cmds = self.to_commands(sim)
-        if cmds is None or len(cmds) == 0:
-            return
-
-        sim["engine"]["_lammps_commands"] += cmds
-        if sim["engine"]["use_python"]:
-            sim["engine"]["_lammps"].commands_list(cmds)
-
-    @classmethod
-    def new_compute_id(cls):
-        """Make a unique new compute ID.
-
-        Returns
-        -------
-        int
-            The compute ID.
-
-        """
-        idx = int(SimulationOperation._compute_counter)
-        SimulationOperation._compute_counter += 1
-        return "c{}".format(idx)
-
-    @classmethod
-    def new_dump_id(cls):
-        """Make a unique new dump ID.
-
-        Returns
-        -------
-        int
-            The dump ID.
-
-        """
-        idx = int(SimulationOperation._dump_counter)
-        SimulationOperation._dump_counter += 1
-        return "d{}".format(idx)
-
-    @classmethod
-    def new_fix_id(cls):
-        """Make a unique new fix ID.
-
-        Returns
-        -------
-        int
-            The fix ID.
-
-        """
-        idx = int(SimulationOperation._fix_counter)
-        SimulationOperation._fix_counter += 1
-        return "f{}".format(idx)
-
-    @classmethod
-    def new_group_id(cls):
-        """Make a unique new fix ID.
-
-        Returns
-        -------
-        int
-            The fix ID.
-
-        """
-        idx = int(SimulationOperation._group_counter)
-        SimulationOperation._group_counter += 1
-        return "g{}".format(idx)
-
-    @classmethod
-    def new_variable_id(cls):
-        """Make a unique new variable ID.
-
-        Returns
-        -------
-        int
-            The variable ID.
-
-        """
-        idx = int(SimulationOperation._variable_counter)
-        SimulationOperation._variable_counter += 1
-        return "v{}".format(idx)
-
-    @abc.abstractmethod
-    def to_commands(self, sim):
-        """Create the LAMMPS commands for the simulation operation.
-
-        All deriving classes must implement this method.
-
-        Parameters
-        ----------
-        sim : :class:`~relentless.simulate.SimulationInstance`
-            The simulation instance.
-
-        Returns
-        -------
-        array_like
-            The LAMMPS commands for this operation.
-
-        """
-        pass
-
-
-class AnalysisOperation(simulate.AnalysisOperation):
-    def pre_run(self, sim, sim_op):
-        cmds = self.pre_run_commands(sim, sim_op)
-        if cmds is None or len(cmds) == 0:
-            return
-
-        sim["engine"]["_lammps_commands"] += cmds
-        if sim["engine"]["use_python"]:
-            sim["engine"]["_lammps"].commands_list(cmds)
-
-    def post_run(self, sim, sim_op):
-        cmds = self.post_run_commands(sim, sim_op)
-        if cmds is None or len(cmds) == 0:
-            return
-
-        sim["engine"]["_lammps_commands"] += cmds
-        if sim["engine"]["use_python"]:
-            sim["engine"]["_lammps"].commands_list(cmds)
-
-    @abc.abstractmethod
-    def pre_run_commands(self, sim, sim_op):
-        pass
-
-    @abc.abstractmethod
-    def post_run_commands(self, sim, sim_op):
-        pass
-
-
 # initializers
-class InitializationOperation(SimulationOperation, simulate.InitializationOperation):
+class InitializationOperation(simulate.InitializationOperation):
     """Initialize a simulation."""
 
-    def to_commands(self, sim):
+    def __call__(self, sim):
+        SimulationOperation.__call__(self, sim)
+
+    def call_commands(self, sim):
         cmds = [
             "units {style}".format(style=sim["engine"]["units"]),
             "boundary p p p",
@@ -445,6 +300,127 @@ class InitializeRandomly(InitializationOperation):
         return ["read_data {}".format(init_file)]
 
 
+# simulation operations
+class SimulationOperation(simulate.SimulationOperation):
+    """LAMMPS simulation operation."""
+
+    _compute_counter = 1
+    _dump_counter = 1
+    _fix_counter = 1
+    _group_counter = 1
+    _variable_counter = 1
+
+    def __call__(self, sim):
+        """Evaluate the LAMMPS simulation operation.
+
+        Each deriving class of :class:`SimulationOperation` must implement a
+        :meth:`call_commands()` method that returns a list or tuple of LAMMPS
+        commands that can be executed by :meth:`lammps.commands_list()`.
+
+        Parameters
+        ----------
+        sim : :class:`~relentless.simulate.SimulationInstance`
+            The simulation instance.
+
+        """
+        cmds = self.call_commands(sim)
+        if cmds is None or len(cmds) == 0:
+            return
+
+        sim["engine"]["_lammps_commands"] += cmds
+        if sim["engine"]["use_python"]:
+            sim["engine"]["_lammps"].commands_list(cmds)
+
+    @classmethod
+    def new_compute_id(cls):
+        """Make a unique new compute ID.
+
+        Returns
+        -------
+        int
+            The compute ID.
+
+        """
+        idx = int(SimulationOperation._compute_counter)
+        SimulationOperation._compute_counter += 1
+        return "c{}".format(idx)
+
+    @classmethod
+    def new_dump_id(cls):
+        """Make a unique new dump ID.
+
+        Returns
+        -------
+        int
+            The dump ID.
+
+        """
+        idx = int(SimulationOperation._dump_counter)
+        SimulationOperation._dump_counter += 1
+        return "d{}".format(idx)
+
+    @classmethod
+    def new_fix_id(cls):
+        """Make a unique new fix ID.
+
+        Returns
+        -------
+        int
+            The fix ID.
+
+        """
+        idx = int(SimulationOperation._fix_counter)
+        SimulationOperation._fix_counter += 1
+        return "f{}".format(idx)
+
+    @classmethod
+    def new_group_id(cls):
+        """Make a unique new fix ID.
+
+        Returns
+        -------
+        int
+            The fix ID.
+
+        """
+        idx = int(SimulationOperation._group_counter)
+        SimulationOperation._group_counter += 1
+        return "g{}".format(idx)
+
+    @classmethod
+    def new_variable_id(cls):
+        """Make a unique new variable ID.
+
+        Returns
+        -------
+        int
+            The variable ID.
+
+        """
+        idx = int(SimulationOperation._variable_counter)
+        SimulationOperation._variable_counter += 1
+        return "v{}".format(idx)
+
+    @abc.abstractmethod
+    def call_commands(self, sim):
+        """Create the LAMMPS commands for the simulation operation.
+
+        All deriving classes must implement this method.
+
+        Parameters
+        ----------
+        sim : :class:`~relentless.simulate.SimulationInstance`
+            The simulation instance.
+
+        Returns
+        -------
+        array_like
+            The LAMMPS commands for this operation.
+
+        """
+        pass
+
+
 class MinimizeEnergy(SimulationOperation):
     """Perform energy minimization on a configuration.
 
@@ -474,7 +450,7 @@ class MinimizeEnergy(SimulationOperation):
         if "max_evaluations" not in self.options:
             self.options["max_evaluations"] = None
 
-    def to_commands(self, sim):
+    def call_commands(self, sim):
         if self.options["max_evaluations"] is None:
             self.options["max_evaluations"] = 100 * self.max_iterations
 
@@ -497,7 +473,7 @@ class MinimizeEnergy(SimulationOperation):
         return cmds
 
 
-class _MDIntegrator(SimulationOperation):
+class _Integrator(SimulationOperation):
     """Base LAMMPS molecular dynamics integrator.
 
     Parameters
@@ -512,9 +488,9 @@ class _MDIntegrator(SimulationOperation):
     """
 
     def __init__(self, steps, timestep, analyzers):
+        super().__init__(analyzers)
         self.steps = steps
         self.timestep = timestep
-        self.analyzers = analyzers
 
     def __call__(self, sim):
         for analyzer in self.analyzers:
@@ -524,22 +500,6 @@ class _MDIntegrator(SimulationOperation):
 
         for analyzer in self.analyzers:
             analyzer.post_run(sim, self)
-
-    @property
-    def analyzers(self):
-        return self._analyzers
-
-    @analyzers.setter
-    def analyzers(self, ops):
-        if ops is not None:
-            try:
-                ops_ = list(ops)
-            except TypeError:
-                ops_ = [ops]
-        else:
-            ops_ = []
-
-        self._analyzers = ops_
 
     def _run_commands(self, sim):
         cmds = ["run {N}".format(N=self.steps)]
@@ -568,7 +528,7 @@ class _MDIntegrator(SimulationOperation):
             return (thermostat.T, thermostat.T)
 
 
-class RunLangevinDynamics(_MDIntegrator):
+class RunLangevinDynamics(_Integrator):
     """Perform a Langevin dynamics simulation.
 
     See :class:`relentless.simulate.RunLangevinDynamics` for details.
@@ -596,7 +556,7 @@ class RunLangevinDynamics(_MDIntegrator):
         self.friction = friction
         self.seed = seed
 
-    def to_commands(self, sim):
+    def call_commands(self, sim):
         # obtain per-type friction factor
         Ntypes = len(sim.types)
         mass = numpy.zeros(Ntypes)
@@ -646,7 +606,7 @@ class RunLangevinDynamics(_MDIntegrator):
         return cmds
 
 
-class RunMolecularDynamics(_MDIntegrator):
+class RunMolecularDynamics(_Integrator):
     """Perform a molecular dynamics simulation.
 
     This method supports:
@@ -682,7 +642,7 @@ class RunMolecularDynamics(_MDIntegrator):
         self.thermostat = thermostat
         self.barostat = barostat
 
-    def to_commands(self, sim):
+    def call_commands(self, sim):
         fix_ids = {"ig": self.new_fix_id()}
 
         if self.thermostat is not None:
@@ -777,6 +737,35 @@ class RunMolecularDynamics(_MDIntegrator):
         cmds += self._run_commands(sim)
         cmds += ["unfix {}".format(idx) for idx in fix_ids.values()]
         return cmds
+
+
+# analyzers
+class AnalysisOperation(simulate.AnalysisOperation):
+    def pre_run(self, sim, sim_op):
+        cmds = self.pre_run_commands(sim, sim_op)
+        if cmds is None or len(cmds) == 0:
+            return
+
+        sim["engine"]["_lammps_commands"] += cmds
+        if sim["engine"]["use_python"]:
+            sim["engine"]["_lammps"].commands_list(cmds)
+
+    def post_run(self, sim, sim_op):
+        cmds = self.post_run_commands(sim, sim_op)
+        if cmds is None or len(cmds) == 0:
+            return
+
+        sim["engine"]["_lammps_commands"] += cmds
+        if sim["engine"]["use_python"]:
+            sim["engine"]["_lammps"].commands_list(cmds)
+
+    @abc.abstractmethod
+    def pre_run_commands(self, sim, sim_op):
+        pass
+
+    @abc.abstractmethod
+    def post_run_commands(self, sim, sim_op):
+        pass
 
 
 class EnsembleAverage(AnalysisOperation):

@@ -89,6 +89,7 @@ Other dynamics
 .. autosummary::
     :toctree: generated/
 
+    MinimizeEnergy
     RunBrownianDynamics
     RunLangevinDynamics
 
