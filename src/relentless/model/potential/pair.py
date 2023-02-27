@@ -833,20 +833,13 @@ class PairSpline(PairPotential):
     mode : str
         Mode for storing the values of the knots in
         :class:`~relentless.variable.Variable` that can be optimized. If
-        ``mode='value'``, the knot amplitudes are stored directly. If
-        ``mode='diff'``, the amplitude of the *last* knot is stored directly,
-        and differences between neighboring knots are stored for all other knots.
-        Defaults to ``'diff'``.
+        ``mode='value'``, the knot amplitudes are manipulated directly.
+        If ``mode='diff'``, the amplitude of the *last* knot is fixed, and
+        differences between neighboring knots are manipulated for all other
+        knots. Defaults to ``'diff'``.
     name : str
         Unique name of the potential. Defaults to ``__u[id]``, where ``id`` is the
         unique integer ID of the potential.
-
-    Raises
-    ------
-    ValueError
-        If there are not at least two knots.
-    ValueError
-        If the mode is not ``'value'`` or ``'diff'``.
 
     Examples
     --------
@@ -930,9 +923,13 @@ class PairSpline(PairPotential):
             # with last knot fixed at its current value
             ks[:-1] -= ks[1:]
 
-        # make all knots variables, but hold all r and the last knot const
+        # convert knot positions to differences
+        drs = numpy.zeros_like(rs)
+        drs[0] = rs[0]
+        drs[1:] = rs[1:] - rs[:-1]
+
         for i in range(self.num_knots):
-            self._set_knot(pair, i, rs[i], ks[i])
+            self._set_knot(pair, i, drs[i], ks[i])
 
     def to_json(self):
         data = super().to_json()
@@ -963,9 +960,9 @@ class PairSpline(PairPotential):
         """
         if not isinstance(i, int):
             raise TypeError("Knots are keyed by integers")
-        return "r-{}".format(i), "knot-{}".format(i)
+        return f"dr-{i}", f"{self.mode}-{i}"
 
-    def _set_knot(self, pair, i, r, k):
+    def _set_knot(self, pair, i, dr, k):
         """Set the value of knot variables.
 
         The meaning of the value of the knot variable is defined by the ``mode``.
@@ -978,16 +975,19 @@ class PairSpline(PairPotential):
         i : int
             Index of the knot.
         r : float
-            Position of each knot.
+            Relative position of each knot from previous one.
         u : float
             Value of the knot variable.
 
         """
-        ri, ki = self.knot_params(i)
-        if isinstance(self.coeff[pair][ri], variable.IndependentVariable):
-            self.coeff[pair][ri].value = r
+        if i > 0 and dr <= 0:
+            raise ValueError("Knot spacings must be positive")
+
+        dri, ki = self.knot_params(i)
+        if isinstance(self.coeff[pair][dri], variable.IndependentVariable):
+            self.coeff[pair][dri].value = dr
         else:
-            self.coeff[pair][ri] = variable.IndependentVariable(r)
+            self.coeff[pair][dri] = variable.IndependentVariable(dr)
         if isinstance(self.coeff[pair][ki], variable.IndependentVariable):
             self.coeff[pair][ki].value = k
         else:
@@ -1014,15 +1014,25 @@ class PairSpline(PairPotential):
         r, d, s = self._zeros(r)
         h = 0.001
 
-        # perturb knot param value
-        knot_p = params[param]
-        params[param] = knot_p + h
-        f_high = self._interpolate(params)(r)
-        params[param] = knot_p - h
-        f_low = self._interpolate(params)(r)
+        if "dr-" in param:
+            f_low = self._interpolate(params)(r)
+            knot_p = params[param]
+            params[param] = knot_p + h
+            f_high = self._interpolate(params)(r)
+            params[param] = knot_p
+            d = (f_high - f_low) / h
+        elif self.mode + "-" in param:
+            # perturb knot param value
+            knot_p = params[param]
+            params[param] = knot_p + h
+            f_high = self._interpolate(params)(r)
+            params[param] = knot_p - h
+            f_low = self._interpolate(params)(r)
+            params[param] = knot_p
+            d = (f_high - f_low) / (2 * h)
+        else:
+            raise ValueError("Parameter cannot be differentiated")
 
-        params[param] = knot_p
-        d = (f_high - f_low) / (2 * h)
         if s:
             d = d.item()
         return d
@@ -1041,16 +1051,24 @@ class PairSpline(PairPotential):
             The interpolated spline potential.
 
         """
-        r = numpy.zeros(self.num_knots)
+        dr = numpy.zeros(self.num_knots)
         u = numpy.zeros(self.num_knots)
         for i in range(self.num_knots):
-            ri, ki = self.knot_params(i)
-            r[i] = params[ri]
+            dri, ki = self.knot_params(i)
+            dr[i] = params[dri]
             u[i] = params[ki]
+
+        if numpy.any(dr[1:] <= 0):
+            raise ValueError("Knot differences must be positive")
+
+        # reconstruct r from differences
+        r = numpy.cumsum(dr)
+
         # reconstruct the energies from differences, starting from the end
         if self.mode == "diff":
             u = numpy.flip(numpy.cumsum(numpy.flip(u)))
-        return math.Interpolator(x=r, y=u)
+
+        return math.AkimaSpline(x=r, y=u)
 
     @property
     def num_knots(self):
@@ -1072,26 +1090,24 @@ class PairSpline(PairPotential):
 
         Yields
         ------
-        :class:`~relentless.variable.DesignVariable`
-            The next :math:`r` variable in the parameters.
-        :class:`~relentless.variable.DesignVariable`
+        :class:`~relentless.variable.Variable`
+            The next :math:`dr` variable in the parameters.
+        :class:`~relentless.variable.Variable`
             The next knot variable in the parameters.
 
         """
         for i in range(self.num_knots):
-            ri, ki = self.knot_params(i)
-            r = self.coeff[pair][ri]
-            k = self.coeff[pair][ki]
-            yield r, k
+            dri, ki = self.knot_params(i)
+            yield self.coeff[pair][dri], self.coeff[pair][ki]
 
     @property
     def design_variables(self):
         """tuple: Designable variables of the spline."""
         dvars = []
         for pair in self.coeff:
-            for r, k in self.knots(pair):
-                if isinstance(r, variable.DesignVariable):
-                    dvars.append(r)
+            for dr, k in self.knots(pair):
+                if isinstance(dr, variable.DesignVariable):
+                    dvars.append(dr)
                 if isinstance(k, variable.DesignVariable):
                     dvars.append(k)
         return tuple(dvars)

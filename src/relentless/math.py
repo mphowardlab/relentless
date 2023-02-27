@@ -9,6 +9,7 @@ Math functions (`relentless.math`)
     :toctree: generated/
 
     Interpolator
+    AkimaSpline
     KeyedArray
 
 """
@@ -22,7 +23,7 @@ class Interpolator:
     r"""Interpolating function.
 
     Interpolates through a function :math:`y(x)` on the domain
-    :math:`a \le x \le b` using Akima splines. Outside this domain, ``y`` is
+    :math:`a \le x \le b`. Outside this domain, ``y`` is
     extrapolated as a constant, i.e., :math:`y(x < a) = y(a)` and
     :math:`y(x > b) = y(b)`\.
 
@@ -83,10 +84,10 @@ class Interpolator:
         if not numpy.all(x[1:] > x[:-1]):
             raise ValueError("x must be strictly increasing")
         self._domain = (x[0], x[-1])
-        if x.shape[0] > 2:
-            self._spline = scipy.interpolate.Akima1DInterpolator(x=x, y=y)
-        else:
-            self._spline = scipy.interpolate.InterpolatedUnivariateSpline(x=x, y=y, k=1)
+        self._table = numpy.column_stack((x, y))
+
+        self._spline = None
+        self._derivatives = {}
 
     def __call__(self, x):
         r"""Evaluate the interpolating function.
@@ -102,6 +103,8 @@ class Interpolator:
             Interpolated values having the same form as ``x``.
 
         """
+        assert self._spline is not None
+
         scalar_x = numpy.isscalar(x)
         x = numpy.atleast_1d(x)
         result = numpy.zeros(len(x))
@@ -138,14 +141,15 @@ class Interpolator:
         result : float or numpy.ndarray
             Interpolated derivative values having the same form as ``x``.
 
-        Raises
-        ------
-        ValueError
-            If ``n`` is not a positive integer.
 
         """
+        assert self._spline is not None
+
         if not isinstance(n, int) and n <= 0:
             raise ValueError("n must be a positive integer")
+        if n not in self._derivatives:
+            self._derivatives[n] = self._spline.derivative(n)
+
         scalar_x = numpy.isscalar(x)
         x = numpy.atleast_1d(x)
         result = numpy.zeros(len(x))
@@ -160,7 +164,7 @@ class Interpolator:
 
         # evaluate in between
         flags = numpy.logical_and(~lo, ~hi)
-        result[flags] = self._spline.derivative(n)(x[flags])
+        result[flags] = self._derivatives[n](x[flags])
 
         if scalar_x:
             result = result.item()
@@ -171,6 +175,37 @@ class Interpolator:
     def domain(self):
         """tuple: The valid domain for interpolation."""
         return self._domain
+
+    @property
+    def table(self):
+        """numpy.ndarray: The interpolated data."""
+        return self._table
+
+
+class AkimaSpline(Interpolator):
+    """Interpolate using Akima splines.
+
+    Parameters
+    ----------
+    x : array_like
+        1D array of x coordinates that must be continually increasing.
+    y : array_like
+        1D array of y coordinates.
+
+
+    """
+
+    def __init__(self, x, y):
+        super().__init__(x, y)
+
+        if self._table.shape[0] > 2:
+            self._spline = scipy.interpolate.Akima1DInterpolator(
+                x=self._table[:, 0], y=self._table[:, 1]
+            )
+        else:
+            self._spline = scipy.interpolate.InterpolatedUnivariateSpline(
+                x=self._table[:, 0], y=self._table[:, 1], k=1
+            )
 
 
 class KeyedArray(FixedKeyDict):
