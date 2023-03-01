@@ -62,10 +62,10 @@ class InitializationOperation(simulate.InitializationOperation):
         # attach the potentials
         if sim.potentials.pair.start == 0:
             raise ValueError("LAMMPS requires start > 0 for pair potentials")
-        rsq = sim.potentials.pair.xsquared
-        r = numpy.sqrt(rsq)
-        Nr = len(r)
-        if Nr == 1:
+        r_table, uf_table = sim.potentials.pair.all_energy_force(
+            sim.types, x=numpy.sqrt(sim.potentials.pair.xsquared), tight=True
+        )
+        if len(r_table) == 1:
             raise ValueError(
                 "LAMMPS requires at least two points in the tabulated potential."
             )
@@ -85,7 +85,6 @@ class InitializationOperation(simulate.InitializationOperation):
             file_ = sim.directory.file(str(uuid.uuid4().hex))
             with open(file_, "w") as fw:
                 fw.write("# LAMMPS tabulated pair potentials\n")
-                rcut = {}
                 for i, j in sim.pairs:
                     id_i, id_j = pair_map(sim, (i, j))
                     fw.write(
@@ -95,30 +94,22 @@ class InitializationOperation(simulate.InitializationOperation):
                     )
                     fw.write(
                         "N {N} RSQ {rmin} {rmax}\n\n".format(
-                            N=Nr,
-                            rmin=sim.potentials.pair.start,
-                            rmax=sim.potentials.pair.stop,
+                            N=len(r_table),
+                            rmin=r_table[0],
+                            rmax=r_table[-1],
                         )
                     )
 
-                    # explicitly use r = sqrt(r^2) to avoid interpolation
-                    u = sim.potentials.pair.energy((i, j), r)
-                    f = sim.potentials.pair.force((i, j), r)
-                    for idx in range(Nr):
+                    u = uf_table[i, j]["energy"]
+                    f = uf_table[i, j]["force"]
+                    for idx, r in enumerate(r_table):
                         fw.write(
                             "{idx} {r} {u} {f}\n".format(
-                                idx=idx + 1, r=rsq[idx], u=u[idx], f=f[idx]
+                                idx=idx + 1, r=r, u=u[idx], f=f[idx]
                             )
                         )
-
-                    # find r where potential and force are zero
-                    rcut[i, j] = self._get_tight_rcut(
-                        sim.potentials.pair, (i, j), r, u, f
-                    )
         else:
-            rcut = None
             file_ = None
-        rcut = mpi.world.bcast(rcut)
         file_ = mpi.world.bcast(file_)
 
         # process all lammps commands
@@ -126,7 +117,7 @@ class InitializationOperation(simulate.InitializationOperation):
             "neighbor {skin} multi".format(skin=sim.potentials.pair.neighbor_buffer),
             "neigh_modify delay 0 every 1 check yes",
         ]
-        cmds += ["pair_style table linear {N}".format(N=Nr)]
+        cmds += ["pair_style table linear {N}".format(N=len(r_table))]
 
         for i, j in sim.pairs:
             # get lammps type indexes, lowest type first
@@ -135,7 +126,7 @@ class InitializationOperation(simulate.InitializationOperation):
                 (
                     "pair_coeff {id_i} {id_j} {filename}"
                     " TABLE_{id_i}_{id_j} {cutoff}"
-                ).format(id_i=id_i, id_j=id_j, filename=file_, cutoff=rcut[(i, j)])
+                ).format(id_i=id_i, id_j=id_j, filename=file_, cutoff=r_table[-1])
             ]
 
         return cmds

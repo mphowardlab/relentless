@@ -93,7 +93,7 @@ class test_LAMMPS(unittest.TestCase):
         pots.pair.potentials.append(pot)
         pots.pair.start = 1e-6
         pots.pair.stop = 2.0
-        pots.pair.num = 3
+        pots.pair.num = 10
 
         return (ens, pots)
 

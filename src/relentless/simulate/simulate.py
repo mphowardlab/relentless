@@ -9,7 +9,7 @@ import abc
 
 import numpy
 
-from relentless import data, mpi
+from relentless import collections, data, mpi
 from relentless.model import variable
 
 
@@ -33,31 +33,6 @@ class InitializationOperation(abc.ABC):
     @abc.abstractmethod
     def __call__(self, sim):
         pass
-
-    @staticmethod
-    def _get_tight_rcut(potential, pair, r, u, f):
-        # find r where potential and force are zero
-        if len(potential.potentials) > 0:
-            all_rmax = [
-                variable.evaluate(pair_pot.coeff[pair]["rmax"])
-                for pair_pot in potential.potentials
-            ]
-            if None not in all_rmax:
-                # use rmax if set for all potentials
-                rcut = min(max(all_rmax), potential.stop)
-            else:
-                # otherwise, deduce safe cutoff from tabulated values
-                nonzero_r = numpy.flatnonzero(
-                    numpy.logical_and(~numpy.isclose(u, 0), ~numpy.isclose(f, 0))
-                )
-                # cutoff at last nonzero r (cannot be first r)
-                # we add 1 to make sure we include the last point if
-                # potential happens to go smoothly to zero
-                rcut = r[min(nonzero_r[-1] + 1, len(r) - 1)]
-        else:
-            rcut = potential.stop
-
-        return rcut
 
 
 class SimulationOperation(abc.ABC):
@@ -698,3 +673,62 @@ class PairPotentialTabulator(PotentialTabulator):
         """
         d = super().derivative(pair, var, x) - super().derivative(pair, var, self.stop)
         return d
+
+    def all_energy_force(self, types, x=None, tight=False):
+        if x is None:
+            x = numpy.copy(self.x)
+        else:
+            x = numpy.atleast_1d(x)
+        if tight and len(x) < 2:
+            raise ValueError("Tight option can only be used if x has two points")
+
+        result = collections.PairMatrix(types)
+        stops = collections.PairMatrix(types)
+        for pair in result:
+            result[pair] = {
+                "energy": self.energy(pair, x),
+                "force": self.force(pair, x),
+            }
+
+            # compute the shrink wrapped rcut if requested
+            if tight:
+                all_rmax = [
+                    variable.evaluate(u.coeff[pair]["rmax"]) for u in self.potentials
+                ]
+                if len(all_rmax) == 0:
+                    # put first two points in the table if there are no potentials
+                    rcut = x[1]
+                elif None not in all_rmax:
+                    # use rmax if set for all potentials
+                    rcut = min(max(all_rmax), x[-1])
+                else:
+                    # otherwise, deduce safe cutoff from tabulated values
+                    nonzero_r = numpy.flatnonzero(
+                        numpy.logical_and(
+                            ~numpy.isclose(result[pair]["energy"], 0),
+                            ~numpy.isclose(result[pair]["force"], 0),
+                        )
+                    )
+                    # cutoff at last nonzero r (cannot be first r)
+                    # we add 1 to make sure we include the last point if
+                    # potential happens to go smoothly to zero
+                    rcut = x[min(nonzero_r[-1] + 1, len(x) - 1)]
+            else:
+                rcut = x[-1]
+
+            stops[pair] = rcut
+
+        # shrink wrap all of the data once largest stop is known
+        if tight:
+            max_stop = max(stops[pair] for pair in result)
+            flags = x <= max_stop
+            # make sure we get a second point, even if table is sparsely discretized
+            if numpy.sum(flags) == 1:
+                flags[1] = True
+
+            for pair in result:
+                result[pair]["energy"] = result[pair]["energy"][flags]
+                result[pair]["force"] = result[pair]["force"][flags]
+            x = x[flags]
+
+        return x, result
