@@ -557,7 +557,9 @@ class RunBrownianDynamics(_Integrator):
         self.seed = seed
 
     def call_commands(self, sim):
-        if sim["engine"]["version"] < 20220623:
+        if "BROWNIAN" not in sim["engine"]["packages"]:
+            raise NotImplementedError("LAMMPS BROWNIAN package is not installed.")
+        elif sim["engine"]["version"] < 20220623:
             raise NotImplementedError(
                 "LAMMPS versions prior to 23Jun2022 stable release do not"
                 " properly support Brownian dynamics."
@@ -1275,12 +1277,24 @@ class LAMMPS(simulate.Simulation):
                     "LAMMPS executable {} failed to launch.".format(executable)
                 )
             self.executable = executable
-            # these split indexes are hardcoded based on standard help output
-            version_str = result.stdout.splitlines()[1].split("-")[2].strip()
-            # then this coerces the version into the LAMMPS integer format
-            self.version = int(
-                datetime.datetime.strptime(version_str, "%d %b %Y").strftime("%Y%m%d")
-            )
+            lines = result.stdout.splitlines()
+            for i, line in enumerate(result.stdout.splitlines()):
+                if i == 1:
+                    # these split indexes are hardcoded based on standard help output
+                    version_str = line.split("-")[2].strip()
+                    # then this coerces the version into the LAMMPS integer format
+                    self.version = int(
+                        datetime.datetime.strptime(version_str, "%d %b %Y").strftime(
+                            "%Y%m%d"
+                        )
+                    )
+                elif line == "Installed packages:":
+                    installed_packages = []
+                    for line_ in lines[i + 2 :]:
+                        if len(line_) == 0:
+                            break
+                        installed_packages += line_.strip().split()
+                    self.packages = tuple(installed_packages)
         else:
             if not _lammps_found:
                 raise ImportError("LAMMPS not found.")
@@ -1298,6 +1312,7 @@ class LAMMPS(simulate.Simulation):
                 ]
             )
             self.version = lmp.version()
+            self.packages = tuple(lmp.installed_packages)
             del lmp
         if self.version < 20210929:
             raise ImportError("Only LAMMPS 29 Sep 2021 or newer is supported.")
@@ -1352,6 +1367,7 @@ class LAMMPS(simulate.Simulation):
             ]
 
         sim["engine"]["version"] = self.version
+        sim["engine"]["packages"] = self.packages
         if self.executable is not None:
             sim["engine"]["use_python"] = False
             sim["engine"]["_lammps"] = [self.executable] + launch_args

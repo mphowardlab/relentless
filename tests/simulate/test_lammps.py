@@ -203,20 +203,10 @@ class test_LAMMPS(unittest.TestCase):
         h = relentless.simulate.LAMMPS(
             init, brn, dimension=self.dim, executable=self.executable
         )
-        try:
+        if "BROWNIAN" not in h.packages:
+            self.skipTest("LAMMPS BROWNIAN package not installed")
+        else:
             h.run(pot, self.directory)
-        except NotImplementedError as e:
-            msg = str(e)
-            if "support Brownian dynamics" in msg:
-                self.skipTest("LAMMPS version does not support Brownian dynamics")
-            else:
-                raise e
-        except Exception as e:
-            msg = str(e)
-            if "brownian" in msg and "not enabled" in msg:
-                self.skipTest("LAMMPS BROWNIAN package not installed")
-            else:
-                raise e
 
         # different friction coefficients
         brn.friction = {"A": 1.5, "B": 2.5}
