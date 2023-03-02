@@ -62,10 +62,14 @@ class InitializationOperation(simulate.InitializationOperation):
         # attach the potentials
         if sim.potentials.pair.start == 0:
             raise ValueError("LAMMPS requires start > 0 for pair potentials")
-        r_table, uf_table = sim.potentials.pair.all_energy_force(
-            sim.types, x=numpy.sqrt(sim.potentials.pair.xsquared), tight=True
+        r, u, f = sim.potentials.pair.pairwise_energy_and_force(
+            sim.types,
+            x=numpy.sqrt(sim.potentials.pair.xsquared),
+            tight=True,
+            minimum_num=2,
         )
-        if len(r_table) == 1:
+        Nr = len(r)
+        if Nr == 1:
             raise ValueError(
                 "LAMMPS requires at least two points in the tabulated potential."
             )
@@ -94,19 +98,17 @@ class InitializationOperation(simulate.InitializationOperation):
                     )
                     fw.write(
                         "N {N} RSQ {rmin} {rmax}\n\n".format(
-                            N=len(r_table),
-                            rmin=r_table[0],
-                            rmax=r_table[-1],
+                            N=Nr,
+                            rmin=r[0],
+                            rmax=r[-1],
                         )
                     )
 
-                    u = uf_table[i, j]["energy"]
-                    f = uf_table[i, j]["force"]
-                    for idx, r in enumerate(r_table):
+                    for idx, (r_, u_, f_) in enumerate(
+                        zip(r, u[i, j], f[i, j]), start=1
+                    ):
                         fw.write(
-                            "{idx} {r} {u} {f}\n".format(
-                                idx=idx + 1, r=r, u=u[idx], f=f[idx]
-                            )
+                            "{idx} {r} {u} {f}\n".format(idx=idx, r=r_, u=u_, f=f_)
                         )
         else:
             file_ = None
@@ -117,16 +119,15 @@ class InitializationOperation(simulate.InitializationOperation):
             "neighbor {skin} multi".format(skin=sim.potentials.pair.neighbor_buffer),
             "neigh_modify delay 0 every 1 check yes",
         ]
-        cmds += ["pair_style table linear {N}".format(N=len(r_table))]
+        cmds += ["pair_style table linear {N}".format(N=Nr)]
 
         for i, j in sim.pairs:
             # get lammps type indexes, lowest type first
             id_i, id_j = pair_map(sim, (i, j))
             cmds += [
-                (
-                    "pair_coeff {id_i} {id_j} {filename}"
-                    " TABLE_{id_i}_{id_j} {cutoff}"
-                ).format(id_i=id_i, id_j=id_j, filename=file_, cutoff=r_table[-1])
+                ("pair_coeff {id_i} {id_j} {filename}" " TABLE_{id_i}_{id_j}").format(
+                    id_i=id_i, id_j=id_j, filename=file_
+                )
             ]
 
         return cmds

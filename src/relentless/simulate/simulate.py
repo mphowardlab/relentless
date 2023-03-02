@@ -455,13 +455,13 @@ class PotentialTabulator:
 
     @property
     def x(self):
-        """array_like: The values of ``x`` at which to evaluate the potential."""
+        """array_like: Linear spacing of values between `start` and `stop`."""
         self.validate()
         return numpy.linspace(self.start, self.stop, self.num, dtype=float)
 
     @property
     def xsquared(self):
-        """array_like: The values of ``x**2`` at which to evaluate the potential."""
+        """array_like: Linear spacing of values between ``start**2` and ``stop**2``."""
         self.validate()
         return numpy.linspace(self.start**2, self.stop**2, self.num, dtype=float)
 
@@ -674,61 +674,99 @@ class PairPotentialTabulator(PotentialTabulator):
         d = super().derivative(pair, var, x) - super().derivative(pair, var, self.stop)
         return d
 
-    def all_energy_force(self, types, x=None, tight=False):
+    def pairwise_energy_and_force(self, types, x=None, tight=False, minimum_num=1):
+        """Compute pairwise matrix of energy and force.
+
+        Parameters
+        ----------
+        types : array_like
+            Types to include in matrix.
+        x : float or array_like
+            Pairwise distances at which to evaluate energy and force. Default
+            of ``None`` will use a linear space from `start` to `stop`.
+        tight : bool
+            If ``True``, trim zeros from the ends of the energies and forces
+            using a combination of cutoffs and evaluated potential. This option
+            can only be used when `x` is an array.
+        minimum_num : int
+            When ``tight`` is ``True`, the minimum number of points to include,
+            even if they could be trimmed.
+
+        Returns
+        -------
+        float or `numpy.ndarray`
+            Pairwise distance.
+        :class:`PairMatrix`
+            Pairwise energies.
+        :class:`PairMatrix`
+            Pairwise forces.
+
+        """
         if x is None:
             x = numpy.copy(self.x)
         else:
+            scalar_x = numpy.isscalar(x)
             x = numpy.atleast_1d(x)
-        if tight and len(x) < 2:
-            raise ValueError("Tight option can only be used if x has two points")
+            if x.ndim != 1:
+                raise TypeError("x can be at most a 1d array")
+        if tight:
+            if scalar_x:
+                raise ValueError("Tight option can only be used if x is an array")
+            elif len(x) < minimum_num:
+                raise ValueError("Fewer coordinates given than required minimum")
 
-        result = collections.PairMatrix(types)
-        stops = collections.PairMatrix(types)
-        for pair in result:
-            result[pair] = {
-                "energy": self.energy(pair, x),
-                "force": self.force(pair, x),
-            }
+        u = collections.PairMatrix(types)
+        f = collections.PairMatrix(types)
+        stop = collections.PairMatrix(types)
+        for pair in u:
+            u[pair] = self.energy(pair, x)
+            f[pair] = self.force(pair, x)
 
             # compute the shrink wrapped rcut if requested
             if tight:
                 all_rmax = [
-                    variable.evaluate(u.coeff[pair]["rmax"]) for u in self.potentials
+                    variable.evaluate(pair_pot.coeff[pair]["rmax"])
+                    for pair_pot in self.potentials
                 ]
                 if len(all_rmax) == 0:
-                    # put first two points in the table if there are no potentials
-                    rcut = x[1]
+                    # there are no potentials, cutoff at minimum number of points
+                    rcut = x[minimum_num - 1]
                 elif None not in all_rmax:
                     # use rmax if set for all potentials
                     rcut = min(max(all_rmax), x[-1])
                 else:
                     # otherwise, deduce safe cutoff from tabulated values
+                    # cutoff at last nonzero r, adding 1 to make sure we include
+                    # the last point if potential happens to go smoothly to zero
                     nonzero_r = numpy.flatnonzero(
                         numpy.logical_and(
-                            ~numpy.isclose(result[pair]["energy"], 0),
-                            ~numpy.isclose(result[pair]["force"], 0),
+                            ~numpy.isclose(u[pair], 0),
+                            ~numpy.isclose(f[pair], 0),
                         )
                     )
-                    # cutoff at last nonzero r (cannot be first r)
-                    # we add 1 to make sure we include the last point if
-                    # potential happens to go smoothly to zero
-                    rcut = x[min(nonzero_r[-1] + 1, len(x) - 1)]
+                    if len(nonzero_r) != 0:
+                        rcut = x[min(nonzero_r[-1] + 1, len(x) - 1)]
+                    else:
+                        rcut = x[minimum_num - 1]
             else:
                 rcut = x[-1]
 
-            stops[pair] = rcut
+            stop[pair] = rcut
 
         # shrink wrap all of the data once largest stop is known
         if tight:
-            max_stop = max(stops[pair] for pair in result)
+            max_stop = max(stop.values())
             flags = x <= max_stop
-            # make sure we get a second point, even if table is sparsely discretized
-            if numpy.sum(flags) == 1:
-                flags[1] = True
+            flags[:minimum_num] = True
 
-            for pair in result:
-                result[pair]["energy"] = result[pair]["energy"][flags]
-                result[pair]["force"] = result[pair]["force"][flags]
             x = x[flags]
+            for pair in u:
+                u[pair] = u[pair][flags]
+                f[pair] = f[pair][flags]
+        elif scalar_x:
+            x = x.item()
+            for pair in u:
+                u[pair] = u[pair].item()
+                f[pair] = f[pair].item()
 
-        return x, result
+        return x, u, f

@@ -313,7 +313,7 @@ class test_LAMMPS(unittest.TestCase):
         else:
             V = relentless.model.Square(100.0)
         init = relentless.simulate.InitializeRandomly(
-            seed=1, N={"1": 10000}, V=V, T=2.0
+            seed=1, N={"1": 20000}, V=V, T=2.0
         )
         logger = relentless.simulate.Record(quantities=["temperature"], every=100)
         brn = relentless.simulate.RunLangevinDynamics(
