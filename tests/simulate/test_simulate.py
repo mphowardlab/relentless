@@ -53,7 +53,7 @@ class test_PotentialTabulator(unittest.TestCase):
 
         # test creation with no potential
         t = relentless.simulate.PotentialTabulator(start=0.0, stop=1.5, num=4)
-        numpy.testing.assert_allclose(t.x, xs)
+        numpy.testing.assert_allclose(t.linear_space, xs)
         self.assertAlmostEqual(t.start, 0.0)
         self.assertAlmostEqual(t.stop, 1.5)
         self.assertEqual(t.num, 4)
@@ -63,7 +63,7 @@ class test_PotentialTabulator(unittest.TestCase):
         t = relentless.simulate.PotentialTabulator(
             start=0.0, stop=1.5, num=4, potentials=p1
         )
-        numpy.testing.assert_allclose(t.x, xs)
+        numpy.testing.assert_allclose(t.linear_space, xs)
         self.assertAlmostEqual(t.start, 0.0)
         self.assertAlmostEqual(t.stop, 1.5)
         self.assertEqual(t.num, 4)
@@ -147,7 +147,7 @@ class test_PairPotentialTabulator(unittest.TestCase):
         t = relentless.simulate.PairPotentialTabulator(
             start=0.0, stop=1.5, num=4, neighbor_buffer=0.4
         )
-        numpy.testing.assert_allclose(t.x, rs)
+        numpy.testing.assert_allclose(t.linear_space, rs)
         self.assertAlmostEqual(t.start, 0.0)
         self.assertAlmostEqual(t.stop, 1.5)
         self.assertEqual(t.num, 4)
@@ -158,7 +158,7 @@ class test_PairPotentialTabulator(unittest.TestCase):
         t = relentless.simulate.PairPotentialTabulator(
             start=0.0, stop=1.5, num=4, neighbor_buffer=0.4, fmax=1.5
         )
-        numpy.testing.assert_allclose(t.x, rs)
+        numpy.testing.assert_allclose(t.linear_space, rs)
         self.assertAlmostEqual(t.start, 0.0)
         self.assertAlmostEqual(t.stop, 1.5)
         self.assertEqual(t.num, 4)

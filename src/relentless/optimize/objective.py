@@ -397,7 +397,7 @@ class RelativeEntropy(ObjectiveFunction):
         for var in dvars:
             update = 0
             for i, j in self.target.pairs:
-                rs = self.potentials.pair.x
+                rs = self.potentials.pair.linear_space
                 us = self.potentials.pair.energy((i, j))
                 dus = self.potentials.pair.derivative((i, j), var)
 

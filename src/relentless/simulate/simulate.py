@@ -454,16 +454,18 @@ class PotentialTabulator:
             raise ValueError("Range must be increasing")
 
     @property
-    def x(self):
-        """array_like: Linear spacing of values between `start` and `stop`."""
+    def linear_space(self):
+        """array_like: x values spaced linearly from `start` to `stop`."""
         self.validate()
         return numpy.linspace(self.start, self.stop, self.num, dtype=float)
 
     @property
-    def xsquared(self):
-        """array_like: Linear spacing of values between ``start**2` and ``stop**2``."""
+    def squared_space(self):
+        """array_like: x values spaced linearly from ``start**2` to ``stop**2``."""
         self.validate()
-        return numpy.linspace(self.start**2, self.stop**2, self.num, dtype=float)
+        return numpy.sqrt(
+            numpy.linspace(self.start**2, self.stop**2, self.num, dtype=float)
+        )
 
     def energy(self, key, x=None):
         """Evaluates and accumulates energy for all potentials.
@@ -483,7 +485,7 @@ class PotentialTabulator:
 
         """
         if x is None:
-            x = self.x
+            x = self.linear_space
         u = numpy.zeros_like(x, dtype=float)
         for pot in self.potentials:
             try:
@@ -510,7 +512,7 @@ class PotentialTabulator:
 
         """
         if x is None:
-            x = self.x
+            x = self.linear_space
         f = numpy.zeros_like(x, dtype=float)
         for pot in self.potentials:
             try:
@@ -539,7 +541,7 @@ class PotentialTabulator:
 
         """
         if x is None:
-            x = self.x
+            x = self.linear_space
         d = numpy.zeros_like(x, dtype=float)
         for pot in self.potentials:
             try:
@@ -674,7 +676,7 @@ class PairPotentialTabulator(PotentialTabulator):
         d = super().derivative(pair, var, x) - super().derivative(pair, var, self.stop)
         return d
 
-    def pairwise_energy_and_force(self, types, x=None, tight=False, minimum_num=1):
+    def pairwise_energy_and_force(self, types, x=None, tight=False, minimum_num=2):
         """Compute pairwise matrix of energy and force.
 
         Parameters
@@ -703,12 +705,12 @@ class PairPotentialTabulator(PotentialTabulator):
 
         """
         if x is None:
-            x = numpy.copy(self.x)
+            x = numpy.copy(self.linear_space)
         else:
-            scalar_x = numpy.isscalar(x)
             x = numpy.atleast_1d(x)
             if x.ndim != 1:
                 raise TypeError("x can be at most a 1d array")
+        scalar_x = numpy.isscalar(x)
         if tight:
             if scalar_x:
                 raise ValueError("Tight option can only be used if x is an array")
@@ -737,7 +739,7 @@ class PairPotentialTabulator(PotentialTabulator):
                 else:
                     # otherwise, deduce safe cutoff from tabulated values
                     # cutoff at last nonzero r, adding 1 to make sure we include
-                    # the last point if potential happens to go smoothly to zero
+                    # the last point to go smoothly to zero
                     nonzero_r = numpy.flatnonzero(
                         numpy.logical_and(
                             ~numpy.isclose(u[pair], 0),

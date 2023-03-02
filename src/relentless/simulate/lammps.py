@@ -63,16 +63,10 @@ class InitializationOperation(simulate.InitializationOperation):
         if sim.potentials.pair.start == 0:
             raise ValueError("LAMMPS requires start > 0 for pair potentials")
         r, u, f = sim.potentials.pair.pairwise_energy_and_force(
-            sim.types,
-            x=numpy.sqrt(sim.potentials.pair.xsquared),
-            tight=True,
-            minimum_num=2,
+            sim.types, x=sim.potentials.pair.squared_space, tight=True, minimum_num=2
         )
         Nr = len(r)
-        if Nr == 1:
-            raise ValueError(
-                "LAMMPS requires at least two points in the tabulated potential."
-            )
+        sim[self]["_potentials_rmax"] = r[-1]
 
         def pair_map(sim, pair):
             # Map lammps type indexes as a pair, lowest type first
@@ -90,6 +84,13 @@ class InitializationOperation(simulate.InitializationOperation):
             with open(file_, "w") as fw:
                 fw.write("# LAMMPS tabulated pair potentials\n")
                 for i, j in sim.pairs:
+                    if numpy.any(numpy.isinf(u[i, j])) or numpy.any(
+                        numpy.isinf(f[i, j])
+                    ):
+                        raise ValueError(
+                            "Pair potential/force is infinite at evaluated r"
+                        )
+
                     id_i, id_j = pair_map(sim, (i, j))
                     fw.write(
                         ("# pair ({i},{j})\n" "\n" "TABLE_{id_i}_{id_j}\n").format(
@@ -951,8 +952,10 @@ class EnsembleAverage(AnalysisOperation):
         ]
 
         # pair distribution function
-        rmax = sim.potentials.pair.x[-1]
+        rmax = sim[sim.initializer]["_potentials_rmax"]
         num_bins = numpy.round(rmax / self.rdf_dr).astype(int)
+        if num_bins == 1:
+            raise ValueError("Only 1 RDF bin, increase the discretization")
         sim[self]["_rdf_file"] = file_["rdf"]
         sim[self]["_rdf_pairs"] = tuple(sim.pairs)
         # string format lammps arguments based on pairs
