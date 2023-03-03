@@ -246,11 +246,12 @@ class test_InitializeRandomly(unittest.TestCase):
         self.tol = 1.0e-8
 
     def test_packing_one_type(self):
-        if self.dim == 3:
-            N = {"A": 150}
-        else:
-            N = {"A": 50}
+        packing_fraction = {"A": 0.4}
         d = {"A": 1.2}
+        N = {
+            t: int(6 * phi * self.V.extent / (numpy.pi * d[t] ** 3))
+            for t, phi in packing_fraction.items()
+        }
         rs, types = relentless.simulate.InitializeRandomly._pack_particles(
             42, N, self.V, d
         )
@@ -263,14 +264,20 @@ class test_InitializeRandomly(unittest.TestCase):
 
         for i, r in enumerate(rs):
             dr = numpy.linalg.norm(rs[i + 1 :] - r, axis=1)
-            self.assertTrue(numpy.all(dr > d["A"] - self.tol))
+            overlaps = dr < d["A"] - self.tol
+            has_overlaps = numpy.any(overlaps)
+            if has_overlaps:
+                print(dr[overlaps])
+            self.assertFalse(has_overlaps)
 
     def test_packing_two_types(self):
-        if self.dim == 3:
-            N = {"A": 100, "B": 25}
-        else:
-            N = {"A": 20, "B": 5}
-        d = {"A": 1.0, "B": relentless.model.IndependentVariable(3.0)}
+        packing_fraction = {"A": 0.2, "B": 0.2}
+        d = {"A": 1.0, "B": 3.0}
+        N = {
+            t: int(6 * phi * self.V.extent / (numpy.pi * d[t] ** 3))
+            for t, phi in packing_fraction.items()
+        }
+        d["B"] = relentless.model.IndependentVariable(d["B"])
         rs, types = relentless.simulate.InitializeRandomly._pack_particles(
             42, N, self.V, d
         )
@@ -287,18 +294,28 @@ class test_InitializeRandomly(unittest.TestCase):
         rBs = rs[~mask]
         for i, rB in enumerate(rBs):
             dr = numpy.linalg.norm(rBs[i + 1 :] - rB, axis=1)
-            self.assertTrue(numpy.all(dr > d["B"].value - self.tol))
+            overlaps = dr < d["B"].value - self.tol
+            has_overlaps = numpy.any(overlaps)
+            if has_overlaps:
+                print(dr[overlaps])
+            self.assertFalse(has_overlaps)
 
         for i, rA in enumerate(rAs):
             dr = numpy.linalg.norm(rAs[i + 1 :] - rA, axis=1)
-            self.assertTrue(numpy.all(dr > d["A"] - self.tol))
+            overlaps = dr < d["A"] - self.tol
+            has_overlaps = numpy.any(overlaps)
+            if has_overlaps:
+                print(dr[overlaps])
+            self.assertFalse(has_overlaps)
 
         for i, rA in enumerate(rAs):
             dr = numpy.linalg.norm(rBs - rA, axis=1)
             dAB = 0.5 * (d["A"] + d["B"].value)
-            if numpy.any(dr < dAB):
-                print(dr[dr < dAB])
-            self.assertTrue(numpy.all(dr > dAB - self.tol))
+            overlaps = dr < dAB - self.tol
+            has_overlaps = numpy.any(overlaps)
+            if has_overlaps:
+                print(dr[overlaps])
+            self.assertFalse(has_overlaps)
 
 
 if __name__ == "__main__":

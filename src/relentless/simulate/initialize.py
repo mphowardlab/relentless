@@ -91,19 +91,21 @@ class InitializeRandomly(simulate.DelegatedInitializationOperation):
         box_array = V.as_array()
         if isinstance(V, extent.TriclinicBox):
             aabb = box_array[:3]
+            is_skew = not numpy.allclose(box_array[3:], 0)
         elif isinstance(V, extent.ObliqueArea):
             aabb = box_array[:2]
+            is_skew = not numpy.allclose(box_array[2:], 0)
         else:
             raise TypeError(
                 "Random initialization currently only supported in"
                 " triclinic/oblique extents"
             )
-        return aabb
+        return aabb, is_skew
 
     @staticmethod
     def _random_particles(seed, N, V):
         rng = numpy.random.default_rng(seed)
-        aabb = InitializeRandomly._make_orthorhombic(V)
+        aabb, _ = InitializeRandomly._make_orthorhombic(V)
 
         positions = aabb * rng.uniform(size=(sum(N.values()), len(aabb)))
         positions = V.wrap(positions)
@@ -117,8 +119,8 @@ class InitializeRandomly(simulate.DelegatedInitializationOperation):
     @staticmethod
     def _pack_particles(seed, N, V, diameters):
         rng = numpy.random.default_rng(seed)
-        aabb = InitializeRandomly._make_orthorhombic(V)
-        dimension = len(aabb)
+        ortho_box, is_skew = InitializeRandomly._make_orthorhombic(V)
+        dimension = len(ortho_box)
         positions = numpy.zeros((sum(N.values()), dimension), dtype=numpy.float64)
         types = []
         trees = {}
@@ -150,6 +152,12 @@ class InitializeRandomly(simulate.DelegatedInitializationOperation):
             # such that no particle can cross the outside of the aabb. then, it loops
             # through all the cells and puts the particles in place. everything is based
             # on fractional coordinates, so it gets scaled by the lattice.
+            if is_skew:
+                aabb = ortho_box - di
+                shift = 0.5 * di
+            else:
+                aabb = ortho_box
+                shift = 0.0
             num_lattice = numpy.floor(aabb / lattice).astype(int)
             sites = numpy.zeros(
                 (numpy.prod(num_lattice) * cell_coord.shape[0], dimension),
@@ -163,7 +171,7 @@ class InitializeRandomly(simulate.DelegatedInitializationOperation):
                     cell_origin + cell_coord
                 )
                 first += cell_coord.shape[0]
-            sites += 0.5 * di
+            sites += shift
 
             # eliminate overlaps using kd-tree collision detection
             if len(trees) > 0:
@@ -182,7 +190,9 @@ class InitializeRandomly(simulate.DelegatedInitializationOperation):
             ri = sites[rng.choice(sites.shape[0], Ni, replace=False)]
             # also make tree from positions if we have more than 1 type, using pbcs
             if len(N) > 1:
-                trees[i] = scipy.spatial.KDTree(ri)
+                trees[i] = scipy.spatial.KDTree(
+                    ri, boxsize=aabb if not is_skew else None
+                )
             positions[Nadded : Nadded + Ni] = ri
             types += [i] * Ni
             Nadded += Ni
