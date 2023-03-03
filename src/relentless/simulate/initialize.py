@@ -152,7 +152,7 @@ class InitializeRandomly(simulate.DelegatedInitializationOperation):
             # such that no particle can cross the outside of the aabb. then, it loops
             # through all the cells and puts the particles in place. everything is based
             # on fractional coordinates, so it gets scaled by the lattice.
-            if is_skew:
+            if is_skew and len(N) > 1:
                 aabb = ortho_box - di
                 shift = 0.5 * di
             else:
