@@ -529,7 +529,7 @@ class _Integrator(SimulationOperation):
 
 
 class RunBrownianDynamics(_Integrator):
-    """Perform a Langevin dynamics simulation.
+    """Perform a Brownian dynamics simulation.
 
     See :class:`relentless.simulate.RunBrownianDynamics` for details.
 
