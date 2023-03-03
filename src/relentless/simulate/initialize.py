@@ -150,7 +150,7 @@ class InitializeRandomly(simulate.DelegatedInitializationOperation):
             # such that no particle can cross the outside of the aabb. then, it loops
             # through all the cells and puts the particles in place. everything is based
             # on fractional coordinates, so it gets scaled by the lattice.
-            num_lattice = numpy.floor((aabb - di) / lattice).astype(int)
+            num_lattice = numpy.floor(aabb / lattice).astype(int)
             sites = numpy.zeros(
                 (numpy.prod(num_lattice) * cell_coord.shape[0], dimension),
                 dtype=numpy.float64,
