@@ -528,6 +528,95 @@ class _Integrator(SimulationOperation):
             return (thermostat.T, thermostat.T)
 
 
+class RunBrownianDynamics(_Integrator):
+    """Perform a Brownian dynamics simulation.
+
+    See :class:`relentless.simulate.RunBrownianDynamics` for details.
+
+    Parameters
+    ----------
+    steps : int
+        Number of simulation time steps.
+    timestep : float
+        Simulation time step.
+    T : float
+        Temperature.
+    friction : float or dict
+        Sets drag coefficient for each particle type (shared or per-type).
+    seed : int
+        Seed used to randomly generate a uniform force.
+    analyzers : :class:`~relentless.simulate.AnalysisOperation` or list
+        Analysis operations to perform with run (defaults to ``None``).
+
+    """
+
+    def __init__(self, steps, timestep, T, friction, seed, analyzers):
+        super().__init__(steps, timestep, analyzers)
+        self.T = T
+        self.friction = friction
+        self.seed = seed
+
+    def call_commands(self, sim):
+        if "BROWNIAN" not in sim["engine"]["packages"]:
+            raise NotImplementedError("LAMMPS BROWNIAN package is not installed.")
+        elif sim["engine"]["version"] < 20220623:
+            raise NotImplementedError(
+                "LAMMPS versions prior to 23Jun2022 stable release do not"
+                " properly support Brownian dynamics."
+            )
+
+        T = self._make_T(self.T)
+        if T[0] != T[1]:
+            raise NotImplementedError(
+                "Brownian dynamics cannot do temperature annealing in LAMMPS."
+            )
+
+        try:
+            len(self.friction)
+            same_friction = False
+        except TypeError:
+            same_friction = True
+
+        fix_ids = []
+        group_ids = []
+        cmd_template = "fix {fixid} {groupid} brownian {T} {seed} gamma_t {friction}"
+
+        cmds = ["timestep {}".format(self.timestep)]
+        if same_friction:
+            fixid = self.new_fix_id()
+            cmds.append(
+                cmd_template.format(
+                    fixid=fixid,
+                    groupid="all",
+                    T=T[0],
+                    seed=self.seed,
+                    friction=self.friction,
+                )
+            )
+            fix_ids.append(fixid)
+        else:
+            for i, t in enumerate(sim.types):
+                typeidx = sim["engine"]["types"][t]
+                groupid = self.new_group_id()
+                fixid = self.new_fix_id()
+                cmds += [
+                    f"group {groupid} type {typeidx}",
+                    cmd_template.format(
+                        fixid=fixid,
+                        groupid=groupid,
+                        T=T[0],
+                        seed=self.seed + i,
+                        friction=self.friction[t],
+                    ),
+                ]
+                fix_ids.append(fixid)
+                group_ids.append(groupid)
+        cmds += self._run_commands(sim)
+        cmds += ["unfix {}".format(idx) for idx in fix_ids]
+        cmds += ["ungroup {}".format(idx) for idx in group_ids]
+        return cmds
+
+
 class RunLangevinDynamics(_Integrator):
     """Perform a Langevin dynamics simulation.
 
@@ -1188,12 +1277,24 @@ class LAMMPS(simulate.Simulation):
                     "LAMMPS executable {} failed to launch.".format(executable)
                 )
             self.executable = executable
-            # these split indexes are hardcoded based on standard help output
-            version_str = result.stdout.splitlines()[1].split("-")[2].strip()
-            # then this coerces the version into the LAMMPS integer format
-            self.version = int(
-                datetime.datetime.strptime(version_str, "%d %b %Y").strftime("%Y%m%d")
-            )
+            lines = result.stdout.splitlines()
+            for i, line in enumerate(result.stdout.splitlines()):
+                if i == 1:
+                    # these split indexes are hardcoded based on standard help output
+                    version_str = line.split("-")[2].strip()
+                    # then this coerces the version into the LAMMPS integer format
+                    self.version = int(
+                        datetime.datetime.strptime(version_str, "%d %b %Y").strftime(
+                            "%Y%m%d"
+                        )
+                    )
+                elif line == "Installed packages:":
+                    installed_packages = []
+                    for line_ in lines[i + 2 :]:
+                        if len(line_) == 0:
+                            break
+                        installed_packages += line_.strip().split()
+                    self.packages = tuple(installed_packages)
         else:
             if not _lammps_found:
                 raise ImportError("LAMMPS not found.")
@@ -1211,6 +1312,7 @@ class LAMMPS(simulate.Simulation):
                 ]
             )
             self.version = lmp.version()
+            self.packages = tuple(lmp.installed_packages)
             del lmp
         if self.version < 20210929:
             raise ImportError("Only LAMMPS 29 Sep 2021 or newer is supported.")
@@ -1265,6 +1367,7 @@ class LAMMPS(simulate.Simulation):
             ]
 
         sim["engine"]["version"] = self.version
+        sim["engine"]["packages"] = self.packages
         if self.executable is not None:
             sim["engine"]["use_python"] = False
             sim["engine"]["_lammps"] = [self.executable] + launch_args
@@ -1284,6 +1387,7 @@ class LAMMPS(simulate.Simulation):
 
     # md
     _MinimizeEnergy = MinimizeEnergy
+    _RunBrownianDynamics = RunBrownianDynamics
     _RunLangevinDynamics = RunLangevinDynamics
     _RunMolecularDynamics = RunMolecularDynamics
 

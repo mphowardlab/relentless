@@ -22,8 +22,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ['3.8', '3.9', '3.10', '3.11']
-        mpi: ['nompi', 'mpich', 'openmpi']
+        python-version: ["3.8", "3.9", "3.10", "3.11"]
+        mpi: ["nompi", "mpich", "openmpi"]
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -44,7 +44,7 @@ jobs:
           pip install .
       - name: Test
         run: |
-          python -m unittest discover -v -s ./tests -p 'test_*.py'
+          python -m unittest discover -v -s ./tests -p "test_*.py"
       - name: Install mpi4py
         if: ${{ matrix.mpi != 'nompi' }}
         run: |
@@ -52,7 +52,7 @@ jobs:
       - name: Test MPI [${{ matrix.mpi }}]
         if: ${{ matrix.mpi != 'nompi' }}
         run: |
-          mpiexec -n 2 python -m unittest discover -v -s ./tests -p 'test_*.py'
+          mpiexec -n 2 python -m unittest discover -v -s ./tests -p "test_*.py"
 
   test-hoomd:
     name: unit test [python-${{ matrix.python-version }}, hoomd-${{ matrix.hoomd-version }}]
@@ -64,11 +64,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ['3.8', '3.9', '3.10', '3.11']
-        hoomd-version: ['2.9.7', '3.9.0']
+        python-version: ["3.8", "3.9", "3.10", "3.11"]
+        hoomd-version: ["2.9.7", "3.9.0"]
         exclude:
-          - python-version: '3.11'
-            hoomd-version: '2.9.7'
+          - python-version: "3.11"
+            hoomd-version: "2.9.7"
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -101,9 +101,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ['3.8', '3.9', '3.10']
-        lammps-version: ['2021.09.29', '2022.06.23']
-        mpi: ['mpich', 'openmpi']
+        python-version: ["3.8", "3.9", "3.10", "3.11"]
+        lammps-version: ["2021.09.29", "2022.06.23"]
+        mpi: ["mpich", "openmpi"]
+        exclude:
+          - python-version: "3.11"
+            lammps-version: "2021.09.29"
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
