@@ -680,7 +680,7 @@ class test_VariableGraph(unittest.TestCase):
         g = relentless.model.variable.graph
         self.assertEqual(len(g.variables), 0)
         self.assertEqual(len(g.independent_variables), 0)
-        self.assertEqual(len(g.constant_variables), 0)
+        self.assertEqual(len(g.constants), 0)
         self.assertEqual(len(g.dependent_variables), 0)
 
     def test_add_variable(self):
@@ -688,7 +688,7 @@ class test_VariableGraph(unittest.TestCase):
         x = relentless.model.IndependentVariable(2.0)
         self.assertEqual(len(g.variables), 1)
         self.assertEqual(len(g.independent_variables), 1)
-        self.assertEqual(len(g.constant_variables), 0)
+        self.assertEqual(len(g.constants), 0)
         self.assertEqual(len(g.dependent_variables), 0)
         self.assertIn(x, g.variables)
 
@@ -697,43 +697,43 @@ class test_VariableGraph(unittest.TestCase):
         x = relentless.model.IndependentVariable(1.0)
         self.assertEqual(len(g.variables), 1)
         self.assertEqual(len(g.independent_variables), 1)
-        self.assertEqual(len(g.constant_variables), 0)
+        self.assertEqual(len(g.constants), 0)
         self.assertEqual(len(g.dependent_variables), 0)
         self.assertIn(x, g.variables)
         self.assertIn(x, g.independent_variables)
 
     def test_add_constant(self):
         g = relentless.model.variable.graph
-        x = relentless.model.ConstantVariable(1.0)
+        x = relentless.model.Constant(1.0)
         self.assertEqual(len(g.variables), 1)
         self.assertEqual(len(g.independent_variables), 0)
-        self.assertEqual(len(g.constant_variables), 1)
+        self.assertEqual(len(g.constants), 1)
         self.assertEqual(len(g.dependent_variables), 0)
         self.assertIn(x, g.variables)
-        self.assertIn(x, g.constant_variables)
+        self.assertIn(x, g.constants)
 
         # add another constant with same value, will increase count since auto
         g.add(1.0)
         self.assertEqual(len(g.variables), 2)
         self.assertEqual(len(g.independent_variables), 0)
-        self.assertEqual(len(g.constant_variables), 2)
+        self.assertEqual(len(g.constants), 2)
         self.assertEqual(len(g.dependent_variables), 0)
-        self.assertIn(1.0, [x.value for x in g.constant_variables])
+        self.assertIn(1.0, [x.value for x in g.constants])
 
         # add constant again, will not increase count
         g.add(1.0)
         self.assertEqual(len(g.variables), 2)
         self.assertEqual(len(g.independent_variables), 0)
-        self.assertEqual(len(g.constant_variables), 2)
+        self.assertEqual(len(g.constants), 2)
         self.assertEqual(len(g.dependent_variables), 0)
 
         # add another constant with different value
         g.add(2)
         self.assertEqual(len(g.variables), 3)
         self.assertEqual(len(g.independent_variables), 0)
-        self.assertEqual(len(g.constant_variables), 3)
+        self.assertEqual(len(g.constants), 3)
         self.assertEqual(len(g.dependent_variables), 0)
-        self.assertIn(2, [x.value for x in g.constant_variables])
+        self.assertIn(2, [x.value for x in g.constants])
 
     def test_dependent_variable(self):
         g = relentless.model.variable.graph
@@ -742,7 +742,7 @@ class test_VariableGraph(unittest.TestCase):
 
         self.assertEqual(len(g.variables), 3)
         self.assertEqual(len(g.independent_variables), 1)
-        self.assertEqual(len(g.constant_variables), 1)
+        self.assertEqual(len(g.constants), 1)
         self.assertEqual(len(g.dependent_variables), 1)
         self.assertIn(y, g.variables)
         self.assertIn(y, g.dependent_variables)

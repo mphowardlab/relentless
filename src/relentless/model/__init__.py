@@ -68,7 +68,7 @@ Variables
     :toctree: generated/
 
     Variable
-    ConstantVariable
+    Constant
     variable.VariableGraph
 
 """
@@ -87,7 +87,7 @@ from .extent import (
 )
 from .variable import (
     ArithmeticMean,
-    ConstantVariable,
+    Constant,
     DependentVariable,
     GeometricMean,
     IndependentVariable,

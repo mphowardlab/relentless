@@ -130,8 +130,8 @@ class Variable(abc.ABC):
         return str(self.value)
 
 
-class ConstantVariable(Variable):
-    """Constant-value variable.
+class Constant(Variable):
+    """Constant value.
 
     The value of a constant-value variable cannot be changed after it is
     initialized. This distinguishes it from the :class:`IndependentVariable`.
@@ -1026,14 +1026,14 @@ class VariableGraph:
         return tuple(self._graph.nodes)
 
     @property
+    def constants(self):
+        """tuple: All constant variables in the graph."""
+        return tuple(x for x in self._graph.nodes if isinstance(x, Constant))
+
+    @property
     def independent_variables(self):
         """tuple: All design variables in the graph."""
         return tuple(x for x in self._graph.nodes if isinstance(x, IndependentVariable))
-
-    @property
-    def constant_variables(self):
-        """tuple: All constant variables in the graph."""
-        return tuple(x for x in self._graph.nodes if isinstance(x, ConstantVariable))
 
     @property
     def dependent_variables(self):
@@ -1122,7 +1122,7 @@ class VariableGraph:
             if x in self._constants:
                 x_ = self._constants[x]
             else:
-                x_ = ConstantVariable(x)
+                x_ = Constant(x)
                 # cache auto-created constants to reduce number of variables
                 self._constants[x] = x_
         else:
