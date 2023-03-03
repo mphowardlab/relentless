@@ -51,7 +51,7 @@ class test_ObjectiveFunction(unittest.TestCase):
 
     def test_compute(self):
         """Test compute method"""
-        x = relentless.model.DesignVariable(value=4.0)
+        x = relentless.model.IndependentVariable(value=4.0)
         q = QuadraticObjective(x=x)
 
         res = q.compute(x)
@@ -69,7 +69,7 @@ class test_ObjectiveFunction(unittest.TestCase):
             res.gradient[relentless.model.variable.SameAs(x)]
 
     def test_directory(self):
-        x = relentless.model.DesignVariable(value=1.0)
+        x = relentless.model.IndependentVariable(value=1.0)
         q = QuadraticObjective(x=x)
         d = self.directory
         q.compute(x, d)
@@ -99,8 +99,8 @@ class test_RelativeEntropy(unittest.TestCase):
         self.directory = relentless.data.Directory(directory)
 
         lj = relentless.model.potential.LennardJones(types=("1",))
-        self.epsilon = relentless.model.DesignVariable(value=1.0)
-        self.sigma = relentless.model.DesignVariable(value=0.9)
+        self.epsilon = relentless.model.IndependentVariable(value=1.0)
+        self.sigma = relentless.model.IndependentVariable(value=0.9)
         lj.coeff["1", "1"].update(
             {"epsilon": self.epsilon, "sigma": self.sigma, "rmax": 2.7}
         )

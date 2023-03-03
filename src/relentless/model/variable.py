@@ -5,80 +5,12 @@ Variables
 A :class:`Variable` represents a single scalar quantity of interest. We can
 distinguish between two types of variables: an :class:`IndependentVariable`, which
 does not depend on other variables, and a :class:`DependentVariable`, which does.
-Typically, the :class:`IndependentVariable` is a quantity that will be held
-constant or adjusted, while a :class:`DependentVariable` is a function of other
+Typically, the :class:`IndependentVariable` is a quantity that will be
+adjusted, while a :class:`DependentVariable` is a function of other
 these values.
-
-The :class:`DesignVariable` is a very useful :class:`IndependentVariable` for
-doing design (optimization), as it allows you to specify a value, its bounds,
-and whether it is adjustable. Other classes within :mod:`relentless` that
-accept variables as values will often automatically detect the adjustable
-:class:`DesignVariable` values for use in design problems, ignoring the other
-variables as adjustable.
-
-The following independent and dependent variables have been implemented:
-
-.. autosummary::
-    :nosignatures:
-
-    DesignVariable
-    SameAs
-    Negation
-    Sum
-    Difference
-    Product
-    Quotient
-    Power
-    ArithmeticMean
-    GeometricMean
-
-.. rubric:: Developer notes
-
-To implement your own variables, create a class that derives from one of the
-following classes (typically :class:`DependentVariable`, :class:`UnaryOperator`,
-or :class:`BinaryOperator`) and define the required properties and methods.
-
-.. autosummary::
-    :nosignatures:
-
-    Variable
-    IndependentVariable
-    ConstantVariable
-    DependentVariable
-    UnaryOperator
-    BinaryOperator
-
-.. autoclass:: DesignVariable
-    :members:
-.. autoclass:: SameAs
-.. autoclass:: Negation
-.. autoclass:: Sum
-.. autoclass:: Difference
-.. autoclass:: Product
-.. autoclass:: Quotient
-.. autoclass:: Power
-.. autoclass:: ArithmeticMean
-.. autoclass:: GeometricMean
-
-.. autoclass:: Variable
-    :members:
-.. autoclass:: IndependentVariable
-    :members:
-.. autoclass:: ConstantVariable
-    :members:
-.. autoclass:: DependentVariable
-    :members:
-    :private-members: compute, compute_derivative
-.. autoclass:: UnaryOperator
-    :members:
-.. autoclass:: BinaryOperator
-    :members:
-.. autoclass:: VariableGraph
-    :members:
 
 """
 import abc
-from enum import Enum
 
 import networkx
 import numpy
@@ -252,10 +184,22 @@ class ConstantVariable(Variable):
 class IndependentVariable(Variable):
     """Independent quantity.
 
+    An independent variable is a quantity that is meant to be adjusted, e.g., by
+    optimization. Optional box constraints (lower and upper bounds) can be
+    specified for the variable. When set, these bounds will be respected and
+    an internal state will track whether the requested quantity was within or
+    outside these bounds. This is useful for performing constrained
+    optimization and for ensuring physical quantities have meaningful values
+    (e.g., lengths should be positive).
+
     Parameters
     ----------
     value : float
         Value of the variable.
+    low : float or None
+        Lower bound for the variable (``None`` means no lower bound).
+    high : float or None
+        Upper bound for the variable (``None`` means no upper bound).
     name : str
         Optional name for the variable. The name must be unique. If one is not
         specified, a mangled name ``__x[id]`` will be automatically created,
@@ -290,24 +234,40 @@ class IndependentVariable(Variable):
         >>> print(x)
         0.5
 
-    Raises
-    ------
-    TypeError
-        If ``value`` is not a `float` or `int`
-    ValueError
-        If ``name`` is already used.
+    A variable with a lower bound::
+
+        >>> v = relentless.variable.IndependentVariable(value=1.0, low=0.0)
+        >>> v.value
+        1.0
+        >>> v.atlow()
+        False
+
+    Bounds are respected and noted when setting values::
+
+        >>> v.value = -1.0
+        >>> v.value
+        0.0
+        >>> v.atlow()
+        True
 
     """
 
-    def __init__(self, value, name=None):
+    def __init__(self, value, low=None, high=None, name=None):
         if not isinstance(value, (float, int)):
             raise TypeError("Independent variables are only float or int")
         super().__init__(name=name)
-        self._value = value
+
+        # initialize to default of None, then use setters
+        self._low = None
+        self._high = None
+        self.low = low
+        self.high = high
+
+        self.value = value
 
     @property
     def value(self):
-        return self._value
+        return self._clamp(self._value)
 
     @value.setter
     def value(self, value):
@@ -315,6 +275,86 @@ class IndependentVariable(Variable):
             raise TypeError("Independent variables are only float or int")
         self._value = value
         graph.update(self)
+
+    def _clamp(self, value):
+        """Clamp value within the bounds of the variable.
+
+        Parameters
+        ----------
+        value : float
+            Value to clamp.
+
+        Returns
+        -------
+        v : float
+            Constrained value.
+
+        """
+        if self.low is not None and value <= self.low:
+            v = self.low
+        elif self.high is not None and value >= self.high:
+            v = self.high
+        else:
+            v = value
+        return v
+
+    @property
+    def low(self):
+        """float: Lower bound on value."""
+        return self._low
+
+    @low.setter
+    def low(self, low):
+        if low is not None:
+            if not isinstance(low, (float, int)):
+                raise TypeError("Low bound must be a float or int")
+            elif self._high is not None and low >= self._high:
+                raise ValueError("The low bound must be less than the high bound")
+
+        self._low = low
+
+    @property
+    def high(self):
+        """float: Upper bound on value."""
+        return self._high
+
+    @high.setter
+    def high(self, high):
+        if high is not None:
+            if not isinstance(high, (float, int)):
+                raise TypeError("High bound must be a float or int")
+            elif self._low is not None and high <= self._low:
+                raise ValueError("The high bound must be greater than the low bound")
+
+        self._high = high
+
+    def at_low(self):
+        """Check if variable is constrained at the lower bound.
+
+        Returns
+        -------
+        bool
+            True if the variable is constrained at the lower bound.
+
+        """
+        if self._low is not None:
+            return self._value <= self._low
+        else:
+            return False
+
+    def at_high(self):
+        """Check if variable is constrained at the upper bound.
+
+        Returns
+        -------
+        bool
+            True if the variable is constrained at the lower bound.
+
+        """
+        if self._high is not None:
+            return self._value >= self._high
+        else:
+            return False
 
     def __iadd__(self, val):
         """In-place addition of a variable with a scalar."""
@@ -353,203 +393,8 @@ class IndependentVariable(Variable):
         return self
 
 
-class DesignVariable(IndependentVariable):
-    """Constrained independent variable.
-
-    A design variable is a quantity that is meant to be adjusted, e.g., by
-    optimization. Optional box constraints (lower and upper bounds) can be
-    specified for the variable. When set, these bounds will be respected and
-    an internal state will track whether the requested quantity was within or
-    outside these bounds. This is useful for performing constrained
-    optimization and for ensuring physical quantities have meaningful values
-    (e.g., lengths should be positive).
-
-    Parameters
-    ----------
-    value : float
-        Value of the variable.
-    name : str
-        Optional name for the variable. The name must be unique. If one is not
-        specified, a mangled name ``__x[id]`` will be automatically created,
-        where :attr:`id` is the unique index identifying the variable.
-    low : float or None
-        Lower bound for the variable (``None`` means no lower bound).
-    high : float or None
-        Upper bound for the variable (``None`` means no upper bound).
-
-    Examples
-    --------
-    A variable with a lower bound::
-
-        >>> v = relentless.variable.DesignVariable(value=1.0, low=0.0)
-        >>> v.value
-        1.0
-        >>> v.isfree()
-        True
-        >>> v.atlow()
-        False
-
-    Bounds are respected and noted when setting values::
-
-        >>> v.value = -1.0
-        >>> v.value
-        0.0
-        >>> v.isfree()
-        False
-        >>> v.atlow()
-        True
-
-    """
-
-    class State(Enum):
-        """Constrained state of the variable.
-
-        Attributes
-        ----------
-        FREE : int
-            Variable is not constrained or within bounds.
-        LOW : int
-            Variable is constrained to lower bound.
-        HIGH : int
-            Variable is constrained to upper bound.
-
-        """
-
-        FREE = 0
-        LOW = 1
-        HIGH = 2
-
-    def __init__(self, value, name=None, low=None, high=None):
-        if not isinstance(value, (float, int)):
-            raise TypeError("Design variables are only float or int")
-        super().__init__(name=name, value=value)
-        self.low = low
-        self.high = high
-
-    def clamp(self, value):
-        """Clamp value within the bounds of the variable.
-
-        Parameters
-        ----------
-        value : float
-            Value to clamp.
-
-        Returns
-        -------
-        v : float
-            Constrained value.
-        b : :class:`State`
-            Constrained state of the value.
-
-        """
-        if self.low is not None and value <= self.low:
-            v = self.low
-            b = DesignVariable.State.LOW
-        elif self.high is not None and value >= self.high:
-            v = self.high
-            b = DesignVariable.State.HIGH
-        else:
-            v = value
-            b = DesignVariable.State.FREE
-
-        return v, b
-
-    @IndependentVariable.value.setter
-    def value(self, value):
-        if not isinstance(value, (float, int)):
-            raise TypeError("Design variables are only float or int")
-        self._value, self._state = self.clamp(value)
-        graph.update(self)
-
-    @property
-    def low(self):
-        """float: Lower bound on value."""
-        return self._low
-
-    @low.setter
-    def low(self, low):
-        if low is not None and not isinstance(low, (float, int)):
-            raise TypeError("Low bound must be a float or int")
-        try:
-            if low is None or self._high is None:
-                self._low = low
-            elif low < self._high:
-                self._low = low
-            else:
-                raise ValueError("The low bound must be less than the high bound")
-        except (AttributeError, TypeError):
-            self._low = low
-
-        try:
-            self._value, self._state = self.clamp(self._value)
-        except AttributeError:
-            pass
-
-    @property
-    def high(self):
-        """float: Upper bound on value."""
-        return self._high
-
-    @high.setter
-    def high(self, high):
-        if high is not None and not isinstance(high, (float, int)):
-            raise TypeError("High bound must be a float or int")
-        try:
-            if high is None or self._high is None:
-                self._high = high
-            elif high > self._low:
-                self._high = high
-            else:
-                raise ValueError("The high bound must be greater than the low bound")
-        except (AttributeError, TypeError):
-            self._high = high
-
-        try:
-            self._value, self._state = self.clamp(self._value)
-        except AttributeError:
-            pass
-
-    @property
-    def state(self):
-        """:class:`State`: Constraint state of the variable."""
-        return self._state
-
-    def isfree(self):
-        """Check if variable is not constrained by bounds.
-
-        Returns
-        -------
-        bool
-            True if the variable is not constrained.
-
-        """
-        return self.state is self.State.FREE
-
-    def atlow(self):
-        """Check if variable is constrained at the lower bound.
-
-        Returns
-        -------
-        bool
-            True if the variable is constrained at the lower bound.
-
-        """
-        return self.state is self.State.LOW
-
-    def athigh(self):
-        """Check if variable is constrained at the upper bound.
-
-        Returns
-        -------
-        bool
-            True if the variable is constrained at the lower bound.
-
-        """
-        return self.state is self.State.HIGH
-
-
 class DependentVariable(Variable):
-    """Abstract base class for a variable that depends on other values.
+    """Dependent quantity.
 
     A dependent variable is composed from other variables. This is an abstract
     base class for any such variable. In addition to the
@@ -1181,9 +1026,9 @@ class VariableGraph:
         return tuple(self._graph.nodes)
 
     @property
-    def design_variables(self):
+    def independent_variables(self):
         """tuple: All design variables in the graph."""
-        return tuple(x for x in self._graph.nodes if isinstance(x, DesignVariable))
+        return tuple(x for x in self._graph.nodes if isinstance(x, IndependentVariable))
 
     @property
     def constant_variables(self):

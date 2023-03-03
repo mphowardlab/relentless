@@ -24,7 +24,7 @@ class Optimizer(abc.ABC):
         self.stop = stop
 
     @abc.abstractmethod
-    def optimize(self, objective, design_variables, directory=None, overwrite=False):
+    def optimize(self, objective, variables, directory=None, overwrite=False):
         """Minimize an objective function.
 
         The design variables of the objective function are adjusted until convergence.
@@ -33,7 +33,7 @@ class Optimizer(abc.ABC):
         ----------
         objective : :class:`~relentless.optimize.objective.ObjectiveFunction`
             The objective function to be optimized.
-        design_variables: :class:`~relentless.variable.DesignVariable` or tuple
+        variables: :class:`~relentless.variable.IndependentVariable` or tuple
             Design variable(s) to optimize.
         directory : str or :class:`~relentless.data.Directory`
             Directory for writing output during optimization. Default of ``None``
@@ -328,7 +328,7 @@ class SteepestDescent(Optimizer):
             k[i] = self.step_size
         return k
 
-    def optimize(self, objective, design_variables, directory=None, overwrite=False):
+    def optimize(self, objective, variables, directory=None, overwrite=False):
         r"""Perform the steepest descent optimization for the given objective function.
 
         If specified, a :class:`LineSearch` is performed to choose an optimal step size.
@@ -348,7 +348,7 @@ class SteepestDescent(Optimizer):
         ----------
         objective : :class:`~relentless.optimize.objective.ObjectiveFunction`
             The objective function to be optimized.
-        design_variables: :class:`~relentless.variable.DesignVariable` or tuple
+        variables: :class:`~relentless.variable.IndependentVariable` or tuple
             Design variable(s) to optimize.
         directory : str or :class:`~relentless.data.Directory`
             Directory for writing output during optimization. Default of `None`
@@ -368,18 +368,18 @@ class SteepestDescent(Optimizer):
             If ``directory`` is not empty and overwrite is ``False``.
 
         """
-        design_variables = variable.graph.check_variables_and_types(
-            design_variables, variable.DesignVariable
+        variables = variable.graph.check_variables_and_types(
+            variables, variable.IndependentVariable
         )
-        if len(design_variables) == 0:
+        if len(variables) == 0:
             return None
 
         if directory is not None:
             self._setup_directory(directory, overwrite)
 
         # fix scaling parameters
-        scale = math.KeyedArray(keys=design_variables)
-        for x in design_variables:
+        scale = math.KeyedArray(keys=variables)
+        for x in variables:
             if numpy.isscalar(self.scale):
                 scale[x] = self.scale
             else:
@@ -394,20 +394,20 @@ class SteepestDescent(Optimizer):
             mpi.world.barrier()
         else:
             cur_dir = None
-        cur_res = objective.compute(design_variables, cur_dir)
+        cur_res = objective.compute(variables, cur_dir)
         while not self.stop.converged(cur_res) and iter_num < self.max_iter:
             grad_y = scale * cur_res.gradient
             update = self.descent_amount(grad_y) * grad_y
 
             # steepest descent update
-            for x in design_variables:
+            for x in variables:
                 x.value = cur_res.variables[x] - update[x]
             if cur_dir is not None:
                 next_dir = cur_dir.directory(".next", create=mpi.world.rank_is_root)
                 mpi.world.barrier()
             else:
                 next_dir = None
-            next_res = objective.compute(design_variables, next_dir)
+            next_res = objective.compute(variables, next_dir)
 
             # if line search, attempt backtracking in interval
             if self.line_search is not None:
@@ -421,7 +421,7 @@ class SteepestDescent(Optimizer):
                 )
 
                 if line_res is not next_res:
-                    for x in design_variables:
+                    for x in variables:
                         x.value = line_res.variables[x]
                     next_res = line_res
 

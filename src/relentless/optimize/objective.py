@@ -6,7 +6,7 @@ An objective function is the quantity to be minimized in an optimization problem
 by adjusting the variables on which the function depends.
 
 This function, :math:`f`, is a scalar value that is defined as a function of :math:`n`
-problem :class:`~relentless.variable.DesignVariable`\s
+problem :class:`~relentless.variable.IndependentVariable`\s
 :math:`\mathbf{x}=\left[x_1,\ldots,x_n\right]`.
 
 The value of the function, :math:`f\left(\mathbf{x}\right)` is specified.
@@ -69,7 +69,7 @@ class ObjectiveFunction(abc.ABC):
     r"""Abstract base class for the optimization objective function.
 
     An :class:`ObjectiveFunction` defines the objective function parametrized on
-    one or more adjustable :class:`~relentless.variable.DesignVariable`\s.
+    one or more adjustable :class:`~relentless.variable.IndependentVariable`\s.
     The function must also have a defined value and gradient for all values of its
     parameters.
 
@@ -108,7 +108,7 @@ class ObjectiveFunctionResult:
         The value of the objective function (defaults to ``None``).
     gradient : dict
         The gradient of the objective function. Each partial derivative is
-        keyed on the :class:`~relentless.variable.DesignVariable`
+        keyed on the :class:`~relentless.variable.IndependentVariable`
         with respect to which it is taken (defaults to ``None``).
     directory : :class:`~relentless.data.Directory`
         Directory holding written output associated with result. Setting
@@ -385,7 +385,7 @@ class RelativeEntropy(ObjectiveFunction):
         Returns
         -------
         :class:`~relentless.math.KeyedArray`
-            The gradient, keyed on the :class:`~relentless.variable.DesignVariable`\s.
+            The gradient, keyed on the ``variables``.
 
         """
         # compute the relative entropy gradient by integration

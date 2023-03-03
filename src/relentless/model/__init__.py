@@ -43,7 +43,8 @@ Variables
 .. autosummary::
     :toctree: generated/
 
-    DesignVariable
+    IndependentVariable
+    DependentVariable
     ArithmeticMean
     GeometricMean
 
@@ -67,9 +68,7 @@ Variables
     :toctree: generated/
 
     Variable
-    IndependentVariable
     ConstantVariable
-    DependentVariable
     variable.VariableGraph
 
 """
@@ -90,7 +89,6 @@ from .variable import (
     ArithmeticMean,
     ConstantVariable,
     DependentVariable,
-    DesignVariable,
     GeometricMean,
     IndependentVariable,
     Variable,

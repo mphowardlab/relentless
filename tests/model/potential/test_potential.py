@@ -189,12 +189,12 @@ class test_Parameters(unittest.TestCase):
         self.assertEqual(m.evaluate("A"), {"energy": 0.0, "mass": 1.0})
         self.assertEqual(m.evaluate("B"), {"energy": 1.5, "mass": 0.5})
 
-        # test evaluation with initialized parameter values as DesignVariable types
+        # test evaluation with initialized parameter values as IndependentVariable types
         m = relentless.model.potential.Parameters(
             types=("A",), params=("energy", "mass")
         )
-        m["A"]["energy"] = relentless.model.DesignVariable(value=-1.0, low=0.1)
-        m["A"]["mass"] = relentless.model.DesignVariable(value=1.0, high=0.3)
+        m["A"]["energy"] = relentless.model.IndependentVariable(value=-1.0, low=0.1)
+        m["A"]["mass"] = relentless.model.IndependentVariable(value=1.0, high=0.3)
         self.assertEqual(m.evaluate("A"), {"energy": 0.1, "mass": 0.3})
 
     def test_json(self):
@@ -217,12 +217,12 @@ class test_Parameters(unittest.TestCase):
         self.assertCountEqual(m.params, n.params)
         self.assertDictEqual(m.evaluate("A"), n.evaluate("A"))
 
-        # test dumping/re-loading data with DesignVariable parameter values
+        # test dumping/re-loading data with IndependentVariable parameter values
         m = relentless.model.potential.Parameters(
             types=("A",), params=("energy", "mass")
         )
-        m["A"]["energy"] = relentless.model.DesignVariable(value=0.5)
-        m["A"]["mass"] = relentless.model.DesignVariable(value=2.0)
+        m["A"]["energy"] = relentless.model.IndependentVariable(value=0.5)
+        m["A"]["mass"] = relentless.model.IndependentVariable(value=2.0)
         x = m.to_json()
         self.assertCountEqual(x["types"], ["A"])
         self.assertCountEqual(x["params"], ["energy", "mass"])

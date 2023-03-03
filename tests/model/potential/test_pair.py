@@ -317,7 +317,7 @@ class test_PairPotential(unittest.TestCase):
     def test_derivative_values(self):
         """Test derivative method with different param values"""
         p = LinPot(types=("1",), params=("m",))
-        x = relentless.model.DesignVariable(value=2.0)
+        x = relentless.model.IndependentVariable(value=2.0)
         p.coeff["1", "1"]["m"] = x
 
         # test with no cutoffs
@@ -327,7 +327,7 @@ class test_PairPotential(unittest.TestCase):
         numpy.testing.assert_allclose(d, [0.25, 0.75])
 
         # test with rmin set
-        rmin = relentless.model.DesignVariable(value=0.5)
+        rmin = relentless.model.IndependentVariable(value=0.5)
         p.coeff["1", "1"]["rmin"] = rmin
         d = p.derivative(pair=("1", "1"), var=x, r=0.6)
         self.assertAlmostEqual(d, 0.6)
@@ -335,7 +335,7 @@ class test_PairPotential(unittest.TestCase):
         numpy.testing.assert_allclose(d, [0.5, 0.75])
 
         # test with rmax set
-        rmax = relentless.model.DesignVariable(value=1.5)
+        rmax = relentless.model.IndependentVariable(value=1.5)
         p.coeff["1", "1"].update(rmin=False, rmax=rmax)
         d = p.derivative(pair=("1", "1"), var=x, r=1.0)
         self.assertAlmostEqual(d, 1.0)
@@ -371,8 +371,8 @@ class test_PairPotential(unittest.TestCase):
     def test_derivative_types(self):
         """Test derivative method with different param types."""
         q = LinPot(types=("1",), params=("m",))
-        x = relentless.model.DesignVariable(value=4.0)
-        y = relentless.model.DesignVariable(value=64.0)
+        x = relentless.model.IndependentVariable(value=4.0)
+        y = relentless.model.IndependentVariable(value=64.0)
         z = relentless.model.GeometricMean(x, y)
         q.coeff["1", "1"]["m"] = z
 
@@ -561,7 +561,7 @@ class test_LennardJones(unittest.TestCase):
     def test_json(self):
         lj = relentless.model.potential.LennardJones(types=("1",), name="lj")
         lj.coeff["1", "1"].update(
-            epsilon=1.0, sigma=relentless.model.DesignVariable(2.0)
+            epsilon=1.0, sigma=relentless.model.IndependentVariable(2.0)
         )
         data = lj.to_json()
 
@@ -644,10 +644,8 @@ class test_PairSpline(unittest.TestCase):
             self.assertAlmostEqual(r.value, 1.0)
             self.assertAlmostEqual(k.value, u_arr_diff[i])
             self.assertIsInstance(r, relentless.model.IndependentVariable)
-            if i == s.num_knots - 1:
-                self.assertIsInstance(k, relentless.model.IndependentVariable)
-            else:
-                self.assertIsInstance(k, relentless.model.DesignVariable)
+            self.assertIsInstance(k, relentless.model.IndependentVariable)
+            if i < s.num_knots - 1:
                 dvars.append(k)
         self.assertCountEqual(s.design_variables, dvars)
 
@@ -662,10 +660,8 @@ class test_PairSpline(unittest.TestCase):
             self.assertAlmostEqual(r.value, 1.0)
             self.assertAlmostEqual(k.value, u_arr[i])
             self.assertIsInstance(r, relentless.model.IndependentVariable)
-            if i == s.num_knots - 1:
-                self.assertIsInstance(k, relentless.model.IndependentVariable)
-            else:
-                self.assertIsInstance(k, relentless.model.DesignVariable)
+            self.assertIsInstance(k, relentless.model.IndependentVariable)
+            if i != s.num_knots - 1:
                 dvars.append(k)
         self.assertCountEqual(s.design_variables, dvars)
 
@@ -872,7 +868,7 @@ class test_Yukawa(unittest.TestCase):
     def test_json(self):
         y = relentless.model.potential.Yukawa(types=("1",), name="yukawa")
         y.coeff["1", "1"].update(
-            epsilon=1.0, kappa=relentless.model.DesignVariable(0.5)
+            epsilon=1.0, kappa=relentless.model.IndependentVariable(0.5)
         )
         data = y.to_json()
 
@@ -1087,7 +1083,7 @@ class test_Depletion(unittest.TestCase):
             )
 
         # test derivative outside of low/high bounds
-        P_var = relentless.model.DesignVariable(value=1.0)
+        P_var = relentless.model.IndependentVariable(value=1.0)
         dp.coeff["1", "1"].update(P=P_var, sigma_i=1.5, sigma_j=2, sigma_d=2.5)
         r_input = numpy.array([1, 5])
         d_actual = numpy.array([-25.7514468, 0])
@@ -1098,7 +1094,10 @@ class test_Depletion(unittest.TestCase):
     def test_json(self):
         d = relentless.model.potential.Depletion(types=("1",), name="depletion")
         d.coeff["1", "1"].update(
-            P=1, sigma_i=1.5, sigma_j=2, sigma_d=relentless.model.DesignVariable(2.5)
+            P=1,
+            sigma_i=1.5,
+            sigma_j=2,
+            sigma_d=relentless.model.IndependentVariable(2.5),
         )
         data = d.to_json()
 

@@ -35,7 +35,7 @@ class test_LineSearch(unittest.TestCase):
     def test_find(self):
         """Test find method."""
         ls = relentless.optimize.LineSearch(tolerance=1e-8, max_iter=1000)
-        x = relentless.model.DesignVariable(value=-3.0)
+        x = relentless.model.IndependentVariable(value=-3.0)
         q = QuadraticObjective(x=x)
         res_1 = q.compute(x)
 
@@ -110,7 +110,7 @@ class test_SteepestDescent(unittest.TestCase):
 
     def test_init(self):
         """Test creation with data."""
-        x = relentless.model.DesignVariable(value=3.0)
+        x = relentless.model.IndependentVariable(value=3.0)
         q = QuadraticObjective(x=x)
         t = relentless.optimize.GradientTest(tolerance=1e-8, variables=x)
 
@@ -164,40 +164,40 @@ class test_SteepestDescent(unittest.TestCase):
 
     def test_run(self):
         """Test run method."""
-        x = relentless.model.DesignVariable(value=3.0)
+        x = relentless.model.IndependentVariable(value=3.0)
         q = QuadraticObjective(x=x)
         t = relentless.optimize.GradientTest(tolerance=1e-8, variables=x)
         o = relentless.optimize.SteepestDescent(stop=t, max_iter=1000, step_size=0.25)
 
-        self.assertTrue(o.optimize(objective=q, design_variables=x))
+        self.assertTrue(o.optimize(objective=q, variables=x))
         self.assertAlmostEqual(x.value, 1.0)
 
         # test insufficient maximum iterations
         x.value = 1.5
         o.max_iter = 1
-        self.assertFalse(o.optimize(objective=q, design_variables=x))
+        self.assertFalse(o.optimize(objective=q, variables=x))
 
         # test with nontrivial scalar scaling parameter
         x.value = 50
         o.scale = 0.85
         o.max_iter = 1000
-        self.assertTrue(o.optimize(objective=q, design_variables=x))
+        self.assertTrue(o.optimize(objective=q, variables=x))
         self.assertAlmostEqual(x.value, 1.0)
 
         # test with nontrivial dictionary of scaling parameters
         x.value = -35
         o.scale = {x: 1.5}
-        self.assertTrue(o.optimize(objective=q, design_variables=x))
+        self.assertTrue(o.optimize(objective=q, variables=x))
         self.assertAlmostEqual(x.value, 1.0)
 
         # test using line search option
         x.value = 3
         o.line_search = relentless.optimize.LineSearch(tolerance=1e-5, max_iter=100)
-        self.assertTrue(o.optimize(objective=q, design_variables=x))
+        self.assertTrue(o.optimize(objective=q, variables=x))
         self.assertAlmostEqual(x.value, 1.0)
 
     def test_directory(self):
-        x = relentless.model.DesignVariable(value=1.5)
+        x = relentless.model.IndependentVariable(value=1.5)
         q = QuadraticObjective(x=x)
         t = relentless.optimize.GradientTest(tolerance=1e-8, variables=x)
         o = relentless.optimize.SteepestDescent(stop=t, max_iter=1, step_size=0.25)
@@ -227,7 +227,7 @@ class test_SteepestDescent(unittest.TestCase):
             self.assertAlmostEqual(float(f.readline()), 1.25)
 
     def test_directory_line_search(self):
-        x = relentless.model.DesignVariable(value=0.5)
+        x = relentless.model.IndependentVariable(value=0.5)
         q = QuadraticObjective(x=x)
         t = relentless.optimize.GradientTest(tolerance=1e-8, variables=x)
         o = relentless.optimize.SteepestDescent(stop=t, max_iter=1, step_size=2.0)
@@ -278,42 +278,42 @@ class test_FixedStepDescent(unittest.TestCase):
 
     def test_run(self):
         """Test run method."""
-        x = relentless.model.DesignVariable(value=3.0)
+        x = relentless.model.IndependentVariable(value=3.0)
         q = QuadraticObjective(x=x)
         t = relentless.optimize.GradientTest(tolerance=1e-8, variables=x)
         o = relentless.optimize.FixedStepDescent(stop=t, max_iter=1000, step_size=0.25)
 
-        self.assertTrue(o.optimize(objective=q, design_variables=x))
+        self.assertTrue(o.optimize(objective=q, variables=x))
         self.assertAlmostEqual(x.value, 1.0)
 
         # test insufficient maximum iterations
         x.value = 1.5
         o.max_iter = 1
-        self.assertFalse(o.optimize(objective=q, design_variables=x))
+        self.assertFalse(o.optimize(objective=q, variables=x))
 
         # test step size that does not converge
         x.value = 1.5
         o.step_size = 0.42
         o.max_iter = 10000
-        self.assertFalse(o.optimize(objective=q, design_variables=x))
+        self.assertFalse(o.optimize(objective=q, variables=x))
 
         # test with nontrivial scalar scaling parameter
         x.value = 50
         o.step_size = 0.25
         o.scale = 4.0
-        self.assertTrue(o.optimize(objective=q, design_variables=x))
+        self.assertTrue(o.optimize(objective=q, variables=x))
         self.assertAlmostEqual(x.value, 1.0)
 
         # test with nontrivial dictionary of scaling parameters
         x.value = -35
         o.scale = {x: 1.5}
-        self.assertTrue(o.optimize(objective=q, design_variables=x))
+        self.assertTrue(o.optimize(objective=q, variables=x))
         self.assertAlmostEqual(x.value, 1.0)
 
         # test using line search option
         x.value = 3
         o.line_search = relentless.optimize.LineSearch(tolerance=1e-5, max_iter=100)
-        self.assertTrue(o.optimize(objective=q, design_variables=x))
+        self.assertTrue(o.optimize(objective=q, variables=x))
         self.assertAlmostEqual(x.value, 1.0)
 
 
