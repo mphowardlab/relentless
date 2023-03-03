@@ -705,17 +705,18 @@ class PairPotentialTabulator(PotentialTabulator):
 
         """
         if x is None:
+            scalar_x = False
             x = numpy.copy(self.linear_space)
         else:
+            scalar_x = numpy.isscalar(x)
             x = numpy.atleast_1d(x)
             if x.ndim != 1:
                 raise TypeError("x can be at most a 1d array")
-        scalar_x = numpy.isscalar(x)
         if tight:
             if scalar_x:
-                raise ValueError("Tight option can only be used if x is an array")
+                raise TypeError("Tight option can only be used if x is an array")
             elif len(x) < minimum_num:
-                raise ValueError("Fewer coordinates given than required minimum")
+                raise IndexError("Fewer coordinates given than required minimum")
 
         u = collections.PairMatrix(types)
         f = collections.PairMatrix(types)
