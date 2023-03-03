@@ -689,9 +689,9 @@ class PairPotentialTabulator(PotentialTabulator):
         tight : bool
             If ``True``, trim zeros from the ends of the energies and forces
             using a combination of cutoffs and evaluated potential. This option
-            can only be used when `x` is an array.
+            can only be used when ``x`` is an array.
         minimum_num : int
-            When ``tight`` is ``True`, the minimum number of points to include,
+            When ``tight`` is ``True``, the minimum number of points to include,
             even if they could be trimmed.
 
         Returns
