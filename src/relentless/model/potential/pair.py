@@ -68,7 +68,7 @@ class PairParameters(potential.Parameters):
     Parameters can be a mix of constants and :class:`~relentless.variable.Variable`
     objects. To get the *value* of all parameters, use :meth:`evaluate`::
 
-        >>> coeff['A','A']['epsilon'] = relentless.variable.DesignVariable(1.0)
+        >>> coeff['A','A']['epsilon'] = relentless.variable.IndependentVariable(1.0)
         >>> print(coeff.evaluate(('A','A')))
         {'epsilon':1.0, 'sigma':2.5}
 
@@ -988,13 +988,11 @@ class PairSpline(PairPotential):
             self.coeff[pair][dri].value = dr
         else:
             self.coeff[pair][dri] = variable.IndependentVariable(dr)
+
         if isinstance(self.coeff[pair][ki], variable.IndependentVariable):
             self.coeff[pair][ki].value = k
         else:
-            if i < self.num_knots - 1:
-                self.coeff[pair][ki] = variable.DesignVariable(k)
-            else:
-                self.coeff[pair][ki] = variable.IndependentVariable(k)
+            self.coeff[pair][ki] = variable.IndependentVariable(k)
 
     def _energy(self, r, **params):
         r, u, s = self._zeros(r)
@@ -1105,10 +1103,8 @@ class PairSpline(PairPotential):
         """tuple: Designable variables of the spline."""
         dvars = []
         for pair in self.coeff:
-            for dr, k in self.knots(pair):
-                if isinstance(dr, variable.DesignVariable):
-                    dvars.append(dr)
-                if isinstance(k, variable.DesignVariable):
+            for i, (dr, k) in enumerate(self.knots(pair)):
+                if i != self.num_knots - 1:
                     dvars.append(k)
         return tuple(dvars)
 

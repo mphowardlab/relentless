@@ -204,23 +204,20 @@ class GradientTest(ConvergenceTest):
         test.tolerance[x] = 1.e-2
 
     The result is converged with respect to an unconstrained design variable
-    :math:`x_i` (i.e., having :class:`~relentless.variable.DesignVariable.State`
-    ``FREE``) if and only if:
+    :math:`x_i` if and only if:
 
     .. math::
 
         \left\lvert\frac{\partial f}{\partial x_i}\right\rvert < t
 
-    If an upper-bound constraint is active on :math:`x_i` (i.e. it has
-    :class:`~relentless.variable.DesignVariable.State` ``HIGH``), the result
+    If an upper-bound constraint is active on :math:`x_i`, the result
     is converged with respect to :math:`x_i` if and only if:
 
     .. math::
 
         -\frac{\partial f}{\partial x_i} > -t
 
-    If a lower-bound constraint is active on :math:`x_i` (i.e. it has
-    :class:`~relentless.variable.DesignVariable.State` ``LOW``), the result
+    If a lower-bound constraint is active on :math:`x_i`, the result
     is converged with respect to :math:`x_i` if and only if:
 
     .. math::
@@ -275,13 +272,17 @@ class GradientTest(ConvergenceTest):
                 raise KeyError("Design variable not in result")
             grad = result.gradient[x]
             tol = self.tolerance[x]
-            if x.athigh() and -grad < -tol:
+            if x.at_high() and -grad < -tol:
                 converged = False
                 break
-            elif x.atlow() and -grad > tol:
+            elif x.at_low() and -grad > tol:
                 converged = False
                 break
-            elif x.isfree() and not self._tolerance.isclose(grad, 0, key=x):
+            elif (
+                not x.at_low()
+                and not x.at_high()
+                and not self._tolerance.isclose(grad, 0, key=x)
+            ):
                 converged = False
                 break
 

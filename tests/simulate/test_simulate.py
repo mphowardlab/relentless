@@ -16,7 +16,7 @@ class QuadPot(relentless.model.potential.Potential):
     def energy(self, key, x):
         x, u, s = self._zeros(x)
         m = self.coeff[key]["m"]
-        if isinstance(m, relentless.model.DesignVariable):
+        if isinstance(m, relentless.model.IndependentVariable):
             m = m.value
         u = m * (3 - x) ** 2
         if s:
@@ -26,7 +26,7 @@ class QuadPot(relentless.model.potential.Potential):
     def force(self, key, x):
         x, f, s = self._zeros(x)
         m = self.coeff[key]["m"]
-        if isinstance(m, relentless.model.DesignVariable):
+        if isinstance(m, relentless.model.IndependentVariable):
             m = m.value
         f = 2 * m * (3 - x)
         if s:
@@ -35,7 +35,7 @@ class QuadPot(relentless.model.potential.Potential):
 
     def derivative(self, key, var, x):
         x, d, s = self._zeros(x)
-        if isinstance(var, relentless.model.DesignVariable):
+        if isinstance(var, relentless.model.IndependentVariable):
             if self.coeff[key]["m"] is var:
                 d = (3 - x) ** 2
         if s:
@@ -72,7 +72,7 @@ class test_PotentialTabulator(unittest.TestCase):
     def test_potential(self):
         """Test energy, force, and derivative methods"""
         p1 = QuadPot(types=("1",), params=("m",))
-        p1.coeff["1"]["m"] = relentless.model.DesignVariable(2.0)
+        p1.coeff["1"]["m"] = relentless.model.IndependentVariable(2.0)
         p2 = QuadPot(types=("1", "2"), params=("m",))
         for key in p2.coeff.types:
             p2.coeff[key]["m"] = 1.0
@@ -168,7 +168,7 @@ class test_PairPotentialTabulator(unittest.TestCase):
     def test_potential(self):
         """Test energy, force, and derivative methods"""
         p1 = QuadPairPot(types=("1",), params=("m",))
-        p1.coeff["1", "1"]["m"] = relentless.model.DesignVariable(2.0)
+        p1.coeff["1", "1"]["m"] = relentless.model.IndependentVariable(2.0)
         p2 = QuadPairPot(types=("1", "2"), params=("m",))
         for pair in p2.coeff.pairs:
             p2.coeff[pair]["m"] = 1.0
@@ -270,7 +270,7 @@ class test_InitializeRandomly(unittest.TestCase):
             N = {"A": 100, "B": 25}
         else:
             N = {"A": 20, "B": 5}
-        d = {"A": 1.0, "B": relentless.model.DesignVariable(3.0)}
+        d = {"A": 1.0, "B": relentless.model.IndependentVariable(3.0)}
         rs, types = relentless.simulate.InitializeRandomly._pack_particles(
             42, N, self.V, d
         )
