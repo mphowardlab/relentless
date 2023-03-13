@@ -112,7 +112,7 @@ jobs:
         uses: actions/checkout@v3
       - name: Install conda JPEG workaround
         run: |
-          sudo apt-get install -y libjpeg*
+          sudo apt-get install -y libjpeg9
       - name: Setup Python ${{ matrix.python-version }}
         uses: conda-incubator/setup-miniconda@v2
         with:
