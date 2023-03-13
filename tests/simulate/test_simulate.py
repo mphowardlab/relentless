@@ -167,15 +167,9 @@ class test_PairPotentialTabulator(unittest.TestCase):
 
     def test_potential(self):
         """Test energy, force, and derivative methods"""
-<<<<<<< HEAD
-        p1 = QuadPairPot(types=("1",), params=("m",))
-        p1.coeff["1", "1"]["m"] = relentless.model.IndependentVariable(2.0)
-        p2 = QuadPairPot(types=("1", "2"), params=("m",))
-=======
         p1 = QuadPairPot(types=("1",))
-        p1.coeff["1", "1"]["m"] = relentless.model.DesignVariable(2.0)
+        p1.coeff["1", "1"]["m"] = relentless.model.IndependentVariable(2.0)
         p2 = QuadPairPot(types=("1", "2"))
->>>>>>> 800de33 (Add unit test for new method)
         for pair in p2.coeff.pairs:
             p2.coeff[pair]["m"] = 1.0
         t = relentless.simulate.PairPotentialTabulator(
