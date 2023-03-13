@@ -110,9 +110,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-      - name: Install conda JPEG workaround
-        run: |
-          sudo apt-get install -y libjpeg9
       - name: Setup Python ${{ matrix.python-version }}
         uses: conda-incubator/setup-miniconda@v2
         with:
@@ -124,6 +121,7 @@ jobs:
           conda install -c conda-forge "openmpi=4.1.4=ha*"
       - name: Install test dependencies
         run: |
+          sudo apt-get install -y libjpeg9
           conda install -c conda-forge "lammps=${{ matrix.lammps-version }}=*${{ matrix.mpi }}*" mpi4py
           pip install -r tests/requirements.txt
           pip install lammpsio>=0.2.0
