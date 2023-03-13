@@ -613,7 +613,7 @@ class RunBrownianDynamics(_Integrator):
                 group_ids.append(groupid)
         cmds += self._run_commands(sim)
         cmds += ["unfix {}".format(idx) for idx in fix_ids]
-        cmds += ["ungroup {}".format(idx) for idx in group_ids]
+        cmds += ["group {} delete".format(idx) for idx in group_ids]
         return cmds
 
 

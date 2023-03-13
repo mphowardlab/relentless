@@ -209,7 +209,7 @@ class test_LAMMPS(unittest.TestCase):
             h.run(pot, self.directory)
 
         # different friction coefficients
-        brn.friction = {"A": 1.5, "B": 2.5}
+        brn.friction = {"1": 1.5, "2": 2.5}
         h.run(pot, self.directory)
 
         # temperature annealing
