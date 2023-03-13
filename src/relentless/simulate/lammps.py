@@ -32,7 +32,7 @@ class InitializationOperation(simulate.InitializationOperation):
     def __call__(self, sim):
         SimulationOperation.__call__(self, sim)
 
-    def call_commands(self, sim):
+    def _call_commands(self, sim):
         cmds = [
             "units {style}".format(style=sim["engine"]["units"]),
             "boundary p p p",
@@ -314,7 +314,7 @@ class SimulationOperation(simulate.SimulationOperation):
         """Evaluate the LAMMPS simulation operation.
 
         Each deriving class of :class:`SimulationOperation` must implement a
-        :meth:`call_commands()` method that returns a list or tuple of LAMMPS
+        :meth:`_call_commands()` method that returns a list or tuple of LAMMPS
         commands that can be executed by :meth:`lammps.commands_list()`.
 
         Parameters
@@ -323,7 +323,7 @@ class SimulationOperation(simulate.SimulationOperation):
             The simulation instance.
 
         """
-        cmds = self.call_commands(sim)
+        cmds = self._call_commands(sim)
         if cmds is None or len(cmds) == 0:
             return
 
@@ -402,7 +402,7 @@ class SimulationOperation(simulate.SimulationOperation):
         return "v{}".format(idx)
 
     @abc.abstractmethod
-    def call_commands(self, sim):
+    def _call_commands(self, sim):
         """Create the LAMMPS commands for the simulation operation.
 
         All deriving classes must implement this method.
@@ -450,7 +450,7 @@ class MinimizeEnergy(SimulationOperation):
         if "max_evaluations" not in self.options:
             self.options["max_evaluations"] = None
 
-    def call_commands(self, sim):
+    def _call_commands(self, sim):
         if self.options["max_evaluations"] is None:
             self.options["max_evaluations"] = 100 * self.max_iterations
 
@@ -556,7 +556,7 @@ class RunBrownianDynamics(_Integrator):
         self.friction = friction
         self.seed = seed
 
-    def call_commands(self, sim):
+    def _call_commands(self, sim):
         if "BROWNIAN" not in sim["engine"]["packages"]:
             raise NotImplementedError("LAMMPS BROWNIAN package is not installed.")
         elif sim["engine"]["version"] < 20220623:
@@ -645,7 +645,7 @@ class RunLangevinDynamics(_Integrator):
         self.friction = friction
         self.seed = seed
 
-    def call_commands(self, sim):
+    def _call_commands(self, sim):
         # obtain per-type friction factor
         Ntypes = len(sim.types)
         mass = numpy.zeros(Ntypes)
@@ -731,7 +731,7 @@ class RunMolecularDynamics(_Integrator):
         self.thermostat = thermostat
         self.barostat = barostat
 
-    def call_commands(self, sim):
+    def _call_commands(self, sim):
         fix_ids = {"ig": self.new_fix_id()}
 
         if self.thermostat is not None:
@@ -831,7 +831,7 @@ class RunMolecularDynamics(_Integrator):
 # analyzers
 class AnalysisOperation(simulate.AnalysisOperation):
     def pre_run(self, sim, sim_op):
-        cmds = self.pre_run_commands(sim, sim_op)
+        cmds = self._pre_run_commands(sim, sim_op)
         if cmds is None or len(cmds) == 0:
             return
 
@@ -840,7 +840,7 @@ class AnalysisOperation(simulate.AnalysisOperation):
             sim["engine"]["_lammps"].commands_list(cmds)
 
     def post_run(self, sim, sim_op):
-        cmds = self.post_run_commands(sim, sim_op)
+        cmds = self._post_run_commands(sim, sim_op)
         if cmds is None or len(cmds) == 0:
             return
 
@@ -849,11 +849,11 @@ class AnalysisOperation(simulate.AnalysisOperation):
             sim["engine"]["_lammps"].commands_list(cmds)
 
     @abc.abstractmethod
-    def pre_run_commands(self, sim, sim_op):
+    def _pre_run_commands(self, sim, sim_op):
         pass
 
     @abc.abstractmethod
-    def post_run_commands(self, sim, sim_op):
+    def _post_run_commands(self, sim, sim_op):
         pass
 
 
@@ -883,7 +883,7 @@ class EnsembleAverage(AnalysisOperation):
         self.check_rdf_every = check_rdf_every
         self.rdf_dr = rdf_dr
 
-    def pre_run_commands(self, sim, sim_op):
+    def _pre_run_commands(self, sim, sim_op):
         fix_ids = {
             "thermo_avg": SimulationOperation.new_fix_id(),
             "rdf_avg": SimulationOperation.new_fix_id(),
@@ -1000,7 +1000,7 @@ class EnsembleAverage(AnalysisOperation):
 
         return cmds
 
-    def post_run_commands(self, sim, sim_op):
+    def _post_run_commands(self, sim, sim_op):
         cmds = []
         # unfix
         for fixid in sim[self]["_fix_ids"].values():
@@ -1070,7 +1070,7 @@ class Record(AnalysisOperation):
         self.quantities = quantities
         self.every = every
 
-    def pre_run_commands(self, sim, sim_op):
+    def _pre_run_commands(self, sim, sim_op):
         # translate quantities into lammps variables
         quantity_map = {
             "potential_energy": "pe",
@@ -1107,7 +1107,7 @@ class Record(AnalysisOperation):
         sim[self]["_var_ids"] = var_ids
         return cmds
 
-    def post_run_commands(self, sim, sim_op):
+    def _post_run_commands(self, sim, sim_op):
         cmds = ["unfix {}".format(sim[self]["_fix_id"])]
         del sim[self]["_fix_id"]
         # delete variables
@@ -1159,7 +1159,7 @@ class WriteTrajectory(AnalysisOperation):
         self.types = types
         self.masses = masses
 
-    def pre_run_commands(self, sim, sim_op):
+    def _pre_run_commands(self, sim, sim_op):
         dump_format = "id"
         if self.types is True:
             dump_format += " type"
@@ -1184,7 +1184,7 @@ class WriteTrajectory(AnalysisOperation):
 
         return cmds
 
-    def post_run_commands(self, sim, sim_op):
+    def _post_run_commands(self, sim, sim_op):
         cmds = ["undump {}".format(sim[self]["_dump_id"])]
         del sim[self]["_dump_id"]
         return cmds
