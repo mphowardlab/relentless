@@ -172,15 +172,15 @@ class EnsembleAverage(simulate.AnalysisOperation):
 
         # compute pressure
         ens.P = 0.0
+        B = 0.0
+        N = 0
+        for type in sim.types:
+            N += ens.N[type]
+
         for a in sim.types:
-            rho_a = ens.N[a] / ens.V.extent
-            ens.P += kT * rho_a
             for b in sim.types:
-                rho_b = ens.N[b] / ens.V.extent
                 r = sim.potentials.pair.x
                 u = sim.potentials.pair.energy((a, b))
-                f = sim.potentials.pair.force((a, b))
-                gr = ens.rdf[a, b].table[:, 1]
 
                 # only count continuous range of finite values
                 flags = numpy.isinf(u)
@@ -189,8 +189,6 @@ class EnsembleAverage(simulate.AnalysisOperation):
                     first_finite += 1
                 r = r[first_finite:]
                 u = u[first_finite:]
-                f = f[first_finite:]
-                gr = gr[first_finite:]
 
                 if sim.dimension == 3:
                     geo_prefactor = 4 * numpy.pi * r**2
@@ -200,9 +198,13 @@ class EnsembleAverage(simulate.AnalysisOperation):
                     raise ValueError(
                         "Geometric integration factor unknown for extent type"
                     )
-                y = (geo_prefactor / 6.0) * rho_a * rho_b * f * gr * r
-                ens.P += numpy.trapz(y, x=r)
+                rho = N / ens.V.extent
+                y_a = ens.N[a] / N
+                y_b = ens.N[b] / N
+                b_ab = (geo_prefactor / 2.0) * (numpy.exp(-u / kT) - 1)
+                B += y_a * y_b * numpy.trapz(b_ab, x=r)
 
+        ens.P = kT * (rho + B * rho**2)
         sim[self]["ensemble"] = ens
         sim[self]["num_thermo_samples"] = None
         sim[self]["num_rdf_samples"] = None
