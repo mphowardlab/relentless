@@ -112,7 +112,7 @@ class RunMolecularDynamics(_Integrator):
 
     def __call__(self, sim):
         if self.barostat is not None:
-            raise ValueError("Dilute does not support constant pressure")
+            sim[sim.initializer]["_ensemble"].P = self.barostat.P
 
         for analyzer in self.analyzers:
             analyzer.pre_run(sim, self)
@@ -169,9 +169,9 @@ class EnsembleAverage(simulate.AnalysisOperation):
         for pair in ens.pairs:
             u = sim.potentials.pair.energy(pair)
             ens.rdf[pair] = ensemble.RDF(sim.potentials.pair.x, numpy.exp(-u / kT))
-
         # compute pressure
-        ens.P = 0.0
+        if ens.P is None:
+            ens.P = 0.0
         B = 0.0
         N = 0
         for type in sim.types:
@@ -203,11 +203,26 @@ class EnsembleAverage(simulate.AnalysisOperation):
                 y_b = ens.N[b] / N
                 b_ab = (geo_prefactor / 2.0) * (numpy.exp(-u / kT) - 1)
                 B += y_a * y_b * numpy.trapz(b_ab, x=r)
+        # calculate pressure if no barostat
+        if ens.P == 0.0:
+            ens.P = kT * (rho + B * rho**2)
+            sim[self]["ensemble"] = ens
+            sim[self]["num_thermo_samples"] = None
+            sim[self]["num_rdf_samples"] = None
+        # adjust extent to maintain pressure if barostat
+        else:
+            coeffs = numpy.array([-ens.P / kT, N, B * N**2])
+            V = numpy.roots(coeffs)[numpy.roots(coeffs) > 0]
+            L = V ** (1 / sim.dimension)
 
-        ens.P = kT * (rho + B * rho**2)
-        sim[self]["ensemble"] = ens
-        sim[self]["num_thermo_samples"] = None
-        sim[self]["num_rdf_samples"] = None
+            if sim.dimension == 3:
+                ens.V = extent.Cube(L)
+            elif sim.dimension == 2:
+                ens.V = extent.Square(L)
+
+            sim[self]["ensemble"] = ens
+            sim[self]["num_thermo_samples"] = None
+            sim[self]["num_rdf_samples"] = None
 
 
 class Dilute(simulate.Simulation):
