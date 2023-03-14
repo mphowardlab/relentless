@@ -53,7 +53,7 @@ class test_PotentialTabulator(unittest.TestCase):
 
         # test creation with no potential
         t = relentless.simulate.PotentialTabulator(start=0.0, stop=1.5, num=4)
-        numpy.testing.assert_allclose(t.x, xs)
+        numpy.testing.assert_allclose(t.linear_space, xs)
         self.assertAlmostEqual(t.start, 0.0)
         self.assertAlmostEqual(t.stop, 1.5)
         self.assertEqual(t.num, 4)
@@ -63,7 +63,7 @@ class test_PotentialTabulator(unittest.TestCase):
         t = relentless.simulate.PotentialTabulator(
             start=0.0, stop=1.5, num=4, potentials=p1
         )
-        numpy.testing.assert_allclose(t.x, xs)
+        numpy.testing.assert_allclose(t.linear_space, xs)
         self.assertAlmostEqual(t.start, 0.0)
         self.assertAlmostEqual(t.stop, 1.5)
         self.assertEqual(t.num, 4)
@@ -106,8 +106,8 @@ class test_PotentialTabulator(unittest.TestCase):
 class QuadPairPot(relentless.model.potential.PairPotential):
     """Quadratic pair potential function"""
 
-    def __init__(self, types, params):
-        super().__init__(types, params)
+    def __init__(self, types):
+        super().__init__(types, ("m",))
 
     @classmethod
     def from_json(cls, data):
@@ -147,7 +147,7 @@ class test_PairPotentialTabulator(unittest.TestCase):
         t = relentless.simulate.PairPotentialTabulator(
             start=0.0, stop=1.5, num=4, neighbor_buffer=0.4
         )
-        numpy.testing.assert_allclose(t.x, rs)
+        numpy.testing.assert_allclose(t.linear_space, rs)
         self.assertAlmostEqual(t.start, 0.0)
         self.assertAlmostEqual(t.stop, 1.5)
         self.assertEqual(t.num, 4)
@@ -158,7 +158,7 @@ class test_PairPotentialTabulator(unittest.TestCase):
         t = relentless.simulate.PairPotentialTabulator(
             start=0.0, stop=1.5, num=4, neighbor_buffer=0.4, fmax=1.5
         )
-        numpy.testing.assert_allclose(t.x, rs)
+        numpy.testing.assert_allclose(t.linear_space, rs)
         self.assertAlmostEqual(t.start, 0.0)
         self.assertAlmostEqual(t.stop, 1.5)
         self.assertEqual(t.num, 4)
@@ -167,9 +167,9 @@ class test_PairPotentialTabulator(unittest.TestCase):
 
     def test_potential(self):
         """Test energy, force, and derivative methods"""
-        p1 = QuadPairPot(types=("1",), params=("m",))
+        p1 = QuadPairPot(types=("1",))
         p1.coeff["1", "1"]["m"] = relentless.model.IndependentVariable(2.0)
-        p2 = QuadPairPot(types=("1", "2"), params=("m",))
+        p2 = QuadPairPot(types=("1", "2"))
         for pair in p2.coeff.pairs:
             p2.coeff[pair]["m"] = 1.0
         t = relentless.simulate.PairPotentialTabulator(
@@ -200,7 +200,7 @@ class test_PairPotentialTabulator(unittest.TestCase):
 
     def test_fmax(self):
         """Test setting and changing fmax."""
-        p1 = QuadPairPot(types=("1",), params=("m",))
+        p1 = QuadPairPot(types=("1",))
         p1.coeff["1", "1"]["m"] = 3.0
 
         t = relentless.simulate.PairPotentialTabulator(
@@ -216,6 +216,72 @@ class test_PairPotentialTabulator(unittest.TestCase):
         t.fmax = 20
         f = t.force(("1", "1"))
         numpy.testing.assert_allclose(f, numpy.array([18, 12, 6, 0, -6, -12, -18]))
+
+    def test_pairwise_compute(self):
+        p1 = QuadPairPot(types=("1", "2"))
+        p1.coeff["1", "1"].update(m=2.0)
+        p1.coeff["1", "2"].update(m=0.0)
+        p1.coeff["2", "2"].update(m=0.0)
+
+        t = relentless.simulate.PairPotentialTabulator(
+            start=0.0, stop=6.0, num=7, neighbor_buffer=0.4, potentials=p1
+        )
+
+        r, u, f = t.pairwise_energy_and_force(("1",))
+        numpy.testing.assert_allclose(r, t.linear_space)
+        self.assertIsInstance(u, relentless.collections.PairMatrix)
+        self.assertIsInstance(f, relentless.collections.PairMatrix)
+
+        # manually specify r
+        r, u, f = t.pairwise_energy_and_force(("1",), x=t.linear_space[:-1])
+        numpy.testing.assert_allclose(r, t.linear_space[:-1])
+
+        # manually specify single r
+        r, u, f = t.pairwise_energy_and_force(("1",), x=t.linear_space[0])
+        self.assertEqual(r, t.linear_space[0])
+
+        # set rmax and use tight option
+        p1.coeff["1", "1"]["rmax"] = 3.0
+        r, u, f = t.pairwise_energy_and_force(("1",), tight=True)
+        numpy.testing.assert_allclose(r, t.linear_space[t.linear_space <= 3.0])
+        # same thing, manual r
+        r, u, f = t.pairwise_energy_and_force(("1",), x=t.linear_space[:-1], tight=True)
+        numpy.testing.assert_allclose(r, t.linear_space[t.linear_space <= 3.0])
+
+        # add the second type in, but make potential all zeros
+        # this will trigger the autodetect code path
+        r, u, f = t.pairwise_energy_and_force(("1", "2"), tight=True)
+        numpy.testing.assert_allclose(r, t.linear_space[t.linear_space <= 3.0])
+        # same thing, manual r
+        r, u, f = t.pairwise_energy_and_force(
+            ("1", "2"), x=t.linear_space[:-1], tight=True
+        )
+        numpy.testing.assert_allclose(r, t.linear_space[t.linear_space <= 3.0])
+
+        # make rmax *really* tight, but make sure we still get two points
+        p1.coeff["1", "1"]["rmax"] = 1.0e-16
+        r, u, f = t.pairwise_energy_and_force(("1",), tight=True, minimum_num=1)
+        numpy.testing.assert_allclose(r, t.linear_space[:1])
+        # same thing, manual r
+        r, u, f = t.pairwise_energy_and_force(
+            ("1",), x=t.linear_space[:-1], tight=True, minimum_num=1
+        )
+        numpy.testing.assert_allclose(r, t.linear_space[:1])
+        # same thing with type 2, different minimum number
+        r, u, f = t.pairwise_energy_and_force(("1", "2"), tight=True, minimum_num=2)
+        numpy.testing.assert_allclose(r, t.linear_space[:2])
+        # same thing, manual r
+        r, u, f = t.pairwise_energy_and_force(
+            ("1", "2"), x=t.linear_space[:-1], tight=True, minimum_num=2
+        )
+        numpy.testing.assert_allclose(r, t.linear_space[:2])
+
+        # error for bad combination of x and tight
+        with self.assertRaises(TypeError):
+            t.pairwise_energy_and_force(("1",), x=1.0, tight=True)
+        # error for short x with tight and minimum
+        with self.assertRaises(IndexError):
+            t.pairwise_energy_and_force(("1",), x=[1.0, 2.0], tight=True, minimum_num=3)
 
 
 @parameterized_class(

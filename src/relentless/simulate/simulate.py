@@ -9,7 +9,7 @@ import abc
 
 import numpy
 
-from relentless import data, mpi
+from relentless import collections, data, mpi
 from relentless.model import variable
 
 
@@ -33,31 +33,6 @@ class InitializationOperation(abc.ABC):
     @abc.abstractmethod
     def __call__(self, sim):
         pass
-
-    @staticmethod
-    def _get_tight_rcut(potential, pair, r, u, f):
-        # find r where potential and force are zero
-        if len(potential.potentials) > 0:
-            all_rmax = [
-                variable.evaluate(pair_pot.coeff[pair]["rmax"])
-                for pair_pot in potential.potentials
-            ]
-            if None not in all_rmax:
-                # use rmax if set for all potentials
-                rcut = min(max(all_rmax), potential.stop)
-            else:
-                # otherwise, deduce safe cutoff from tabulated values
-                nonzero_r = numpy.flatnonzero(
-                    numpy.logical_and(~numpy.isclose(u, 0), ~numpy.isclose(f, 0))
-                )
-                # cutoff at last nonzero r (cannot be first r)
-                # we add 1 to make sure we include the last point if
-                # potential happens to go smoothly to zero
-                rcut = r[min(nonzero_r[-1] + 1, len(r) - 1)]
-        else:
-            rcut = potential.stop
-
-        return rcut
 
 
 class SimulationOperation(abc.ABC):
@@ -479,16 +454,18 @@ class PotentialTabulator:
             raise ValueError("Range must be increasing")
 
     @property
-    def x(self):
-        """array_like: The values of ``x`` at which to evaluate the potential."""
+    def linear_space(self):
+        """array_like: x values spaced linearly from `start` to `stop`."""
         self.validate()
         return numpy.linspace(self.start, self.stop, self.num, dtype=float)
 
     @property
-    def xsquared(self):
-        """array_like: The values of ``x**2`` at which to evaluate the potential."""
+    def squared_space(self):
+        """array_like: x values spaced linearly from ``start**2` to ``stop**2``."""
         self.validate()
-        return numpy.linspace(self.start**2, self.stop**2, self.num, dtype=float)
+        return numpy.sqrt(
+            numpy.linspace(self.start**2, self.stop**2, self.num, dtype=float)
+        )
 
     def energy(self, key, x=None):
         """Evaluates and accumulates energy for all potentials.
@@ -508,7 +485,7 @@ class PotentialTabulator:
 
         """
         if x is None:
-            x = self.x
+            x = self.linear_space
         u = numpy.zeros_like(x, dtype=float)
         for pot in self.potentials:
             try:
@@ -535,7 +512,7 @@ class PotentialTabulator:
 
         """
         if x is None:
-            x = self.x
+            x = self.linear_space
         f = numpy.zeros_like(x, dtype=float)
         for pot in self.potentials:
             try:
@@ -564,7 +541,7 @@ class PotentialTabulator:
 
         """
         if x is None:
-            x = self.x
+            x = self.linear_space
         d = numpy.zeros_like(x, dtype=float)
         for pot in self.potentials:
             try:
@@ -698,3 +675,101 @@ class PairPotentialTabulator(PotentialTabulator):
         """
         d = super().derivative(pair, var, x) - super().derivative(pair, var, self.stop)
         return d
+
+    def pairwise_energy_and_force(self, types, x=None, tight=False, minimum_num=2):
+        """Compute pairwise matrix of energy and force.
+
+        Parameters
+        ----------
+        types : array_like
+            Types to include in matrix.
+        x : float or array_like
+            Pairwise distances at which to evaluate energy and force. Default
+            of ``None`` will use a linear space from `start` to `stop`.
+        tight : bool
+            If ``True``, trim zeros from the ends of the energies and forces
+            using a combination of cutoffs and evaluated potential. This option
+            can only be used when ``x`` is an array.
+        minimum_num : int
+            When ``tight`` is ``True``, the minimum number of points to include,
+            even if they could be trimmed.
+
+        Returns
+        -------
+        float or `numpy.ndarray`
+            Pairwise distance.
+        :class:`PairMatrix`
+            Pairwise energies.
+        :class:`PairMatrix`
+            Pairwise forces.
+
+        """
+        if x is None:
+            scalar_x = False
+            x = numpy.copy(self.linear_space)
+        else:
+            scalar_x = numpy.isscalar(x)
+            x = numpy.atleast_1d(x)
+            if x.ndim != 1:
+                raise TypeError("x can be at most a 1d array")
+        if tight:
+            if scalar_x:
+                raise TypeError("Tight option can only be used if x is an array")
+            elif len(x) < minimum_num:
+                raise IndexError("Fewer coordinates given than required minimum")
+
+        u = collections.PairMatrix(types)
+        f = collections.PairMatrix(types)
+        stop = collections.PairMatrix(types)
+        for pair in u:
+            u[pair] = self.energy(pair, x)
+            f[pair] = self.force(pair, x)
+
+            # compute the shrink wrapped rcut if requested
+            if tight:
+                all_rmax = [
+                    variable.evaluate(pair_pot.coeff[pair]["rmax"])
+                    for pair_pot in self.potentials
+                ]
+                if len(all_rmax) == 0:
+                    # there are no potentials, cutoff at minimum number of points
+                    rcut = x[minimum_num - 1]
+                elif None not in all_rmax:
+                    # use rmax if set for all potentials
+                    rcut = min(max(all_rmax), x[-1])
+                else:
+                    # otherwise, deduce safe cutoff from tabulated values
+                    # cutoff at last nonzero r, adding 1 to make sure we include
+                    # the last point to go smoothly to zero
+                    nonzero_r = numpy.flatnonzero(
+                        numpy.logical_and(
+                            ~numpy.isclose(u[pair], 0),
+                            ~numpy.isclose(f[pair], 0),
+                        )
+                    )
+                    if len(nonzero_r) != 0:
+                        rcut = x[min(nonzero_r[-1] + 1, len(x) - 1)]
+                    else:
+                        rcut = x[minimum_num - 1]
+            else:
+                rcut = x[-1]
+
+            stop[pair] = rcut
+
+        # shrink wrap all of the data once largest stop is known
+        if tight:
+            max_stop = max(stop.values())
+            flags = x <= max_stop
+            flags[:minimum_num] = True
+
+            x = x[flags]
+            for pair in u:
+                u[pair] = u[pair][flags]
+                f[pair] = f[pair][flags]
+        elif scalar_x:
+            x = x.item()
+            for pair in u:
+                u[pair] = u[pair].item()
+                f[pair] = f[pair].item()
+
+        return x, u, f

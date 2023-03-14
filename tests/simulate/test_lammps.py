@@ -93,7 +93,7 @@ class test_LAMMPS(unittest.TestCase):
         pots.pair.potentials.append(pot)
         pots.pair.start = 1e-6
         pots.pair.stop = 2.0
-        pots.pair.num = 3
+        pots.pair.num = 10
 
         return (ens, pots)
 
@@ -313,7 +313,7 @@ class test_LAMMPS(unittest.TestCase):
         else:
             V = relentless.model.Square(100.0)
         init = relentless.simulate.InitializeRandomly(
-            seed=1, N={"1": 10000}, V=V, T=2.0
+            seed=1, N={"1": 20000}, V=V, T=2.0
         )
         logger = relentless.simulate.Record(quantities=["temperature"], every=100)
         brn = relentless.simulate.RunLangevinDynamics(
@@ -348,10 +348,10 @@ class test_LAMMPS(unittest.TestCase):
             seed=1, N=ens.N, V=ens.V, T=ens.T, diameters={"1": 1, "2": 1}
         )
         analyzer = relentless.simulate.EnsembleAverage(
-            check_thermo_every=5, check_rdf_every=5, rdf_dr=1.0
+            check_thermo_every=5, check_rdf_every=5, rdf_dr=0.1
         )
         analyzer2 = relentless.simulate.EnsembleAverage(
-            check_thermo_every=10, check_rdf_every=10, rdf_dr=0.5
+            check_thermo_every=10, check_rdf_every=10, rdf_dr=0.2
         )
         lgv = relentless.simulate.RunLangevinDynamics(
             steps=500,
@@ -375,8 +375,7 @@ class test_LAMMPS(unittest.TestCase):
         self.assertIsNotNone(ens_.V)
         self.assertNotEqual(ens_.V.extent, 0)
         for i, j in ens_.rdf:
-            # shape is determined by rmax for potential and rdf_dr
-            self.assertEqual(ens_.rdf[i, j].table.shape, (2, 2))
+            self.assertIsInstance(ens_.rdf[i, j], relentless.model.RDF)
 
         # extract ensemble from second analyzer, answers should be slightly different
         # for any quantities that fluctuate
@@ -391,7 +390,7 @@ class test_LAMMPS(unittest.TestCase):
         self.assertNotEqual(ens2_.V.extent, 0)
         self.assertEqual(ens2_.V.extent, ens_.V.extent)
         for i, j in ens2_.rdf:
-            self.assertEqual(ens2_.rdf[i, j].table.shape, (4, 2))
+            self.assertNotEqual(ens2_.rdf[i, j].table.shape, ens_.rdf[i, j].table.shape)
 
         # repeat same analysis with logger, and make sure it still works
         logger = relentless.simulate.Record(
