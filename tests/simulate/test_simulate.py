@@ -52,7 +52,7 @@ class test_PotentialTabulator(unittest.TestCase):
         p1 = QuadPot(types=("1",), params=("m",))
 
         # test creation with no potential
-        t = relentless.simulate.PotentialTabulator(start=0.0, stop=1.5, num=4)
+        t = relentless.simulate.PotentialTabulator(None, start=0.0, stop=1.5, num=4)
         numpy.testing.assert_allclose(t.linear_space, xs)
         self.assertAlmostEqual(t.start, 0.0)
         self.assertAlmostEqual(t.stop, 1.5)
@@ -61,7 +61,7 @@ class test_PotentialTabulator(unittest.TestCase):
 
         # test creation with defined potential
         t = relentless.simulate.PotentialTabulator(
-            start=0.0, stop=1.5, num=4, potentials=p1
+            potentials=p1, start=0.0, stop=1.5, num=4
         )
         numpy.testing.assert_allclose(t.linear_space, xs)
         self.assertAlmostEqual(t.start, 0.0)
@@ -77,7 +77,7 @@ class test_PotentialTabulator(unittest.TestCase):
         for key in p2.coeff.types:
             p2.coeff[key]["m"] = 1.0
         t = relentless.simulate.PotentialTabulator(
-            start=0.0, stop=5.0, num=6, potentials=[p1, p2]
+            potentials=[p1, p2], start=0.0, stop=5.0, num=6
         )
 
         # test energy method
@@ -145,25 +145,13 @@ class test_PairPotentialTabulator(unittest.TestCase):
 
         # test creation with only required parameters
         t = relentless.simulate.PairPotentialTabulator(
-            start=0.0, stop=1.5, num=4, neighbor_buffer=0.4
+            None, start=0.0, stop=1.5, num=4, neighbor_buffer=0.4
         )
         numpy.testing.assert_allclose(t.linear_space, rs)
         self.assertAlmostEqual(t.start, 0.0)
         self.assertAlmostEqual(t.stop, 1.5)
         self.assertEqual(t.num, 4)
         self.assertEqual(t.neighbor_buffer, 0.4)
-        self.assertEqual(t.fmax, None)
-
-        # test creation with required parameters and fmax
-        t = relentless.simulate.PairPotentialTabulator(
-            start=0.0, stop=1.5, num=4, neighbor_buffer=0.4, fmax=1.5
-        )
-        numpy.testing.assert_allclose(t.linear_space, rs)
-        self.assertAlmostEqual(t.start, 0.0)
-        self.assertAlmostEqual(t.stop, 1.5)
-        self.assertEqual(t.num, 4)
-        self.assertEqual(t.neighbor_buffer, 0.4)
-        self.assertAlmostEqual(t.fmax, 1.5)
 
     def test_potential(self):
         """Test energy, force, and derivative methods"""
@@ -173,7 +161,7 @@ class test_PairPotentialTabulator(unittest.TestCase):
         for pair in p2.coeff.pairs:
             p2.coeff[pair]["m"] = 1.0
         t = relentless.simulate.PairPotentialTabulator(
-            start=0, stop=5, num=6, neighbor_buffer=0.4, potentials=[p1, p2]
+            potentials=[p1, p2], start=0, stop=5, num=6, neighbor_buffer=0.4
         )
 
         # test energy method
@@ -198,25 +186,6 @@ class test_PairPotentialTabulator(unittest.TestCase):
         d = t.derivative(("1", "2"), var)
         numpy.testing.assert_allclose(d, numpy.array([0, 0, 0, 0, 0, 0]))
 
-    def test_fmax(self):
-        """Test setting and changing fmax."""
-        p1 = QuadPairPot(types=("1",))
-        p1.coeff["1", "1"]["m"] = 3.0
-
-        t = relentless.simulate.PairPotentialTabulator(
-            start=0.0, stop=6.0, num=7, neighbor_buffer=0.4, potentials=p1, fmax=4
-        )
-        f = t.force(("1", "1"))
-        numpy.testing.assert_allclose(f, numpy.array([4, 4, 4, 0, -4, -4, -4]))
-
-        t.fmax = 12
-        f = t.force(("1", "1"))
-        numpy.testing.assert_allclose(f, numpy.array([12, 12, 6, 0, -6, -12, -12]))
-
-        t.fmax = 20
-        f = t.force(("1", "1"))
-        numpy.testing.assert_allclose(f, numpy.array([18, 12, 6, 0, -6, -12, -18]))
-
     def test_pairwise_compute(self):
         p1 = QuadPairPot(types=("1", "2"))
         p1.coeff["1", "1"].update(m=2.0)
@@ -224,7 +193,7 @@ class test_PairPotentialTabulator(unittest.TestCase):
         p1.coeff["2", "2"].update(m=0.0)
 
         t = relentless.simulate.PairPotentialTabulator(
-            start=0.0, stop=6.0, num=7, neighbor_buffer=0.4, potentials=p1
+            potentials=p1, start=0.0, stop=6.0, num=7, neighbor_buffer=0.4
         )
 
         r, u, f = t.pairwise_energy_and_force(("1",))
