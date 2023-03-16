@@ -204,8 +204,9 @@ class EnsembleAverage(simulate.AnalysisOperation):
             sim[self]["num_rdf_samples"] = None
         # adjust extent to maintain pressure if barostat
         else:
-            coeffs = numpy.array([-ens.P / kT, N, B * N**2])
-            V = numpy.max(numpy.roots(coeffs))
+            coeffs = numpy.array([-ens.P / kT, 1, B])
+            v = numpy.max(numpy.roots(coeffs))
+            V = v * N
             L = V ** (1 / sim.dimension)
 
             if sim.dimension == 3:
