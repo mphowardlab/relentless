@@ -168,13 +168,15 @@ class EnsembleAverage(simulate.AnalysisOperation):
         # pair distribution function
         for pair in ens.pairs:
             u = sim.potentials.pair.energy(pair)
-            ens.rdf[pair] = ensemble.RDF(sim.potentials.pair.x, numpy.exp(-u / kT))
+            ens.rdf[pair] = ensemble.RDF(
+                sim.potentials.pair.linear_space, numpy.exp(-u / kT)
+            )
         # compute pressure
         B = 0.0
         N = sum(ens.N[i] for i in sim.types)
         for i, j in sim.pairs:
             counting_factor = 2 if i != j else 1
-            r = sim.potentials.pair.x
+            r = sim.potentials.pair.linear_space
             u = sim.potentials.pair.energy((i, j))
 
             # only count continuous range of finite values
