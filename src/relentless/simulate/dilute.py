@@ -193,7 +193,7 @@ class EnsembleAverage(simulate.AnalysisOperation):
                 raise ValueError("Geometric integration factor unknown for extent type")
             y_i = ens.N[i] / N
             y_j = ens.N[j] / N
-            b_ij = counting_factor * (geo_prefactor / 2.0) * (numpy.exp(-u / kT) - 1)
+            b_ij = -counting_factor * (geo_prefactor / 2.0) * (numpy.exp(-u / kT) - 1)
             B += y_i * y_j * numpy.trapz(b_ij, x=r)
         # calculate pressure if no barostat
         if ens.P is None:
