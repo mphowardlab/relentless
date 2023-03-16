@@ -63,21 +63,18 @@ class InitializationOperation(simulate.InitializationOperation):
         # create the potentials, defer attaching until later
         neighbor_list = hoomd.md.nlist.Tree(buffer=sim.potentials.pair.neighbor_buffer)
         pair_potential = hoomd.md.pair.Table(nlist=neighbor_list)
+        r, u, f = sim.potentials.pair.pairwise_energy_and_force(
+            sim.types, tight=True, minimum_num=2
+        )
         for i, j in sim.pairs:
-            r = sim.potentials.pair.x
-            if len(r) < 2:
-                raise ValueError(
-                    "There must be at least two points in the pair potential table"
-                )
-            u = sim.potentials.pair.energy((i, j))
-            f = sim.potentials.pair.force((i, j))
-            if numpy.any(numpy.isinf(u)) or numpy.any(numpy.isinf(f)):
+            if numpy.any(numpy.isinf(u[i, j])) or numpy.any(numpy.isinf(f[i, j])):
                 raise ValueError("Pair potential/force is infinite at evaluated r")
-            # this could be trimmed shorter, as in lammps. what we have here is
-            # a temporary implementation that will be corrected later
-            pair_potential.params[(i, j)] = dict(r_min=r[0], U=u[:-1], F=f[:-1])
+            pair_potential.params[(i, j)] = dict(
+                r_min=r[0], U=u[i, j][:-1], F=f[i, j][:-1]
+            )
             pair_potential.r_cut[(i, j)] = r[-1]
         sim[self]["_potentials"] = [pair_potential]
+        sim[self]["_potentials_rmax"] = r[-1]
 
     def _call_v2(self, sim):
         # initialize
@@ -102,13 +99,14 @@ class InitializationOperation(simulate.InitializationOperation):
                 r_buff=sim.potentials.pair.neighbor_buffer
             )
             pair_potential = hoomd.md.pair.table(
-                width=len(sim.potentials.pair.x), nlist=neighbor_list
+                width=len(sim.potentials.pair.linear_space), nlist=neighbor_list
+            )
+
+            r, u, f = sim.potentials.pair.pairwise_energy_and_force(
+                sim.types, tight=True, minimum_num=2
             )
             for i, j in sim.pairs:
-                r = sim.potentials.pair.x
-                u = sim.potentials.pair.energy((i, j))
-                f = sim.potentials.pair.force((i, j))
-                if numpy.any(numpy.isinf(u)) or numpy.any(numpy.isinf(f)):
+                if numpy.any(numpy.isinf(u[i, j])) or numpy.any(numpy.isinf(f[i, j])):
                     raise ValueError("Pair potential/force is infinite at evaluated r")
                 pair_potential.pair_coeff.set(
                     i,
@@ -116,8 +114,9 @@ class InitializationOperation(simulate.InitializationOperation):
                     func=_table_eval,
                     rmin=r[0],
                     rmax=r[-1],
-                    coeff=dict(r=r, u=u, f=f),
+                    coeff=dict(r=r, u=u[i, j], f=f[i, j]),
                 )
+            sim[self]["_potentials_rmax"] = r[-1]
 
     def _initialize_v3(self, sim):
         raise NotImplementedError(
@@ -1006,8 +1005,10 @@ class EnsembleAverage(AnalysisOperation):
 
     def _get_rdf_params(self, sim):
         rdf_params = PairMatrix(sim.types)
-        rmax = sim.potentials.pair.x[-1]
+        rmax = sim[sim.initializer]["_potentials_rmax"]
         bins = numpy.round(rmax / self.rdf_dr).astype(int)
+        if bins == 1:
+            raise ValueError("Only 1 RDF bin, increase the discretization")
         for pair in rdf_params:
             rdf_params[pair] = {"bins": bins, "rmax": rmax}
         return rdf_params

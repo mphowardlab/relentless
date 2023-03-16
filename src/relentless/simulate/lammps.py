@@ -62,13 +62,11 @@ class InitializationOperation(simulate.InitializationOperation):
         # attach the potentials
         if sim.potentials.pair.start == 0:
             raise ValueError("LAMMPS requires start > 0 for pair potentials")
-        rsq = sim.potentials.pair.xsquared
-        r = numpy.sqrt(rsq)
+        r, u, f = sim.potentials.pair.pairwise_energy_and_force(
+            sim.types, x=sim.potentials.pair.squared_space, tight=True, minimum_num=2
+        )
         Nr = len(r)
-        if Nr == 1:
-            raise ValueError(
-                "LAMMPS requires at least two points in the tabulated potential."
-            )
+        sim[self]["_potentials_rmax"] = r[-1]
 
         def pair_map(sim, pair):
             # Map lammps type indexes as a pair, lowest type first
@@ -85,8 +83,14 @@ class InitializationOperation(simulate.InitializationOperation):
             file_ = sim.directory.file(str(uuid.uuid4().hex))
             with open(file_, "w") as fw:
                 fw.write("# LAMMPS tabulated pair potentials\n")
-                rcut = {}
                 for i, j in sim.pairs:
+                    if numpy.any(numpy.isinf(u[i, j])) or numpy.any(
+                        numpy.isinf(f[i, j])
+                    ):
+                        raise ValueError(
+                            "Pair potential/force is infinite at evaluated r"
+                        )
+
                     id_i, id_j = pair_map(sim, (i, j))
                     fw.write(
                         ("# pair ({i},{j})\n" "\n" "TABLE_{id_i}_{id_j}\n").format(
@@ -96,29 +100,19 @@ class InitializationOperation(simulate.InitializationOperation):
                     fw.write(
                         "N {N} RSQ {rmin} {rmax}\n\n".format(
                             N=Nr,
-                            rmin=sim.potentials.pair.start,
-                            rmax=sim.potentials.pair.stop,
+                            rmin=r[0],
+                            rmax=r[-1],
                         )
                     )
 
-                    # explicitly use r = sqrt(r^2) to avoid interpolation
-                    u = sim.potentials.pair.energy((i, j), r)
-                    f = sim.potentials.pair.force((i, j), r)
-                    for idx in range(Nr):
+                    for idx, (r_, u_, f_) in enumerate(
+                        zip(r, u[i, j], f[i, j]), start=1
+                    ):
                         fw.write(
-                            "{idx} {r} {u} {f}\n".format(
-                                idx=idx + 1, r=rsq[idx], u=u[idx], f=f[idx]
-                            )
+                            "{idx} {r} {u} {f}\n".format(idx=idx, r=r_, u=u_, f=f_)
                         )
-
-                    # find r where potential and force are zero
-                    rcut[i, j] = self._get_tight_rcut(
-                        sim.potentials.pair, (i, j), r, u, f
-                    )
         else:
-            rcut = None
             file_ = None
-        rcut = mpi.world.bcast(rcut)
         file_ = mpi.world.bcast(file_)
 
         # process all lammps commands
@@ -132,10 +126,9 @@ class InitializationOperation(simulate.InitializationOperation):
             # get lammps type indexes, lowest type first
             id_i, id_j = pair_map(sim, (i, j))
             cmds += [
-                (
-                    "pair_coeff {id_i} {id_j} {filename}"
-                    " TABLE_{id_i}_{id_j} {cutoff}"
-                ).format(id_i=id_i, id_j=id_j, filename=file_, cutoff=rcut[(i, j)])
+                ("pair_coeff {id_i} {id_j} {filename}" " TABLE_{id_i}_{id_j}").format(
+                    id_i=id_i, id_j=id_j, filename=file_
+                )
             ]
 
         return cmds
@@ -959,8 +952,10 @@ class EnsembleAverage(AnalysisOperation):
         ]
 
         # pair distribution function
-        rmax = sim.potentials.pair.x[-1]
+        rmax = sim[sim.initializer]["_potentials_rmax"]
         num_bins = numpy.round(rmax / self.rdf_dr).astype(int)
+        if num_bins == 1:
+            raise ValueError("Only 1 RDF bin, increase the discretization")
         sim[self]["_rdf_file"] = file_["rdf"]
         sim[self]["_rdf_pairs"] = tuple(sim.pairs)
         # string format lammps arguments based on pairs

@@ -270,7 +270,7 @@ class test_HOOMD(unittest.TestCase):
             seed=1, N=ens.N, V=ens.V, T=ens.T, diameters={"A": 1, "B": 1}
         )
         analyzer = relentless.simulate.EnsembleAverage(
-            check_thermo_every=5, check_rdf_every=10, rdf_dr=1.0
+            check_thermo_every=5, check_rdf_every=10, rdf_dr=0.1
         )
         lgv = relentless.simulate.RunLangevinDynamics(
             steps=500, timestep=0.001, T=ens.T, friction=1.0, seed=1, analyzers=analyzer
@@ -295,7 +295,7 @@ class test_HOOMD(unittest.TestCase):
         self.assertIsNotNone(ens_.V)
         self.assertNotEqual(ens_.V.extent, 0)
         for i, j in ens_.rdf:
-            self.assertEqual(ens_.rdf[i, j].table.shape, (len(pot.pair.x) - 1, 2))
+            self.assertIsInstance(ens_.rdf[i, j], relentless.model.RDF)
         self.assertEqual(sim[analyzer]["num_thermo_samples"], expected_thermo_samples)
         self.assertEqual(sim[analyzer]["num_rdf_samples"], expected_rdf_samples)
 
@@ -324,7 +324,7 @@ class test_HOOMD(unittest.TestCase):
             steps=1, timestep=0.001, T=ens.T, friction=1.0, seed=1
         )
         analyzer = relentless.simulate.EnsembleAverage(
-            check_thermo_every=5, check_rdf_every=10, rdf_dr=1.0
+            check_thermo_every=5, check_rdf_every=10, rdf_dr=0.1
         )
         lgv2 = relentless.simulate.RunLangevinDynamics(
             steps=1, timestep=0.001, T=ens.T, friction=1.0, seed=1, analyzers=analyzer
