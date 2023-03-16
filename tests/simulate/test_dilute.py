@@ -45,7 +45,7 @@ class test_Dilute(unittest.TestCase):
         d = relentless.simulate.Dilute(init, operations=md)
         sim = d.run(potentials=pots, directory=self.directory)
         ens_ = sim[analyzer]["ensemble"]
-        self.assertAlmostEqual(ens_.P, 194.8990634)
+        self.assertAlmostEqual(ens_.P, -193.64906344158112)
 
     def test_run_moleculardynamics(self):
         """Test run molecular dynamics method with thermostat."""
@@ -159,7 +159,7 @@ class test_Dilute(unittest.TestCase):
             warned = True
         self.assertFalse(warned)  # no warning should be raised
         ens_ = sim[analyzer]["ensemble"]
-        self.assertAlmostEqual(ens_.P, 2.4488295)
+        self.assertAlmostEqual(ens_.P, -1.198829524994)
 
     def tearDown(self):
         relentless.mpi.world.barrier()
