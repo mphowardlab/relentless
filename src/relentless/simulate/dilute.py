@@ -170,41 +170,34 @@ class EnsembleAverage(simulate.AnalysisOperation):
             u = sim.potentials.pair.energy(pair)
             ens.rdf[pair] = ensemble.RDF(sim.potentials.pair.x, numpy.exp(-u / kT))
         # compute pressure
-        if ens.P is None:
-            ens.P = 0.0
         B = 0.0
-        N = 0
-        for type in sim.types:
-            N += ens.N[type]
+        N = sum(ens.N[i] for i in sim.types)
+        for i, j in sim.pairs:
+            counting_factor = 2 if i != j else 1
+            r = sim.potentials.pair.x
+            u = sim.potentials.pair.energy((i, j))
 
-        for a in sim.types:
-            for b in sim.types:
-                r = sim.potentials.pair.x
-                u = sim.potentials.pair.energy((a, b))
+            # only count continuous range of finite values
+            flags = numpy.isinf(u)
+            first_finite = 0
+            while flags[first_finite] and first_finite < len(r):
+                first_finite += 1
+            r = r[first_finite:]
+            u = u[first_finite:]
 
-                # only count continuous range of finite values
-                flags = numpy.isinf(u)
-                first_finite = 0
-                while flags[first_finite] and first_finite < len(r):
-                    first_finite += 1
-                r = r[first_finite:]
-                u = u[first_finite:]
-
-                if sim.dimension == 3:
-                    geo_prefactor = 4 * numpy.pi * r**2
-                elif sim.dimension == 2:
-                    geo_prefactor = 2 * numpy.pi * r
-                else:
-                    raise ValueError(
-                        "Geometric integration factor unknown for extent type"
-                    )
-                rho = N / ens.V.extent
-                y_a = ens.N[a] / N
-                y_b = ens.N[b] / N
-                b_ab = (geo_prefactor / 2.0) * (numpy.exp(-u / kT) - 1)
-                B += y_a * y_b * numpy.trapz(b_ab, x=r)
+            if sim.dimension == 3:
+                geo_prefactor = 4 * numpy.pi * r**2
+            elif sim.dimension == 2:
+                geo_prefactor = 2 * numpy.pi * r
+            else:
+                raise ValueError("Geometric integration factor unknown for extent type")
+            y_i = ens.N[i] / N
+            y_j = ens.N[j] / N
+            b_ij = counting_factor * (geo_prefactor / 2.0) * (numpy.exp(-u / kT) - 1)
+            B += y_i * y_j * numpy.trapz(b_ij, x=r)
         # calculate pressure if no barostat
-        if ens.P == 0.0:
+        if ens.P is None:
+            rho = N / ens.V.extent
             ens.P = kT * (rho + B * rho**2)
             sim[self]["ensemble"] = ens
             sim[self]["num_thermo_samples"] = None
@@ -212,7 +205,7 @@ class EnsembleAverage(simulate.AnalysisOperation):
         # adjust extent to maintain pressure if barostat
         else:
             coeffs = numpy.array([-ens.P / kT, N, B * N**2])
-            V = numpy.roots(coeffs)[numpy.roots(coeffs) > 0]
+            V = numpy.max(numpy.roots(coeffs))
             L = V ** (1 / sim.dimension)
 
             if sim.dimension == 3:
