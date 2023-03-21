@@ -27,7 +27,7 @@ class test_Dilute(unittest.TestCase):
             seed=42, N={"A": 2, "B": 3}, V=relentless.model.Cube(L=2.0), T=1.0
         )
         analyzer = relentless.simulate.EnsembleAverage(
-            check_thermo_every=1, check_rdf_every=1, rdf_dr=0.1
+            every=1, rdf={"stop": 3.0, "num": 30}
         )
         md = relentless.simulate.RunMolecularDynamics(
             steps=100, timestep=1e-3, analyzers=analyzer
@@ -53,7 +53,7 @@ class test_Dilute(unittest.TestCase):
             seed=42, N={"A": 2, "B": 3}, V=relentless.model.Cube(L=2.0), T=1.0
         )
         analyzer = relentless.simulate.EnsembleAverage(
-            check_thermo_every=1, check_rdf_every=1, rdf_dr=0.1
+            every=1, rdf={"stop": 3.0, "num": 10}
         )
         md = relentless.simulate.RunMolecularDynamics(
             steps=100,
@@ -82,7 +82,7 @@ class test_Dilute(unittest.TestCase):
             seed=42, N={"A": 2, "B": 3}, V=relentless.model.Cube(L=2.0), T=1.0
         )
         analyzer = relentless.simulate.EnsembleAverage(
-            check_thermo_every=1, check_rdf_every=1, rdf_dr=0.1
+            every=1, rdf={"stop": 3.0, "num": 30}
         )
         lgv = relentless.simulate.RunLangevinDynamics(
             steps=100, timestep=1e-3, T=2, friction=0.1, seed=2, analyzers=analyzer
@@ -108,7 +108,7 @@ class test_Dilute(unittest.TestCase):
             seed=42, N={"A": 2, "B": 3}, V=relentless.model.Cube(L=2.0), T=1.0
         )
         analyzer = relentless.simulate.EnsembleAverage(
-            check_thermo_every=1, check_rdf_every=1, rdf_dr=0.1
+            every=1, rdf={"stop": 3.0, "num": 30}
         )
         bd = relentless.simulate.RunBrownianDynamics(
             steps=100, timestep=1e-3, T=2.0, friction=0.1, seed=2, analyzers=analyzer
@@ -166,7 +166,7 @@ class test_Dilute(unittest.TestCase):
             seed=42, N={"A": 2, "B": 3}, V=relentless.model.Cube(L=2.0), T=1.0
         )
         analyzer = relentless.simulate.EnsembleAverage(
-            check_thermo_every=1, check_rdf_every=1, rdf_dr=0.1
+            every=1, rdf={"stop": 3.0, "num": 30}
         )
         md = relentless.simulate.RunMolecularDynamics(
             steps=100, timestep=1e-3, analyzers=analyzer

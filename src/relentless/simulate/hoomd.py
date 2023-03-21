@@ -9,7 +9,7 @@ from relentless import mpi
 from relentless.collections import FixedKeyDict, PairMatrix
 from relentless.model import ensemble, extent
 
-from . import initialize, md, simulate
+from . import analyze, initialize, md, simulate
 
 try:
     import hoomd
@@ -858,58 +858,29 @@ class AnalysisOperation(simulate.AnalysisOperation):
 
 
 class EnsembleAverage(AnalysisOperation):
-    """Analyzer for the simulation ensemble.
-
-    The simulation ensemble is analyzed online while it is running. The
-    instantaneous thermodynamic properties are extracted from a HOOMD logger,
-    while the radial distribution function is computed using :mod:`freud`.
-
-    Parameters
-    ----------
-    check_thermo_every : int
-        Number of timesteps between computing thermodynamic properties.
-    check_rdf_every : int
-        Number of time steps between computing the RDF.
-    rdf_dr : float
-        The width of a bin in the RDF histogram.
-
-    """
-
-    def __init__(self, check_thermo_every, check_rdf_every, rdf_dr):
-        self.check_thermo_every = check_thermo_every
-        self.check_rdf_every = check_rdf_every
-        self.rdf_dr = rdf_dr
+    def __init__(self, every, rdf):
+        self.every = every
+        self.rdf = rdf
 
     def _pre_run_v3(self, sim, sim_op):
         # thermodynamic properties
         sim[self]["_thermo"] = hoomd.md.compute.ThermodynamicQuantities(
             hoomd.filter.All()
         )
-        sim[self]["_thermo_callback"] = self.ThermodynamicsCallback(
-            thermo=sim[self]["_thermo"],
+        sim[self]["_thermo_callback"] = self.EnsembleAverageAction(
+            types=sim.types,
             dimension=sim.dimension,
+            thermo=sim[self]["_thermo"],
+            system=sim["engine"]["_hoomd"].state,
+            rdf_params=self._get_rdf_params(sim),
         )
         sim[self]["_hoomd_thermo_callback"] = hoomd.write.CustomWriter(
-            trigger=self.check_thermo_every,
+            trigger=self.every,
             action=sim[self]["_thermo_callback"],
         )
         sim["engine"]["_hoomd"].operations.computes.append(sim[self]["_thermo"])
         sim["engine"]["_hoomd"].operations.writers.append(
             sim[self]["_hoomd_thermo_callback"]
-        )
-
-        # RDF
-        rdf_params = self._get_rdf_params(sim)
-        sim[self]["_rdf_callback"] = self.RDFCallback(
-            system=sim["engine"]["_hoomd"].state,
-            params=rdf_params,
-        )
-        sim[self]["_hoomd_rdf_callback"] = hoomd.write.CustomWriter(
-            trigger=self.check_rdf_every,
-            action=sim[self]["_rdf_callback"],
-        )
-        sim["engine"]["_hoomd"].operations.writers.append(
-            sim[self]["_hoomd_rdf_callback"]
         )
 
     def _pre_run_v2(self, sim, sim_op):
@@ -933,25 +904,18 @@ class EnsembleAverage(AnalysisOperation):
             sim[self]["_thermo"] = hoomd.analyze.log(
                 filename=None,
                 quantities=quantities_logged,
-                period=self.check_thermo_every,
+                period=self.every,
             )
-            sim[self]["_thermo_callback"] = self.ThermodynamicsCallback(
-                thermo=sim[self]["_thermo"],
+            sim[self]["_thermo_callback"] = self.EnsembleAverageAction(
+                types=sim.types,
                 dimension=sim.dimension,
+                thermo=sim[self]["_thermo"],
+                system=sim[sim.initializer]["_system"],
+                rdf_params=self._get_rdf_params(sim),
             )
             sim[self]["_hoomd_thermo_callback"] = hoomd.analyze.callback(
                 callback=sim[self]["_thermo_callback"].act,
-                period=self.check_thermo_every,
-            )
-
-            # pair distribution function
-            rdf_params = self._get_rdf_params(sim)
-            sim[self]["_rdf_callback"] = self.RDFCallback(
-                system=sim[sim.initializer]["_system"],
-                params=rdf_params,
-            )
-            sim[self]["_hoomd_rdf_callback"] = hoomd.analyze.callback(
-                callback=sim[self]["_rdf_callback"].act, period=self.check_rdf_every
+                period=self.every,
             )
 
     def _post_run_v3(self, sim, sim_op):
@@ -961,150 +925,71 @@ class EnsembleAverage(AnalysisOperation):
         sim["engine"]["_hoomd"].operations.computes.remove(sim[self]["_thermo"])
         del sim[self]["_hoomd_thermo_callback"], sim[self]["_thermo"]
 
-        sim["engine"]["_hoomd"].operations.writers.remove(
-            sim[self]["_hoomd_rdf_callback"]
-        )
-        del sim[self]["_hoomd_rdf_callback"]
-
     def _post_run_v2(self, sim, sim_op):
         with sim["engine"]["_hoomd"]:
             sim[self]["_hoomd_thermo_callback"].disable()
             sim[self]["_thermo"].disable()
-
-            sim[self]["_hoomd_rdf_callback"].disable()
-
-        del sim[self]["_hoomd_thermo_callback"], sim[self]["_thermo"]
-        del sim[self]["_hoomd_rdf_callback"]
+            del sim[self]["_hoomd_thermo_callback"], sim[self]["_thermo"]
 
     def process(self, sim, sim_op):
-        rdf_recorder = sim[self]["_rdf_callback"]
         thermo_recorder = sim[self]["_thermo_callback"]
-
-        # make sure samples were collected
         if thermo_recorder.num_samples == 0:
             raise RuntimeError("No thermo samples were collected")
-        if rdf_recorder.num_samples == 0:
+        if self.rdf is not None and thermo_recorder.num_rdf_samples == 0:
             raise RuntimeError("No RDF samples were collected")
 
         ens = ensemble.Ensemble(
             T=thermo_recorder.T,
-            N=rdf_recorder.N,
+            N=thermo_recorder.N,
             V=thermo_recorder.V,
             P=thermo_recorder.P,
         )
-        for pair in rdf_recorder.rdf:
-            ens.rdf[pair] = rdf_recorder.rdf[pair]
+        if thermo_recorder.rdf is not None:
+            for pair in thermo_recorder.rdf:
+                ens.rdf[pair] = thermo_recorder.rdf[pair]
 
         sim[self]["ensemble"] = ens
         sim[self]["num_thermo_samples"] = thermo_recorder.num_samples
-        sim[self]["num_rdf_samples"] = rdf_recorder.num_samples
+        sim[self]["num_rdf_samples"] = thermo_recorder.num_rdf_samples
 
-        # disable and delete callbacks
         del sim[self]["_thermo_callback"]
-        del sim[self]["_rdf_callback"]
 
-    def _get_rdf_params(self, sim):
-        rdf_params = PairMatrix(sim.types)
-        rmax = sim[sim.initializer]["_potentials_rmax"]
-        bins = numpy.round(rmax / self.rdf_dr).astype(int)
-        if bins == 1:
-            raise ValueError("Only 1 RDF bin, increase the discretization")
-        for pair in rdf_params:
-            rdf_params[pair] = {"bins": bins, "rmax": rmax}
-        return rdf_params
+    _get_rdf_params = analyze.EnsembleAverage._get_rdf_params
 
-    class ThermodynamicsCallback(Action):
+    class EnsembleAverageAction(Action):
         flags = [Action.Flags.PRESSURE_TENSOR]
 
-        def __init__(self, thermo, dimension):
+        def __init__(self, types, dimension, thermo, system, rdf_params=None):
             if dimension not in (2, 3):
                 raise ValueError("Only 2 or 3 dimensions supported")
 
-            self.thermo = thermo
+            self.types = types
             self.dimension = dimension
+            self.thermo = thermo
+            self.system = system
+            self.rdf_params = rdf_params
+
+            # this method handles all the initialization
             self.reset()
 
         def act(self, timestep):
+            compute_rdf = (
+                self.rdf_params is not None and timestep % self.rdf_params["every"] == 0
+            )
+
             if _version.major == 3:
                 self._T += self.thermo.kinetic_temperature
                 self._P += self.thermo.pressure
                 for key in self._V:
                     self._V[key] += getattr(self._state.box, key)
-                self.num_samples += 1
             elif _version.major == 2:
                 self._T += self.thermo.query("temperature")
                 self._P += self.thermo.query("pressure")
                 for key in self._V:
                     self._V[key] += self.thermo.query(key.lower())
-                self.num_samples += 1
             else:
                 raise NotImplementedError(f"HOOMD {_version} not supported")
 
-        def reset(self):
-            """Resets sample number, ``T``, ``P``, and all ``V`` parameters to 0."""
-            self.num_samples = 0
-            self._T = 0.0
-            self._P = 0.0
-            if self.dimension == 3:
-                self._V = {
-                    "Lx": 0.0,
-                    "Ly": 0.0,
-                    "Lz": 0.0,
-                    "xy": 0.0,
-                    "xz": 0.0,
-                    "yz": 0.0,
-                }
-            elif self.dimension == 2:
-                self._V = {"Lx": 0.0, "Ly": 0.0, "xy": 0.0}
-
-        @property
-        def T(self):
-            """float: Average temperature across samples."""
-            if self.num_samples > 0:
-                return self._T / self.num_samples
-            else:
-                return None
-
-        @property
-        def P(self):
-            """float: Average pressure across samples."""
-            if self.num_samples > 0:
-                return self._P / self.num_samples
-            else:
-                return None
-
-        @property
-        def V(self):
-            """float: Average extent across samples."""
-            if self.num_samples > 0:
-                _V = {key: self._V[key] / self.num_samples for key in self._V}
-                if self.dimension == 3:
-                    return extent.TriclinicBox(**_V, convention="HOOMD")
-                elif self.dimension == 2:
-                    return extent.ObliqueArea(**_V, convention="HOOMD")
-            else:
-                return None
-
-    class RDFCallback(Action):
-        """HOOMD callback for averaging radial distribution function."""
-
-        def __init__(self, system, params):
-            self.system = system
-
-            self.num_samples = 0
-            self._N = FixedKeyDict(params.types)
-            for i in self._N:
-                self._N[i] = 0
-
-            self._rdf = PairMatrix(params.types)
-            for i, j in self._rdf:
-                self._rdf[i, j] = freud.density.RDF(
-                    bins=params[i, j]["bins"],
-                    r_max=params[i, j]["rmax"],
-                    normalize=(i == j),
-                )
-
-        def act(self, timestep):
             if _version.major == 3:
                 snap = self.system.get_snapshot()
             elif _version.major == 2:
@@ -1143,21 +1028,88 @@ class EnsembleAverage(AnalysisOperation):
                         i
                     )
                     self._N[i] += numpy.sum(type_masks[i])
-                    aabbs[i] = freud.locality.AABBQuery(
-                        box, snap.particles.position[type_masks[i]]
-                    )
+                    if compute_rdf:
+                        aabbs[i] = freud.locality.AABBQuery(
+                            box, snap.particles.position[type_masks[i]]
+                        )
                 # then do rdfs using the AABBs
-                for i, j in self._rdf:
-                    query_args = dict(self._rdf[i, j].default_query_args)
-                    query_args.update(exclude_ii=(i == j))
-                    # resetting when the samples are zero clears the RDF, on delay
-                    self._rdf[i, j].compute(
-                        aabbs[j],
-                        snap.particles.position[type_masks[i]],
-                        neighbors=query_args,
-                        reset=(self.num_samples == 0),
-                    )
+                if compute_rdf:
+                    for i, j in self._rdf:
+                        query_args = dict(self._rdf[i, j].default_query_args)
+                        query_args.update(exclude_ii=(i == j))
+                        # resetting when the samples are zero clears the RDF, on delay
+                        self._rdf[i, j].compute(
+                            aabbs[j],
+                            snap.particles.position[type_masks[i]],
+                            neighbors=query_args,
+                            reset=(self.num_samples == 0),
+                        )
+
             self.num_samples += 1
+            if compute_rdf:
+                self.num_rdf_samples += 1
+
+        def reset(self):
+            """Resets sample number, ``T``, ``P``, and all ``V`` parameters to 0."""
+            self._T = 0.0
+            self._P = 0.0
+            if self.dimension == 3:
+                self._V = {
+                    "Lx": 0.0,
+                    "Ly": 0.0,
+                    "Lz": 0.0,
+                    "xy": 0.0,
+                    "xz": 0.0,
+                    "yz": 0.0,
+                }
+            elif self.dimension == 2:
+                self._V = {"Lx": 0.0, "Ly": 0.0, "xy": 0.0}
+
+            self._N = FixedKeyDict(self.types)
+            for i in self.types:
+                self._N[i] = 0
+
+            if self.rdf_params is not None:
+                self._rdf = PairMatrix(self.types)
+                for i, j in self._rdf:
+                    self._rdf[i, j] = freud.density.RDF(
+                        bins=self.rdf_params["bins"],
+                        r_max=self.rdf_params["stop"],
+                        normalize=(i == j),
+                    )
+            else:
+                self._rdf = None
+
+            self.num_samples = 0
+            self.num_rdf_samples = 0
+
+        @property
+        def T(self):
+            """float: Average temperature across samples."""
+            if self.num_samples > 0:
+                return self._T / self.num_samples
+            else:
+                return None
+
+        @property
+        def P(self):
+            """float: Average pressure across samples."""
+            if self.num_samples > 0:
+                return self._P / self.num_samples
+            else:
+                return None
+
+        @property
+        def V(self):
+            """float: Average extent across samples."""
+            if self.num_samples > 0:
+                _V = {key: self._V[key] / self.num_samples for key in self._V}
+                if self.dimension == 3:
+                    return extent.TriclinicBox(**_V, convention="HOOMD")
+                elif self.dimension == 2:
+                    return extent.ObliqueArea(**_V, convention="HOOMD")
+            else:
+                return None
 
         @property
         def N(self):
@@ -1182,7 +1134,7 @@ class EnsembleAverage(AnalysisOperation):
             """:class:`~relentless.collections.PairMatrix`:
             Radial distribution functions.
             """
-            if self.num_samples > 0:
+            if self.num_rdf_samples > 0:
                 rdf = PairMatrix(self._rdf.types)
                 for pair in rdf:
                     if mpi.world.rank == 0:
@@ -1196,13 +1148,6 @@ class EnsembleAverage(AnalysisOperation):
                 return rdf
             else:
                 return None
-
-        def reset(self):
-            """Reset the averages."""
-            self.num_samples = 0
-            for i in self._N.types:
-                self._N[i] = 0
-            # rdf will be reset on next call
 
 
 class Record(AnalysisOperation):

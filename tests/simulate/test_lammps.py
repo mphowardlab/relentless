@@ -43,10 +43,7 @@ elif relentless.simulate.lammps._lammps_found:
 else:
     test_params = []
 
-_has_lammps_dependencies = relentless.simulate.lammps._lammpsio_found
 
-
-@unittest.skipIf(not _has_lammps_dependencies, "LAMMPS dependencies not installed")
 @unittest.skipIf(len(test_params) == 0, "No version of LAMMPS installed")
 @parameterized.parameterized_class(
     ("dim", "executable"),
@@ -346,10 +343,10 @@ class test_LAMMPS(unittest.TestCase):
             seed=1, N=ens.N, V=ens.V, T=ens.T, diameters={"1": 1, "2": 1}
         )
         analyzer = relentless.simulate.EnsembleAverage(
-            check_thermo_every=5, check_rdf_every=5, rdf_dr=0.1
+            every=5, rdf={"stop": 2.0, "num": 20}
         )
         analyzer2 = relentless.simulate.EnsembleAverage(
-            check_thermo_every=10, check_rdf_every=10, rdf_dr=0.2
+            every=10, rdf={"stop": 2.0, "num": 10}
         )
         lgv = relentless.simulate.RunLangevinDynamics(
             steps=500,

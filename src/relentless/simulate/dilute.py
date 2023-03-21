@@ -13,7 +13,7 @@ import numpy
 
 from relentless.model import ensemble, extent
 
-from . import simulate
+from . import analyze, simulate
 
 
 class NullOperation(simulate.SimulationOperation):
@@ -153,8 +153,9 @@ class EnsembleAverage(simulate.AnalysisOperation):
 
     """
 
-    def __init__(self, check_thermo_every, check_rdf_every, rdf_dr):
-        pass
+    def __init__(self, every, rdf):
+        self.every = every
+        self.rdf = rdf
 
     def pre_run(self, sim, sim_op):
         pass
@@ -165,7 +166,10 @@ class EnsembleAverage(simulate.AnalysisOperation):
     def process(self, sim, sim_op):
         ens = sim[sim.initializer]["_ensemble"].copy()
         kT = sim.potentials.kB * ens.T
-        # pair distribution function
+
+        # pair distribution function is needed to get the pressure
+        # we use the potential spacing for this integral, then deal with outputting
+        # it later
         for pair in ens.pairs:
             u = sim.potentials.pair.energy(pair)
             ens.rdf[pair] = ensemble.RDF(
@@ -217,9 +221,25 @@ class EnsembleAverage(simulate.AnalysisOperation):
             elif sim.dimension == 2:
                 ens.V = extent.Square(L)
 
+        # optionally finalize RDF using given parameters
+        # otherwise remove it from output
+        rdf_params = self._get_rdf_params(sim)
+        for pair in ens.pairs:
+            if rdf_params is not None:
+                bin_edges = numpy.linspace(
+                    0, rdf_params["stop"], rdf_params["bins"] + 1
+                )
+                bin_centers = 0.5 * (bin_edges[:-1] + bin_edges[1:])
+                u = sim.potentials.pair.energy(pair, x=bin_centers)
+                ens.rdf[pair] = ensemble.RDF(bin_centers, numpy.exp(-u / kT))
+            else:
+                ens.rdf[pair] = None
+
         sim[self]["ensemble"] = ens
         sim[self]["num_thermo_samples"] = None
         sim[self]["num_rdf_samples"] = None
+
+    _get_rdf_params = analyze.EnsembleAverage._get_rdf_params
 
 
 class Dilute(simulate.Simulation):

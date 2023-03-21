@@ -1,3 +1,5 @@
+freud-analysis>=2
+lammpsio>=0.3
 networkx>=2.5
 numpy
 packaging

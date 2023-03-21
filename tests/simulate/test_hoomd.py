@@ -270,7 +270,7 @@ class test_HOOMD(unittest.TestCase):
             seed=1, N=ens.N, V=ens.V, T=ens.T, diameters={"A": 1, "B": 1}
         )
         analyzer = relentless.simulate.EnsembleAverage(
-            check_thermo_every=5, check_rdf_every=10, rdf_dr=0.1
+            every=5, rdf={"every": 10, "stop": 2.0, "num": 20}
         )
         lgv = relentless.simulate.RunLangevinDynamics(
             steps=500, timestep=0.001, T=ens.T, friction=1.0, seed=1, analyzers=analyzer
@@ -324,7 +324,7 @@ class test_HOOMD(unittest.TestCase):
             steps=1, timestep=0.001, T=ens.T, friction=1.0, seed=1
         )
         analyzer = relentless.simulate.EnsembleAverage(
-            check_thermo_every=5, check_rdf_every=10, rdf_dr=0.1
+            every=5, rdf={"every": 10, "stop": 2.0, "num": 20}
         )
         lgv2 = relentless.simulate.RunLangevinDynamics(
             steps=1, timestep=0.001, T=ens.T, friction=1.0, seed=1, analyzers=analyzer
@@ -395,7 +395,7 @@ class test_HOOMD(unittest.TestCase):
         _, pot = self.ens_pot()
         init = relentless.simulate.InitializeFromFile(filename=filename)
         analyzer = relentless.simulate.EnsembleAverage(
-            check_thermo_every=1, check_rdf_every=1, rdf_dr=0.1
+            every=1, rdf={"stop": 2.0, "num": 20}
         )
         ig = relentless.simulate.RunMolecularDynamics(
             steps=1, timestep=0.0, analyzers=analyzer

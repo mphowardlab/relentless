@@ -3,12 +3,14 @@ import datetime
 import subprocess
 import uuid
 
+import freud
+import lammpsio
 import numpy
 
 from relentless import collections, mpi
 from relentless.model import ensemble, extent
 
-from . import initialize, md, simulate
+from . import analyze, initialize, md, simulate
 
 try:
     import lammps
@@ -16,13 +18,6 @@ try:
     _lammps_found = True
 except ImportError:
     _lammps_found = False
-
-try:
-    import lammpsio
-
-    _lammpsio_found = True
-except ImportError:
-    _lammpsio_found = False
 
 
 # initializers
@@ -851,37 +846,14 @@ class AnalysisOperation(simulate.AnalysisOperation):
 
 
 class EnsembleAverage(AnalysisOperation):
-    """Analyzes the simulation ensemble and rdf at specified timestep intervals.
-
-    Parameters
-    ----------
-    check_thermo_every : int
-        Interval of time steps at which to log thermodynamic properties of the
-        simulation.
-    check_rdf_every : int
-        Interval of time steps at which to log the rdf of the simulation.
-    rdf_dr : float
-        The width (in units ``r``) of a bin in the histogram of the rdf.
-
-    Raises
-    ------
-    RuntimeError
-        If more than one LAMMPS :class:`AddEnsembleAnalyzer` is initialized
-        at the same time.
-
-    """
-
-    def __init__(self, check_thermo_every, check_rdf_every, rdf_dr):
-        self.check_thermo_every = check_thermo_every
-        self.check_rdf_every = check_rdf_every
-        self.rdf_dr = rdf_dr
+    def __init__(self, every, rdf):
+        self.every = every
+        self.rdf = rdf
 
     def _pre_run_commands(self, sim, sim_op):
         fix_ids = {
             "thermo_avg": SimulationOperation.new_fix_id(),
-            "rdf_avg": SimulationOperation.new_fix_id(),
         }
-        compute_ids = {"rdf": SimulationOperation.new_compute_id()}
         var_ids = {
             "T": SimulationOperation.new_variable_id(),
             "P": SimulationOperation.new_variable_id(),
@@ -945,51 +917,29 @@ class EnsembleAverage(AnalysisOperation):
                 ' file {filename} overwrite format " %.16e"'
             ).format(
                 fixid=fix_ids["thermo_avg"],
-                every=self.check_thermo_every,
+                every=self.every,
                 filename=sim[self]["_thermo_file"],
                 **var_ids,
             )
         ]
 
-        # pair distribution function
-        rmax = sim[sim.initializer]["_potentials_rmax"]
-        num_bins = numpy.round(rmax / self.rdf_dr).astype(int)
-        if num_bins == 1:
-            raise ValueError("Only 1 RDF bin, increase the discretization")
-        sim[self]["_rdf_file"] = file_["rdf"]
-        sim[self]["_rdf_pairs"] = tuple(sim.pairs)
-        # string format lammps arguments based on pairs
-        # _pairs is the list of all pairs by LAMMPS type id, in ensemble order
-        # _computes is the RDF values for each pair, with the r bin centers prepended
-        _pairs = []
-        _computes = ["c_{}[1]".format(compute_ids["rdf"])]
-        for idx, (i, j) in enumerate(sim[self]["_rdf_pairs"]):
-            _pairs.append(
-                "{} {}".format(
-                    sim["engine"]["types"][i],
-                    sim["engine"]["types"][j],
-                )
-            )
-            _computes.append("c_{}[{}]".format(compute_ids["rdf"], 2 * (idx + 1)))
-        cmds += [
-            "compute {rdf} all rdf {bins} {pairs}".format(
-                rdf=compute_ids["rdf"], bins=num_bins, pairs=" ".join(_pairs)
-            ),
-            (
-                "fix {fixid} all ave/time {every} 1 {every}"
-                " {computes} mode vector ave running off 1"
-                ' file {filename} overwrite format " %.16e"'
-            ).format(
-                fixid=fix_ids["rdf_avg"],
-                every=self.check_rdf_every,
-                computes=" ".join(_computes),
+        # dump a trajectory for the RDF calculation
+        rdf_params = self._get_rdf_params(sim)
+        sim[self]["_rdf_params"] = rdf_params
+        if rdf_params is not None:
+            sim[self]["_rdf_file"] = file_["rdf"]
+            sim[self]["_rdf_dump"] = WriteTrajectory(
                 filename=sim[self]["_rdf_file"],
-            ),
-        ]
+                every=rdf_params["every"],
+                velocities=False,
+                images=False,
+                types=True,
+                masses=False,
+            )
+            sim[self]["_rdf_dump"].pre_run(sim, sim_op)
 
         # save ids so we can remove them later
         sim[self]["_fix_ids"] = fix_ids
-        sim[self]["_compute_ids"] = compute_ids
         sim[self]["_var_ids"] = var_ids
         sim[self]["_group_ids"] = group_ids
 
@@ -1001,10 +951,6 @@ class EnsembleAverage(AnalysisOperation):
         for fixid in sim[self]["_fix_ids"].values():
             cmds.append("unfix {}".format(fixid))
         del sim[self]["_fix_ids"]
-        # uncommand
-        for compute_id in sim[self]["_compute_ids"].values():
-            cmds.append("uncompute {}".format(compute_id))
-        del sim[self]["_compute_ids"]
         # delete variables
         for var_id in sim[self]["_var_ids"].values():
             cmds.append("variable {} delete".format(var_id))
@@ -1013,6 +959,9 @@ class EnsembleAverage(AnalysisOperation):
         for group_id in sim[self]["_group_ids"].values():
             cmds.append("group {} delete".format(group_id))
         del sim[self]["_group_ids"]
+
+        if sim[self]["_rdf_params"] is not None:
+            sim[self]["_rdf_dump"].post_run(sim, sim_op)
 
         return cmds
 
@@ -1044,20 +993,81 @@ class EnsembleAverage(AnalysisOperation):
             )
         ens = ensemble.Ensemble(N=N, T=thermo[0], P=thermo[1], V=V)
 
-        # extract rdfs
-        # LAMMPS injects a column for the row index, so we start at column 1 for r
-        # we skip the first 4 rows, which are LAMMPS junk, and slice out the
-        # first column
-        try:
-            rdf = mpi.world.loadtxt(sim[self]["_rdf_file"], skiprows=4)[:, 1:]
-        except Exception as e:
-            raise RuntimeError("LAMMPS RDF file could not be read") from e
-        for i, pair in enumerate(sim[self]["_rdf_pairs"]):
-            ens.rdf[pair] = ensemble.RDF(rdf[:, 0], rdf[:, i + 1])
+        # extract rdfs from trajectory
+        if sim[self]["_rdf_params"] is not None:
+            sim[self]["_rdf_dump"].process(sim, sim_op)
+            rdf = collections.PairMatrix(sim.types)
+            num_rdf_samples = 0
+            if mpi.world.rank_is_root:
+                rdf_ = collections.PairMatrix(sim.types)
+                for i, j in rdf_:
+                    rdf_[i, j] = freud.density.RDF(
+                        bins=sim[self]["_rdf_params"]["bins"],
+                        r_max=sim[self]["_rdf_params"]["stop"],
+                        normalize=(i == j),
+                    )
+
+                traj = lammpsio.DumpFile(sim[self]["_rdf_file"])
+                for snap in traj:
+                    # get freud box
+                    L = snap.box.high - snap.box.low
+                    tilt = snap.box.tilt
+                    if tilt is not None:
+                        # scale tilt factors to HOOMD convention
+                        tilt[0] /= L[1]
+                        if sim.dimension == 3:
+                            tilt[1] /= L[2]
+                            tilt[2] /= L[2]
+                    else:
+                        tilt = numpy.zeros(3)
+                    box_array = numpy.array(
+                        [L[0], L[1], L[2], tilt[0], tilt[1], tilt[2]]
+                    )
+                    if sim.dimension == 2:
+                        box_array[2] = 0.0
+                        box_array[-2:] = 0.0
+                    box = freud.box.Box.from_box(box_array, dimensions=sim.dimension)
+
+                    # pre build aabbs per type and count particles by type
+                    aabbs = {}
+                    type_masks = {}
+                    for i in sim.types:
+                        type_masks[i] = snap.typeid == sim["engine"]["types"][i]
+                        aabbs[i] = freud.locality.AABBQuery(
+                            box, snap.position[type_masks[i]]
+                        )
+                    # then do rdfs using the AABBs
+                    for i, j in rdf_:
+                        query_args = dict(rdf_[i, j].default_query_args)
+                        query_args.update(exclude_ii=(i == j))
+                        rdf_[i, j].compute(
+                            aabbs[j],
+                            snap.position[type_masks[i]],
+                            neighbors=query_args,
+                            reset=False,
+                        )
+
+                    num_rdf_samples += 1
+
+                for pair in rdf:
+                    rdf[pair] = numpy.column_stack(
+                        (rdf_[pair].bin_centers, rdf_[pair].rdf)
+                    )
+            # sync across ranks and convert to RDF object
+            num_rdf_samples = mpi.world.bcast(num_rdf_samples)
+            for pair in rdf:
+                gr = mpi.world.bcast_numpy(rdf[pair])
+                ens.rdf[pair] = ensemble.RDF(gr[:, 0], gr[:, 1])
+
+            del sim[self]["_rdf_dump"]
+        else:
+            num_rdf_samples = 0
 
         sim[self]["ensemble"] = ens
         sim[self]["num_thermo_samples"] = None
-        sim[self]["num_rdf_samples"] = None
+        sim[self]["num_rdf_samples"] = num_rdf_samples
+
+    _get_rdf_params = analyze.EnsembleAverage._get_rdf_params
 
 
 class Record(AnalysisOperation):
@@ -1311,9 +1321,6 @@ class LAMMPS(simulate.Simulation):
             del lmp
         if self.version < 20210929:
             raise ImportError("Only LAMMPS 29 Sep 2021 or newer is supported.")
-
-        if not _lammpsio_found:
-            raise ImportError("lammpsio not found.")
 
         super().__init__(initializer, operations)
         self.dimension = dimension

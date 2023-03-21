@@ -2,32 +2,63 @@ from . import simulate
 
 
 class EnsembleAverage(simulate.DelegatedAnalysisOperation):
-    """Analyze the simulation ensemble.
+    """Compute average properties.
 
     Parameters
     ----------
-    check_thermo_every : int
-        Interval of time steps at which to log thermodynamic properties of
-        the simulation.
-    check_rdf_every : int
-        Interval of time steps at which to log the rdf of the simulation.
-    rdf_dr : float
-        The width (in units ``r``) of a bin in the histogram of the rdf.
+    every : int
+        Interval of time steps at which to average thermodynamic properties of
+        the ensemble.
+    rdf : dict
+        Options for computing the :class:`~relentless.model.ensemble.RDF`.
+        If specified, the RDF is computed for each pair of types in the simulation.
+
+        The dictionary **must** have the following keys:
+
+        - ``stop``: largest bin distance
+        - ``num``: number of bins
+
+        It *may* also have the following keys:
+
+        - ``every``: sampling frequency (defaults to the same as for properties)
 
     """
 
-    def __init__(self, check_thermo_every, check_rdf_every, rdf_dr):
-        self.check_thermo_every = check_thermo_every
-        self.check_rdf_every = check_rdf_every
-        self.rdf_dr = rdf_dr
+    def __init__(self, every, rdf=None):
+        self.every = every
+        self.rdf = rdf
 
     def _make_delegate(self, sim):
         return self._get_delegate(
             sim,
-            check_thermo_every=self.check_thermo_every,
-            check_rdf_every=self.check_rdf_every,
-            rdf_dr=self.rdf_dr,
+            every=self.every,
+            rdf=self.rdf,
         )
+
+    def _get_rdf_params(self, sim):
+        if self.rdf is not None:
+            # required keys
+            if "num" not in self.rdf:
+                raise KeyError("Number of bins is required for RDF")
+            if "stop" not in self.rdf:
+                raise KeyError("Stopping distance is required for RDF")
+
+            # optional keys
+            if "every" in self.rdf:
+                rdf_every = self.rdf["every"]
+                if rdf_every % self.every != 0:
+                    raise ValueError("RDF every must be a multiple of every")
+            else:
+                rdf_every = self.every
+
+            rdf_params = {
+                "bins": self.rdf["num"],
+                "stop": self.rdf["stop"],
+                "every": rdf_every,
+            }
+        else:
+            rdf_params = None
+        return rdf_params
 
 
 class Record(simulate.DelegatedAnalysisOperation):
