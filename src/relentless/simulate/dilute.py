@@ -174,6 +174,7 @@ class EnsembleAverage(simulate.AnalysisOperation):
         # compute pressure
         N = sum(ens.N[i] for i in sim.types)
 
+        B = 0.0
         for i, j in sim.pairs:
             r = sim.potentials.pair.linear_space
             u = sim.potentials.pair.energy((i, j))
@@ -199,7 +200,6 @@ class EnsembleAverage(simulate.AnalysisOperation):
 
             counting_factor = 2 if i != j else 1
 
-            B = 0.0
             B += counting_factor * y_i * y_j * B_ij
         # calculate pressure if no barostat
         if ens.P is None:
