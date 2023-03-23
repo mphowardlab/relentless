@@ -149,9 +149,9 @@ class test_Dilute(unittest.TestCase):
         for pair in pot.coeff:
             pot.coeff[pair]["m"] = 2.0
         pots = relentless.simulate.Potentials()
-        pots.pair.potentials.append(pot)
-        pots.pair.stop = 3.0
-        pots.pair.num = 4
+        pots.pair = relentless.simulate.PairPotentialTabulator(
+            pot, start=0.0, stop=3.0, num=4, neighbor_buffer=0.5
+        )
 
         d = relentless.simulate.Dilute(init, operations=md)
         sim = d.run(potentials=pots, directory=self.directory)
