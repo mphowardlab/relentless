@@ -104,11 +104,10 @@ class test_RelativeEntropy(unittest.TestCase):
         lj.coeff["1", "1"].update(
             {"epsilon": self.epsilon, "sigma": self.sigma, "rmax": 2.7}
         )
-        self.potentials = relentless.simulate.Potentials(pair_potentials=lj)
-        self.potentials.pair.stop = 3.6
-        self.potentials.pair.num = 1000
-        self.potentials.pair.fmax = 100.0
-        self.potentials.pair.neighbor_buffer = 0.4
+        self.potentials = relentless.simulate.Potentials()
+        self.potentials.pair = relentless.simulate.PairPotentialTabulator(
+            lj, start=0.0, stop=3.6, num=1000, neighbor_buffer=0.4
+        )
 
         v_obj = relentless.model.Cube(L=10.0)
         self.target = relentless.model.Ensemble(T=1.5, V=v_obj, N={"1": 50})

@@ -90,10 +90,9 @@ class test_LAMMPS(unittest.TestCase):
         for pair in pot.coeff:
             pot.coeff[pair].update({"m": -2.0, "rmax": 1.0})
         pots = relentless.simulate.Potentials()
-        pots.pair.potentials.append(pot)
-        pots.pair.start = 1e-6
-        pots.pair.stop = 2.0
-        pots.pair.num = 10
+        pots.pair = relentless.simulate.PairPotentialTabulator(
+            pot, start=1e-6, stop=2.0, num=10, neighbor_buffer=0.1
+        )
 
         return (ens, pots)
 
@@ -329,10 +328,9 @@ class test_LAMMPS(unittest.TestCase):
         )
 
         pot = relentless.simulate.Potentials()
-        pot.pair.start = 1e-6
-        pot.pair.stop = 0.01
-        pot.pair.num = 10
-        pot.pair.neighbor_buffer = 0.5
+        pot.pair = relentless.simulate.PairPotentialTabulator(
+            None, start=1e-6, stop=0.01, num=10, neighbor_buffer=0.5
+        )
         sim = lmp.run(pot, self.directory)
 
         t = sim[logger]["timestep"]

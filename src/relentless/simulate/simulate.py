@@ -334,14 +334,8 @@ class Potentials:
     type are then numerically tabulated, as many simulation packages can
     accommodate tabulated inputs with complex parametrization.
 
-    The parameters of these tabulators, which are automatically initialized,
-    must be specified before a simulation can be run.
-
     Parameters
     ----------
-    pair_potentials : array_like
-        The pair potentials to be combined and tabulated. (Defaults to ``None``,
-        resulting in an empty :class:`PairPotentialTabulator` object).
     kB : float
         Boltzmann constant in your units.
 
@@ -352,20 +346,20 @@ class Potentials:
 
     """
 
-    def __init__(self, pair_potentials=None, kB=1.0):
-        self._pair = PairPotentialTabulator(
-            start=0.0,
-            stop=None,
-            num=None,
-            neighbor_buffer=0.0,
-            potentials=pair_potentials,
-        )
+    def __init__(self, kB=1.0):
         self.kB = kB
+        self.pair = None
 
     @property
     def pair(self):
         """:class:`PairPotentialTabulator`: Pair potentials."""
         return self._pair
+
+    @pair.setter
+    def pair(self, val):
+        if val is not None and not isinstance(val, PairPotentialTabulator):
+            raise TypeError("Pair potential must be tabulated")
+        self._pair = val
 
 
 class PotentialTabulator:
@@ -375,10 +369,13 @@ class PotentialTabulator:
     and stored in arrays. The ``start`` and ``end`` of this range must be
     specified, along with the number of points (``num``) to use.
 
-    If no ``potentials`` are specified, the tabulator returns zeros for all.
+    If ``potentials is None``, the tabulator returns zeros for all.
 
     Parameters
     ----------
+    potentials : :class:`~relentless.potential.potential.Potential` or array_like
+        The potential(s) to be tabulated. If array_like, all elements must
+        be :class:`~relentless.potential.potential.Potential`\s.
     start : float
         The positional value of ``x`` at which to begin tabulation.
     stop : float
@@ -386,17 +383,14 @@ class PotentialTabulator:
     num : int
         The number of points (value of ``x``) at which to tabulate and evaluate
         the potential.
-    potentials : :class:`~relentless.potential.potential.Potential` or array_like
-        The potential(s) to be tabulated. If array_like, all elements must
-        be :class:`~relentless.potential.potential.Potential`\s. (Defaults to ``None``).
 
     """
 
-    def __init__(self, start, stop, num, potentials=None):
+    def __init__(self, potentials, start, stop, num):
+        self.potentials = potentials
         self.start = start
         self.stop = stop
         self.num = num
-        self.potentials = potentials
 
     @property
     def potentials(self):
@@ -439,11 +433,11 @@ class PotentialTabulator:
 
     @num.setter
     def num(self, val):
-        if val is not None and (not isinstance(val, int) or val < 2):
+        if not isinstance(val, int) or val < 2:
             raise ValueError("Number of points must be at least 2.")
         self._num = val
 
-    def validate(self):
+    def _validate(self):
         if self.start is None:
             raise ValueError("Start of range must be set.")
         if self.stop is None:
@@ -456,13 +450,13 @@ class PotentialTabulator:
     @property
     def linear_space(self):
         """array_like: x values spaced linearly from `start` to `stop`."""
-        self.validate()
+        self._validate()
         return numpy.linspace(self.start, self.stop, self.num, dtype=float)
 
     @property
     def squared_space(self):
         """array_like: x values spaced linearly from ``start**2` to ``stop**2``."""
-        self.validate()
+        self._validate()
         return numpy.sqrt(
             numpy.linspace(self.start**2, self.stop**2, self.num, dtype=float)
         )
@@ -559,6 +553,9 @@ class PairPotentialTabulator(PotentialTabulator):
 
     Parameters
     ----------
+    potentials : :class:`~relentless.potential.pair.PairPotential` or array_like
+        The pair potential(s) to be tabulated. If array_like, all elements must
+        be :class:`~relentless.potential.pair.PairPotential`\s.
     start : float
         The minimum value of ``r`` at which to tabulate.
     stop : float
@@ -568,18 +565,12 @@ class PairPotentialTabulator(PotentialTabulator):
         potential.
     neighbor_buffer : float
         Buffer radius used in computing the neighbor list.
-    potentials : :class:`~relentless.potential.pair.PairPotential` or array_like
-        The pair potential(s) to be tabulated. If array_like, all elements must
-        be :class:`~relentless.potential.pair.PairPotential`\s. (Defaults to ``None``).
-    fmax : float
-        The maximum value of force at which to allow evaluation.
 
     """
 
-    def __init__(self, start, stop, num, neighbor_buffer, potentials=None, fmax=None):
-        super().__init__(start, stop, num, potentials)
+    def __init__(self, potentials, start, stop, num, neighbor_buffer):
+        super().__init__(potentials, start, stop, num)
         self.neighbor_buffer = neighbor_buffer
-        self.fmax = fmax
 
     @property
     def neighbor_buffer(self):
@@ -590,18 +581,6 @@ class PairPotentialTabulator(PotentialTabulator):
     @neighbor_buffer.setter
     def neighbor_buffer(self, val):
         self._neighbor_buffer = val
-
-    @property
-    def fmax(self):
-        """float: The maximum value of force at which to allow evaluation."""
-        return self._fmax
-
-    @fmax.setter
-    def fmax(self, val):
-        if val is not None:
-            self._fmax = numpy.fabs(val)
-        else:
-            self._fmax = None
 
     def energy(self, pair, x=None):
         """Evaluates and accumulates energy for all potentials.
@@ -628,9 +607,6 @@ class PairPotentialTabulator(PotentialTabulator):
     def force(self, pair, x=None):
         """Evaluates and accumulates force for all potentials.
 
-        If set, all forces are truncated to be less than or equal to the `fmax`
-        of ``fmax``.
-
         Parameters
         ----------
         pair : str
@@ -646,10 +622,6 @@ class PairPotentialTabulator(PotentialTabulator):
 
         """
         f = super().force(pair, x)
-        if self.fmax is not None:
-            flags = numpy.fabs(f) >= self.fmax
-            sign = numpy.sign(f[flags])
-            f[flags] = sign * self.fmax
         return f
 
     def derivative(self, pair, var, x=None):
