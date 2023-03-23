@@ -172,10 +172,9 @@ class EnsembleAverage(simulate.AnalysisOperation):
                 sim.potentials.pair.linear_space, numpy.exp(-u / kT)
             )
         # compute pressure
-        B = 0.0
         N = sum(ens.N[i] for i in sim.types)
+
         for i, j in sim.pairs:
-            counting_factor = 2 if i != j else 1
             r = sim.potentials.pair.linear_space
             u = sim.potentials.pair.energy((i, j))
 
@@ -195,15 +194,17 @@ class EnsembleAverage(simulate.AnalysisOperation):
                 raise ValueError("Geometric integration factor unknown for extent type")
             y_i = ens.N[i] / N
             y_j = ens.N[j] / N
-            b_ij = -counting_factor * (geo_prefactor / 2.0) * (numpy.exp(-u / kT) - 1)
-            B += y_i * y_j * numpy.trapz(b_ij, x=r)
+
+            B_ij = numpy.trapz(-(geo_prefactor / 2.0) * (numpy.exp(-u / kT) - 1), x=r)
+
+            counting_factor = 2 if i != j else 1
+
+            B = 0.0
+            B += counting_factor * y_i * y_j * B_ij
         # calculate pressure if no barostat
         if ens.P is None:
             rho = N / ens.V.extent
             ens.P = kT * (rho + B * rho**2)
-            sim[self]["ensemble"] = ens
-            sim[self]["num_thermo_samples"] = None
-            sim[self]["num_rdf_samples"] = None
         # adjust extent to maintain pressure if barostat
         else:
             coeffs = numpy.array([-ens.P / kT, 1, B])
@@ -216,9 +217,9 @@ class EnsembleAverage(simulate.AnalysisOperation):
             elif sim.dimension == 2:
                 ens.V = extent.Square(L)
 
-            sim[self]["ensemble"] = ens
-            sim[self]["num_thermo_samples"] = None
-            sim[self]["num_rdf_samples"] = None
+        sim[self]["ensemble"] = ens
+        sim[self]["num_thermo_samples"] = None
+        sim[self]["num_rdf_samples"] = None
 
 
 class Dilute(simulate.Simulation):
@@ -232,15 +233,31 @@ class Dilute(simulate.Simulation):
 
         g_{ij}(r) = e^{-\beta u_{ij}(r)}
 
+    The virial equation of state is used to calculate the pressure. The second
+    virial coefficient (B) is computed as:
+
+    .. math::
+
+        B = \sum_i \sum_j x_i x_j B_{ij}
+
+    where :math:`x_i = N_i/N` is the mole fraction of component *i*
+    (:math:`N = \sum_i N_i`) and
+
+    .. math::
+
+        B_{ij} = -\frac{1}{2}
+        \int {\rm d}\mathbf{r} [e^{-\beta u_{ij}(|\mathbf{r}|)} - 1]
+
+    Using the number density and second virial coefficient, the pressure is:
+
+    .. math::
+
+        P = k_B T (\rho + B\rho^2)
+
     This approximation is only reasonable for low-density systems, but it can
     still quite be useful for debugging a script without needing to run a costly
     simulation. It can also be helpful for finding an initial guess for design
     variables before switching to a full simulation.
-
-    Most of the simulation operations are :class:`NullOperation`\s that do not
-    actually do anything: they will simply consume any arguments given to them.
-    Only the :class:`AddEnsembleAnalyzer` operation actually implements the
-    physics of the dilute simulation.
 
     """
 
