@@ -5,8 +5,7 @@ import warnings
 import numpy
 from packaging import version
 
-from relentless import mpi
-from relentless.collections import FixedKeyDict, PairMatrix
+from relentless import collections, mpi
 from relentless.model import ensemble, extent
 
 from . import analyze, initialize, md, simulate
@@ -129,7 +128,7 @@ class InitializationOperation(simulate.InitializationOperation):
         )
 
     def _get_masses_from_snapshot(self, sim, snap):
-        masses = FixedKeyDict(sim.types)
+        masses = collections.FixedKeyDict(sim.types)
         masses_ = {}
         # snapshot is only valid on root, so read there and broadcast
         if mpi.world.rank == 0:
@@ -858,9 +857,10 @@ class AnalysisOperation(simulate.AnalysisOperation):
 
 
 class EnsembleAverage(AnalysisOperation):
-    def __init__(self, every, rdf):
+    def __init__(self, every, rdf, assume_constraints):
         self.every = every
         self.rdf = rdf
+        self.assume_constraints = assume_constraints
 
     def _pre_run_v3(self, sim, sim_op):
         # thermodynamic properties
@@ -873,6 +873,7 @@ class EnsembleAverage(AnalysisOperation):
             thermo=sim[self]["_thermo"],
             system=sim["engine"]["_hoomd"].state,
             rdf_params=self._get_rdf_params(sim),
+            constraints=self._get_constrained_quantities(sim, sim_op),
         )
         sim[self]["_hoomd_thermo_callback"] = hoomd.write.CustomWriter(
             trigger=self.every,
@@ -884,23 +885,23 @@ class EnsembleAverage(AnalysisOperation):
         )
 
     def _pre_run_v2(self, sim, sim_op):
+        constraints = self._get_constrained_quantities(sim, sim_op)
+
         with sim["engine"]["_hoomd"]:
             # thermodynamic properties
-            if sim.dimension == 3:
-                quantities_logged = [
-                    "temperature",
-                    "pressure",
-                    "lx",
-                    "ly",
-                    "lz",
-                    "xy",
-                    "xz",
-                    "yz",
-                ]
-            elif sim.dimension == 2:
-                quantities_logged = ["temperature", "pressure", "lx", "ly", "xy"]
-            else:
-                raise ValueError("HOOMD only supports 2d or 3d simulations")
+            quantities_logged = []
+            if constraints is None or "T" not in constraints:
+                quantities_logged.append("temperature")
+            if constraints is None or "P" not in constraints:
+                quantities_logged.append("pressure")
+            if constraints is None or "V" not in constraints:
+                if sim.dimension == 3:
+                    quantities_logged += ["lx", "ly", "lz", "xy", "xz", "yz"]
+                elif sim.dimension == 2:
+                    quantities_logged += ["lx", "ly", "xy"]
+                else:
+                    raise ValueError("HOOMD only supports 2d or 3d simulations")
+
             sim[self]["_thermo"] = hoomd.analyze.log(
                 filename=None,
                 quantities=quantities_logged,
@@ -912,6 +913,7 @@ class EnsembleAverage(AnalysisOperation):
                 thermo=sim[self]["_thermo"],
                 system=sim[sim.initializer]["_system"],
                 rdf_params=self._get_rdf_params(sim),
+                constraints=constraints,
             )
             sim[self]["_hoomd_thermo_callback"] = hoomd.analyze.callback(
                 callback=sim[self]["_thermo_callback"].act,
@@ -954,12 +956,103 @@ class EnsembleAverage(AnalysisOperation):
 
         del sim[self]["_thermo_callback"]
 
+    def _get_constrained_quantities(self, sim, sim_op):
+        if not self.assume_constraints:
+            return None
+
+        constraints = {}
+
+        # then we opt-in the operations we know
+        if isinstance(
+            sim_op,
+            (
+                md.RunBrownianDynamics,
+                md.RunLangevinDynamics,
+                RunBrownianDynamics,
+                RunLangevinDynamics,
+            ),
+        ):
+            constraints["N"] = True
+            constraints["T"] = md.Thermostat(sim_op.T)
+            constraints["V"] = True
+        elif isinstance(sim_op, (md.RunMolecularDynamics, RunMolecularDynamics)):
+            constraints["N"] = True
+            if sim_op.thermostat is not None:
+                constraints["T"] = sim_op.thermostat
+            # conjugate pair: one or the other is set
+            if sim_op.barostat is not None:
+                constraints["P"] = sim_op.barostat.P
+            else:
+                constraints["V"] = True
+
+        if "T" in constraints:
+            thermostat = constraints["T"]
+            if thermostat.anneal:
+                constraints["T"] = 0.5 * (thermostat.T[0] + thermostat.T[1])
+            else:
+                constraints["T"] = thermostat.T
+
+        if "N" in constraints or "V" in constraints:
+
+            def _get_NV_from_snapshot(sim, snap):
+                box_array = None
+                N = {i: 0 for i in sim.types}
+
+                if mpi.world.rank == 0:
+                    for i in sim.types:
+                        N[i] = numpy.sum(
+                            snap.particles.typeid == snap.particles.types.index(i)
+                        )
+
+                    box = snap.box
+                    if sim.dimension == 3:
+                        box_array = numpy.array(
+                            [box.Lx, box.Ly, box.Lz, box.xy, box.xz, box.yz]
+                        )
+                    else:
+                        box_array = numpy.array([box.Lx, box.Ly, box.xy])
+
+                N = mpi.world.bcast(N, root=0)
+                box_array = mpi.world.bcast_numpy(box_array, root=0)
+                if sim.dimension == 3:
+                    V = extent.TriclinicBox(*box_array, convention="HOOMD")
+                else:
+                    V = extent.ObliqueArea(*box_array, convention="HOOMD")
+
+                return N, V
+
+            N = {i: 0 for i in sim.types}
+            if _version.major == 3:
+                snap = sim["engine"]["_hoomd"].get_snapshot()
+                N, V = _get_NV_from_snapshot(sim, snap)
+            elif _version.major == 2:
+                with sim["engine"]["_hoomd"]:
+                    snap = sim[sim.initializer]["_system"].take_snapshot(particles=True)
+                    N, V = _get_NV_from_snapshot(sim, snap)
+            else:
+                raise NotImplementedError(f"HOOMD {_version} not supported")
+
+            if "N" in constraints:
+                constraints["N"] = collections.FixedKeyDict(sim.types)
+                constraints["N"].update(N)
+
+            if "V" in constraints:
+                constraints["V"] = V
+
+        # clear out dict if there are no constraints
+        if len(constraints) == 0:
+            constraints = None
+
+        return constraints
+
     _get_rdf_params = analyze.EnsembleAverage._get_rdf_params
 
     class EnsembleAverageAction(Action):
         flags = [Action.Flags.PRESSURE_TENSOR]
 
-        def __init__(self, types, dimension, thermo, system, rdf_params=None):
+        def __init__(
+            self, types, dimension, thermo, system, rdf_params=None, constraints=None
+        ):
             if dimension not in (2, 3):
                 raise ValueError("Only 2 or 3 dimensions supported")
 
@@ -968,6 +1061,7 @@ class EnsembleAverage(AnalysisOperation):
             self.thermo = thermo
             self.system = system
             self.rdf_params = rdf_params
+            self.constraints = constraints if constraints is not None else {}
 
             # this method handles all the initialization
             self.reset()
@@ -978,15 +1072,21 @@ class EnsembleAverage(AnalysisOperation):
             )
 
             if _version.major == 3:
-                self._T += self.thermo.kinetic_temperature
-                self._P += self.thermo.pressure
-                for key in self._V:
-                    self._V[key] += getattr(self._state.box, key)
+                if "T" not in self.constraints:
+                    self._T += self.thermo.kinetic_temperature
+                if "P" not in self.constraints:
+                    self._P += self.thermo.pressure
+                if "V" not in self.constraints:
+                    for key in self._V:
+                        self._V[key] += getattr(self._state.box, key)
             elif _version.major == 2:
-                self._T += self.thermo.query("temperature")
-                self._P += self.thermo.query("pressure")
-                for key in self._V:
-                    self._V[key] += self.thermo.query(key.lower())
+                if "T" not in self.constraints:
+                    self._T += self.thermo.query("temperature")
+                if "P" not in self.constraints:
+                    self._P += self.thermo.query("pressure")
+                if "V" not in self.constraints:
+                    for key in self._V:
+                        self._V[key] += self.thermo.query(key.lower())
             else:
                 raise NotImplementedError(f"HOOMD {_version} not supported")
 
@@ -1065,12 +1165,12 @@ class EnsembleAverage(AnalysisOperation):
             elif self.dimension == 2:
                 self._V = {"Lx": 0.0, "Ly": 0.0, "xy": 0.0}
 
-            self._N = FixedKeyDict(self.types)
+            self._N = collections.FixedKeyDict(self.types)
             for i in self.types:
                 self._N[i] = 0
 
             if self.rdf_params is not None:
-                self._rdf = PairMatrix(self.types)
+                self._rdf = collections.PairMatrix(self.types)
                 for i, j in self._rdf:
                     self._rdf[i, j] = freud.density.RDF(
                         bins=self.rdf_params["bins"],
@@ -1086,30 +1186,39 @@ class EnsembleAverage(AnalysisOperation):
         @property
         def T(self):
             """float: Average temperature across samples."""
-            if self.num_samples > 0:
-                return self._T / self.num_samples
+            if "T" in self.constraints:
+                return self.constraints["T"]
             else:
-                return None
+                if self.num_samples > 0:
+                    return self._T / self.num_samples
+                else:
+                    return None
 
         @property
         def P(self):
             """float: Average pressure across samples."""
-            if self.num_samples > 0:
-                return self._P / self.num_samples
+            if "P" in self.constraints:
+                return self.constraints["P"]
             else:
-                return None
+                if self.num_samples > 0:
+                    return self._P / self.num_samples
+                else:
+                    return None
 
         @property
         def V(self):
             """float: Average extent across samples."""
-            if self.num_samples > 0:
-                _V = {key: self._V[key] / self.num_samples for key in self._V}
-                if self.dimension == 3:
-                    return extent.TriclinicBox(**_V, convention="HOOMD")
-                elif self.dimension == 2:
-                    return extent.ObliqueArea(**_V, convention="HOOMD")
+            if "V" in self.constraints:
+                return self.constraints["V"]
             else:
-                return None
+                if self.num_samples > 0:
+                    _V = {key: self._V[key] / self.num_samples for key in self._V}
+                    if self.dimension == 3:
+                        return extent.TriclinicBox(**_V, convention="HOOMD")
+                    elif self.dimension == 2:
+                        return extent.ObliqueArea(**_V, convention="HOOMD")
+                else:
+                    return None
 
         @property
         def N(self):
@@ -1117,7 +1226,7 @@ class EnsembleAverage(AnalysisOperation):
             Number of particles by type.
             """
             if self.num_samples > 0:
-                N = FixedKeyDict(self._N.keys())
+                N = collections.FixedKeyDict(self._N.keys())
                 for i in self._N:
                     if mpi.world.rank == 0:
                         Ni = self._N[i] / self.num_samples
@@ -1135,7 +1244,7 @@ class EnsembleAverage(AnalysisOperation):
             Radial distribution functions.
             """
             if self.num_rdf_samples > 0:
-                rdf = PairMatrix(self._rdf.types)
+                rdf = collections.PairMatrix(self._rdf.types)
                 for pair in rdf:
                     if mpi.world.rank == 0:
                         gr = numpy.column_stack(

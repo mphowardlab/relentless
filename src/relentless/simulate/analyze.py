@@ -21,18 +21,31 @@ class EnsembleAverage(simulate.DelegatedAnalysisOperation):
         It *may* also have the following keys:
 
         - ``every``: sampling frequency (defaults to the same as for properties)
+    assume_constraints : bool
+        If ``True``, allow the analyzer to assume that constraints implied by
+        the :class:`~relentless.simulate.SimulationOperation` are valid. This
+        can decrease the simulation time required. For example, the number of
+        particles of each type only needs to be computed once for a
+        constant-number integrator.
+
+        .. note::
+
+            An implementation of this operation is not *required* to do anything
+            when this option is set, but it is *allowed* to.
 
     """
 
-    def __init__(self, every, rdf=None):
+    def __init__(self, every, rdf=None, assume_constraints=False):
         self.every = every
         self.rdf = rdf
+        self.assume_constraints = assume_constraints
 
     def _make_delegate(self, sim):
         return self._get_delegate(
             sim,
             every=self.every,
             rdf=self.rdf,
+            assume_constraints=self.assume_constraints,
         )
 
     def _get_rdf_params(self, sim):

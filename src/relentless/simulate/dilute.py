@@ -153,9 +153,10 @@ class EnsembleAverage(simulate.AnalysisOperation):
 
     """
 
-    def __init__(self, every, rdf):
+    def __init__(self, every, rdf, assume_constraints):
         self.every = every
         self.rdf = rdf
+        self.assume_constraints = assume_constraints
 
     def pre_run(self, sim, sim_op):
         pass
