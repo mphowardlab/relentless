@@ -968,7 +968,7 @@ class EnsembleAverage(AnalysisOperation):
             cmds.append("variable {} delete".format(var_id))
         del sim[self]["_var_ids"]
 
-        if sim[self]["_rdf_params"] is not None:
+        if "_rdf_dump" in sim[self]:
             sim[self]["_rdf_dump"].post_run(sim, sim_op)
 
         return cmds
@@ -984,7 +984,7 @@ class EnsembleAverage(AnalysisOperation):
 
                 if "N" in constraints:
                     N = {
-                        numpy.sum(snap.typeid == sim["engine"]["types"][i])
+                        i: numpy.sum(snap.typeid == sim["engine"]["types"][i])
                         for i in sim.types
                     }
 
@@ -1025,7 +1025,7 @@ class EnsembleAverage(AnalysisOperation):
         else:
             T = constraints["T"]
 
-        if "P" not in "constraints":
+        if "P" not in constraints:
             P = thermo[columns["P"]]
         else:
             P = constraints["P"]
@@ -1054,7 +1054,7 @@ class EnsembleAverage(AnalysisOperation):
         ens = ensemble.Ensemble(T=T, N=N, V=V, P=P)
 
         # extract rdfs from trajectory
-        if sim[self]["_rdf_params"] is not None:
+        if "_rdf_params" in sim[self]:
             sim[self]["_rdf_dump"].process(sim, sim_op)
             rdf = collections.PairMatrix(sim.types)
             num_rdf_samples = 0
