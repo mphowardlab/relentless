@@ -1023,7 +1023,7 @@ class EnsembleAverage(AnalysisOperation):
 
             N = {i: 0 for i in sim.types}
             if _version.major == 3:
-                snap = sim["engine"]["_hoomd"].get_snapshot()
+                snap = sim["engine"]["_hoomd"].state.get_snapshot()
                 N, V = _get_NV_from_snapshot(sim, snap)
             elif _version.major == 2:
                 with sim["engine"]["_hoomd"]:
