@@ -2,9 +2,11 @@
 import tempfile
 import unittest
 
+import gsd
 import gsd.hoomd
 import numpy
 import scipy.stats
+from packaging import version
 from parameterized import parameterized_class
 
 import relentless
@@ -13,6 +15,12 @@ from tests.model.potential.test_pair import LinPot
 _has_modules = (
     relentless.simulate.hoomd._hoomd_found and relentless.simulate.hoomd._freud_found
 )
+
+# silence warnings about Snapshot being deprecated
+if version.Version(gsd.__version__) >= version.Version("2.8.0"):
+    HOOMDFrame = gsd.hoomd.Frame
+else:
+    HOOMDFrame = gsd.hoomd.Snapshot
 
 
 @unittest.skipIf(not _has_modules, "HOOMD dependencies not installed")
@@ -66,7 +74,8 @@ class test_HOOMD(unittest.TestCase):
         filename = self.directory.file("test.gsd")
         if relentless.mpi.world.rank_is_root:
             with gsd.hoomd.open(name=filename, mode="wb") as f:
-                s = gsd.hoomd.Snapshot()
+
+                s = HOOMDFrame()
                 s.particles.N = 5
                 s.particles.types = ["A", "B"]
                 s.particles.typeid = [0, 0, 1, 1, 1]
@@ -410,7 +419,7 @@ class test_HOOMD(unittest.TestCase):
         # Brownian dynamics
         h.operations = relentless.simulate.RunBrownianDynamics(
             steps=100,
-            timestep=0.001,
+            timestep=1e-5,
             T=ens.T,
             friction=0.1,
             seed=42,
@@ -460,7 +469,7 @@ class test_HOOMD(unittest.TestCase):
         filename = self.directory.file("mock.gsd")
         if relentless.mpi.world.rank_is_root:
             with gsd.hoomd.open(name=filename, mode="wb") as f:
-                s = gsd.hoomd.Snapshot()
+                s = HOOMDFrame()
                 s.particles.N = 4
                 s.particles.types = ["A", "B"]
                 s.particles.typeid = [0, 1, 0, 1]

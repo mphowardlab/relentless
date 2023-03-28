@@ -475,7 +475,7 @@ class test_LAMMPS(unittest.TestCase):
         if "BROWNIAN" in h.packages:
             h.operations = relentless.simulate.RunBrownianDynamics(
                 steps=100,
-                timestep=0.001,
+                timestep=1e-5,
                 T=ens.T,
                 friction=0.1,
                 seed=42,

@@ -213,7 +213,12 @@ class EnsembleAverage(simulate.AnalysisOperation):
         # adjust extent to maintain pressure if barostat
         else:
             coeffs = numpy.array([-ens.P / kT, 1, B])
-            v = numpy.max(numpy.roots(coeffs))
+            roots = numpy.roots(coeffs)
+            if not numpy.allclose(numpy.imag(roots), 0):
+                raise ValueError(
+                    "Unable to solve for volume, imaginary roots obtained."
+                )
+            v = numpy.max(numpy.real(roots))
             V = v * N
             L = V ** (1 / sim.dimension)
 

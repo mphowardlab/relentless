@@ -1004,13 +1004,14 @@ class EnsembleAverage(AnalysisOperation):
                             snap.particles.typeid == snap.particles.types.index(i)
                         )
 
-                    box = snap.box
-                    if sim.dimension == 3:
-                        box_array = numpy.array(
-                            [box.Lx, box.Ly, box.Lz, box.xy, box.xz, box.yz]
-                        )
+                    if _version.major == 3:
+                        box_array = snap.configuration.box
                     else:
-                        box_array = numpy.array([box.Lx, box.Ly, box.xy])
+                        box = snap.box
+                        box_array = [box.Lx, box.Ly, box.Lz, box.xy, box.xz, box.yz]
+                    if sim.dimension == 2:
+                        box_array = [box_array[0], box_array[1], box_array[3]]
+                    box_array = numpy.array(box_array)
 
                 N = mpi.world.bcast(N, root=0)
                 box_array = mpi.world.bcast_numpy(box_array, root=0)
