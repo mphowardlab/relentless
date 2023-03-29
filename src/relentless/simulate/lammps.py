@@ -977,18 +977,23 @@ class EnsembleAverage(AnalysisOperation):
         # first process any constraints
         constraints = sim[self]["_constraints"]
         if "N" in constraints or "V" in constraints:
-            N = None
-            box_array = None
             if mpi.world.rank_is_root:
                 snap = lammpsio.DataFile(sim[self]["_constraint_data_file"]).read()
+            else:
+                snap = None
 
-                if "N" in constraints:
+            if "N" in constraints:
+                if mpi.world.rank_is_root:
                     N = {
                         i: numpy.sum(snap.typeid == sim["engine"]["types"][i])
                         for i in sim.types
                     }
+                else:
+                    N = None
+                N = mpi.world.bcast(N)
 
-                if "V" in constraints:
+            if "V" in constraints:
+                if mpi.world.rank_is_root:
                     L = snap.box.high - snap.box.low
                     L = L[: sim.dimension]
                     tilt = snap.box.tilt
@@ -998,13 +1003,9 @@ class EnsembleAverage(AnalysisOperation):
                         else:
                             tilt = [0]
                     box_array = numpy.concatenate((L, tilt))
+                else:
+                    box_array = None
 
-            if N is not None:
-                N = mpi.world.bcast(N)
-            else:
-                del N
-
-            if box_array is not None:
                 box_array = mpi.world.bcast_numpy(box_array)
                 if sim.dimension == 3:
                     V = extent.TriclinicBox(*box_array, convention="LAMMPS")
