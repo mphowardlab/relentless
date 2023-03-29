@@ -13,7 +13,7 @@ import numpy
 
 from relentless.model import ensemble, extent
 
-from . import analyze, simulate
+from . import analyze, md, simulate
 
 
 class NullOperation(simulate.SimulationOperation):
@@ -73,20 +73,18 @@ class _Integrator(simulate.SimulationOperation):
         self.steps = steps
         self.timestep = timestep
 
+    def __call__(self, sim):
+        for analyzer in self.analyzers:
+            analyzer.pre_run(sim, self)
+
+        for analyzer in self.analyzers:
+            analyzer.post_run(sim, self)
+
 
 class RunBrownianDynamics(_Integrator):
     def __init__(self, steps, timestep, T, friction, seed, analyzers):
         super().__init__(steps, timestep, analyzers)
         self.T = T
-
-    def __call__(self, sim):
-        for analyzer in self.analyzers:
-            analyzer.pre_run(sim, self)
-
-        sim[sim.initializer]["_ensemble"].T = self.T
-
-        for analyzer in self.analyzers:
-            analyzer.post_run(sim, self)
 
 
 class RunLangevinDynamics(_Integrator):
@@ -94,36 +92,12 @@ class RunLangevinDynamics(_Integrator):
         super().__init__(steps, timestep, analyzers)
         self.T = T
 
-    def __call__(self, sim):
-        for analyzer in self.analyzers:
-            analyzer.pre_run(sim, self)
-
-        sim[sim.initializer]["_ensemble"].T = self.T
-
-        for analyzer in self.analyzers:
-            analyzer.post_run(sim, self)
-
 
 class RunMolecularDynamics(_Integrator):
     def __init__(self, steps, timestep, thermostat, barostat, analyzers):
         super().__init__(steps, timestep, analyzers)
         self.thermostat = thermostat
         self.barostat = barostat
-
-    def __call__(self, sim):
-        for analyzer in self.analyzers:
-            analyzer.pre_run(sim, self)
-
-        if self.thermostat is not None:
-            sim[sim.initializer]["_ensemble"].T = self.thermostat.T
-
-        if self.barostat is not None:
-            sim[sim.initializer]["_ensemble"].P = self.barostat.P
-        else:
-            sim[sim.initializer]["_ensemble"].P = None
-
-        for analyzer in self.analyzers:
-            analyzer.post_run(sim, self)
 
 
 class EnsembleAverage(simulate.AnalysisOperation):
@@ -167,7 +141,48 @@ class EnsembleAverage(simulate.AnalysisOperation):
         pass
 
     def process(self, sim, sim_op):
-        ens = sim[sim.initializer]["_ensemble"].copy()
+        # extract ensemble
+        if isinstance(
+            sim_op,
+            (
+                md.RunBrownianDynamics,
+                RunBrownianDynamics,
+                md.RunLangevinDynamics,
+                RunLangevinDynamics,
+            ),
+        ):
+            thermostat = md.Thermostat(sim_op.T)
+            if thermostat.anneal:
+                T = 0.5 * (thermostat.T[0] + thermostat.T[1])
+            else:
+                T = thermostat.T
+            N = sim[sim.initializer]["_ensemble"].N
+            V = sim[sim.initializer]["_ensemble"].V
+
+            ens = ensemble.Ensemble(T, N, V)
+        elif isinstance(sim_op, (md.RunMolecularDynamics, RunMolecularDynamics)):
+            if sim_op.thermostat is not None:
+                thermostat = sim_op.thermostat
+                if thermostat.anneal:
+                    T = 0.5 * (thermostat.T[0] + thermostat.T[1])
+                else:
+                    T = thermostat.T
+            else:
+                T = sim[sim.initializer]["_ensemble"].T
+
+            N = sim[sim.initializer]["_ensemble"].N
+
+            if sim_op.barostat is not None:
+                V = None
+                P = sim_op.barostat.P
+            else:
+                V = sim[sim.initializer]["_ensemble"].V
+                P = None
+
+            ens = ensemble.Ensemble(T, N, V, P)
+        else:
+            ens = sim[sim.initializer]["_ensemble"].copy()
+
         kT = sim.potentials.kB * ens.T
 
         # compute pressure
