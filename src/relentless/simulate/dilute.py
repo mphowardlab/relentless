@@ -111,14 +111,16 @@ class RunMolecularDynamics(_Integrator):
         self.barostat = barostat
 
     def __call__(self, sim):
-        if self.barostat is not None:
-            sim[sim.initializer]["_ensemble"].P = self.barostat.P
-
         for analyzer in self.analyzers:
             analyzer.pre_run(sim, self)
 
         if self.thermostat is not None:
             sim[sim.initializer]["_ensemble"].T = self.thermostat.T
+
+        if self.barostat is not None:
+            sim[sim.initializer]["_ensemble"].P = self.barostat.P
+        else:
+            sim[sim.initializer]["_ensemble"].P = None
 
         for analyzer in self.analyzers:
             analyzer.post_run(sim, self)
@@ -168,17 +170,8 @@ class EnsembleAverage(simulate.AnalysisOperation):
         ens = sim[sim.initializer]["_ensemble"].copy()
         kT = sim.potentials.kB * ens.T
 
-        # pair distribution function is needed to get the pressure
-        # we use the potential spacing for this integral, then deal with outputting
-        # it later
-        for pair in ens.pairs:
-            u = sim.potentials.pair.energy(pair)
-            ens.rdf[pair] = ensemble.RDF(
-                sim.potentials.pair.linear_space, numpy.exp(-u / kT)
-            )
         # compute pressure
         N = sum(ens.N[i] for i in sim.types)
-
         B = 0.0
         for i, j in sim.pairs:
             r = sim.potentials.pair.linear_space
@@ -198,20 +191,19 @@ class EnsembleAverage(simulate.AnalysisOperation):
                 geo_prefactor = 2 * numpy.pi * r
             else:
                 raise ValueError("Geometric integration factor unknown for extent type")
+            B_ij = -0.5 * numpy.trapz(geo_prefactor * (numpy.exp(-u / kT) - 1), x=r)
+
             y_i = ens.N[i] / N
             y_j = ens.N[j] / N
-
-            B_ij = numpy.trapz(-(geo_prefactor / 2.0) * (numpy.exp(-u / kT) - 1), x=r)
-
             counting_factor = 2 if i != j else 1
-
             B += counting_factor * y_i * y_j * B_ij
-        # calculate pressure if no barostat
+
         if ens.P is None:
+            # calculate pressure if no barostat
             rho = N / ens.V.extent
             ens.P = kT * (rho + B * rho**2)
-        # adjust extent to maintain pressure if barostat
         else:
+            # adjust extent to maintain pressure if barostat
             coeffs = numpy.array([-ens.P / kT, 1, B])
             roots = numpy.roots(coeffs)
             if not numpy.allclose(numpy.imag(roots), 0):
@@ -230,16 +222,14 @@ class EnsembleAverage(simulate.AnalysisOperation):
         # optionally finalize RDF using given parameters
         # otherwise remove it from output
         rdf_params = self._get_rdf_params(sim)
-        for pair in ens.pairs:
-            if rdf_params is not None:
+        if rdf_params is not None:
+            for pair in ens.pairs:
                 bin_edges = numpy.linspace(
                     0, rdf_params["stop"], rdf_params["bins"] + 1
                 )
                 bin_centers = 0.5 * (bin_edges[:-1] + bin_edges[1:])
                 u = sim.potentials.pair.energy(pair, x=bin_centers)
                 ens.rdf[pair] = ensemble.RDF(bin_centers, numpy.exp(-u / kT))
-            else:
-                ens.rdf[pair] = None
 
         sim[self]["ensemble"] = ens
         sim[self]["num_thermo_samples"] = None
