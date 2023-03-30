@@ -157,7 +157,7 @@ class test_Dilute(unittest.TestCase):
         sim = d.run(potentials=pots, directory=self.directory)
         ens_ = sim[analyzer]["ensemble"]
         P = ens_.P
-        # TODO: we should add an assert to make sure this pressure is right
+        self.assertAlmostEqual(P, 1.25)
 
         # change volume and attach barostat, and make sure we get same answer
         # for volume if we set the pressure at the same as above
