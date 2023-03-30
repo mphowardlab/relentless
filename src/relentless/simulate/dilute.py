@@ -9,11 +9,13 @@ operations. It is best to interface with these operations using the frontend in
 .. autoclass:: NullOperation
 
 """
+import abc
+
 import numpy
 
 from relentless.model import ensemble, extent
 
-from . import simulate
+from . import analyze, md, simulate
 
 
 class NullOperation(simulate.SimulationOperation):
@@ -60,6 +62,7 @@ class InitializeRandomly(simulate.InitializationOperation):
     def __call__(self, sim):
         ens = ensemble.Ensemble(T=self.T, N=self.N, V=self.V)
         sim[self]["_ensemble"] = ens
+        sim["engine"]["_ensemble"] = ens
         if isinstance(ens.V, extent.Volume):
             sim.dimension = 3
         elif isinstance(ens.V, extent.Area):
@@ -73,20 +76,36 @@ class _Integrator(simulate.SimulationOperation):
         self.steps = steps
         self.timestep = timestep
 
+    def __call__(self, sim):
+        for analyzer in self.analyzers:
+            analyzer.pre_run(sim, self)
+
+        self._modify_ensemble(sim)
+
+        for analyzer in self.analyzers:
+            analyzer.post_run(sim, self)
+
+    @abc.abstractmethod
+    def _modify_ensemble(self, sim):
+        pass
+
 
 class RunBrownianDynamics(_Integrator):
     def __init__(self, steps, timestep, T, friction, seed, analyzers):
         super().__init__(steps, timestep, analyzers)
         self.T = T
 
-    def __call__(self, sim):
-        for analyzer in self.analyzers:
-            analyzer.pre_run(sim, self)
+    def _modify_ensemble(self, sim):
+        thermostat = md.Thermostat(self.T)
+        if thermostat.anneal:
+            raise ValueError("Temperature annealing is not supported")
+        sim["engine"]["_ensemble"].T = thermostat.T
 
-        sim[sim.initializer]["_ensemble"].T = self.T
-
-        for analyzer in self.analyzers:
-            analyzer.post_run(sim, self)
+        # compute pressure from EOS at current volume
+        sim["engine"]["_ensemble"].P = None
+        P, V = Dilute._virial_equation(sim, sim["engine"]["_ensemble"])
+        sim["engine"]["_ensemble"].P = P
+        sim["engine"]["_ensemble"].V = V
 
 
 class RunLangevinDynamics(_Integrator):
@@ -94,14 +113,7 @@ class RunLangevinDynamics(_Integrator):
         super().__init__(steps, timestep, analyzers)
         self.T = T
 
-    def __call__(self, sim):
-        for analyzer in self.analyzers:
-            analyzer.pre_run(sim, self)
-
-        sim[sim.initializer]["_ensemble"].T = self.T
-
-        for analyzer in self.analyzers:
-            analyzer.post_run(sim, self)
+    _modify_ensemble = RunBrownianDynamics._modify_ensemble
 
 
 class RunMolecularDynamics(_Integrator):
@@ -110,18 +122,21 @@ class RunMolecularDynamics(_Integrator):
         self.thermostat = thermostat
         self.barostat = barostat
 
-    def __call__(self, sim):
-        if self.barostat is not None:
-            sim[sim.initializer]["_ensemble"].P = self.barostat.P
-
-        for analyzer in self.analyzers:
-            analyzer.pre_run(sim, self)
-
+    def _modify_ensemble(self, sim):
         if self.thermostat is not None:
-            sim[sim.initializer]["_ensemble"].T = self.thermostat.T
+            if self.thermostat.anneal:
+                raise ValueError("Temperature annealing is not supported")
+            sim["engine"]["_ensemble"].T = self.thermostat.T
 
-        for analyzer in self.analyzers:
-            analyzer.post_run(sim, self)
+        # if barostat, solve for volume. otherwise, compute pressure.
+        if self.barostat:
+            sim["engine"]["_ensemble"].P = self.barostat.P
+            sim["engine"]["_ensemble"].V = None
+        else:
+            sim["engine"]["_ensemble"].P = None
+        P, V = Dilute._virial_equation(sim, sim["engine"]["_ensemble"])
+        sim["engine"]["_ensemble"].P = P
+        sim["engine"]["_ensemble"].V = V
 
 
 class EnsembleAverage(simulate.AnalysisOperation):
@@ -153,8 +168,10 @@ class EnsembleAverage(simulate.AnalysisOperation):
 
     """
 
-    def __init__(self, check_thermo_every, check_rdf_every, rdf_dr):
-        pass
+    def __init__(self, every, rdf, assume_constraints):
+        self.every = every
+        self.rdf = rdf
+        self.assume_constraints = assume_constraints
 
     def pre_run(self, sim, sim_op):
         pass
@@ -163,63 +180,28 @@ class EnsembleAverage(simulate.AnalysisOperation):
         pass
 
     def process(self, sim, sim_op):
-        ens = sim[sim.initializer]["_ensemble"].copy()
-        kT = sim.potentials.kB * ens.T
-        # pair distribution function
-        for pair in ens.pairs:
-            u = sim.potentials.pair.energy(pair)
-            ens.rdf[pair] = ensemble.RDF(
-                sim.potentials.pair.linear_space, numpy.exp(-u / kT)
-            )
-        # compute pressure
-        N = sum(ens.N[i] for i in sim.types)
+        # pilfer ensemble from engine, we are computing it along the way
+        ens = sim["engine"]["_ensemble"].copy()
+        if ens.P is None or ens.V is None:
+            ens.P, ens.V = Dilute._virial_equation(sim, ens)
 
-        B = 0.0
-        for i, j in sim.pairs:
-            r = sim.potentials.pair.linear_space
-            u = sim.potentials.pair.energy((i, j))
-
-            # only count continuous range of finite values
-            flags = numpy.isinf(u)
-            first_finite = 0
-            while flags[first_finite] and first_finite < len(r):
-                first_finite += 1
-            r = r[first_finite:]
-            u = u[first_finite:]
-
-            if sim.dimension == 3:
-                geo_prefactor = 4 * numpy.pi * r**2
-            elif sim.dimension == 2:
-                geo_prefactor = 2 * numpy.pi * r
-            else:
-                raise ValueError("Geometric integration factor unknown for extent type")
-            y_i = ens.N[i] / N
-            y_j = ens.N[j] / N
-
-            B_ij = numpy.trapz(-(geo_prefactor / 2.0) * (numpy.exp(-u / kT) - 1), x=r)
-
-            counting_factor = 2 if i != j else 1
-
-            B += counting_factor * y_i * y_j * B_ij
-        # calculate pressure if no barostat
-        if ens.P is None:
-            rho = N / ens.V.extent
-            ens.P = kT * (rho + B * rho**2)
-        # adjust extent to maintain pressure if barostat
-        else:
-            coeffs = numpy.array([-ens.P / kT, 1, B])
-            v = numpy.max(numpy.roots(coeffs))
-            V = v * N
-            L = V ** (1 / sim.dimension)
-
-            if sim.dimension == 3:
-                ens.V = extent.Cube(L)
-            elif sim.dimension == 2:
-                ens.V = extent.Square(L)
+        # optionally finalize RDF using given parameters
+        rdf_params = self._get_rdf_params(sim)
+        if rdf_params is not None:
+            kT = sim.potentials.kB * ens.T
+            for pair in ens.pairs:
+                bin_edges = numpy.linspace(
+                    0, rdf_params["stop"], rdf_params["bins"] + 1
+                )
+                bin_centers = 0.5 * (bin_edges[:-1] + bin_edges[1:])
+                u = sim.potentials.pair.energy(pair, x=bin_centers)
+                ens.rdf[pair] = ensemble.RDF(bin_centers, numpy.exp(-u / kT))
 
         sim[self]["ensemble"] = ens
         sim[self]["num_thermo_samples"] = None
         sim[self]["num_rdf_samples"] = None
+
+    _get_rdf_params = analyze.EnsembleAverage._get_rdf_params
 
 
 class Dilute(simulate.Simulation):
@@ -272,3 +254,60 @@ class Dilute(simulate.Simulation):
 
     # analyze
     _EnsembleAverage = EnsembleAverage
+
+    @staticmethod
+    def _virial_equation(sim, ens):
+        if ens.T is None:
+            raise ValueError("Temperature must be specified")
+        kT = sim.potentials.kB * ens.T
+
+        N = sum(ens.N[i] for i in sim.types)
+        B = 0.0
+        for i, j in sim.pairs:
+            r = sim.potentials.pair.linear_space
+            u = sim.potentials.pair.energy((i, j))
+
+            # only count continuous range of finite values
+            flags = numpy.isinf(u)
+            first_finite = 0
+            while flags[first_finite] and first_finite < len(r):
+                first_finite += 1
+            r = r[first_finite:]
+            u = u[first_finite:]
+
+            if sim.dimension == 3:
+                geo_prefactor = 4 * numpy.pi * r**2
+            elif sim.dimension == 2:
+                geo_prefactor = 2 * numpy.pi * r
+            else:
+                raise ValueError("Geometric integration factor unknown for extent type")
+            B_ij = -0.5 * numpy.trapz(geo_prefactor * (numpy.exp(-u / kT) - 1), x=r)
+
+            y_i = ens.N[i] / N
+            y_j = ens.N[j] / N
+            counting_factor = 2 if i != j else 1
+            B += counting_factor * y_i * y_j * B_ij
+
+        if ens.P is None:
+            # calculate pressure if no barostat
+            rho = N / ens.V.extent
+            P = kT * (rho + B * rho**2)
+            V = ens.V
+        else:
+            # adjust extent to maintain pressure if barostat
+            coeffs = numpy.array([-ens.P / kT, 1, B])
+            roots = numpy.roots(coeffs)
+            if not numpy.allclose(numpy.imag(roots), 0):
+                raise ValueError(
+                    "Unable to solve for volume, imaginary roots obtained."
+                )
+            v = numpy.max(numpy.real(roots))
+            L = (v * N) ** (1 / sim.dimension)
+
+            P = ens.P
+            if sim.dimension == 3:
+                V = extent.Cube(L)
+            elif sim.dimension == 2:
+                V = extent.Square(L)
+
+        return P, V

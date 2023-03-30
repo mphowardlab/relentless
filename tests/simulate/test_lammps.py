@@ -43,10 +43,7 @@ elif relentless.simulate.lammps._lammps_found:
 else:
     test_params = []
 
-_has_lammps_dependencies = relentless.simulate.lammps._lammpsio_found
 
-
-@unittest.skipIf(not _has_lammps_dependencies, "LAMMPS dependencies not installed")
 @unittest.skipIf(len(test_params) == 0, "No version of LAMMPS installed")
 @parameterized.parameterized_class(
     ("dim", "executable"),
@@ -339,17 +336,17 @@ class test_LAMMPS(unittest.TestCase):
         self.assertAlmostEqual(result.intercept, 2.0, places=1)
         self.assertAlmostEqual(result.slope, -1.0 / brn.steps, places=4)
 
-    def test_analyzer(self):
+    def test_ensemble_average(self):
         """Test ensemble analyzer simulation operation."""
         ens, pot = self.ens_pot()
         init = relentless.simulate.InitializeRandomly(
             seed=1, N=ens.N, V=ens.V, T=ens.T, diameters={"1": 1, "2": 1}
         )
         analyzer = relentless.simulate.EnsembleAverage(
-            check_thermo_every=5, check_rdf_every=5, rdf_dr=0.1
+            every=5, rdf={"stop": 2.0, "num": 20}
         )
         analyzer2 = relentless.simulate.EnsembleAverage(
-            check_thermo_every=10, check_rdf_every=10, rdf_dr=0.2
+            every=10, rdf={"stop": 2.0, "num": 10}
         )
         lgv = relentless.simulate.RunLangevinDynamics(
             steps=500,
@@ -404,6 +401,92 @@ class test_LAMMPS(unittest.TestCase):
         )
         self.assertAlmostEqual(numpy.mean(sim[logger]["temperature"]), ens_.T)
         self.assertAlmostEqual(numpy.mean(sim[logger]["pressure"]), ens_.P)
+
+    def test_ensemble_average_constraints(self):
+        """Test ensemble analyzer simulation operation."""
+        ens, pot = self.ens_pot()
+        init = relentless.simulate.InitializeRandomly(
+            seed=1, N=ens.N, V=ens.V, T=ens.T, diameters={"1": 1, "2": 1}
+        )
+        analyzer = relentless.simulate.EnsembleAverage(every=1, assume_constraints=True)
+        md = relentless.simulate.RunMolecularDynamics(
+            steps=100,
+            timestep=0.001,
+            thermostat=relentless.simulate.NoseHooverThermostat(ens.T, 0.1),
+            barostat=relentless.simulate.MTKBarostat(0.0, 1.0),
+            analyzers=analyzer,
+        )
+        h = relentless.simulate.LAMMPS(
+            init, md, dimension=self.dim, executable=self.executable
+        )
+
+        # NPT
+        sim = h.run(pot, self.directory)
+        ens_ = sim[analyzer]["ensemble"]
+        self.assertEqual(ens_.T, ens.T)
+        self.assertEqual(ens_.P, 0.0)
+        self.assertNotEqual(ens_.V.extent, ens.V.extent)
+        self.assertDictEqual(dict(ens_.N), dict(ens.N))
+
+        # NVT
+        md.barostat = None
+        sim = h.run(pot, self.directory)
+        ens_ = sim[analyzer]["ensemble"]
+        self.assertEqual(ens_.T, ens.T)
+        self.assertNotEqual(ens_.P, 0.0)
+        self.assertEqual(ens_.V.extent, ens.V.extent)
+        self.assertDictEqual(dict(ens_.N), dict(ens.N))
+
+        # NVT with annealing
+        md.thermostat.T = [2 * ens.T, ens.T]
+        sim = h.run(pot, self.directory)
+        ens_ = sim[analyzer]["ensemble"]
+        self.assertEqual(ens_.T, 1.5 * ens.T)
+        self.assertNotEqual(ens_.P, 0.0)
+        self.assertEqual(ens_.V.extent, ens.V.extent)
+        self.assertDictEqual(dict(ens_.N), dict(ens.N))
+
+        # NVE
+        md.thermostat = None
+        sim = h.run(pot, self.directory)
+        ens_ = sim[analyzer]["ensemble"]
+        self.assertNotEqual(ens_.T, ens.T)
+        self.assertNotEqual(ens_.P, 0.0)
+        self.assertEqual(ens_.V.extent, ens.V.extent)
+        self.assertDictEqual(dict(ens_.N), dict(ens.N))
+
+        # Langevin dynamics
+        h.operations = relentless.simulate.RunLangevinDynamics(
+            steps=100,
+            timestep=0.001,
+            T=ens.T,
+            friction=0.1,
+            seed=42,
+            analyzers=analyzer,
+        )
+        sim = h.run(pot, self.directory)
+        ens_ = sim[analyzer]["ensemble"]
+        self.assertEqual(ens_.T, ens.T)
+        self.assertNotEqual(ens_.P, 0.0)
+        self.assertEqual(ens_.V.extent, ens.V.extent)
+        self.assertDictEqual(dict(ens_.N), dict(ens.N))
+
+        # Brownian dynamics
+        if "BROWNIAN" in h.packages:
+            h.operations = relentless.simulate.RunBrownianDynamics(
+                steps=100,
+                timestep=1e-5,
+                T=ens.T,
+                friction=0.1,
+                seed=42,
+                analyzers=analyzer,
+            )
+            sim = h.run(pot, self.directory)
+            ens_ = sim[analyzer]["ensemble"]
+            self.assertEqual(ens_.T, ens.T)
+            self.assertNotEqual(ens_.P, 0.0)
+            self.assertEqual(ens_.V.extent, ens.V.extent)
+            self.assertDictEqual(dict(ens_.N), dict(ens.N))
 
     def test_writetrajectory(self):
         """Test write trajectory simulation operation."""

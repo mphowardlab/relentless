@@ -3,12 +3,14 @@ import datetime
 import subprocess
 import uuid
 
+import freud
+import lammpsio
 import numpy
 
 from relentless import collections, mpi
 from relentless.model import ensemble, extent
 
-from . import initialize, md, simulate
+from . import analyze, initialize, md, simulate
 
 try:
     import lammps
@@ -17,20 +19,132 @@ try:
 except ImportError:
     _lammps_found = False
 
-try:
-    import lammpsio
 
-    _lammpsio_found = True
-except ImportError:
-    _lammpsio_found = False
+class Counters:
+    _compute = 1
+    _dump = 1
+    _fix = 1
+    _group = 1
+    _variable = 1
+
+    @classmethod
+    def new_compute_id(cls):
+        """Make a unique new compute ID.
+
+        Returns
+        -------
+        int
+            The compute ID.
+
+        """
+        idx = int(cls._compute)
+        cls._compute += 1
+        return "c{}".format(idx)
+
+    @classmethod
+    def new_dump_id(cls):
+        """Make a unique new dump ID.
+
+        Returns
+        -------
+        int
+            The dump ID.
+
+        """
+        idx = int(cls._dump)
+        cls._dump += 1
+        return "d{}".format(idx)
+
+    @classmethod
+    def new_fix_id(cls):
+        """Make a unique new fix ID.
+
+        Returns
+        -------
+        int
+            The fix ID.
+
+        """
+        idx = int(cls._fix)
+        cls._fix += 1
+        return "f{}".format(idx)
+
+    @classmethod
+    def new_group_id(cls):
+        """Make a unique new fix ID.
+
+        Returns
+        -------
+        int
+            The fix ID.
+
+        """
+        idx = int(cls._group)
+        cls._group += 1
+        return "g{}".format(idx)
+
+    @classmethod
+    def new_variable_id(cls):
+        """Make a unique new variable ID.
+
+        Returns
+        -------
+        int
+            The variable ID.
+
+        """
+        idx = int(cls._variable)
+        cls._variable += 1
+        return "v{}".format(idx)
+
+
+class SimulationOperation(simulate.SimulationOperation):
+    """LAMMPS simulation operation."""
+
+    def __call__(self, sim):
+        """Evaluate the LAMMPS simulation operation.
+
+        Each deriving class of :class:`SimulationOperation` must implement a
+        :meth:`_call_commands()` method that returns a list or tuple of LAMMPS
+        commands that can be executed by :meth:`lammps.commands_list()`.
+
+        Parameters
+        ----------
+        sim : :class:`~relentless.simulate.SimulationInstance`
+            The simulation instance.
+
+        """
+        cmds = self._call_commands(sim)
+        if cmds is None or len(cmds) == 0:
+            return
+
+        sim["engine"]["_lammps_commands"] += cmds
+        if sim["engine"]["use_python"]:
+            sim["engine"]["_lammps"].commands_list(cmds)
+
+    @abc.abstractmethod
+    def _call_commands(self, sim):
+        """Create the LAMMPS commands for the simulation operation.
+
+        All deriving classes must implement this method.
+
+        Parameters
+        ----------
+        sim : :class:`~relentless.simulate.SimulationInstance`
+            The simulation instance.
+
+        Returns
+        -------
+        array_like
+            The LAMMPS commands for this operation.
+
+        """
+        pass
 
 
 # initializers
-class InitializationOperation(simulate.InitializationOperation):
+class InitializationOperation(SimulationOperation, simulate.InitializationOperation):
     """Initialize a simulation."""
-
-    def __call__(self, sim):
-        SimulationOperation.__call__(self, sim)
 
     def _call_commands(self, sim):
         cmds = [
@@ -43,6 +157,14 @@ class InitializationOperation(simulate.InitializationOperation):
         sim.dimension = sim["engine"]["dimension"]
         cmds += self.initialize_commands(sim)
         sim.types = sim["engine"]["types"].keys()
+
+        # create a group for each type
+        sim[self]["_type_groups"] = collections.FixedKeyDict(sim.types)
+        for i in sim.types:
+            typeid = sim["engine"]["types"][i]
+            groupid = Counters.new_group_id()
+            sim[self]["_type_groups"][i] = groupid
+            cmds.append(f"group {groupid} type {typeid}")
 
         sim.masses = collections.FixedKeyDict(sim.types)
         # file is opened only valid on root and result is broadcast
@@ -294,126 +416,6 @@ class InitializeRandomly(InitializationOperation):
 
 
 # simulation operations
-class SimulationOperation(simulate.SimulationOperation):
-    """LAMMPS simulation operation."""
-
-    _compute_counter = 1
-    _dump_counter = 1
-    _fix_counter = 1
-    _group_counter = 1
-    _variable_counter = 1
-
-    def __call__(self, sim):
-        """Evaluate the LAMMPS simulation operation.
-
-        Each deriving class of :class:`SimulationOperation` must implement a
-        :meth:`_call_commands()` method that returns a list or tuple of LAMMPS
-        commands that can be executed by :meth:`lammps.commands_list()`.
-
-        Parameters
-        ----------
-        sim : :class:`~relentless.simulate.SimulationInstance`
-            The simulation instance.
-
-        """
-        cmds = self._call_commands(sim)
-        if cmds is None or len(cmds) == 0:
-            return
-
-        sim["engine"]["_lammps_commands"] += cmds
-        if sim["engine"]["use_python"]:
-            sim["engine"]["_lammps"].commands_list(cmds)
-
-    @classmethod
-    def new_compute_id(cls):
-        """Make a unique new compute ID.
-
-        Returns
-        -------
-        int
-            The compute ID.
-
-        """
-        idx = int(SimulationOperation._compute_counter)
-        SimulationOperation._compute_counter += 1
-        return "c{}".format(idx)
-
-    @classmethod
-    def new_dump_id(cls):
-        """Make a unique new dump ID.
-
-        Returns
-        -------
-        int
-            The dump ID.
-
-        """
-        idx = int(SimulationOperation._dump_counter)
-        SimulationOperation._dump_counter += 1
-        return "d{}".format(idx)
-
-    @classmethod
-    def new_fix_id(cls):
-        """Make a unique new fix ID.
-
-        Returns
-        -------
-        int
-            The fix ID.
-
-        """
-        idx = int(SimulationOperation._fix_counter)
-        SimulationOperation._fix_counter += 1
-        return "f{}".format(idx)
-
-    @classmethod
-    def new_group_id(cls):
-        """Make a unique new fix ID.
-
-        Returns
-        -------
-        int
-            The fix ID.
-
-        """
-        idx = int(SimulationOperation._group_counter)
-        SimulationOperation._group_counter += 1
-        return "g{}".format(idx)
-
-    @classmethod
-    def new_variable_id(cls):
-        """Make a unique new variable ID.
-
-        Returns
-        -------
-        int
-            The variable ID.
-
-        """
-        idx = int(SimulationOperation._variable_counter)
-        SimulationOperation._variable_counter += 1
-        return "v{}".format(idx)
-
-    @abc.abstractmethod
-    def _call_commands(self, sim):
-        """Create the LAMMPS commands for the simulation operation.
-
-        All deriving classes must implement this method.
-
-        Parameters
-        ----------
-        sim : :class:`~relentless.simulate.SimulationInstance`
-            The simulation instance.
-
-        Returns
-        -------
-        array_like
-            The LAMMPS commands for this operation.
-
-        """
-        pass
-
-
 class MinimizeEnergy(SimulationOperation):
     """Perform energy minimization on a configuration.
 
@@ -456,7 +458,7 @@ class MinimizeEnergy(SimulationOperation):
             )
         ]
         if sim.dimension == 2:
-            fix_2d = self.new_fix_id()
+            fix_2d = Counters.new_fix_id()
             cmds = (
                 ["fix {} all enforce2d".format(fix_2d)]
                 + cmds
@@ -499,7 +501,7 @@ class _Integrator(SimulationOperation):
 
         # wrap with fixes
         if sim.dimension == 2:
-            fix_2d = self.new_fix_id()
+            fix_2d = Counters.new_fix_id()
             cmds = (
                 ["fix {} all enforce2d".format(fix_2d)]
                 + cmds
@@ -571,12 +573,11 @@ class RunBrownianDynamics(_Integrator):
             same_friction = True
 
         fix_ids = []
-        group_ids = []
         cmd_template = "fix {fixid} {groupid} brownian {T} {seed} gamma_t {friction}"
 
         cmds = ["timestep {}".format(self.timestep)]
         if same_friction:
-            fixid = self.new_fix_id()
+            fixid = Counters.new_fix_id()
             cmds.append(
                 cmd_template.format(
                     fixid=fixid,
@@ -589,11 +590,9 @@ class RunBrownianDynamics(_Integrator):
             fix_ids.append(fixid)
         else:
             for i, t in enumerate(sim.types):
-                typeidx = sim["engine"]["types"][t]
-                groupid = self.new_group_id()
-                fixid = self.new_fix_id()
-                cmds += [
-                    f"group {groupid} type {typeidx}",
+                groupid = sim[sim.initializer]["_type_groups"][t]
+                fixid = Counters.new_fix_id()
+                cmds.append(
                     cmd_template.format(
                         fixid=fixid,
                         groupid=groupid,
@@ -601,12 +600,10 @@ class RunBrownianDynamics(_Integrator):
                         seed=self.seed + i,
                         friction=self.friction[t],
                     ),
-                ]
+                )
                 fix_ids.append(fixid)
-                group_ids.append(groupid)
         cmds += self._run_commands(sim)
         cmds += ["unfix {}".format(idx) for idx in fix_ids]
-        cmds += ["group {} delete".format(idx) for idx in group_ids]
         return cmds
 
 
@@ -666,7 +663,7 @@ class RunLangevinDynamics(_Integrator):
             scale_str = ""
 
         T = self._make_T(self.T)
-        fix_ids = {"nve": self.new_fix_id(), "langevin": self.new_fix_id()}
+        fix_ids = {"nve": Counters.new_fix_id(), "langevin": Counters.new_fix_id()}
         cmds = [
             "timestep {}".format(self.timestep),
             "fix {idx} {group_idx} nve".format(idx=fix_ids["nve"], group_idx="all"),
@@ -725,7 +722,7 @@ class RunMolecularDynamics(_Integrator):
         self.barostat = barostat
 
     def _call_commands(self, sim):
-        fix_ids = {"ig": self.new_fix_id()}
+        fix_ids = {"ig": Counters.new_fix_id()}
 
         if self.thermostat is not None:
             T = self._make_T(self.thermostat)
@@ -791,7 +788,7 @@ class RunMolecularDynamics(_Integrator):
             )
 
         if isinstance(self.thermostat, md.BerendsenThermostat):
-            fix_ids["berendsen_temp"] = self.new_fix_id()
+            fix_ids["berendsen_temp"] = Counters.new_fix_id()
             cmds += [
                 "fix {idx} {group_idx} temp/berendsen {Tstart} {Tstop} {Tdamp}".format(
                     idx=fix_ids["berendsen_temp"],
@@ -802,7 +799,7 @@ class RunMolecularDynamics(_Integrator):
                 )
             ]
         if isinstance(self.barostat, md.BerendsenBarostat):
-            fix_ids["berendsen_press"] = self.new_fix_id()
+            fix_ids["berendsen_press"] = Counters.new_fix_id()
             cmds += [
                 (
                     "fix {idx} {group_idx} press/berendsen iso"
@@ -851,147 +848,112 @@ class AnalysisOperation(simulate.AnalysisOperation):
 
 
 class EnsembleAverage(AnalysisOperation):
-    """Analyzes the simulation ensemble and rdf at specified timestep intervals.
-
-    Parameters
-    ----------
-    check_thermo_every : int
-        Interval of time steps at which to log thermodynamic properties of the
-        simulation.
-    check_rdf_every : int
-        Interval of time steps at which to log the rdf of the simulation.
-    rdf_dr : float
-        The width (in units ``r``) of a bin in the histogram of the rdf.
-
-    Raises
-    ------
-    RuntimeError
-        If more than one LAMMPS :class:`AddEnsembleAnalyzer` is initialized
-        at the same time.
-
-    """
-
-    def __init__(self, check_thermo_every, check_rdf_every, rdf_dr):
-        self.check_thermo_every = check_thermo_every
-        self.check_rdf_every = check_rdf_every
-        self.rdf_dr = rdf_dr
+    def __init__(self, every, rdf, assume_constraints):
+        self.every = every
+        self.rdf = rdf
+        self.assume_constraints = assume_constraints
 
     def _pre_run_commands(self, sim, sim_op):
-        fix_ids = {
-            "thermo_avg": SimulationOperation.new_fix_id(),
-            "rdf_avg": SimulationOperation.new_fix_id(),
-        }
-        compute_ids = {"rdf": SimulationOperation.new_compute_id()}
-        var_ids = {
-            "T": SimulationOperation.new_variable_id(),
-            "P": SimulationOperation.new_variable_id(),
-            "Lx": SimulationOperation.new_variable_id(),
-            "Ly": SimulationOperation.new_variable_id(),
-            "Lz": SimulationOperation.new_variable_id(),
-            "xy": SimulationOperation.new_variable_id(),
-            "xz": SimulationOperation.new_variable_id(),
-            "yz": SimulationOperation.new_variable_id(),
-        }
+        cmds = []
 
-        group_ids = {}
-        for i in sim.types:
-            typeid = sim["engine"]["types"][i]
-            typekey = "N_{}".format(typeid)
-            group_ids[typekey] = SimulationOperation.new_group_id()
-            var_ids[typekey] = SimulationOperation.new_variable_id()
+        constraints = self._get_constrained_quantities(sim, sim_op)
+        if constraints is None:
+            constraints = {}
+        sim[self]["_constraints"] = constraints
 
-        # generate temporary file names
+        # dicts are insertion ordered, so we can rely on this for thermo columns
+        fix_ids = {}
+        var_ids = {}
+        if "T" not in constraints:
+            var_ids["T"] = Counters.new_variable_id()
+            cmds.append("variable {} equal temp".format(var_ids["T"]))
+        if "P" not in constraints:
+            var_ids["P"] = Counters.new_variable_id()
+            cmds.append("variable {} equal press".format(var_ids["P"]))
+        if "V" not in constraints:
+            var_ids.update(
+                {
+                    "Lx": Counters.new_variable_id(),
+                    "Ly": Counters.new_variable_id(),
+                    "Lz": Counters.new_variable_id(),
+                    "xy": Counters.new_variable_id(),
+                    "xz": Counters.new_variable_id(),
+                    "yz": Counters.new_variable_id(),
+                }
+            )
+            cmds += [
+                "variable {} equal lx".format(var_ids["Lx"]),
+                "variable {} equal ly".format(var_ids["Ly"]),
+                "variable {} equal lz".format(var_ids["Lz"]),
+                "variable {} equal xy".format(var_ids["xy"]),
+                "variable {} equal xz".format(var_ids["xz"]),
+                "variable {} equal yz".format(var_ids["yz"]),
+            ]
+        if "N" not in constraints:
+            for i in sim.types:
+                groupid = sim[sim.initializer]["_type_groups"][i]
+                typekey = f"N_{i}"
+                var_ids[typekey] = Counters.new_variable_id()
+                cmds.append(
+                    'variable {vid} equal "count({gid})"'.format(
+                        vid=var_ids[typekey], gid=groupid
+                    ),
+                )
+
+        # generate temporary file names, may or may not get used but that's OK
         if mpi.world.rank_is_root:
             file_ = {
                 "thermo": sim.directory.file(str(uuid.uuid4().hex)),
                 "rdf": sim.directory.file(str(uuid.uuid4().hex)),
+                "data": sim.directory.file(str(uuid.uuid4().hex)),
             }
         else:
             file_ = None
         file_ = mpi.world.bcast(file_)
 
         # thermodynamic properties
-        sim[self]["_thermo_file"] = file_["thermo"]
-        cmds = [
-            "variable {} equal temp".format(var_ids["T"]),
-            "variable {} equal press".format(var_ids["P"]),
-            "variable {} equal lx".format(var_ids["Lx"]),
-            "variable {} equal ly".format(var_ids["Ly"]),
-            "variable {} equal lz".format(var_ids["Lz"]),
-            "variable {} equal xy".format(var_ids["xy"]),
-            "variable {} equal xz".format(var_ids["xz"]),
-            "variable {} equal yz".format(var_ids["yz"]),
-        ]
-        N_vars = []
-        for i in sim.types:
-            typeid = sim["engine"]["types"][i]
-            typekey = "N_{}".format(typeid)
+        if len(var_ids) > 0:
+            sim[self]["_thermo_file"] = file_["thermo"]
+            fix_ids["thermo_avg"] = Counters.new_fix_id()
             cmds += [
-                "group {gid} type {typeid}".format(
-                    gid=group_ids[typekey], typeid=typeid
-                ),
-                'variable {vid} equal "count({gid})"'.format(
-                    vid=var_ids[typekey], gid=group_ids[typekey]
-                ),
-            ]
-            N_vars.append("v_{" + typekey + "}")
-        cmds += [
-            (
-                "fix {fixid} all ave/time {every} 1 {every}"
-                " v_{T} v_{P} v_{Lx} v_{Ly} v_{Lz} v_{xy} v_{xz} v_{yz}"
-                + " "
-                + " ".join(N_vars)
-                + " mode scalar ave running"
-                ' file {filename} overwrite format " %.16e"'
-            ).format(
-                fixid=fix_ids["thermo_avg"],
-                every=self.check_thermo_every,
-                filename=sim[self]["_thermo_file"],
-                **var_ids,
-            )
-        ]
-
-        # pair distribution function
-        rmax = sim[sim.initializer]["_potentials_rmax"]
-        num_bins = numpy.round(rmax / self.rdf_dr).astype(int)
-        if num_bins == 1:
-            raise ValueError("Only 1 RDF bin, increase the discretization")
-        sim[self]["_rdf_file"] = file_["rdf"]
-        sim[self]["_rdf_pairs"] = tuple(sim.pairs)
-        # string format lammps arguments based on pairs
-        # _pairs is the list of all pairs by LAMMPS type id, in ensemble order
-        # _computes is the RDF values for each pair, with the r bin centers prepended
-        _pairs = []
-        _computes = ["c_{}[1]".format(compute_ids["rdf"])]
-        for idx, (i, j) in enumerate(sim[self]["_rdf_pairs"]):
-            _pairs.append(
-                "{} {}".format(
-                    sim["engine"]["types"][i],
-                    sim["engine"]["types"][j],
+                (
+                    "fix {fixid} all ave/time {every} 1 {every}"
+                    + " "
+                    + " ".join(["v_" + v_ for v_ in var_ids.values()])
+                    + " mode scalar ave running"
+                    ' file {filename} overwrite format " %.16e"'
+                ).format(
+                    fixid=fix_ids["thermo_avg"],
+                    every=self.every,
+                    filename=sim[self]["_thermo_file"],
                 )
-            )
-            _computes.append("c_{}[{}]".format(compute_ids["rdf"], 2 * (idx + 1)))
-        cmds += [
-            "compute {rdf} all rdf {bins} {pairs}".format(
-                rdf=compute_ids["rdf"], bins=num_bins, pairs=" ".join(_pairs)
-            ),
-            (
-                "fix {fixid} all ave/time {every} 1 {every}"
-                " {computes} mode vector ave running off 1"
-                ' file {filename} overwrite format " %.16e"'
-            ).format(
-                fixid=fix_ids["rdf_avg"],
-                every=self.check_rdf_every,
-                computes=" ".join(_computes),
+            ]
+
+            sim[self]["_thermo_columns"] = {k: i for i, k in enumerate(var_ids.keys())}
+
+        # write a data file if there are constraints on N or V
+        if "N" in constraints or "V" in constraints:
+            cmds += ["write_data {filename}".format(filename=file_["data"])]
+            sim[self]["_constraint_data_file"] = file_["data"]
+
+        # dump a trajectory for the RDF calculation
+        rdf_params = self._get_rdf_params(sim)
+        if rdf_params is not None:
+            sim[self]["_rdf_params"] = rdf_params
+            sim[self]["_rdf_file"] = file_["rdf"]
+            sim[self]["_rdf_dump"] = WriteTrajectory(
                 filename=sim[self]["_rdf_file"],
-            ),
-        ]
+                every=rdf_params["every"],
+                velocities=False,
+                images=False,
+                types=True,
+                masses=False,
+            )
+            sim[self]["_rdf_dump"].pre_run(sim, sim_op)
 
         # save ids so we can remove them later
         sim[self]["_fix_ids"] = fix_ids
-        sim[self]["_compute_ids"] = compute_ids
         sim[self]["_var_ids"] = var_ids
-        sim[self]["_group_ids"] = group_ids
 
         return cmds
 
@@ -1001,22 +963,55 @@ class EnsembleAverage(AnalysisOperation):
         for fixid in sim[self]["_fix_ids"].values():
             cmds.append("unfix {}".format(fixid))
         del sim[self]["_fix_ids"]
-        # uncommand
-        for compute_id in sim[self]["_compute_ids"].values():
-            cmds.append("uncompute {}".format(compute_id))
-        del sim[self]["_compute_ids"]
         # delete variables
         for var_id in sim[self]["_var_ids"].values():
             cmds.append("variable {} delete".format(var_id))
         del sim[self]["_var_ids"]
-        # delete groups
-        for group_id in sim[self]["_group_ids"].values():
-            cmds.append("group {} delete".format(group_id))
-        del sim[self]["_group_ids"]
+
+        if "_rdf_dump" in sim[self]:
+            sim[self]["_rdf_dump"].post_run(sim, sim_op)
 
         return cmds
 
     def process(self, sim, sim_op):
+        # first process any constraints
+        constraints = sim[self]["_constraints"]
+        if "N" in constraints or "V" in constraints:
+            if mpi.world.rank_is_root:
+                snap = lammpsio.DataFile(sim[self]["_constraint_data_file"]).read()
+            else:
+                snap = None
+
+            if "N" in constraints:
+                if mpi.world.rank_is_root:
+                    N = {
+                        i: numpy.sum(snap.typeid == sim["engine"]["types"][i])
+                        for i in sim.types
+                    }
+                else:
+                    N = None
+                N = mpi.world.bcast(N)
+
+            if "V" in constraints:
+                if mpi.world.rank_is_root:
+                    L = snap.box.high - snap.box.low
+                    L = L[: sim.dimension]
+                    tilt = snap.box.tilt
+                    if tilt is None:
+                        if sim.dimension == 3:
+                            tilt = [0, 0, 0]
+                        else:
+                            tilt = [0]
+                    box_array = numpy.concatenate((L, tilt))
+                else:
+                    box_array = None
+
+                box_array = mpi.world.bcast_numpy(box_array)
+                if sim.dimension == 3:
+                    V = extent.TriclinicBox(*box_array, convention="LAMMPS")
+                else:
+                    V = extent.ObliqueArea(*box_array, convention="LAMMPS")
+
         # extract thermo properties
         # we skip the first 2 rows, which are LAMMPS junk, and slice out the
         # timestep from col. 0
@@ -1024,40 +1019,157 @@ class EnsembleAverage(AnalysisOperation):
             thermo = mpi.world.loadtxt(sim[self]["_thermo_file"], skiprows=2)[1:]
         except Exception as e:
             raise RuntimeError("No LAMMPS thermo file generated") from e
-        N = {i: Ni for i, Ni in zip(sim.types, thermo[8 : 8 + len(sim.types)])}
-        if sim.dimension == 3:
-            V = extent.TriclinicBox(
-                Lx=thermo[2],
-                Ly=thermo[3],
-                Lz=thermo[4],
-                xy=thermo[5],
-                xz=thermo[6],
-                yz=thermo[7],
-                convention="LAMMPS",
-            )
-        else:
-            V = extent.ObliqueArea(
-                Lx=thermo[2],
-                Ly=thermo[3],
-                xy=thermo[5],
-                convention="LAMMPS",
-            )
-        ens = ensemble.Ensemble(N=N, T=thermo[0], P=thermo[1], V=V)
+        columns = sim[self]["_thermo_columns"]
 
-        # extract rdfs
-        # LAMMPS injects a column for the row index, so we start at column 1 for r
-        # we skip the first 4 rows, which are LAMMPS junk, and slice out the
-        # first column
-        try:
-            rdf = mpi.world.loadtxt(sim[self]["_rdf_file"], skiprows=4)[:, 1:]
-        except Exception as e:
-            raise RuntimeError("LAMMPS RDF file could not be read") from e
-        for i, pair in enumerate(sim[self]["_rdf_pairs"]):
-            ens.rdf[pair] = ensemble.RDF(rdf[:, 0], rdf[:, i + 1])
+        if "T" not in constraints:
+            T = thermo[columns["T"]]
+        else:
+            T = constraints["T"]
+
+        if "P" not in constraints:
+            P = thermo[columns["P"]]
+        else:
+            P = constraints["P"]
+
+        if "N" not in constraints:
+            N = {i: thermo[columns[f"N_{i}"]] for i in sim.types}
+
+        if "V" not in constraints:
+            if sim.dimension == 3:
+                V = extent.TriclinicBox(
+                    Lx=thermo[columns["Lx"]],
+                    Ly=thermo[columns["Ly"]],
+                    Lz=thermo[columns["Lz"]],
+                    xy=thermo[columns["xy"]],
+                    xz=thermo[columns["xz"]],
+                    yz=thermo[columns["yz"]],
+                    convention="LAMMPS",
+                )
+            else:
+                V = extent.ObliqueArea(
+                    Lx=thermo[columns["Lx"]],
+                    Ly=thermo[columns["Ly"]],
+                    xy=thermo[columns["xy"]],
+                    convention="LAMMPS",
+                )
+        ens = ensemble.Ensemble(T=T, N=N, V=V, P=P)
+
+        # extract rdfs from trajectory
+        if "_rdf_params" in sim[self]:
+            sim[self]["_rdf_dump"].process(sim, sim_op)
+            rdf = collections.PairMatrix(sim.types)
+            num_rdf_samples = 0
+            if mpi.world.rank_is_root:
+                rdf_ = collections.PairMatrix(sim.types)
+                for i, j in rdf_:
+                    rdf_[i, j] = freud.density.RDF(
+                        bins=sim[self]["_rdf_params"]["bins"],
+                        r_max=sim[self]["_rdf_params"]["stop"],
+                        normalize=(i == j),
+                    )
+
+                traj = lammpsio.DumpFile(sim[self]["_rdf_file"])
+                for snap in traj:
+                    # get freud box
+                    L = snap.box.high - snap.box.low
+                    tilt = snap.box.tilt
+                    if tilt is not None:
+                        # scale tilt factors to HOOMD convention
+                        tilt[0] /= L[1]
+                        if sim.dimension == 3:
+                            tilt[1] /= L[2]
+                            tilt[2] /= L[2]
+                    else:
+                        tilt = numpy.zeros(3)
+                    box_array = numpy.array(
+                        [L[0], L[1], L[2], tilt[0], tilt[1], tilt[2]]
+                    )
+                    if sim.dimension == 2:
+                        box_array[2] = 0.0
+                        box_array[-2:] = 0.0
+                    box = freud.box.Box.from_box(box_array, dimensions=sim.dimension)
+
+                    # pre build aabbs per type and count particles by type
+                    aabbs = {}
+                    type_masks = {}
+                    for i in sim.types:
+                        type_masks[i] = snap.typeid == sim["engine"]["types"][i]
+                        aabbs[i] = freud.locality.AABBQuery(
+                            box, snap.position[type_masks[i]]
+                        )
+                    # then do rdfs using the AABBs
+                    for i, j in rdf_:
+                        query_args = dict(rdf_[i, j].default_query_args)
+                        query_args.update(exclude_ii=(i == j))
+                        rdf_[i, j].compute(
+                            aabbs[j],
+                            snap.position[type_masks[i]],
+                            neighbors=query_args,
+                            reset=False,
+                        )
+
+                    num_rdf_samples += 1
+
+                for pair in rdf:
+                    rdf[pair] = numpy.column_stack(
+                        (rdf_[pair].bin_centers, rdf_[pair].rdf)
+                    )
+            # sync across ranks and convert to RDF object
+            num_rdf_samples = mpi.world.bcast(num_rdf_samples)
+            for pair in rdf:
+                gr = mpi.world.bcast_numpy(rdf[pair])
+                ens.rdf[pair] = ensemble.RDF(gr[:, 0], gr[:, 1])
+
+            del sim[self]["_rdf_dump"]
+        else:
+            num_rdf_samples = 0
 
         sim[self]["ensemble"] = ens
         sim[self]["num_thermo_samples"] = None
-        sim[self]["num_rdf_samples"] = None
+        sim[self]["num_rdf_samples"] = num_rdf_samples
+
+    _get_rdf_params = analyze.EnsembleAverage._get_rdf_params
+
+    def _get_constrained_quantities(self, sim, sim_op):
+        if not self.assume_constraints:
+            return None
+
+        constraints = {}
+
+        # then we opt-in the operations we know
+        if isinstance(
+            sim_op,
+            (
+                md.RunBrownianDynamics,
+                md.RunLangevinDynamics,
+                RunBrownianDynamics,
+                RunLangevinDynamics,
+            ),
+        ):
+            constraints["N"] = True
+            constraints["T"] = md.Thermostat(sim_op.T)
+            constraints["V"] = True
+        elif isinstance(sim_op, (md.RunMolecularDynamics, RunMolecularDynamics)):
+            constraints["N"] = True
+            if sim_op.thermostat is not None:
+                constraints["T"] = sim_op.thermostat
+            # conjugate pair: one or the other is set
+            if sim_op.barostat is not None:
+                constraints["P"] = sim_op.barostat.P
+            else:
+                constraints["V"] = True
+
+        # get T now
+        if "T" in constraints:
+            thermostat = constraints["T"]
+            if thermostat.anneal:
+                constraints["T"] = 0.5 * (thermostat.T[0] + thermostat.T[1])
+            else:
+                constraints["T"] = thermostat.T
+
+        # defer N & V calculations until later...
+
+        return constraints
 
 
 class Record(AnalysisOperation):
@@ -1076,7 +1188,7 @@ class Record(AnalysisOperation):
         var_ids = {}
         cmds = []
         for q in self.quantities:
-            var_ids[q] = SimulationOperation.new_variable_id()
+            var_ids[q] = Counters.new_variable_id()
             cmds.append("variable {} equal {}".format(var_ids[q], quantity_map[q]))
 
         # write quantities to file with fix ave/time
@@ -1084,7 +1196,7 @@ class Record(AnalysisOperation):
             file_ = sim.directory.file(str(uuid.uuid4().hex))
         else:
             file_ = None
-        sim[self]["_fix_id"] = SimulationOperation.new_fix_id()
+        sim[self]["_fix_id"] = Counters.new_fix_id()
         sim[self]["_log_file"] = mpi.world.bcast(file_)
         cmds.append(
             (
@@ -1167,7 +1279,7 @@ class WriteTrajectory(AnalysisOperation):
         if self.images is True:
             dump_format += " ix iy iz"
 
-        dump_id = SimulationOperation.new_dump_id()
+        dump_id = Counters.new_dump_id()
         cmds = [
             "dump {} all custom {} {} {}".format(
                 dump_id, self.every, sim.directory.file(self.filename), dump_format
@@ -1311,9 +1423,6 @@ class LAMMPS(simulate.Simulation):
             del lmp
         if self.version < 20210929:
             raise ImportError("Only LAMMPS 29 Sep 2021 or newer is supported.")
-
-        if not _lammpsio_found:
-            raise ImportError("lammpsio not found.")
 
         super().__init__(initializer, operations)
         self.dimension = dimension
