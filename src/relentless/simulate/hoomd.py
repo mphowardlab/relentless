@@ -261,7 +261,10 @@ class InitializeRandomly(InitializationOperation):
         if mpi.world.rank == 0:
             # generate the positions and types
             if self.diameters is not None:
-                (positions, all_types,) = initialize.InitializeRandomly._pack_particles(
+                (
+                    positions,
+                    all_types,
+                ) = initialize.InitializeRandomly._pack_particles(
                     self.seed, self.N, self.V, self.diameters
                 )
             else:
