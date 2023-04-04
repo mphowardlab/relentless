@@ -74,7 +74,6 @@ class test_HOOMD(unittest.TestCase):
         filename = self.directory.file("test.gsd")
         if relentless.mpi.world.rank_is_root:
             with gsd.hoomd.open(name=filename, mode="wb") as f:
-
                 s = HOOMDFrame()
                 s.particles.N = 5
                 s.particles.types = ["A", "B"]
