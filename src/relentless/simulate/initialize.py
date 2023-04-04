@@ -1,4 +1,5 @@
 import itertools
+import pathlib
 
 import numpy
 import scipy.spatial
@@ -18,14 +19,57 @@ class InitializeFromFile(simulate.DelegatedInitializationOperation):
     ----------
     filename : str
         Initial configuration.
+    format : str
+        File format, from the following:
+
+        - ``"HOOMD-GSD"``: HOOMD GSD file
+        - ``"LAMMPS-data"``: LAMMPS data file
+
+        If ``None`` (default), ``format`` is inferred from the ``filename``
+        according to the following ordered rules:
+
+        - Files with `.gsd` as their sufix are HOOMD-GSD.
+        - Files with `.data` anywhere in their suffix or as the stem of their
+        file name are LAMMPS-data.
+
+        Simulations are *encouraged* but not *required* to support as many file
+        formats as possible.
+    dimension : int
+        Dimension of simulation. If ``None`` (default), the dimension is inferred
+        from the file. Note that depending on the file format, this default may
+        produce incorrect results.
 
     """
 
-    def __init__(self, filename):
+    def __init__(self, filename, format=None, dimension=None):
         self.filename = filename
+        self.format = format
+        self.dimension = dimension
 
     def _make_delegate(self, sim):
-        return self._get_delegate(sim, filename=self.filename)
+        return self._get_delegate(
+            sim,
+            filename=self.filename,
+            format=self.format,
+            dimension=self.dimension,
+        )
+
+    @staticmethod
+    def _detect_format(filename):
+        file_path = pathlib.Path(filename)
+
+        file_suffix = file_path.suffix
+        file_suffixes = file_path.suffixes
+        suffix_length = sum(len(ext) for ext in file_suffixes)
+        file_stem = file_path.stem[:-suffix_length]
+
+        format = None
+        if file_suffix == ".gsd":
+            format = "HOOMD-GSD"
+        elif ".data" in file_suffixes or file_stem == "data":
+            format = "LAMMPS-data"
+
+        return format
 
 
 class InitializeRandomly(simulate.DelegatedInitializationOperation):

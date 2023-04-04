@@ -14,6 +14,7 @@ Data management (`relentless.data`)
 import os
 import pathlib
 import shutil
+import uuid
 
 
 class Directory:
@@ -156,6 +157,21 @@ class Directory:
 
         """
         return os.path.join(self.path, name)
+
+    def temporary_file(self):
+        """Get a temporary filename in the directory.
+
+        This method generates a random filename using :func:`uuid.uuid4`. Unlike
+        a Python temporary file, this file is not automatically created or
+        destroyed. That responsibility is delegated to the caller.
+
+        Returns
+        -------
+        str
+            The absolute path to the temporary file.
+
+        """
+        return self.file(str(uuid.uuid4().hex))
 
     def directory(self, name, create=True):
         """Get a child directory.

@@ -1,7 +1,8 @@
 import enum
-import os
 import warnings
 
+import gsd.hoomd
+import lammpsio
 import numpy
 from packaging import version
 
@@ -58,6 +59,7 @@ class InitializationOperation(simulate.InitializationOperation):
         # parse masses by type
         snap = sim["engine"]["_hoomd"].state.get_snapshot()
         sim.masses = self._get_masses_from_snapshot(sim, snap)
+        self._assert_dimension_safe(sim, snap)
 
         # create the potentials, defer attaching until later
         neighbor_list = hoomd.md.nlist.Tree(buffer=sim.potentials.pair.neighbor_buffer)
@@ -85,6 +87,7 @@ class InitializationOperation(simulate.InitializationOperation):
         with sim["engine"]["_hoomd"]:
             snap = sim[self]["_system"].take_snapshot(particles=True)
             sim.masses = self._get_masses_from_snapshot(sim, snap)
+            self._assert_dimension_safe(sim, snap)
 
         # attach the potentials
         def _table_eval(r_i, rmin, rmax, **coeff):
@@ -145,26 +148,57 @@ class InitializationOperation(simulate.InitializationOperation):
         masses.update(masses_)
         return masses
 
+    def _assert_dimension_safe(self, sim, snap):
+        if sim.dimension == 3:
+            dim_safe = True
+        elif sim.dimension == 2:
+            if mpi.world.rank == 0:
+                dim_safe = numpy.allclose(
+                    snap.particles.position[:, 2], 0
+                ) and numpy.allclose(snap.particles.velocity[:, 2], 0)
+            else:
+                dim_safe = None
+            dim_safe = mpi.world.bcast(dim_safe, root=0)
+        else:
+            raise ValueError("Only 2d and 3d simulations are supported")
+
+        if not dim_safe:
+            raise ValueError("Simulation initialized inconsistent with dimension")
+
 
 class InitializeFromFile(InitializationOperation):
-    """Initialize a simulation from a GSD file.
-
-    Parameters
-    ----------
-    filename : str
-        The file from which to read the system data.
-
-    """
-
-    def __init__(self, filename):
-        self.filename = os.path.realpath(filename)
+    __init__ = initialize.InitializeFromFile.__init__
 
     def _initialize_v3(self, sim):
-        sim["engine"]["_hoomd"].create_state_from_gsd(self.filename)
+        gsd_filename = self._convert_to_gsd_file(sim)
+        sim["engine"]["_hoomd"].create_state_from_gsd(gsd_filename)
 
     def _initialize_v2(self, sim):
+        gsd_filename = self._convert_to_gsd_file(sim)
         with sim["engine"]["_hoomd"]:
-            return hoomd.init.read_gsd(self.filename)
+            return hoomd.init.read_gsd(gsd_filename)
+
+    def _convert_to_gsd_file(self, sim):
+        file_format = initialize.InitializeFromFile._detect_format(self.filename)
+        if file_format == "LAMMPS-data":
+            if mpi.world.rank == 0:
+                snap = lammpsio.DataFile(self.filename).read()
+                frame = snap.to_hoomd_gsd()
+                frame.configuration.dimensions = self.dimension
+                if self.dimension == 2:
+                    frame.configuration.box[4:6] = 0.0
+                    if _version.major >= 3:
+                        frame.configuration.box[2] = 0.0
+                gsd_filename = sim.directory.temporary_file()
+                with gsd.hoomd.open(gsd_filename, "wb") as f:
+                    f.append(frame)
+            else:
+                gsd_filename = None
+            gsd_filename = mpi.world.bcast(gsd_filename, root=0)
+        else:
+            gsd_filename = self.filename
+
+        return gsd_filename
 
 
 class InitializeRandomly(InitializationOperation):
