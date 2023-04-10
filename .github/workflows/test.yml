@@ -159,7 +159,7 @@ jobs:
           python-version: 3.8
       - name: Install test dependencies
         run: |
-          conda install -c conda-forge hoomd=3 gsd
+          conda install -c conda-forge hoomd=3
           pip install -r doc/requirements.txt
       - name: Install
         run: |
