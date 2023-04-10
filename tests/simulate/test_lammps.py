@@ -118,7 +118,6 @@ class test_LAMMPS(unittest.TestCase):
         op = relentless.simulate.InitializeFromFile(filename=file_)
         lmp = relentless.simulate.LAMMPS(
             op,
-            dimension=self.dim,
             types={"1": 1, "2": 2},
             executable=self.executable,
         )
@@ -126,18 +125,14 @@ class test_LAMMPS(unittest.TestCase):
 
         # InitializeRandomly
         op = relentless.simulate.InitializeRandomly(seed=1, N=ens.N, V=ens.V, T=ens.T)
-        lmp = relentless.simulate.LAMMPS(
-            op, dimension=self.dim, executable=self.executable
-        )
+        lmp = relentless.simulate.LAMMPS(op, executable=self.executable)
         lmp.run(potentials=pot, directory=self.directory)
 
     def test_random_initialize_options(self):
         # no T
         ens, pot = self.ens_pot()
         op = relentless.simulate.InitializeRandomly(seed=1, N=ens.N, V=ens.V)
-        h = relentless.simulate.LAMMPS(
-            op, dimension=self.dim, executable=self.executable
-        )
+        h = relentless.simulate.LAMMPS(op, executable=self.executable)
         h.run(potentials=pot, directory=self.directory)
 
         # T + diameters
@@ -175,7 +170,6 @@ class test_LAMMPS(unittest.TestCase):
         lmp = relentless.simulate.LAMMPS(
             init,
             operations=[emin],
-            dimension=self.dim,
             types={"1": 1, "2": 2},
             executable=self.executable,
         )
@@ -196,9 +190,7 @@ class test_LAMMPS(unittest.TestCase):
         brn = relentless.simulate.RunBrownianDynamics(
             steps=1, timestep=1.0e-3, T=ens.T, friction=1.0, seed=2
         )
-        h = relentless.simulate.LAMMPS(
-            init, brn, dimension=self.dim, executable=self.executable
-        )
+        h = relentless.simulate.LAMMPS(init, brn, executable=self.executable)
         if "BROWNIAN" not in h.packages:
             self.skipTest("LAMMPS BROWNIAN package not installed")
         else:
@@ -216,9 +208,7 @@ class test_LAMMPS(unittest.TestCase):
     def test_langevin_dynamics(self):
         ens, pot = self.ens_pot()
         init = relentless.simulate.InitializeRandomly(seed=1, N=ens.N, V=ens.V, T=ens.T)
-        lmp = relentless.simulate.LAMMPS(
-            init, dimension=self.dim, executable=self.executable
-        )
+        lmp = relentless.simulate.LAMMPS(init, executable=self.executable)
 
         # float friction
         lgv = relentless.simulate.RunLangevinDynamics(
@@ -256,9 +246,7 @@ class test_LAMMPS(unittest.TestCase):
     def test_molecular_dynamics(self):
         ens, pot = self.ens_pot()
         init = relentless.simulate.InitializeRandomly(seed=1, N=ens.N, V=ens.V, T=ens.T)
-        lmp = relentless.simulate.LAMMPS(
-            init, dimension=self.dim, executable=self.executable
-        )
+        lmp = relentless.simulate.LAMMPS(init, executable=self.executable)
 
         # VerletIntegrator - NVE
         vrl = relentless.simulate.RunMolecularDynamics(steps=1, timestep=1e-3)
@@ -320,9 +308,7 @@ class test_LAMMPS(unittest.TestCase):
             seed=2,
             analyzers=logger,
         )
-        lmp = relentless.simulate.LAMMPS(
-            init, brn, dimension=self.dim, executable=self.executable
-        )
+        lmp = relentless.simulate.LAMMPS(init, brn, executable=self.executable)
 
         pot = relentless.simulate.Potentials()
         pot.pair = relentless.simulate.PairPotentialTabulator(
@@ -356,9 +342,7 @@ class test_LAMMPS(unittest.TestCase):
             seed=1,
             analyzers=[analyzer, analyzer2],
         )
-        h = relentless.simulate.LAMMPS(
-            init, operations=lgv, dimension=self.dim, executable=self.executable
-        )
+        h = relentless.simulate.LAMMPS(init, operations=lgv, executable=self.executable)
         sim = h.run(potentials=pot, directory=self.directory)
 
         # extract ensemble
@@ -416,9 +400,7 @@ class test_LAMMPS(unittest.TestCase):
             barostat=relentless.simulate.MTKBarostat(0.0, 1.0),
             analyzers=analyzer,
         )
-        h = relentless.simulate.LAMMPS(
-            init, md, dimension=self.dim, executable=self.executable
-        )
+        h = relentless.simulate.LAMMPS(init, md, executable=self.executable)
 
         # NPT
         sim = h.run(pot, self.directory)
@@ -510,9 +492,7 @@ class test_LAMMPS(unittest.TestCase):
             seed=1,
             analyzers=[analyzer],
         )
-        h = relentless.simulate.LAMMPS(
-            init, operations=lgv, dimension=self.dim, executable=self.executable
-        )
+        h = relentless.simulate.LAMMPS(init, operations=lgv, executable=self.executable)
         sim = h.run(potentials=pot, directory=self.directory)
 
         # read trajectory file

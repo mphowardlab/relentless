@@ -150,10 +150,11 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
         cmds = [
             "units {style}".format(style=sim["engine"]["units"]),
             "boundary p p p",
-            "dimension {dim}".format(dim=sim["engine"]["dimension"]),
             "atom_style {style}".format(style=sim["engine"]["atom_style"]),
         ]
         cmds += self.initialize_commands(sim)
+        # dimension is only available after initialization commands, so we insert it now
+        cmds.insert(2, f"dimension {sim.dimension}")
         sim.types = sim["engine"]["types"].keys()
 
         # create a group for each type
@@ -1371,8 +1372,6 @@ class LAMMPS(simulate.Simulation):
     operations : array_like
         :class:`~relentless.simulate.SimulationOperation` to execute for run.
         Defaults to ``None``, which means nothing is done after initialization.
-    dimension : int
-        Dimensionality of the simulation. Defaults to 3.
     quiet : bool
         If ``True``, silence LAMMPS screen output. Setting this to ``False`` can
         be helpful for debugging but would be very noisy in a long production
@@ -1395,7 +1394,6 @@ class LAMMPS(simulate.Simulation):
         self,
         initializer,
         operations=None,
-        dimension=3,
         quiet=True,
         types=None,
         executable=None,
@@ -1459,7 +1457,6 @@ class LAMMPS(simulate.Simulation):
             raise ImportError("Only LAMMPS 29 Sep 2021 or newer is supported.")
 
         super().__init__(initializer, operations)
-        self.dimension = dimension
         self.quiet = quiet
         self.types = types
 
@@ -1517,7 +1514,6 @@ class LAMMPS(simulate.Simulation):
         sim["engine"]["types"] = self.types
         sim["engine"]["units"] = "lj"
         sim["engine"]["atom_style"] = "atomic"
-        sim["engine"]["dimension"] = self.dimension
 
     # initialize
     _InitializeFromFile = InitializeFromFile
