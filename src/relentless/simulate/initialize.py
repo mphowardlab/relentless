@@ -13,8 +13,6 @@ from . import simulate
 class InitializeFromFile(simulate.DelegatedInitializationOperation):
     """Initialize a simulation from a file.
 
-    Description.
-
     Parameters
     ----------
     filename : str
@@ -28,9 +26,9 @@ class InitializeFromFile(simulate.DelegatedInitializationOperation):
         If ``None`` (default), ``format`` is inferred from the ``filename``
         according to the following ordered rules:
 
-        - Files with `.gsd` as their sufix are HOOMD-GSD.
-        - Files with `.data` anywhere in their suffix or as the stem of their
-        file name are LAMMPS-data.
+        - Files with ``.gsd`` as their sufix are HOOMD-GSD.
+        - Files with ``.data`` anywhere in their suffix or as the stem of their
+          file name are LAMMPS-data.
 
         Simulations are *encouraged* but not *required* to support as many file
         formats as possible.
