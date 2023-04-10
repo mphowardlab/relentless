@@ -1,4 +1,5 @@
 ipython==8.10.0
+matplotlib
 nbsphinx==0.8.12
 notebook
 pydata_sphinx_theme==0.12.0
