@@ -142,10 +142,42 @@ jobs:
         run: |
           python tests/simulate/test_lammps.py -v --lammps "mpiexec -n 2 lmp_mpi"
 
+  test-examples:
+    name: test examples
+    needs: [test, test-hoomd]
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -el {0}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Setup Python 3.8
+        uses: conda-incubator/setup-miniconda@v2
+        with:
+          miniconda-version: latest
+          python-version: 3.8
+      - name: Install test dependencies
+        run: |
+          conda install -c conda-forge hoomd=3 gsd
+          pip install -r doc/requirements.txt
+      - name: Install
+        run: |
+          pip install .
+      - name: Run notebooks
+        run: |
+          for nb in doc/source/guide/examples/*/*.ipynb
+          do
+            jupyter nbconvert \
+              --ExecutePreprocessor.timeout=120 \
+              --to notebook \
+              --execute $nb
+          done
+
   # final exit point for unit tests on PRs, which can be a required check
   test-exit:
     name: unit test
-    needs: [test, test-hoomd, test-lammps]
+    needs: [test, test-hoomd, test-lammps, test-examples]
     if: ${{ always() && github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     steps:
