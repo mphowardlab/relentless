@@ -153,7 +153,7 @@ class WriteTrajectory(simulate.DelegatedAnalysisOperation):
 
         - Files with ``.gsd`` as their sufix are HOOMD-GSD.
         - Files with ``.dump`` or ``.lammpstrj`` anywhere in their suffix or
-          ``dump``as the stem of their file name are LAMMPS-dump.
+          ``dump`` as the stem of their file name are LAMMPS-dump.
 
         Simulations are *encouraged* but not *required* to support as many file
         formats as possible.
