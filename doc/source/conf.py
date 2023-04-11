@@ -18,8 +18,8 @@ project = "relentless"
 year = datetime.date.today().year
 copyright = f"2021-{year}, Auburn University"
 author = "Michael P. Howard"
-version = "0.0.0"
-release = "0.0.0"
+version = "0.1.0"
+release = "0.1.0"
 
 # -- General configuration ---------------------------------------------------
 
