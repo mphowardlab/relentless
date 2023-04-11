@@ -53,21 +53,32 @@ class InitializeFromFile(simulate.DelegatedInitializationOperation):
         )
 
     @staticmethod
-    def _detect_format(filename):
-        file_path = pathlib.Path(filename)
+    def _detect_format(filename, format=None):
+        if format is not None:
+            known_formats = (
+                "HOOMD-GSD",
+                "LAMMPS-data",
+            )
+            if format not in known_formats:
+                raise ValueError(
+                    "Format not recognized, must be one of: " + " ".join(known_formats)
+                )
+            format_ = format
+        else:
+            file_path = pathlib.Path(filename)
 
-        file_suffix = file_path.suffix
-        file_suffixes = file_path.suffixes
-        suffix_length = sum(len(ext) for ext in file_suffixes)
-        file_stem = file_path.stem[:-suffix_length]
+            file_suffix = file_path.suffix
+            file_suffixes = file_path.suffixes
+            suffix_length = sum(len(ext) for ext in file_suffixes)
+            file_stem = file_path.stem[:-suffix_length]
 
-        format = None
-        if file_suffix == ".gsd":
-            format = "HOOMD-GSD"
-        elif ".data" in file_suffixes or file_stem == "data":
-            format = "LAMMPS-data"
+            format_ = None
+            if file_suffix == ".gsd":
+                format_ = "HOOMD-GSD"
+            elif ".data" in file_suffixes or file_stem == "data":
+                format_ = "LAMMPS-data"
 
-        return format
+        return format_
 
 
 class InitializeRandomly(simulate.DelegatedInitializationOperation):

@@ -158,12 +158,18 @@ class Directory:
         """
         return os.path.join(self.path, name)
 
-    def temporary_file(self):
+    def temporary_file(self, suffix=None):
         """Get a temporary filename in the directory.
 
         This method generates a random filename using :func:`uuid.uuid4`. Unlike
         a Python temporary file, this file is not automatically created or
         destroyed. That responsibility is delegated to the caller.
+
+        Parameters
+        ----------
+        suffix : str
+            If specified, the suffix to add to the filename. If ``None`` (default),
+            no suffix is added.
 
         Returns
         -------
@@ -171,7 +177,10 @@ class Directory:
             The absolute path to the temporary file.
 
         """
-        return self.file(str(uuid.uuid4().hex))
+        filename = str(uuid.uuid4().hex)
+        if suffix is not None:
+            filename += suffix
+        return self.file(filename)
 
     def directory(self, name, create=True):
         """Get a child directory.

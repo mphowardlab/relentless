@@ -1,5 +1,6 @@
 import abc
 import datetime
+import shutil
 import subprocess
 
 import freud
@@ -273,7 +274,10 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
 
 
 class InitializeFromFile(InitializationOperation):
-    __init__ = initialize.InitializeFromFile.__init__
+    def __init__(self, filename, format, dimension):
+        self.filename = filename
+        self.format = format
+        self.dimension = dimension
 
     def initialize_commands(self, sim):
         if sim["engine"]["types"] is None:
@@ -284,10 +288,12 @@ class InitializeFromFile(InitializationOperation):
         return [f"read_data {data_filename}"]
 
     def _convert_to_data_file(self, sim):
-        file_format = initialize.InitializeFromFile._detect_format(self.filename)
+        file_format = initialize.InitializeFromFile._detect_format(
+            self.filename, self.format
+        )
         if file_format == "HOOMD-GSD":
             if mpi.world.rank_is_root:
-                data_filename = sim.directory.temporary_file()
+                data_filename = sim.directory.temporary_file(".data")
                 with gsd.hoomd.open(self.filename) as f:
                     frame = f[0]
                 snap = lammpsio.Snapshot.from_hoomd_gsd(frame)
@@ -440,7 +446,7 @@ class InitializeRandomly(InitializationOperation):
                 vel = numpy.zeros((snap.N, sim.dimension))
             snap.velocity[:, : sim.dimension] = vel
 
-            init_file = sim.directory.temporary_file()
+            init_file = sim.directory.temporary_file(".data")
             lammpsio.DataFile.create(init_file, snap, sim["engine"]["atom_style"])
         else:
             init_file = None
@@ -939,8 +945,8 @@ class EnsembleAverage(AnalysisOperation):
         if mpi.world.rank_is_root:
             file_ = {
                 "thermo": sim.directory.temporary_file(),
-                "rdf": sim.directory.temporary_file(),
-                "data": sim.directory.temporary_file(),
+                "rdf": sim.directory.temporary_file(".data"),
+                "data": sim.directory.temporary_file(".data"),
             }
         else:
             file_ = None
@@ -979,6 +985,7 @@ class EnsembleAverage(AnalysisOperation):
             sim[self]["_rdf_dump"] = WriteTrajectory(
                 filename=sim[self]["_rdf_file"],
                 every=rdf_params["every"],
+                format="LAMMPS-dump",
                 velocities=False,
                 images=False,
                 types=True,
@@ -1276,43 +1283,51 @@ class WriteTrajectory(AnalysisOperation):
     where ``id`` is the atom ID, ``x y z`` are positions, ``vx vy vz`` are
     velocities, and ``ix iy iz`` are images.
 
-    Parameters
-    ----------
-    filename : str
-        Name of the trajectory file to be written, as a relative path.
-    every : int
-        Interval of time steps at which to write a snapshot.
-    velocities : bool
-        Include particle velocities.
-    images : bool
-        Include particle images.
-    types : bool
-        Include particle types.
-    masses : bool
-        Include particle masses.
-
     """
 
-    def __init__(self, filename, every, velocities, images, types, masses):
+    def __init__(self, filename, every, format, velocities, images, types, masses):
         self.filename = filename
         self.every = every
+        self.format = format
         self.velocities = velocities
         self.images = images
         self.types = types
         self.masses = masses
 
     def _pre_run_commands(self, sim, sim_op):
-        dump_format = "id"
-        if self.types is True:
-            dump_format += " type"
-        if self.masses is True:
-            dump_format += " mass"
-        # position is always dynamic
-        dump_format += " x y z"
-        if self.velocities is True:
-            dump_format += " vx vy vz"
-        if self.images is True:
-            dump_format += " ix iy iz"
+        schema = analyze.WriteTrajectory._make_lammps_schema(
+            self.velocities, self.images, self.types, self.masses
+        )
+
+        # determine number of columns from max index
+        num_columns = 0
+        for column in schema.values():
+            if not isinstance(column, int):
+                column = max(column)
+            if column > num_columns:
+                num_columns = column
+        num_columns += 1
+
+        dump_format = [None] * num_columns
+        for key, column in schema.items():
+            if key == "position":
+                for col, name in zip(column, ("x", "y", "z")):
+                    dump_format[col] = name
+            elif key == "velocity":
+                for col, name in zip(column, ("vx", "vy", "vz")):
+                    dump_format[col] = name
+            elif key == "image":
+                for col, name in zip(column, ("ix", "iy", "iz")):
+                    dump_format[col] = name
+            elif key == "typeid":
+                dump_format[column] = "type"
+            elif key in ("mass", "id"):
+                dump_format[column] = key
+            else:
+                raise KeyError(f"Unknown LAMMPS schema key {key}")
+        if None in dump_format:
+            raise ValueError("Noncompact schema keys")
+        dump_format = " ".join(dump_format)
 
         dump_id = Counters.new_dump_id()
         cmds = [
@@ -1332,7 +1347,16 @@ class WriteTrajectory(AnalysisOperation):
         return cmds
 
     def process(self, sim, sim_op):
-        pass
+        file_format = analyze.WriteTrajectory._detect_format(self.filename, self.format)
+        if file_format == "HOOMD-GSD":
+            if mpi.world.rank_is_root:
+                gsd_file = sim.directory.temporary_file(".gsd")
+                with gsd.hoomd.open(gsd_file, "wb") as t:
+                    for snap in lammpsio.DumpFile(self.filename, sort_ids=True):
+                        frame = snap.to_hoomd_gsd()
+                        t.append(frame)
+                shutil.move(gsd_file, self.filename)
+            mpi.world.barrier()
 
 
 class LAMMPS(simulate.Simulation):

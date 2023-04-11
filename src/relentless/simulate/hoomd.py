@@ -1,4 +1,5 @@
 import enum
+import shutil
 import warnings
 
 import gsd.hoomd
@@ -167,7 +168,10 @@ class InitializationOperation(simulate.InitializationOperation):
 
 
 class InitializeFromFile(InitializationOperation):
-    __init__ = initialize.InitializeFromFile.__init__
+    def __init__(self, filename, format, dimension):
+        self.filename = filename
+        self.format = format
+        self.dimension = dimension
 
     def _initialize_v3(self, sim):
         gsd_filename = self._convert_to_gsd_file(sim)
@@ -179,9 +183,11 @@ class InitializeFromFile(InitializationOperation):
             return hoomd.init.read_gsd(gsd_filename)
 
     def _convert_to_gsd_file(self, sim):
-        file_format = initialize.InitializeFromFile._detect_format(self.filename)
+        file_format = initialize.InitializeFromFile._detect_format(
+            self.filename, self.format
+        )
         if file_format == "LAMMPS-data":
-            if mpi.world.rank == 0:
+            if mpi.world.rank_is_root:
                 snap = lammpsio.DataFile(self.filename).read()
                 frame = snap.to_hoomd_gsd()
                 frame.configuration.dimensions = self.dimension
@@ -189,12 +195,12 @@ class InitializeFromFile(InitializationOperation):
                     frame.configuration.box[4:6] = 0.0
                     if _version.major >= 3:
                         frame.configuration.box[2] = 0.0
-                gsd_filename = sim.directory.temporary_file()
+                gsd_filename = sim.directory.temporary_file(".gsd")
                 with gsd.hoomd.open(gsd_filename, "wb") as f:
                     f.append(frame)
             else:
                 gsd_filename = None
-            gsd_filename = mpi.world.bcast(gsd_filename, root=0)
+            gsd_filename = mpi.world.bcast(gsd_filename)
         else:
             gsd_filename = self.filename
 
@@ -1391,9 +1397,10 @@ class Record(AnalysisOperation):
 
 
 class WriteTrajectory(AnalysisOperation):
-    def __init__(self, filename, every, velocities, images, types, masses):
+    def __init__(self, filename, every, format, velocities, images, types, masses):
         self.filename = filename
         self.every = every
+        self.format = format
         self.velocities = velocities
         self.images = images
         self.types = types
@@ -1431,7 +1438,19 @@ class WriteTrajectory(AnalysisOperation):
         del sim[self]["_gsd"]
 
     def process(self, sim, sim_op):
-        pass
+        file_format = analyze.WriteTrajectory._detect_format(self.filename, self.format)
+        if file_format == "LAMMPS-dump":
+            if mpi.world.rank_is_root:
+                dump_file = sim.directory.temporary_file(".dump")
+                with gsd.hoomd.open(self.filename) as t:
+                    snaps = [lammpsio.Snapshot.from_hoomd_gsd(s) for s in t]
+
+                schema = analyze.WriteTrajectory._make_dump_schema(
+                    self.velocities, self.images, self.types, self.masses
+                )
+                lammpsio.DumpFile.create(dump_file, schema, snaps)
+                shutil.move(dump_file, self.filename)
+            mpi.world.barrier()
 
     def _get_dynamic(self):
         # property group is always dyanmic in the trajectory file since it logs position
