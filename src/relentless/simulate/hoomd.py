@@ -1134,60 +1134,63 @@ class EnsembleAverage(AnalysisOperation):
             else:
                 raise NotImplementedError(f"HOOMD {_version} not supported")
 
-            if _version.major == 3:
-                snap = self.system.get_snapshot()
-            elif _version.major == 2:
-                snap = self.system.take_snapshot()
-            else:
-                raise NotImplementedError(f"HOOMD {_version} not supported")
-
-            if mpi.world.rank == 0:
+            if "N" not in self.constraints or compute_rdf:
                 if _version.major == 3:
-                    dimensions = snap.configuration.dimensions
-                    box_array = numpy.array(snap.configuration.box)
+                    snap = self.system.get_snapshot()
                 elif _version.major == 2:
-                    dimensions = snap.box.dimensions
-                    box_array = numpy.array(
-                        [
-                            snap.box.Lx,
-                            snap.box.Ly,
-                            snap.box.Lz,
-                            snap.box.xy,
-                            snap.box.xz,
-                            snap.box.yz,
-                        ]
-                    )
-                    if snap.box.dimensions == 2:
-                        box_array[2] = 0.0
-                        box_array[-2:] = 0.0
+                    snap = self.system.take_snapshot()
                 else:
                     raise NotImplementedError(f"HOOMD {_version} not supported")
 
-                box = freud.box.Box.from_box(box_array, dimensions=dimensions)
-                # pre build aabbs per type and count particles by type
-                aabbs = {}
-                type_masks = {}
-                for i in self._N:
-                    type_masks[i] = snap.particles.typeid == snap.particles.types.index(
-                        i
-                    )
-                    self._N[i] += numpy.sum(type_masks[i])
+                if mpi.world.rank == 0:
+                    if _version.major == 3:
+                        dimensions = snap.configuration.dimensions
+                        box_array = numpy.array(snap.configuration.box)
+                    elif _version.major == 2:
+                        dimensions = snap.box.dimensions
+                        box_array = numpy.array(
+                            [
+                                snap.box.Lx,
+                                snap.box.Ly,
+                                snap.box.Lz,
+                                snap.box.xy,
+                                snap.box.xz,
+                                snap.box.yz,
+                            ]
+                        )
+                        if snap.box.dimensions == 2:
+                            box_array[2] = 0.0
+                            box_array[-2:] = 0.0
+                    else:
+                        raise NotImplementedError(f"HOOMD {_version} not supported")
+
+                    box = freud.box.Box.from_box(box_array, dimensions=dimensions)
+                    # pre build aabbs per type and count particles by type
+                    aabbs = {}
+                    type_masks = {}
+                    for i in self.types:
+                        type_masks[
+                            i
+                        ] = snap.particles.typeid == snap.particles.types.index(i)
+                        if "N" not in self.constraints:
+                            self._N[i] += numpy.sum(type_masks[i])
+
+                        if compute_rdf:
+                            aabbs[i] = freud.locality.AABBQuery(
+                                box, snap.particles.position[type_masks[i]]
+                            )
+                    # then do rdfs using the AABBs
                     if compute_rdf:
-                        aabbs[i] = freud.locality.AABBQuery(
-                            box, snap.particles.position[type_masks[i]]
-                        )
-                # then do rdfs using the AABBs
-                if compute_rdf:
-                    for i, j in self._rdf:
-                        query_args = dict(self._rdf[i, j].default_query_args)
-                        query_args.update(exclude_ii=(i == j))
-                        # resetting when the samples are zero clears the RDF, on delay
-                        self._rdf[i, j].compute(
-                            aabbs[j],
-                            snap.particles.position[type_masks[i]],
-                            neighbors=query_args,
-                            reset=(self.num_samples == 0),
-                        )
+                        for i, j in self._rdf:
+                            query_args = dict(self._rdf[i, j].default_query_args)
+                            query_args.update(exclude_ii=(i == j))
+                            # resetting when the samples are zero clears the RDF
+                            self._rdf[i, j].compute(
+                                aabbs[j],
+                                snap.particles.position[type_masks[i]],
+                                neighbors=query_args,
+                                reset=(self.num_samples == 0),
+                            )
 
             self.num_samples += 1
             if compute_rdf:
@@ -1269,18 +1272,21 @@ class EnsembleAverage(AnalysisOperation):
             """:class:`~relentless.collections.FixedKeyDict`:
             Number of particles by type.
             """
-            if self.num_samples > 0:
-                N = collections.FixedKeyDict(self._N.keys())
-                for i in self._N:
-                    if mpi.world.rank == 0:
-                        Ni = self._N[i] / self.num_samples
-                    else:
-                        Ni = None
-                    Ni = mpi.world.bcast(Ni, root=0)
-                    N[i] = Ni
-                return N
+            if "N" in self.constraints:
+                return self.constraints["N"]
             else:
-                return None
+                if self.num_samples > 0:
+                    N = collections.FixedKeyDict(self._N.keys())
+                    for i in self._N:
+                        if mpi.world.rank == 0:
+                            Ni = self._N[i] / self.num_samples
+                        else:
+                            Ni = None
+                        Ni = mpi.world.bcast(Ni, root=0)
+                        N[i] = Ni
+                    return N
+                else:
+                    return None
 
         @property
         def rdf(self):
