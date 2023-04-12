@@ -2,62 +2,52 @@
 Installation
 ============
 
-The easiest way to get ``relentless`` is from PyPI using pip:
+The easiest way to get ``relentless`` is from PyPI using ``pip``:
 
 .. code:: bash
 
     pip install relentless
 
+or from conda-forge using ``conda`` or ``mamba``:
+
+.. code:: bash
+
+    conda install -c conda-forge relentless
+
 As different simulation software may be compatible (or not) with your computing
-environment, **none** are installed by default. You should install the ones you
-want to use. This is probably most easily managed with a virtual environment
-in pip or conda.
+environment, **none** is installed with ``relentless``. You should install the
+ones you want to use following the documentation in :mod:`relentless.simulate`.
+
+To enable MPI support, you also need to install ``mpi4py``. This package can be
+finicky on HPC systems and not everyone needs it, so it is not installed with
+``relentless``.
 
 Building from source
 ====================
 
-If you want to install from source, you can also use pip (recommended)
+If you want to build from source, you can also use ``pip``:
 
 .. code:: bash
 
     pip install .
 
-or ``setuptools``
+If you are developing new code, include the ``-e`` option for an editable build.
+You should then also install the developer tools:
 
 .. code:: bash
 
-    python setup.py install
+    pip install -r requirements-dev.txt -r doc/requirements.txt
 
-The required dependencies are pretty minimal:
-
-- `Python <https://www.python.org>`_ (>= 3.6)
-- `NumPy <https://numpy.org>`_
-- `SciPy <https://www.scipy.org>`_
-- `networkx <https://networkx.org>`_ (>= 2.5)
-
-and can be installed from ``requirements.txt``.
-
-Testing
-=======
-
-A suite of unit tests is provided with the source code and can be run
-with ``unittest``:
+A suite of unit tests is provided with the source code and can be run with
+``unittest``:
 
 .. code:: bash
 
     python -m unittest
 
-Documentation
-=============
-
-Documentation is hosted at `ReadTheDocs <https://relentless.readthedocs.io>`_,
-but you can build it from source yourself:
+You can build the documentation from source with:
 
 .. code:: bash
 
     cd doc
     make html
-
-You will need `sphinx <https://www.sphinx-doc.org>`_ (4.2.0) and the `Read
-the Docs sphinx theme <https://sphinx-rtd-theme.readthedocs.io/en/stable>`_
-(1.0.0), which can be installed using ``doc/requirements.txt``.

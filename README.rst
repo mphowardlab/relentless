@@ -32,22 +32,17 @@ Resources
 Installation
 ============
 
-Install ``relentless`` using pip:
+Install ``relentless`` from PyPI using ``pip``:
 
 .. code:: bash
 
     pip install relentless
 
-Examples
-========
+or from conda-forge using ``conda`` or ``mamba``
 
-Run an isothermal--isobaric (NPT) molecular dynamics simulation in LAMMPS:
+.. code:: bash
 
-.. code:: python
-
-    import relentless
-
-    # Complete this later
+    conda install -c conda-forge relentless
 
 Contributing
 ============
