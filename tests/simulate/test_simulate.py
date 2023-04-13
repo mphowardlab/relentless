@@ -209,6 +209,10 @@ class test_PairPotentialTabulator(unittest.TestCase):
         r, u, f = t.pairwise_energy_and_force(("1",), x=t.linear_space[0])
         self.assertEqual(r, t.linear_space[0])
 
+        # tight without rmax
+        r, u, f = t.pairwise_energy_and_force(("1",), tight=True)
+        numpy.testing.assert_allclose(r, t.linear_space)
+
         # set rmax and use tight option
         p1.coeff["1", "1"]["rmax"] = 3.0
         r, u, f = t.pairwise_energy_and_force(("1",), tight=True)
