@@ -43,9 +43,21 @@ default_role = "any"
 # -- Options for HTML output -------------------------------------------------
 
 html_theme = "pydata_sphinx_theme"
-html_theme_options = {}
 html_static_path = ["_static"]
 html_css_files = ["theme_overrides.css"]
+html_theme_options = {
+    "favicons": [
+        {
+            "rel": "icon",
+            "href": "relentless_icon.svg",
+        }
+    ],
+    "logo": {
+        "image_light": "relentless_logo.svg",
+        "image_dark": "relentless_logo_dark.svg",
+        "alt_text": "relentless",
+    },
+}
 
 # -- Options for autodoc & autosummary ---------------------------------------
 
