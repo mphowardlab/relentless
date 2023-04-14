@@ -7,17 +7,17 @@
    xmlns="http://www.w3.org/2000/svg"
    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
-   inkscape:export-ydpi="16.040001"
-   inkscape:export-xdpi="16.040001"
-   inkscape:export-filename="/Users/mhoward/Documents/Code/github/mphowardlab/relentless/doc/source/_static/relentless_icon_48.png"
-   inkscape:version="1.0 (4035a4f, 2020-05-01)"
-   height="7.5999999cm"
-   width="7.5999999cm"
-   sodipodi:docname="relentless_icon.svg"
-   version="1.1"
-   viewBox="0 0 287.24409 287.24409"
+   id="Layer_1"
    data-name="Layer 1"
-   id="Layer_1">
+   viewBox="0 0 287.24409 287.24409"
+   version="1.1"
+   sodipodi:docname="relentless_icon.svg"
+   width="7.5999999cm"
+   height="7.5999999cm"
+   inkscape:version="1.0 (4035a4f, 2020-05-01)"
+   inkscape:export-filename="/Users/mhoward/Documents/Code/github/mphowardlab/relentless/doc/source/_static/relentless_icon_16.png"
+   inkscape:export-xdpi="5.3499999"
+   inkscape:export-ydpi="5.3499999">
   <metadata
      id="metadata846">
     <rdf:RDF>
@@ -31,27 +31,27 @@
     </rdf:RDF>
   </metadata>
   <sodipodi:namedview
-     inkscape:current-layer="Layer_1"
-     inkscape:window-maximized="0"
-     inkscape:window-y="25"
-     inkscape:window-x="0"
-     inkscape:cy="189.00667"
-     inkscape:cx="118.455"
-     inkscape:zoom="1"
-     units="cm"
-     showgrid="false"
-     id="namedview844"
-     inkscape:window-height="784"
-     inkscape:window-width="1392"
-     inkscape:pageshadow="2"
-     inkscape:pageopacity="0"
-     guidetolerance="10"
-     gridtolerance="10"
-     objecttolerance="10"
-     borderopacity="1"
-     bordercolor="#666666"
+     inkscape:document-rotation="0"
      pagecolor="#ffffff"
-     inkscape:document-rotation="0" />
+     bordercolor="#666666"
+     borderopacity="1"
+     objecttolerance="10"
+     gridtolerance="10"
+     guidetolerance="10"
+     inkscape:pageopacity="0"
+     inkscape:pageshadow="2"
+     inkscape:window-width="1392"
+     inkscape:window-height="784"
+     id="namedview844"
+     showgrid="false"
+     units="cm"
+     inkscape:zoom="1"
+     inkscape:cx="118.455"
+     inkscape:cy="189.00667"
+     inkscape:window-x="0"
+     inkscape:window-y="25"
+     inkscape:window-maximized="0"
+     inkscape:current-layer="Layer_1" />
   <defs
      id="defs835">
     <style
@@ -76,32 +76,32 @@
     </style>
   </defs>
   <circle
-     id="circle837"
-     r="72"
-     cy="214.41"
-     cx="96.150002"
-     class="cls-2" />
-  <circle
-     id="circle839"
-     r="72"
-     cy="103.03999"
-     cx="194.41"
-     class="cls-3" />
-  <path
-     id="path841"
-     d="M 169.46,87.98 C 160.65,38 144.33,15.1 120.52,19.3 108.88,21.35 99.68,27.17 92.93,36.75 90.62,35 89.36,33.49 89.13,32.21 88.29,27.44 92.4,21.63 101.47,14.75 110.53,7.88 119.76,3.62 129.13,1.96 c 31.9,-5.62 52.38,17.27 61.44,68.69 9.68,54.9 7.08,99.38 -7.81,133.43 -14.09,32.23 -33.59,50.54 -58.48,54.93 -11.42,2.01 -21.79,-1.62 -31.09,-10.9 -9.3,-9.28 -15.38,-22 -18.23,-38.18 -4.66,-26.42 0.05,-52.32 14.13,-77.72 14.08,-25.4 31.78,-39.98 53.12,-43.74 10.88,-1.92 19.96,-2.08 27.25,-0.49 z m 2.67,23.63 c -13.52,-4.82 -26.25,-6.17 -38.22,-4.06 -33.51,5.91 -46.28,31.5 -38.29,76.78 6.86,38.88 21.17,56.4 42.93,52.56 22.2,-3.91 34.2,-24.03 36.02,-60.36 1.26,-26.86 0.45,-48.5 -2.45,-64.92 z"
-     class="cls-1" />
-  <path
-     d="M 29.612113,241.91836 A 72,72 0 0 1 47.093784,161.70813 72,72 0 0 1 128.34938,150.01125"
-     sodipodi:arc-type="arc"
-     sodipodi:open="true"
-     sodipodi:end="5.1760366"
-     sodipodi:start="2.7495678"
-     sodipodi:ry="72"
-     sodipodi:rx="72"
-     sodipodi:cy="214.41"
-     sodipodi:cx="96.150002"
-     sodipodi:type="arc"
      class="cls-2"
-     id="circle864" />
+     cx="96.150002"
+     cy="214.41"
+     r="72"
+     id="circle837" />
+  <circle
+     class="cls-3"
+     cx="194.41"
+     cy="103.03999"
+     r="72"
+     id="circle839" />
+  <path
+     class="cls-1"
+     d="M 169.46,87.98 C 160.65,38 144.33,15.1 120.52,19.3 108.88,21.35 99.68,27.17 92.93,36.75 90.62,35 89.36,33.49 89.13,32.21 88.29,27.44 92.4,21.63 101.47,14.75 110.53,7.88 119.76,3.62 129.13,1.96 c 31.9,-5.62 52.38,17.27 61.44,68.69 9.68,54.9 7.08,99.38 -7.81,133.43 -14.09,32.23 -33.59,50.54 -58.48,54.93 -11.42,2.01 -21.79,-1.62 -31.09,-10.9 -9.3,-9.28 -15.38,-22 -18.23,-38.18 -4.66,-26.42 0.05,-52.32 14.13,-77.72 14.08,-25.4 31.78,-39.98 53.12,-43.74 10.88,-1.92 19.96,-2.08 27.25,-0.49 z m 2.67,23.63 c -13.52,-4.82 -26.25,-6.17 -38.22,-4.06 -33.51,5.91 -46.28,31.5 -38.29,76.78 6.86,38.88 21.17,56.4 42.93,52.56 22.2,-3.91 34.2,-24.03 36.02,-60.36 1.26,-26.86 0.45,-48.5 -2.45,-64.92 z"
+     id="path841" />
+  <path
+     id="circle864"
+     class="cls-2"
+     sodipodi:type="arc"
+     sodipodi:cx="96.150002"
+     sodipodi:cy="214.41"
+     sodipodi:rx="72"
+     sodipodi:ry="72"
+     sodipodi:start="2.7495678"
+     sodipodi:end="5.1760366"
+     sodipodi:open="true"
+     sodipodi:arc-type="arc"
+     d="M 29.612113,241.91836 A 72,72 0 0 1 47.093784,161.70813 72,72 0 0 1 128.34938,150.01125" />
 </svg>

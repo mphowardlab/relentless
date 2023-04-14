@@ -66,10 +66,7 @@ html_theme_options = {
     },
 }
 
-favicons = [
-    "relentless_icon.ico",
-    "relentless_icon.svg",
-]
+favicons = ["relentless_icon_16.png", "relentless_icon_32.png", "relentless_icon.svg"]
 
 # -- Options for autodoc & autosummary ---------------------------------------
 
