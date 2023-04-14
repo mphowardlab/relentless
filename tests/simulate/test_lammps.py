@@ -427,6 +427,9 @@ class test_LAMMPS(unittest.TestCase):
         self.assertEqual(ens_.P, 0.0)
         self.assertNotEqual(ens_.V.extent, ens.V.extent)
         self.assertDictEqual(dict(ens_.N), dict(ens.N))
+        # check that file can be saved
+        if relentless.mpi.world.size == 1:
+            ens_.save(self.directory.file("ensemble.json"))
 
         # NVT
         md.barostat = None

@@ -121,7 +121,7 @@ class InitializeRandomly(simulate.DelegatedInitializationOperation):
         rng = numpy.random.default_rng(seed)
         ortho_box, is_skew = InitializeRandomly._make_orthorhombic(V)
         dimension = len(ortho_box)
-        positions = numpy.zeros((sum(N.values()), dimension), dtype=numpy.float64)
+        positions = numpy.zeros((sum(N.values()), dimension), dtype=float)
         types = []
         trees = {}
         Nadded = 0
@@ -161,7 +161,7 @@ class InitializeRandomly(simulate.DelegatedInitializationOperation):
             num_lattice = numpy.floor(aabb / lattice).astype(int)
             sites = numpy.zeros(
                 (numpy.prod(num_lattice) * cell_coord.shape[0], dimension),
-                dtype=numpy.float64,
+                dtype=float,
             )
             first = 0
             for cell_origin in itertools.product(

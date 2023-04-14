@@ -911,8 +911,8 @@ class PairSpline(PairPotential):
             raise ValueError("u must have the same length as the number of knots")
 
         # convert to r,knot form given the mode
-        rs = numpy.asarray(r, dtype=numpy.float64)
-        ks = numpy.asarray(u, dtype=numpy.float64)
+        rs = numpy.asarray(r, dtype=float)
+        ks = numpy.asarray(u, dtype=float)
         if self.mode == "diff":
             # difference is next knot minus my knot,
             # with last knot fixed at its current value
