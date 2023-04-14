@@ -1254,7 +1254,7 @@ class EnsembleAverage(AnalysisOperation):
             Radial distribution functions.
             """
             if self.num_rdf_samples > 0:
-                rdf = collections.PairMatrix(self._rdf.types)
+                rdf = collections.PairMatrix(self.types)
                 for pair in rdf:
                     if mpi.world.rank == 0:
                         gr = numpy.column_stack(

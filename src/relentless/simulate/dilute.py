@@ -189,7 +189,7 @@ class EnsembleAverage(simulate.AnalysisOperation):
         rdf_params = self._get_rdf_params(sim)
         if rdf_params is not None:
             kT = sim.potentials.kB * ens.T
-            for pair in ens.pairs:
+            for pair in sim.pairs:
                 bin_edges = numpy.linspace(
                     0, rdf_params["stop"], rdf_params["bins"] + 1
                 )

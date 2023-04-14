@@ -77,14 +77,9 @@ class PairParameters(potential.Parameters):
     def __init__(self, types, params):
         super().__init__(types, params)
         # override data container of parent to use pair matrix
-        self._data = collections.PairMatrix(types)
-        for pair in self:
-            self._data[pair] = collections.FixedKeyDict(keys=self.params)
-
-    @property
-    def pairs(self):
-        """tuple[tuple[str]]: Pairs in matrix."""
-        return self._data.pairs
+        self._data = collections.PairMatrix(
+            keys=types, default=collections.FixedKeyDict(keys=self.params)
+        )
 
 
 class PairPotential(potential.Potential):

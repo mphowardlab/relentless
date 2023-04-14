@@ -97,7 +97,7 @@ class Ensemble:
         self.V = V
 
         # rdf per-pair
-        self._rdf = PairMatrix(types=types)
+        self._rdf = PairMatrix(types)
 
     @property
     def T(self):
@@ -138,12 +138,7 @@ class Ensemble:
     @property
     def types(self):
         r"""tuple: The types in the ensemble."""
-        return self.N.keys()
-
-    @property
-    def pairs(self):
-        r"""tuple: The pairs in the ensemble."""
-        return self.rdf.pairs
+        return tuple(self.N.keys())
 
     @property
     def rdf(self):
