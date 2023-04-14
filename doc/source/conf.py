@@ -32,6 +32,7 @@ extensions = [
     "sphinx.ext.mathjax",
     "sphinx.ext.napoleon",
     "sphinx_design",
+    "sphinx_favicon",
 ]
 
 templates_path = ["_templates"]
@@ -46,11 +47,17 @@ html_theme = "pydata_sphinx_theme"
 html_static_path = ["_static"]
 html_css_files = ["theme_overrides.css"]
 html_theme_options = {
-    "favicons": [
+    "icon_links": [
         {
-            "rel": "icon",
-            "href": "relentless_icon.svg",
-        }
+            "name": "GitHub",
+            "url": "https://github.com/mphowardlab/relentless",
+            "icon": "fa-brands fa-square-github",
+        },
+        {
+            "name": "PyPI",
+            "url": "https://pypi.org/project/relentless",
+            "icon": "fa-solid fa-cube",
+        },
     ],
     "logo": {
         "image_light": "relentless_logo.svg",
@@ -58,6 +65,11 @@ html_theme_options = {
         "alt_text": "relentless",
     },
 }
+
+favicons = [
+    "relentless_icon.ico",
+    "relentless_icon.svg",
+]
 
 # -- Options for autodoc & autosummary ---------------------------------------
 
