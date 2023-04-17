@@ -152,9 +152,9 @@ class TriclinicBox(Volume):
         else:
             raise ValueError("Triclinic convention must be LAMMPS or HOOMD")
 
-        self.a = numpy.array(a, dtype=numpy.float64)
-        self.b = numpy.array(b, dtype=numpy.float64)
-        self.c = numpy.array(c, dtype=numpy.float64)
+        self.a = numpy.array(a, dtype=float)
+        self.b = numpy.array(b, dtype=float)
+        self.c = numpy.array(c, dtype=float)
 
         box_vec = self.a + self.b + self.c
         self._low = -0.5 * box_vec
@@ -334,12 +334,12 @@ class TriclinicBox(Volume):
         """
         Lx, Ly, Lz, xy, xz, yz = self.as_array()
         return {
-            "Lx": Lx,
-            "Ly": Ly,
-            "Lz": Lz,
-            "xy": xy,
-            "xz": xz,
-            "yz": yz,
+            "Lx": float(Lx),
+            "Ly": float(Ly),
+            "Lz": float(Lz),
+            "xy": float(xy),
+            "xz": float(xz),
+            "yz": float(yz),
             "convention": self._convention,
         }
 
@@ -421,9 +421,9 @@ class Cuboid(TriclinicBox):
 
         """
         return {
-            "Lx": self.a[0],
-            "Ly": self.b[1],
-            "Lz": self.c[2],
+            "Lx": float(self.a[0]),
+            "Ly": float(self.b[1]),
+            "Lz": float(self.c[2]),
         }
 
 
@@ -472,7 +472,7 @@ class Cube(Cuboid):
             The serialized Cube.
 
         """
-        return {"L": self.a[0]}
+        return {"L": float(self.a[0])}
 
 
 class Area(Extent):
@@ -546,8 +546,8 @@ class ObliqueArea(Area):
         else:
             raise ValueError("Triclinic convention must be LAMMPS or HOOMD")
 
-        self.a = numpy.asarray(a, dtype=numpy.float64)
-        self.b = numpy.asarray(b, dtype=numpy.float64)
+        self.a = numpy.asarray(a, dtype=float)
+        self.b = numpy.asarray(b, dtype=float)
 
         box_vec = self.a + self.b
         self._low = -0.5 * box_vec
@@ -709,7 +709,12 @@ class ObliqueArea(Area):
 
         """
         Lx, Ly, xy = self.as_array()
-        return {"Lx": Lx, "Ly": Ly, "xy": xy, "convention": self._convention}
+        return {
+            "Lx": float(Lx),
+            "Ly": float(Ly),
+            "xy": float(xy),
+            "convention": self._convention,
+        }
 
     def wrap(self, positions):
         """Wrap positions subject to periodic boundary conditions.
@@ -787,8 +792,8 @@ class Rectangle(ObliqueArea):
 
         """
         return {
-            "Lx": self.a[0],
-            "Ly": self.b[1],
+            "Lx": float(self.a[0]),
+            "Ly": float(self.b[1]),
         }
 
 
@@ -837,4 +842,4 @@ class Square(Rectangle):
             The serialized Square.
 
         """
-        return {"L": self.a[0]}
+        return {"L": float(self.a[0])}
