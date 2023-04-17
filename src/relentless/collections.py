@@ -14,6 +14,7 @@ Collections (`relentless.collections`)
 
 """
 import collections
+import copy
 
 
 class FixedKeyDict(collections.abc.MutableMapping):
@@ -102,7 +103,7 @@ class FixedKeyDict(collections.abc.MutableMapping):
 
     def __delitem__(self, key):
         key = self._check_key(key)
-        self._data[key] = self.default
+        self._data[key] = copy.deepcopy(self.default)
 
     def __iter__(self):
         return iter(self._keys)
@@ -113,7 +114,7 @@ class FixedKeyDict(collections.abc.MutableMapping):
     def clear(self):
         """Clear entries in the dictionary, resetting to default."""
         for i in self._keys:
-            self._data[i] = self._default
+            self._data[i] = copy.deepcopy(self._default)
 
 
 class PairMatrix(collections.abc.MutableMapping):
@@ -181,19 +182,11 @@ class PairMatrix(collections.abc.MutableMapping):
 
     """
 
-    def __init__(self, types):
-        if len(types) == 0:
-            raise ValueError("Cannot initialize with empty types")
-        if not all(isinstance(t, str) for t in types):
-            raise TypeError("All types must be strings")
-        self.types = tuple(types)
-
-        # flood data with type pairs
+    def __init__(self, keys, default=None):
+        self._keys = tuple(keys)
+        self._default = default
         self._data = {}
-        for i in self.types:
-            for j in self.types:
-                if j >= i:
-                    self._data[i, j] = {}
+        self.clear()
 
     def _check_key(self, key):
         """Check that a pair key is valid.
@@ -212,10 +205,10 @@ class PairMatrix(collections.abc.MutableMapping):
         if len(key) != 2:
             raise KeyError("Coefficient matrix requires a pair of types.")
 
-        if key[0] not in self.types:
-            raise KeyError("Type {} is not in coefficient matrix.".format(key[0]))
-        elif key[1] not in self.types:
-            raise KeyError("Type {} is not in coefficient matrix.".format(key[1]))
+        if key[0] not in self._keys:
+            raise KeyError(f"Key {key[0]} is not in pair matrix.")
+        elif key[1] not in self._keys:
+            raise KeyError(f"Key {key[0]} is not in pair matrix.")
 
         if key[1] >= key[0]:
             return key
@@ -242,10 +235,12 @@ class PairMatrix(collections.abc.MutableMapping):
     def __len__(self):
         return len(self._data)
 
-    @property
-    def pairs(self):
-        """tuple: All unique pairs in the matrix."""
-        return tuple(self._data.keys())
+    def clear(self):
+        """Clear entries in the dictionary, resetting to default."""
+        for i in self._keys:
+            for j in self._keys:
+                if j >= i:
+                    self._data[i, j] = copy.deepcopy(self._default)
 
 
 class DefaultDict(collections.abc.MutableMapping):

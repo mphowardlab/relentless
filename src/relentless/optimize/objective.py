@@ -324,6 +324,11 @@ class RelativeEntropy(ObjectiveFunction):
             The result, which has unknown value ``None`` and known gradient.
 
         """
+        if self.thermo.rdf is None:
+            raise ValueError(
+                "EnsembleAverage needs to compute RDF, specify parameters."
+            )
+
         # a directory is needed for the simulation, so create one if we don't have one
         if directory is None:
             # create directory and synchronize
@@ -394,9 +399,14 @@ class RelativeEntropy(ObjectiveFunction):
         dvars = variable.graph.check_variables_and_types(variables, variable.Variable)
         gradient = math.KeyedArray(keys=dvars)
 
+        # make sure RDF has been computed
+        for pair in g_tgt:
+            if g_sim.get(pair, None) is None:
+                raise KeyError(f"RDF not computed for pair {pair}")
+
         for var in dvars:
             update = 0
-            for i, j in self.target.pairs:
+            for i, j in g_tgt:
                 rs = self.potentials.pair.linear_space
                 us = self.potentials.pair.energy((i, j))
                 dus = self.potentials.pair.derivative((i, j), var)
