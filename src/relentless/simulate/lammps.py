@@ -296,7 +296,7 @@ class InitializeFromFile(InitializationOperation):
                 data_filename = sim.directory.temporary_file(".data")
                 with gsd.hoomd.open(self.filename) as f:
                     frame = f[0]
-                snap = lammpsio.Snapshot.from_hoomd_gsd(frame)
+                snap = lammpsio.Snapshot.from_hoomd_gsd(frame)[0]
 
                 # figure out dimensions
                 dimension = self.dimension
@@ -310,8 +310,8 @@ class InitializeFromFile(InitializationOperation):
                     if frame.configuration.box[2] == 0:
                         snap.low[2] = -0.5
                         snap.high[2] = 0.5
-                    if snap.tilt is not None:
-                        snap.tilt[1:] = 0.0
+                    if snap.box.tilt is not None:
+                        snap.box.tilt[1:] = 0.0
                 lammpsio.DataFile.create(
                     data_filename, snap, sim["engine"]["atom_style"]
                 )
