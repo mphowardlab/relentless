@@ -23,17 +23,22 @@ else:
 import tempfile
 import unittest
 
+import gsd
+import gsd.hoomd
+import lammpsio
 import numpy
 import parameterized
 import scipy.stats
-
-try:
-    import lammpsio
-except ImportError:
-    pass
+from packaging import version
 
 import relentless
 from tests.model.potential.test_pair import LinPot
+
+# silence warnings about Snapshot being deprecated
+if version.Version(gsd.__version__) >= version.Version("2.8.0"):
+    HOOMDFrame = gsd.hoomd.Frame
+else:
+    HOOMDFrame = gsd.hoomd.Snapshot
 
 # parametrize testing fixture
 if _lammps_executable is not None:
@@ -93,7 +98,32 @@ class test_LAMMPS(unittest.TestCase):
 
         return (ens, pots)
 
-    def create_file(self):
+    def create_gsd_file(self):
+        filename = self.directory.file("test.gsd")
+        if relentless.mpi.world.rank_is_root:
+            with gsd.hoomd.open(name=filename, mode="wb") as f:
+                s = HOOMDFrame()
+                s.particles.N = 5
+                s.particles.types = ["A", "B"]
+                s.particles.typeid = [0, 0, 1, 1, 1]
+                if self.dim == 3:
+                    s.particles.position = numpy.random.uniform(
+                        low=-5.0, high=5.0, size=(5, 3)
+                    )
+                    s.configuration.box = [20, 20, 20, 0, 0, 0]
+                elif self.dim == 2:
+                    s.particles.position = numpy.random.uniform(
+                        low=-5.0, high=5.0, size=(5, 3)
+                    )
+                    s.particles.position[:, 2] = 0
+                    s.configuration.box = [20, 20, 0, 0, 0, 0]
+                else:
+                    raise ValueError("HOOMD supports 2d and 3d simulations")
+                f.append(s)
+        relentless.mpi.world.barrier()
+        return filename
+
+    def create_lammps_file(self):
         file_ = self.directory.file("test.data")
 
         if relentless.mpi.world.rank_is_root:
@@ -110,11 +140,11 @@ class test_LAMMPS(unittest.TestCase):
 
         return file_
 
-    def test_initialize(self):
+    def test_initialize_from_lammps_file(self):
         """Test running initialization simulation operations."""
         # InitializeFromFile
         ens, pot = self.ens_pot()
-        file_ = self.create_file()
+        file_ = self.create_lammps_file()
         op = relentless.simulate.InitializeFromFile(filename=file_)
         lmp = relentless.simulate.LAMMPS(
             op,
@@ -127,6 +157,36 @@ class test_LAMMPS(unittest.TestCase):
         op = relentless.simulate.InitializeRandomly(seed=1, N=ens.N, V=ens.V, T=ens.T)
         lmp = relentless.simulate.LAMMPS(op, executable=self.executable)
         lmp.run(potentials=pot, directory=self.directory)
+
+    def test_initialize_from_gsd_file(self):
+        """Test running initialization simulation operations."""
+        if self.dim == 3:
+            ens = relentless.model.Ensemble(
+                T=2.0, V=relentless.model.Cube(L=10.0), N={"A": 2, "B": 3}
+            )
+        elif self.dim == 2:
+            ens = relentless.model.Ensemble(
+                T=2.0, V=relentless.model.Square(L=10.0), N={"A": 2, "B": 3}
+            )
+        else:
+            raise ValueError("LAMMPS supports 2d and 3d simulations")
+        ens.P = 2.5
+        pot = LinPot(ens.types, params=("m",))
+        for pair in pot.coeff:
+            pot.coeff[pair].update({"m": -2.0, "rmax": 1.0})
+        pots = relentless.simulate.Potentials()
+        pots.pair = relentless.simulate.PairPotentialTabulator(
+            pot, start=1e-6, stop=2.0, num=10, neighbor_buffer=0.1
+        )
+
+        file_ = self.create_gsd_file()
+        op = relentless.simulate.InitializeFromFile(filename=file_)
+        lmp = relentless.simulate.LAMMPS(
+            op,
+            types={"A": 1, "B": 2},
+            executable=self.executable,
+        )
+        lmp.run(potentials=pots, directory=self.directory)
 
     def test_random_initialize_options(self):
         # no T
@@ -157,7 +217,7 @@ class test_LAMMPS(unittest.TestCase):
     def test_minimization(self):
         """Test running energy minimization simulation operation."""
         ens, pot = self.ens_pot()
-        file_ = self.create_file()
+        file_ = self.create_lammps_file()
         init = relentless.simulate.InitializeFromFile(filename=file_)
 
         # MinimizeEnergy

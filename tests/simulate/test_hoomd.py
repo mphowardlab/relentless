@@ -4,6 +4,7 @@ import unittest
 
 import gsd
 import gsd.hoomd
+import lammpsio
 import numpy
 import scipy.stats
 from packaging import version
@@ -70,7 +71,7 @@ class test_HOOMD(unittest.TestCase):
         return (ens, pots)
 
     # mock gsd file for testing
-    def create_gsd(self):
+    def create_gsd_file(self):
         filename = self.directory.file("test.gsd")
         if relentless.mpi.world.rank_is_root:
             with gsd.hoomd.open(name=filename, mode="wb") as f:
@@ -95,12 +96,54 @@ class test_HOOMD(unittest.TestCase):
         relentless.mpi.world.barrier()
         return filename
 
-    def test_initialize_from_file(self):
+    def create_lammps_file(self):
+        file_ = self.directory.file("test.data")
+
+        if relentless.mpi.world.rank_is_root:
+            low = [-5, -5, -5 if self.dim == 3 else -0.1]
+            high = [5, 5, 5 if self.dim == 3 else 0.1]
+            snap = lammpsio.Snapshot(N=5, box=lammpsio.Box(low, high))
+            snap.position[:, :2] = [[-4, -4], [-2, -2], [0, 0], [2, 2], [4, 4]]
+            if self.dim == 3:
+                snap.position[:, 2] = [-4, -2, 0, 2, 4]
+            snap.typeid = [1, 1, 2, 2, 2]
+            snap.mass = [0.3, 0.3, 0.1, 0.1, 0.1]
+            lammpsio.DataFile.create(file_, snap)
+        relentless.mpi.world.barrier()
+
+        return file_
+
+    def test_initialize_from_gsd_file(self):
         ens, pot = self.ens_pot()
-        f = self.create_gsd()
+        f = self.create_gsd_file()
         op = relentless.simulate.InitializeFromFile(filename=f)
         h = relentless.simulate.HOOMD(op)
         h.run(pot, self.directory)
+
+    def test_initialize_from_lammps_file(self):
+        """Test running initialization simulation operations."""
+        if self.dim == 3:
+            ens = relentless.model.Ensemble(
+                T=2.0, V=relentless.model.Cube(L=10.0), N={"1": 2, "2": 3}
+            )
+        elif self.dim == 2:
+            ens = relentless.model.Ensemble(
+                T=2.0, V=relentless.model.Square(L=10.0), N={"1": 2, "2": 3}
+            )
+        else:
+            raise ValueError("LAMMPS supports 2d and 3d simulations")
+        ens.P = 2.5
+        pot = LinPot(ens.types, params=("m",))
+        for pair in pot.coeff:
+            pot.coeff[pair].update({"m": -2.0, "rmax": 1.0})
+        pots = relentless.simulate.Potentials()
+        pots.pair = relentless.simulate.PairPotentialTabulator(
+            pot, start=1e-6, stop=2.0, num=10, neighbor_buffer=0.1
+        )
+        f = self.create_lammps_file()
+        op = relentless.simulate.InitializeFromFile(filename=f)
+        h = relentless.simulate.HOOMD(op)
+        h.run(pots, self.directory)
 
     def test_initialize_randomly(self):
         ens, pot = self.ens_pot()
