@@ -119,7 +119,7 @@ class test_RelativeEntropy(unittest.TestCase):
             seed=42, N=self.target.N, V=self.target.V, T=self.target.T
         )
         self.thermo = relentless.simulate.EnsembleAverage(
-            every=1, rdf={"stop": 3.6, "num": 360}
+            filename="ensemble.json", every=1, rdf={"stop": 3.6, "num": 360}
         )
         md = relentless.simulate.RunMolecularDynamics(
             steps=100, timestep=1e-3, analyzers=self.thermo

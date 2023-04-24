@@ -304,19 +304,17 @@ class RelativeEntropy(ObjectiveFunction):
 
         Optionally, a directory can be specified to write the simulation output
         as defined in :meth:`~relentless.simulate.simulate.Simulation.run()`,
-        namely the simulation-generated ensemble, which is written to
-        ``ensemble.json``, and the values of the pair potential design variables,
+        namely the values of the pair potential design variables,
         which are written to ``pair_potential.i.json`` for the :math:`i`\th pair
-        potential.
+        potential, and the :class:`~relentless.optimize.ObjectiveFunctionResult`,
+        which is written to ``result.json``.
 
         Parameters
         ----------
         variables : :class:`~relentless.variable.Variable` or tuple
             Variables with respect to which to compute gradient.
         directory : str or :class:`~relentless.data.Directory`
-            The ouptut directory. In addition to simulation output, the pair
-            potential design variables at the time of computation are saved
-            (defaults to ``None``).
+            The output directory
 
         Returns
         -------
@@ -371,7 +369,6 @@ class RelativeEntropy(ObjectiveFunction):
         # optionally write ensemble and result *after* the simulation
         if not directory_is_tmp:
             if mpi.world.rank_is_root:
-                sim_ens.save(directory.file("ensemble.json"))
                 result.save(directory.file("result.json"))
             mpi.world.barrier()
 
