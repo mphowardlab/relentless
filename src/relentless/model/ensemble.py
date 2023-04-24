@@ -97,7 +97,59 @@ class Ensemble:
         self.V = V
 
         # rdf per-pair
-        self._rdf = PairMatrix(types=types)
+        self._rdf = PairMatrix(types)
+
+    @classmethod
+    def from_json(cls, data):
+        """Create from JSON data.
+
+        It is assumed that the data is compatible with the object.
+
+        Parameters
+        ----------
+        data : dict
+            JSON data for ensemble.
+
+        """
+        # create initial ensemble
+        thermo = {
+            "T": data["T"],
+            "N": data["N"],
+            "P": data["P"],
+        }
+        if data["V"] is not None:
+            ExtentType = getattr(extent, data["V"]["__name__"])
+            thermo["V"] = ExtentType.from_json(data["V"]["data"])
+        ens = Ensemble(**thermo)
+
+        # unpack rdfs
+        for pair in ens.rdf:
+            pair_ = str(pair)
+            if data["rdf"][pair_] is None:
+                continue
+            r = [i[0] for i in data["rdf"][pair_]]
+            g = [i[1] for i in data["rdf"][pair_]]
+            ens.rdf[pair] = RDF(r, g)
+
+        return ens
+
+    @classmethod
+    def from_file(cls, filename):
+        r"""Construct an Ensemble from a JSON file.
+
+        Parameters
+        ----------
+        filename : str
+            The name of the file from which to load data.
+
+        Returns
+        -------
+        :class:`Ensemble`
+            An new Ensemble object.
+
+        """
+        data = mpi.world.load_json(filename)
+        return cls.from_json(data)
 
     @property
     def T(self):
@@ -138,12 +190,7 @@ class Ensemble:
     @property
     def types(self):
         r"""tuple: The types in the ensemble."""
-        return self.N.keys()
-
-    @property
-    def pairs(self):
-        r"""tuple: The pairs in the ensemble."""
-        return self.rdf.pairs
+        return tuple(self.N.keys())
 
     @property
     def rdf(self):
@@ -163,8 +210,37 @@ class Ensemble:
         """
         return copy.deepcopy(self)
 
+    def to_json(self):
+        """Export to a JSON-compatible dictionary.
+
+        Returns
+        -------
+        dict
+            Ensemble.
+
+        """
+        data = {
+            "T": float(self.T) if self.T is not None else None,
+            "N": {i: int(Ni) if Ni is not None else None for i, Ni in self.N.items()},
+            "P": float(self.P) if self.P is not None else None,
+            "rdf": {},
+        }
+        if self.V is not None:
+            data["V"] = {"__name__": type(self.V).__name__, "data": self.V.to_json()}
+        else:
+            data["V"] = None
+
+        # set the rdf values in data
+        for pair in self.rdf:
+            if isinstance(self.rdf[pair], RDF):
+                data["rdf"][str(pair)] = self.rdf[pair].table.tolist()
+            else:
+                data["rdf"][str(pair)] = None
+
+        return data
+
     def save(self, filename):
-        r"""Save the Ensemble as a JSON file.
+        r"""Save as a JSON file.
 
         Parameters
         ----------
@@ -172,59 +248,6 @@ class Ensemble:
             The name of the file to save data in.
 
         """
-        data = {
-            "T": self.T,
-            "N": dict(self.N),
-            "V": {"__name__": type(self.V).__name__, "data": self.V.to_json()},
-            "P": self.P,
-            "rdf": {},
-        }
-
-        # set the rdf values in data
-        for pair in self.rdf:
-            if self.rdf[pair]:
-                data["rdf"][str(pair)] = self.rdf[pair].table.tolist()
-            else:
-                data["rdf"][str(pair)] = None
-
-        # dump data to json file
+        data = self.to_json()
         with open(filename, "w") as f:
             json.dump(data, f, indent=4)
-
-    @classmethod
-    def from_file(cls, filename):
-        r"""Construct an Ensemble from a JSON file.
-
-        Parameters
-        ----------
-        filename : str
-            The name of the file from which to load data.
-
-        Returns
-        -------
-        :class:`Ensemble`
-            An new Ensemble object.
-
-        """
-        data = mpi.world.load_json(filename)
-
-        # create initial ensemble
-        ExtentType = getattr(extent, data["V"]["__name__"])
-        thermo = {
-            "T": data["T"],
-            "N": data["N"],
-            "V": ExtentType.from_json(data["V"]["data"]),
-            "P": data["P"],
-        }
-        ens = Ensemble(**thermo)
-
-        # unpack rdfs
-        for pair in ens.rdf:
-            pair_ = str(pair)
-            if data["rdf"][pair_] is None:
-                continue
-            r = [i[0] for i in data["rdf"][pair_]]
-            g = [i[1] for i in data["rdf"][pair_]]
-            ens.rdf[pair] = RDF(r, g)
-
-        return ens

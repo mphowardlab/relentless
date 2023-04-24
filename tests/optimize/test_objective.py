@@ -119,7 +119,7 @@ class test_RelativeEntropy(unittest.TestCase):
             seed=42, N=self.target.N, V=self.target.V, T=self.target.T
         )
         self.thermo = relentless.simulate.EnsembleAverage(
-            every=1, rdf={"stop": 3.6, "num": 360}
+            filename="ensemble.json", every=1, rdf={"stop": 3.6, "num": 360}
         )
         md = relentless.simulate.RunMolecularDynamics(
             steps=100, timestep=1e-3, analyzers=self.thermo
@@ -215,6 +215,14 @@ class test_RelativeEntropy(unittest.TestCase):
         numpy.testing.assert_allclose(res.gradient[self.sigma], grad_sig, atol=1e-1)
         numpy.testing.assert_allclose(res_grad[self.epsilon], grad_eps, atol=1e-1)
         numpy.testing.assert_allclose(res_grad[self.sigma], grad_sig, atol=1e-1)
+
+    def test_compute_rdf_missing(self):
+        self.thermo.rdf = None
+        relent = relentless.optimize.RelativeEntropy(
+            self.target, self.simulation, self.potentials, self.thermo
+        )
+        with self.assertRaises((ValueError, KeyError)):
+            relent.compute((self.epsilon, self.sigma))
 
     def test_directory(self):
         relent = relentless.optimize.RelativeEntropy(

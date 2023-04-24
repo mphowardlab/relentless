@@ -13,7 +13,6 @@ class test_PairParameters(unittest.TestCase):
     def test_init(self):
         """Test creation from data"""
         types = ("A", "B")
-        pairs = (("A", "B"), ("B", "B"), ("A", "A"))
         params = ("energy", "mass")
 
         # test construction with tuple input
@@ -22,7 +21,6 @@ class test_PairParameters(unittest.TestCase):
         )
         self.assertEqual(m.types, types)
         self.assertEqual(m.params, params)
-        self.assertCountEqual(m.pairs, pairs)
 
         # test construction with list input
         m = relentless.model.potential.PairParameters(
@@ -30,7 +28,6 @@ class test_PairParameters(unittest.TestCase):
         )
         self.assertEqual(m.types, types)
         self.assertEqual(m.params, params)
-        self.assertCountEqual(m.pairs, pairs)
 
         # test construction with mixed tuple/list input
         m = relentless.model.potential.PairParameters(
@@ -38,7 +35,6 @@ class test_PairParameters(unittest.TestCase):
         )
         self.assertEqual(m.types, types)
         self.assertEqual(m.params, params)
-        self.assertCountEqual(m.pairs, pairs)
 
         # test construction with int type parameters
         with self.assertRaises(TypeError):
@@ -473,7 +469,7 @@ class test_LennardJones(unittest.TestCase):
         coeff = relentless.model.potential.PairParameters(
             types=("1",), params=("epsilon", "sigma", "rmin", "rmax", "shift")
         )
-        for pair in coeff.pairs:
+        for pair in coeff:
             coeff[pair]["rmin"] = False
             coeff[pair]["rmax"] = False
             coeff[pair]["shift"] = False
@@ -780,7 +776,7 @@ class test_Yukawa(unittest.TestCase):
         coeff = relentless.model.potential.PairParameters(
             types=("1",), params=("epsilon", "kappa", "rmin", "rmax", "shift")
         )
-        for pair in coeff.pairs:
+        for pair in coeff:
             coeff[pair]["rmin"] = False
             coeff[pair]["rmax"] = False
             coeff[pair]["shift"] = False

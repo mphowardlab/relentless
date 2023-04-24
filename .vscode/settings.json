@@ -1,14 +1,22 @@
 {
+    "cSpell.diagnosticLevel": "Hint",
     "editor.autoIndent": "keep",
+    "editor.codeActionsOnSave": {
+        "source.organizeImports": true
+    },
     "editor.detectIndentation": false,
+    "editor.formatOnSave": true,
     "editor.rulers": [
         80
     ],
     "files.insertFinalNewline": true,
+    "python.analysis.exclude": [
+        "**/env*"
+    ],
+    "python.formatting.provider": "none",
     "python.linting.flake8Enabled": true,
     "python.linting.pycodestyleEnabled": false,
     "python.linting.pylintEnabled": false,
-    "python.formatting.provider": "black",
     "python.testing.pytestEnabled": false,
     "python.testing.unittestEnabled": true,
     "python.testing.unittestArgs": [
@@ -18,8 +26,7 @@
         "-p",
         "test_*.py"
     ],
-    "python.analysis.exclude": [
-        "**/env*"
-    ],
-    "cSpell.diagnosticLevel": "Hint",
+    "[python]": {
+        "editor.defaultFormatter": "ms-python.black-formatter"
+    },
 }

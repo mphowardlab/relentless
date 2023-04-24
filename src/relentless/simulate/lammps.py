@@ -889,7 +889,8 @@ class AnalysisOperation(simulate.AnalysisOperation):
 
 
 class EnsembleAverage(AnalysisOperation):
-    def __init__(self, every, rdf, assume_constraints):
+    def __init__(self, filename, every, rdf, assume_constraints):
+        self.filename = filename
         self.every = every
         self.rdf = rdf
         self.assume_constraints = assume_constraints
@@ -1170,6 +1171,12 @@ class EnsembleAverage(AnalysisOperation):
         sim[self]["num_thermo_samples"] = None
         sim[self]["num_rdf_samples"] = num_rdf_samples
 
+        # optionally save file
+        if self.filename is not None:
+            if mpi.world.rank_is_root:
+                ens.save(sim.directory.file(self.filename))
+            mpi.world.barrier()
+
     _get_rdf_params = analyze.EnsembleAverage._get_rdf_params
 
     def _get_constrained_quantities(self, sim, sim_op):
@@ -1215,9 +1222,10 @@ class EnsembleAverage(AnalysisOperation):
 
 
 class Record(AnalysisOperation):
-    def __init__(self, quantities, every):
-        self.quantities = quantities
+    def __init__(self, filename, every, quantities):
+        self.filename = filename
         self.every = every
+        self.quantities = quantities
 
     def _pre_run_commands(self, sim, sim_op):
         # translate quantities into lammps variables
@@ -1271,6 +1279,14 @@ class Record(AnalysisOperation):
         sim[self]["timestep"] = data[:, 0].astype(int)
         for i, q in enumerate(self.quantities, start=1):
             sim[self][q] = data[:, i]
+
+        # optionally save file
+        if self.filename is not None:
+            if mpi.world.rank_is_root:
+                analyze.Record._save(
+                    sim.directory.file(self.filename), self.quantities, sim[self]
+                )
+            mpi.world.barrier()
 
 
 class WriteTrajectory(AnalysisOperation):

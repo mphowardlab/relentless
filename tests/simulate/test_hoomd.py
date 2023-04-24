@@ -1,4 +1,5 @@
 """Unit tests for relentless.simulate.hoomd."""
+import os
 import tempfile
 import unittest
 
@@ -291,7 +292,11 @@ class test_HOOMD(unittest.TestCase):
         init = relentless.simulate.InitializeRandomly(
             seed=1, N={"A": 10000}, V=V, T=2.0
         )
-        logger = relentless.simulate.Record(quantities=["temperature"], every=100)
+        logger = relentless.simulate.Record(
+            filename=None,
+            every=100,
+            quantities=["temperature"],
+        )
         brn = relentless.simulate.RunLangevinDynamics(
             steps=1000,
             timestep=1.0e-3,
@@ -321,7 +326,7 @@ class test_HOOMD(unittest.TestCase):
             seed=1, N=ens.N, V=ens.V, T=ens.T, diameters={"A": 1, "B": 1}
         )
         analyzer = relentless.simulate.EnsembleAverage(
-            every=5, rdf={"every": 10, "stop": 2.0, "num": 20}
+            filename=None, every=5, rdf={"every": 10, "stop": 2.0, "num": 20}
         )
         lgv = relentless.simulate.RunLangevinDynamics(
             steps=500, timestep=0.001, T=ens.T, friction=1.0, seed=1, analyzers=analyzer
@@ -352,7 +357,9 @@ class test_HOOMD(unittest.TestCase):
 
         # repeat same analysis with logger, and make sure it still works
         logger = relentless.simulate.Record(
-            quantities=["temperature", "pressure"], every=5
+            filename=None,
+            every=5,
+            quantities=["temperature", "pressure"],
         )
         lgv.analyzers = logger
         sim = h.run(pot, self.directory)
@@ -375,7 +382,7 @@ class test_HOOMD(unittest.TestCase):
             steps=1, timestep=0.001, T=ens.T, friction=1.0, seed=1
         )
         analyzer = relentless.simulate.EnsembleAverage(
-            every=5, rdf={"every": 10, "stop": 2.0, "num": 20}
+            filename=None, every=5, rdf={"every": 10, "stop": 2.0, "num": 20}
         )
         lgv2 = relentless.simulate.RunLangevinDynamics(
             steps=1, timestep=0.001, T=ens.T, friction=1.0, seed=1, analyzers=analyzer
@@ -397,7 +404,9 @@ class test_HOOMD(unittest.TestCase):
         init = relentless.simulate.InitializeRandomly(
             seed=1, N=ens.N, V=ens.V, T=ens.T, diameters={"A": 1, "B": 1}
         )
-        analyzer = relentless.simulate.EnsembleAverage(every=1, assume_constraints=True)
+        analyzer = relentless.simulate.EnsembleAverage(
+            filename=None, every=1, assume_constraints=True
+        )
         md = relentless.simulate.RunMolecularDynamics(
             steps=100,
             timestep=0.001,
@@ -414,6 +423,9 @@ class test_HOOMD(unittest.TestCase):
         self.assertEqual(ens_.P, 0.0)
         self.assertNotEqual(ens_.V.extent, ens.V.extent)
         self.assertDictEqual(dict(ens_.N), dict(ens.N))
+        # check that file can be saved
+        if relentless.mpi.world.size == 1:
+            ens_.save(self.directory.file("ensemble.json"))
 
         # NVT
         md.barostat = None
@@ -473,6 +485,46 @@ class test_HOOMD(unittest.TestCase):
         self.assertNotEqual(ens_.P, 0.0)
         self.assertEqual(ens_.V.extent, ens.V.extent)
         self.assertDictEqual(dict(ens_.N), dict(ens.N))
+
+    def test_record(self):
+        ens, pot = self.ens_pot()
+        init = relentless.simulate.InitializeRandomly(
+            seed=1, N=ens.N, V=ens.V, T=ens.T, diameters={"A": 1, "B": 1}
+        )
+        analyzer = relentless.simulate.Record(
+            filename=None,
+            every=5,
+            quantities=[
+                "potential_energy",
+                "kinetic_energy",
+                "temperature",
+                "pressure",
+            ],
+        )
+        lgv = relentless.simulate.RunLangevinDynamics(
+            steps=10, timestep=0.001, T=ens.T, friction=1.0, seed=1, analyzers=analyzer
+        )
+        h = relentless.simulate.HOOMD(init, lgv)
+        sim = h.run(pot, self.directory)
+
+        # check entries exist for data
+        record_file = self.directory.file("record.dat")
+        self.assertIn("timestep", sim[analyzer])
+        self.assertIn("potential_energy", sim[analyzer])
+        self.assertIn("kinetic_energy", sim[analyzer])
+        self.assertIn("temperature", sim[analyzer])
+        self.assertIn("pressure", sim[analyzer])
+        self.assertFalse(os.path.exists(record_file))
+
+        # rerun and check that arrays have same contents as file
+        analyzer.filename = record_file
+        sim = h.run(pot, self.directory)
+        dat = relentless.mpi.world.loadtxt(record_file)
+        numpy.testing.assert_allclose(dat[:, 0], sim[analyzer]["timestep"])
+        numpy.testing.assert_allclose(dat[:, 1], sim[analyzer]["potential_energy"])
+        numpy.testing.assert_allclose(dat[:, 2], sim[analyzer]["kinetic_energy"])
+        numpy.testing.assert_allclose(dat[:, 3], sim[analyzer]["temperature"])
+        numpy.testing.assert_allclose(dat[:, 4], sim[analyzer]["pressure"])
 
     def test_writetrajectory_gsd(self):
         """Test write trajectory simulation operation."""
@@ -559,7 +611,7 @@ class test_HOOMD(unittest.TestCase):
         _, pot = self.ens_pot()
         init = relentless.simulate.InitializeFromFile(filename=filename)
         analyzer = relentless.simulate.EnsembleAverage(
-            every=1, rdf={"stop": 2.0, "num": 20}
+            filename=None, every=1, rdf={"stop": 2.0, "num": 20}
         )
         ig = relentless.simulate.RunMolecularDynamics(
             steps=1, timestep=0.0, analyzers=analyzer

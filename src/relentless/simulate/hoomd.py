@@ -900,7 +900,8 @@ class AnalysisOperation(simulate.AnalysisOperation):
 
 
 class EnsembleAverage(AnalysisOperation):
-    def __init__(self, every, rdf, assume_constraints):
+    def __init__(self, filename, every, rdf, assume_constraints):
+        self.filename = filename
         self.every = every
         self.rdf = rdf
         self.assume_constraints = assume_constraints
@@ -998,6 +999,12 @@ class EnsembleAverage(AnalysisOperation):
         sim[self]["num_rdf_samples"] = thermo_recorder.num_rdf_samples
 
         del sim[self]["_thermo_callback"]
+
+        # optionally save file
+        if self.filename is not None:
+            if mpi.world.rank_is_root:
+                ens.save(sim.directory.file(self.filename))
+            mpi.world.barrier()
 
     def _get_constrained_quantities(self, sim, sim_op):
         if not self.assume_constraints:
@@ -1294,7 +1301,7 @@ class EnsembleAverage(AnalysisOperation):
             Radial distribution functions.
             """
             if self.num_rdf_samples > 0:
-                rdf = collections.PairMatrix(self._rdf.types)
+                rdf = collections.PairMatrix(self.types)
                 for pair in rdf:
                     if mpi.world.rank == 0:
                         gr = numpy.column_stack(
@@ -1310,9 +1317,10 @@ class EnsembleAverage(AnalysisOperation):
 
 
 class Record(AnalysisOperation):
-    def __init__(self, quantities, every):
-        self.quantities = quantities
+    def __init__(self, filename, every, quantities):
+        self.filename = filename
         self.every = every
+        self.quantities = quantities
 
     def _pre_run_v3(self, sim, sim_op):
         sim[self]["_thermo"] = hoomd.md.compute.ThermodynamicQuantities(
@@ -1364,8 +1372,15 @@ class Record(AnalysisOperation):
             if q == "temperature":
                 values /= sim.potentials.kB
             sim[self][q] = values
-
         del sim[self]["_recorder"]
+
+        # optionally save file
+        if self.filename is not None:
+            if mpi.world.rank_is_root:
+                analyze.Record._save(
+                    sim.directory.file(self.filename), self.quantities, sim[self]
+                )
+            mpi.world.barrier()
 
     class RecorderCallback(Action):
         flags = [Action.Flags.PRESSURE_TENSOR]

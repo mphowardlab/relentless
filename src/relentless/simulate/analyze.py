@@ -1,5 +1,7 @@
 import pathlib
 
+import numpy
+
 from . import simulate
 
 
@@ -8,6 +10,9 @@ class EnsembleAverage(simulate.DelegatedAnalysisOperation):
 
     Parameters
     ----------
+    filename : str
+        Filename to record quantities to. May be set to ``None`` so that no
+        file is written.
     every : int
         Interval of time steps at which to average thermodynamic properties of
         the ensemble.
@@ -37,7 +42,8 @@ class EnsembleAverage(simulate.DelegatedAnalysisOperation):
 
     """
 
-    def __init__(self, every, rdf=None, assume_constraints=False):
+    def __init__(self, filename, every, rdf=None, assume_constraints=False):
+        self.filename = filename
         self.every = every
         self.rdf = rdf
         self.assume_constraints = assume_constraints
@@ -45,6 +51,7 @@ class EnsembleAverage(simulate.DelegatedAnalysisOperation):
     def _make_delegate(self, sim):
         return self._get_delegate(
             sim,
+            filename=self.filename,
             every=self.every,
             rdf=self.rdf,
             assume_constraints=self.assume_constraints,
@@ -86,6 +93,11 @@ class Record(simulate.DelegatedAnalysisOperation):
 
     Parameters
     ----------
+    filename : str
+        Filename to record quantities to. May be set to ``None`` so that no
+        file is written.
+    every : int
+        Interval of time steps at which to record values.
     quantities : str or list
         One or more quantities to record. Valid values are:
 
@@ -94,20 +106,19 @@ class Record(simulate.DelegatedAnalysisOperation):
         - ``"temperature"``: Temperature.
         - ``"pressure"``: Pressure.
 
-    every : int
-        Interval of time steps at which to record values.
-
     """
 
-    def __init__(self, quantities, every):
+    def __init__(self, filename, every, quantities):
+        self.filename = filename
         self.quantities = quantities
         self.every = every
 
     def _make_delegate(self, sim):
         return self._get_delegate(
             sim,
-            quantities=self.quantities,
+            filename=self.filename,
             every=self.every,
+            quantities=self.quantities,
         )
 
     @property
@@ -123,6 +134,14 @@ class Record(simulate.DelegatedAnalysisOperation):
         else:
             value = list(value)
         self._quantities = value
+
+    @staticmethod
+    def _save(filename, quantities, data):
+        numpy.savetxt(
+            filename,
+            numpy.column_stack([data["timestep"]] + [data[q] for q in quantities]),
+            header="timestep " + " ".join(quantities),
+        )
 
 
 class WriteTrajectory(simulate.DelegatedAnalysisOperation):
