@@ -530,7 +530,7 @@ class test_LAMMPS(unittest.TestCase):
             self.assertEqual(ens_.V.extent, ens.V.extent)
             self.assertDictEqual(dict(ens_.N), dict(ens.N))
 
-    def test_writetrajectory(self):
+    def test_writetrajectory_lammpstrj(self):
         """Test write trajectory simulation operation."""
         ens, pot = self.ens_pot()
         init = relentless.simulate.InitializeRandomly(
@@ -555,7 +555,7 @@ class test_LAMMPS(unittest.TestCase):
         h = relentless.simulate.LAMMPS(init, operations=lgv, executable=self.executable)
         sim = h.run(potentials=pot, directory=self.directory)
 
-        # read trajectory file
+        # read lammps trajectory file
         file = sim.directory.file("test_writetrajectory.lammpstrj")
         traj = lammpsio.DumpFile(file)
         for snap in traj:
@@ -564,6 +564,39 @@ class test_LAMMPS(unittest.TestCase):
             self.assertIsNotNone(snap.image)
             self.assertCountEqual(snap.typeid, [1, 1, 2, 2, 2])
             self.assertCountEqual(snap.mass, [1, 1, 1, 1, 1])
+
+    def test_writetrajectory_gsd(self):
+        """Test write trajectory simulation operation."""
+        ens, pot = self.ens_pot()
+        init = relentless.simulate.InitializeRandomly(
+            seed=1, N=ens.N, V=ens.V, T=ens.T, diameters={"1": 1, "2": 1}
+        )
+        analyzer = relentless.simulate.WriteTrajectory(
+            filename="test_writetrajectory.gsd",
+            every=100,
+            velocities=True,
+            images=True,
+            types=True,
+            masses=True,
+        )
+        lgv = relentless.simulate.RunLangevinDynamics(
+            steps=500,
+            timestep=0.001,
+            T=ens.T,
+            friction=1.0,
+            seed=1,
+            analyzers=[analyzer],
+        )
+        h = relentless.simulate.LAMMPS(init, operations=lgv, executable=self.executable)
+        sim = h.run(potentials=pot, directory=self.directory)
+
+        # read hoomd trajectory file
+        file = sim.directory.file("test_writetrajectory.gsd")
+        with gsd.hoomd.open(file) as traj:
+            for snap in traj:
+                self.assertEqual(snap.particles.N, 5)
+                self.assertIsNotNone(snap.particles.velocity)
+                self.assertCountEqual(snap.particles.typeid, [0, 0, 1, 1, 1])
 
     def tearDown(self):
         relentless.mpi.world.barrier()
