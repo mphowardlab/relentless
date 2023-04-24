@@ -1448,14 +1448,14 @@ class WriteTrajectory(AnalysisOperation):
         if file_format == "LAMMPS-dump":
             if mpi.world.rank_is_root:
                 dump_file = sim.directory.temporary_file(".dump")
-                with gsd.hoomd.open(self.filename) as t:
-                    snaps = [lammpsio.Snapshot.from_hoomd_gsd(s) for s in t]
+                with gsd.hoomd.open(sim.directory.file(self.filename)) as t:
+                    snaps = [lammpsio.Snapshot.from_hoomd_gsd(s)[0] for s in t]
 
-                schema = analyze.WriteTrajectory._make_dump_schema(
+                schema = analyze.WriteTrajectory._make_lammps_schema(
                     self.velocities, self.images, self.types, self.masses
                 )
                 lammpsio.DumpFile.create(dump_file, schema, snaps)
-                shutil.move(dump_file, self.filename)
+                shutil.move(dump_file, sim.directory.file(self.filename))
             mpi.world.barrier()
 
     def _get_dynamic(self):
