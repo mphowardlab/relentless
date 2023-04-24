@@ -559,9 +559,7 @@ class test_LAMMPS(unittest.TestCase):
         lgv = relentless.simulate.RunLangevinDynamics(
             steps=10, timestep=0.001, T=ens.T, friction=1.0, seed=1, analyzers=analyzer
         )
-        h = relentless.simulate.LAMMPS(
-            init, lgv, dimension=self.dim, executable=self.executable
-        )
+        h = relentless.simulate.LAMMPS(init, lgv, executable=self.executable)
         sim = h.run(pot, self.directory)
 
         # check entries exist for data
