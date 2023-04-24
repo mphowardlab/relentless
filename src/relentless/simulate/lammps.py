@@ -1347,15 +1347,19 @@ class WriteTrajectory(AnalysisOperation):
         return cmds
 
     def process(self, sim, sim_op):
-        file_format = analyze.WriteTrajectory._detect_format(self.filename, self.format)
+        file_format = analyze.WriteTrajectory._detect_format(
+            sim.directory.file(self.filename), self.format
+        )
         if file_format == "HOOMD-GSD":
             if mpi.world.rank_is_root:
                 gsd_file = sim.directory.temporary_file(".gsd")
                 with gsd.hoomd.open(gsd_file, "wb") as t:
-                    for snap in lammpsio.DumpFile(self.filename, sort_ids=True):
+                    for snap in lammpsio.DumpFile(
+                        sim.directory.file(self.filename), sort_ids=True
+                    ):
                         frame = snap.to_hoomd_gsd()
                         t.append(frame)
-                shutil.move(gsd_file, self.filename)
+                shutil.move(gsd_file, sim.directory.file(self.filename))
             mpi.world.barrier()
 
 
