@@ -183,12 +183,13 @@ class InitializeFromFile(InitializationOperation):
             return hoomd.init.read_gsd(gsd_filename)
 
     def _convert_to_gsd_file(self, sim):
+        filename = sim.directory.file(self.filename)
         file_format = initialize.InitializeFromFile._detect_format(
-            self.filename, self.format
+            filename, self.format
         )
         if file_format == "LAMMPS-data":
             if mpi.world.rank_is_root:
-                snap = lammpsio.DataFile(self.filename).read()
+                snap = lammpsio.DataFile(filename).read()
                 frame = snap.to_hoomd_gsd()
                 frame.configuration.dimensions = self.dimension
                 if self.dimension == 2:
@@ -202,7 +203,7 @@ class InitializeFromFile(InitializationOperation):
                 gsd_filename = None
             gsd_filename = mpi.world.bcast(gsd_filename)
         else:
-            gsd_filename = self.filename
+            gsd_filename = filename
 
         return gsd_filename
 
@@ -1459,18 +1460,22 @@ class WriteTrajectory(AnalysisOperation):
         del sim[self]["_gsd"]
 
     def process(self, sim, sim_op):
-        file_format = analyze.WriteTrajectory._detect_format(self.filename, self.format)
+        filename = sim.directory.file(self.filename)
+        file_format = analyze.WriteTrajectory._detect_format(filename, self.format)
         if file_format == "LAMMPS-dump":
             if mpi.world.rank_is_root:
                 dump_file = sim.directory.temporary_file(".dump")
-                with gsd.hoomd.open(sim.directory.file(self.filename)) as t:
-                    snaps = [lammpsio.Snapshot.from_hoomd_gsd(s)[0] for s in t]
+                snaps = []
+                with gsd.hoomd.open(filename) as t:
+                    for s in t:
+                        snap, _ = lammpsio.Snapshot.from_hoomd_gsd(s)
+                        snaps.append(snap)
 
                 schema = analyze.WriteTrajectory._make_lammps_schema(
                     self.velocities, self.images, self.types, self.masses
                 )
                 lammpsio.DumpFile.create(dump_file, schema, snaps)
-                shutil.move(dump_file, sim.directory.file(self.filename))
+                shutil.move(dump_file, filename)
             mpi.world.barrier()
 
     def _get_dynamic(self):

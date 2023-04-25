@@ -280,23 +280,27 @@ class InitializeFromFile(InitializationOperation):
         self.dimension = dimension
 
     def initialize_commands(self, sim):
-        if sim["engine"]["types"] is None:
-            raise ValueError("types needs to be manually specified with a file")
-        data_filename, dimension = self._convert_to_data_file(sim)
+        data_filename, dimension, type_map = self._convert_to_data_file(sim)
         sim[self]["_datafile"] = data_filename
+        if sim["engine"]["types"] is None:
+            sim["engine"]["types"] = type_map
+        elif sim["engine"]["types"] != type_map:
+            raise ValueError("Specified LAMMPS type map does not match detected map")
         sim.dimension = dimension
         return [f"read_data {data_filename}"]
 
     def _convert_to_data_file(self, sim):
+        filename = sim.directory.file(self.filename)
         file_format = initialize.InitializeFromFile._detect_format(
-            self.filename, self.format
+            filename, self.format
         )
         if file_format == "HOOMD-GSD":
             if mpi.world.rank_is_root:
                 data_filename = sim.directory.temporary_file(".data")
-                with gsd.hoomd.open(self.filename) as f:
+                with gsd.hoomd.open(filename) as f:
                     frame = f[0]
-                snap = lammpsio.Snapshot.from_hoomd_gsd(frame)[0]
+                snap, type_map = lammpsio.Snapshot.from_hoomd_gsd(frame)
+                type_map = {v: k for k, v in type_map.items()}
 
                 # figure out dimensions
                 dimension = self.dimension
@@ -318,13 +322,27 @@ class InitializeFromFile(InitializationOperation):
             else:
                 data_filename = None
                 dimension = None
+                type_map = None
             data_filename = mpi.world.bcast(data_filename)
             dimension = mpi.world.bcast(dimension)
+            type_map = mpi.world.bcast(type_map)
         else:
-            data_filename = self.filename
+            data_filename = filename
             dimension = self.dimension if self.dimension is not None else 3
 
-        return data_filename, dimension
+            type_map = sim["engine"]["types"]
+            if type_map is None:
+                if mpi.world.rank_is_root:
+                    snap = lammpsio.DataFile(
+                        data_filename, sim["engine"]["atom_style"]
+                    ).read()
+                    typeids = numpy.unique(snap.typeid)
+                    type_map = {str(typeid): typeid for typeid in typeids}
+                else:
+                    type_map = None
+                type_map = mpi.world.bcast(type_map)
+
+        return data_filename, dimension, type_map
 
 
 class InitializeRandomly(InitializationOperation):
@@ -1363,19 +1381,17 @@ class WriteTrajectory(AnalysisOperation):
         return cmds
 
     def process(self, sim, sim_op):
-        file_format = analyze.WriteTrajectory._detect_format(
-            sim.directory.file(self.filename), self.format
-        )
+        filename = sim.directory.file(self.filename)
+        file_format = analyze.WriteTrajectory._detect_format(filename, self.format)
         if file_format == "HOOMD-GSD":
             if mpi.world.rank_is_root:
                 gsd_file = sim.directory.temporary_file(".gsd")
+                type_map = {v: k for k, v in sim["engine"]["types"].items()}
                 with gsd.hoomd.open(gsd_file, "wb") as t:
-                    for snap in lammpsio.DumpFile(
-                        sim.directory.file(self.filename), sort_ids=True
-                    ):
-                        frame = snap.to_hoomd_gsd()
+                    for snap in lammpsio.DumpFile(filename, sort_ids=True):
+                        frame = snap.to_hoomd_gsd(type_map)
                         t.append(frame)
-                shutil.move(gsd_file, sim.directory.file(self.filename))
+                shutil.move(gsd_file, filename)
             mpi.world.barrier()
 
 
