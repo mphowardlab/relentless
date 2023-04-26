@@ -526,36 +526,13 @@ class test_HOOMD(unittest.TestCase):
         numpy.testing.assert_allclose(dat[:, 3], sim[analyzer]["temperature"])
         numpy.testing.assert_allclose(dat[:, 4], sim[analyzer]["pressure"])
 
-    def test_writetrajectory_gsd(self):
+    def test_writetrajectory(self):
         """Test write trajectory simulation operation."""
         ens, pot = self.ens_pot()
         init = relentless.simulate.InitializeRandomly(
             seed=1, N=ens.N, V=ens.V, T=ens.T, diameters={"A": 1, "B": 1}
         )
-        analyzer = relentless.simulate.WriteTrajectory(
-            filename="test_writetrajectory.gsd", every=100, velocities=True
-        )
-        lgv = relentless.simulate.RunLangevinDynamics(
-            steps=500, timestep=0.001, T=ens.T, friction=1.0, seed=1, analyzers=analyzer
-        )
-        h = relentless.simulate.HOOMD(init, lgv)
-        sim = h.run(pot, self.directory)
-
-        # read trajectory file
-        file = sim.directory.file("test_writetrajectory.gsd")
-        with gsd.hoomd.open(file) as traj:
-            for snap in traj:
-                self.assertEqual(snap.particles.N, 5)
-                self.assertIsNotNone(snap.particles.velocity)
-                self.assertCountEqual(snap.particles.typeid, [0, 0, 1, 1, 1])
-
-    def test_writetrajectory_lammpstrj(self):
-        """Test write trajectory simulation operation."""
-        ens, pot = self.ens_pot()
-        init = relentless.simulate.InitializeRandomly(
-            seed=1, N=ens.N, V=ens.V, T=ens.T, diameters={"A": 1, "B": 1}
-        )
-        analyzer = relentless.simulate.WriteTrajectory(
+        lmpstrj = relentless.simulate.WriteTrajectory(
             filename="test_writetrajectory.lammpstrj",
             every=100,
             velocities=True,
@@ -563,14 +540,22 @@ class test_HOOMD(unittest.TestCase):
             types=True,
             masses=True,
         )
+        gsdtrj = relentless.simulate.WriteTrajectory(
+            filename="test_writetrajectory.gsd", every=100, velocities=True
+        )
         lgv = relentless.simulate.RunLangevinDynamics(
-            steps=500, timestep=0.001, T=ens.T, friction=1.0, seed=1, analyzers=analyzer
+            steps=500,
+            timestep=0.001,
+            T=ens.T,
+            friction=1.0,
+            seed=1,
+            analyzers=[lmpstrj, gsdtrj],
         )
         h = relentless.simulate.HOOMD(init, lgv)
         sim = h.run(pot, self.directory)
 
         # read lammps trajectory file
-        file = sim.directory.file("test_writetrajectory.lammpstrj")
+        file = sim.directory.file(lmpstrj.filename)
         traj = lammpsio.DumpFile(file)
         for snap in traj:
             self.assertEqual(snap.N, 5)
@@ -578,6 +563,14 @@ class test_HOOMD(unittest.TestCase):
             self.assertIsNotNone(snap.image)
             self.assertCountEqual(snap.typeid, [1, 1, 2, 2, 2])
             self.assertCountEqual(snap.mass, [1, 1, 1, 1, 1])
+
+        # read hoomd trajectory file
+        file = sim.directory.file(gsdtrj.filename)
+        with gsd.hoomd.open(file) as traj:
+            for snap in traj:
+                self.assertEqual(snap.particles.N, 5)
+                self.assertIsNotNone(snap.particles.velocity)
+                self.assertCountEqual(snap.particles.typeid, [0, 0, 1, 1, 1])
 
     def test_self_interactions(self):
         """Test if self-interactions are excluded from rdf computation."""

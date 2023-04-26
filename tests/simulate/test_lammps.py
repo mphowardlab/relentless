@@ -581,13 +581,13 @@ class test_LAMMPS(unittest.TestCase):
         numpy.testing.assert_allclose(dat[:, 3], sim[analyzer]["temperature"])
         numpy.testing.assert_allclose(dat[:, 4], sim[analyzer]["pressure"])
 
-    def test_writetrajectory_lammpstrj(self):
+    def test_writetrajectory(self):
         """Test write trajectory simulation operation."""
         ens, pot = self.ens_pot()
         init = relentless.simulate.InitializeRandomly(
             seed=1, N=ens.N, V=ens.V, T=ens.T, diameters={"1": 1, "2": 1}
         )
-        analyzer = relentless.simulate.WriteTrajectory(
+        lmpstrj = relentless.simulate.WriteTrajectory(
             filename="test_writetrajectory.lammpstrj",
             every=100,
             velocities=True,
@@ -595,19 +595,24 @@ class test_LAMMPS(unittest.TestCase):
             types=True,
             masses=True,
         )
+        gsdtrj = relentless.simulate.WriteTrajectory(
+            filename="test_writetrajectory.gsd",
+            every=100,
+            velocities=True,
+        )
         lgv = relentless.simulate.RunLangevinDynamics(
             steps=500,
             timestep=0.001,
             T=ens.T,
             friction=1.0,
             seed=1,
-            analyzers=[analyzer],
+            analyzers=[lmpstrj, gsdtrj],
         )
         h = relentless.simulate.LAMMPS(init, operations=lgv, executable=self.executable)
         sim = h.run(potentials=pot, directory=self.directory)
 
         # read lammps trajectory file
-        file = sim.directory.file("test_writetrajectory.lammpstrj")
+        file = sim.directory.file(lmpstrj.filename)
         traj = lammpsio.DumpFile(file)
         for snap in traj:
             self.assertEqual(snap.N, 5)
@@ -616,33 +621,8 @@ class test_LAMMPS(unittest.TestCase):
             self.assertCountEqual(snap.typeid, [1, 1, 2, 2, 2])
             self.assertCountEqual(snap.mass, [1, 1, 1, 1, 1])
 
-    def test_writetrajectory_gsd(self):
-        """Test write trajectory simulation operation."""
-        ens, pot = self.ens_pot()
-        init = relentless.simulate.InitializeRandomly(
-            seed=1, N=ens.N, V=ens.V, T=ens.T, diameters={"1": 1, "2": 1}
-        )
-        analyzer = relentless.simulate.WriteTrajectory(
-            filename="test_writetrajectory.gsd",
-            every=100,
-            velocities=True,
-            images=True,
-            types=True,
-            masses=True,
-        )
-        lgv = relentless.simulate.RunLangevinDynamics(
-            steps=500,
-            timestep=0.001,
-            T=ens.T,
-            friction=1.0,
-            seed=1,
-            analyzers=[analyzer],
-        )
-        h = relentless.simulate.LAMMPS(init, operations=lgv, executable=self.executable)
-        sim = h.run(potentials=pot, directory=self.directory)
-
         # read hoomd trajectory file
-        file = sim.directory.file("test_writetrajectory.gsd")
+        file = sim.directory.file(gsdtrj.filename)
         with gsd.hoomd.open(file) as traj:
             for snap in traj:
                 self.assertEqual(snap.particles.N, 5)
