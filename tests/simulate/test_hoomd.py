@@ -123,24 +123,14 @@ class test_HOOMD(unittest.TestCase):
 
     def test_initialize_from_lammps_file(self):
         """Test running initialization simulation operations."""
-        if self.dim == 3:
-            ens = relentless.model.Ensemble(
-                T=2.0, V=relentless.model.Cube(L=10.0), N={"1": 2, "2": 3}
-            )
-        elif self.dim == 2:
-            ens = relentless.model.Ensemble(
-                T=2.0, V=relentless.model.Square(L=10.0), N={"1": 2, "2": 3}
-            )
-        else:
-            raise ValueError("LAMMPS supports 2d and 3d simulations")
-        ens.P = 2.5
-        pot = LinPot(ens.types, params=("m",))
+        pot = LinPot(("1", "2"), params=("m",))
         for pair in pot.coeff:
             pot.coeff[pair].update({"m": -2.0, "rmax": 1.0})
         pots = relentless.simulate.Potentials()
         pots.pair = relentless.simulate.PairPotentialTabulator(
             pot, start=1e-6, stop=2.0, num=10, neighbor_buffer=0.1
         )
+
         f = self.create_lammps_file()
         op = relentless.simulate.InitializeFromFile(filename=f)
         h = relentless.simulate.HOOMD(op)
@@ -541,7 +531,12 @@ class test_HOOMD(unittest.TestCase):
             masses=True,
         )
         gsdtrj = relentless.simulate.WriteTrajectory(
-            filename="test_writetrajectory.gsd", every=100, velocities=True
+            filename="test_writetrajectory.gsd",
+            every=100,
+            velocities=True,
+            images=True,
+            types=True,
+            masses=True,
         )
         lgv = relentless.simulate.RunLangevinDynamics(
             steps=500,
