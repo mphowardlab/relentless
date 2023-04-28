@@ -1,9 +1,10 @@
 import abc
 import datetime
+import shutil
 import subprocess
-import uuid
 
 import freud
+import gsd.hoomd
 import lammpsio
 import numpy
 
@@ -150,12 +151,11 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
         cmds = [
             "units {style}".format(style=sim["engine"]["units"]),
             "boundary p p p",
-            "dimension {dim}".format(dim=sim["engine"]["dimension"]),
             "atom_style {style}".format(style=sim["engine"]["atom_style"]),
         ]
-
-        sim.dimension = sim["engine"]["dimension"]
         cmds += self.initialize_commands(sim)
+        # dimension is only available after initialization commands, so we insert it now
+        cmds.insert(2, f"dimension {sim.dimension}")
         sim.types = sim["engine"]["types"].keys()
 
         # create a group for each type
@@ -166,9 +166,10 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
             sim[self]["_type_groups"][i] = groupid
             cmds.append(f"group {groupid} type {typeid}")
 
+        # process from data file
         sim.masses = collections.FixedKeyDict(sim.types)
-        # file is opened only valid on root and result is broadcast
         masses = {}
+        dim_safe = None
         if mpi.world.rank_is_root:
             snap = lammpsio.DataFile(sim[self]["_datafile"]).read()
             for i in sim.types:
@@ -178,8 +179,20 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
                 elif not numpy.all(mi == mi[0]):
                     raise ValueError("All masses for a type must be equal")
                 masses[i] = mi[0]
+
+            if sim.dimension == 3:
+                dim_safe = True
+            elif sim.dimension == 2:
+                dim_safe = numpy.allclose(snap.position[:, 2], 0) and numpy.allclose(
+                    snap.velocity[:, 2], 0
+                )
+            else:
+                raise ValueError("Only 2d and 3d simulations are supported")
         masses = mpi.world.bcast(masses)
         sim.masses.update(masses)
+        dim_safe = mpi.world.bcast(dim_safe)
+        if not dim_safe:
+            raise ValueError("Simulation initialized inconsistent with dimension")
 
         # attach the potentials
         if sim.potentials.pair.start == 0:
@@ -202,7 +215,7 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
 
         # write all potentials into a file
         if mpi.world.rank_is_root:
-            file_ = sim.directory.file(str(uuid.uuid4().hex))
+            file_ = sim.directory.temporary_file()
             with open(file_, "w") as fw:
                 fw.write("# LAMMPS tabulated pair potentials\n")
                 for i, j in sim.pairs:
@@ -261,29 +274,75 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
 
 
 class InitializeFromFile(InitializationOperation):
-    """Initialize a simulation from a LAMMPS data file.
-
-    Because LAMMPS data files only contain the LAMMPS integer types for particles,
-    you are required to specify the type map as an attribute of this operation.::
-
-        init = InitializeFromFile('lammps.data')
-        init.types = {'A': 2, 'B': 1}
-
-    Parameters
-    ----------
-    filename : str
-        The file from which to read the system data.
-
-    """
-
-    def __init__(self, filename):
+    def __init__(self, filename, format, dimension):
         self.filename = filename
+        self.format = format
+        self.dimension = dimension
 
     def initialize_commands(self, sim):
+        data_filename, dimension, type_map = self._convert_to_data_file(sim)
+        sim[self]["_datafile"] = data_filename
         if sim["engine"]["types"] is None:
-            raise ValueError("types needs to be manually specified with a file")
-        sim[self]["_datafile"] = self.filename
-        return ["read_data {filename}".format(filename=self.filename)]
+            sim["engine"]["types"] = type_map
+        elif sim["engine"]["types"] != type_map:
+            raise ValueError("Specified LAMMPS type map does not match detected map")
+        sim.dimension = dimension
+        return [f"read_data {data_filename}"]
+
+    def _convert_to_data_file(self, sim):
+        filename = sim.directory.file(self.filename)
+        file_format = initialize.InitializeFromFile._detect_format(
+            filename, self.format
+        )
+        if file_format == "HOOMD-GSD":
+            if mpi.world.rank_is_root:
+                data_filename = sim.directory.temporary_file(".data")
+                with gsd.hoomd.open(filename) as f:
+                    frame = f[0]
+                snap, type_map = lammpsio.Snapshot.from_hoomd_gsd(frame)
+                type_map = {v: k for k, v in type_map.items()}
+
+                # figure out dimensions
+                dimension = self.dimension
+                if dimension is None:
+                    dimension = frame.configuration.dimensions
+                elif dimension != frame.configuration.dimensions:
+                    raise ValueError("Specified dimension does not match GSD dimension")
+
+                # fix up 2d boxes that may not be compatible with lammps
+                if dimension == 2:
+                    if frame.configuration.box[2] == 0:
+                        snap.low[2] = -0.5
+                        snap.high[2] = 0.5
+                    if snap.box.tilt is not None:
+                        snap.box.tilt[1:] = 0.0
+                lammpsio.DataFile.create(
+                    data_filename, snap, sim["engine"]["atom_style"]
+                )
+            else:
+                data_filename = None
+                dimension = None
+                type_map = None
+            data_filename = mpi.world.bcast(data_filename)
+            dimension = mpi.world.bcast(dimension)
+            type_map = mpi.world.bcast(type_map)
+        else:
+            data_filename = filename
+            dimension = self.dimension if self.dimension is not None else 3
+
+            type_map = sim["engine"]["types"]
+            if type_map is None:
+                if mpi.world.rank_is_root:
+                    snap = lammpsio.DataFile(
+                        data_filename, sim["engine"]["atom_style"]
+                    ).read()
+                    typeids = numpy.unique(snap.typeid)
+                    type_map = {str(typeid): typeid for typeid in typeids}
+                else:
+                    type_map = None
+                type_map = mpi.world.bcast(type_map)
+
+        return data_filename, dimension, type_map
 
 
 class InitializeRandomly(InitializationOperation):
@@ -331,14 +390,14 @@ class InitializeRandomly(InitializationOperation):
         self.diameters = diameters
 
     def initialize_commands(self, sim):
-        if not isinstance(self.V, (extent.TriclinicBox, extent.ObliqueArea)):
+        if isinstance(self.V, extent.TriclinicBox):
+            sim.dimension = 3
+        elif isinstance(self.V, extent.ObliqueArea):
+            sim.dimension = 2
+        else:
             raise TypeError(
                 "LAMMPS boxes must be derived from TriclinicBox or ObliqueArea"
             )
-        elif (sim.dimension == 3 and not isinstance(self.V, extent.TriclinicBox)) or (
-            sim.dimension == 2 and not isinstance(self.V, extent.ObliqueArea)
-        ):
-            raise TypeError("Mismatch between extent type and dimension")
 
         if sim["engine"]["types"] is None:
             sim["engine"]["types"] = {i: idx + 1 for idx, i in enumerate(self.N.keys())}
@@ -405,7 +464,7 @@ class InitializeRandomly(InitializationOperation):
                 vel = numpy.zeros((snap.N, sim.dimension))
             snap.velocity[:, : sim.dimension] = vel
 
-            init_file = sim.directory.file(str(uuid.uuid4().hex))
+            init_file = sim.directory.temporary_file(".data")
             lammpsio.DataFile.create(init_file, snap, sim["engine"]["atom_style"])
         else:
             init_file = None
@@ -904,9 +963,9 @@ class EnsembleAverage(AnalysisOperation):
         # generate temporary file names, may or may not get used but that's OK
         if mpi.world.rank_is_root:
             file_ = {
-                "thermo": sim.directory.file(str(uuid.uuid4().hex)),
-                "rdf": sim.directory.file(str(uuid.uuid4().hex)),
-                "data": sim.directory.file(str(uuid.uuid4().hex)),
+                "thermo": sim.directory.temporary_file(),
+                "rdf": sim.directory.temporary_file(".data"),
+                "data": sim.directory.temporary_file(".data"),
             }
         else:
             file_ = None
@@ -945,6 +1004,7 @@ class EnsembleAverage(AnalysisOperation):
             sim[self]["_rdf_dump"] = WriteTrajectory(
                 filename=sim[self]["_rdf_file"],
                 every=rdf_params["every"],
+                format="LAMMPS-dump",
                 velocities=False,
                 images=False,
                 types=True,
@@ -1201,7 +1261,7 @@ class Record(AnalysisOperation):
 
         # write quantities to file with fix ave/time
         if mpi.world.rank == 0:
-            file_ = sim.directory.file(str(uuid.uuid4().hex))
+            file_ = sim.directory.temporary_file()
         else:
             file_ = None
         sim[self]["_fix_id"] = Counters.new_fix_id()
@@ -1257,43 +1317,51 @@ class WriteTrajectory(AnalysisOperation):
     where ``id`` is the atom ID, ``x y z`` are positions, ``vx vy vz`` are
     velocities, and ``ix iy iz`` are images.
 
-    Parameters
-    ----------
-    filename : str
-        Name of the trajectory file to be written, as a relative path.
-    every : int
-        Interval of time steps at which to write a snapshot.
-    velocities : bool
-        Include particle velocities.
-    images : bool
-        Include particle images.
-    types : bool
-        Include particle types.
-    masses : bool
-        Include particle masses.
-
     """
 
-    def __init__(self, filename, every, velocities, images, types, masses):
+    def __init__(self, filename, every, format, velocities, images, types, masses):
         self.filename = filename
         self.every = every
+        self.format = format
         self.velocities = velocities
         self.images = images
         self.types = types
         self.masses = masses
 
     def _pre_run_commands(self, sim, sim_op):
-        dump_format = "id"
-        if self.types is True:
-            dump_format += " type"
-        if self.masses is True:
-            dump_format += " mass"
-        # position is always dynamic
-        dump_format += " x y z"
-        if self.velocities is True:
-            dump_format += " vx vy vz"
-        if self.images is True:
-            dump_format += " ix iy iz"
+        schema = analyze.WriteTrajectory._make_lammps_schema(
+            self.velocities, self.images, self.types, self.masses
+        )
+
+        # determine number of columns from max index
+        num_columns = 0
+        for column in schema.values():
+            if not isinstance(column, int):
+                column = max(column)
+            if column > num_columns:
+                num_columns = column
+        num_columns += 1
+
+        dump_format = [None] * num_columns
+        for key, column in schema.items():
+            if key == "position":
+                for col, name in zip(column, ("x", "y", "z")):
+                    dump_format[col] = name
+            elif key == "velocity":
+                for col, name in zip(column, ("vx", "vy", "vz")):
+                    dump_format[col] = name
+            elif key == "image":
+                for col, name in zip(column, ("ix", "iy", "iz")):
+                    dump_format[col] = name
+            elif key == "typeid":
+                dump_format[column] = "type"
+            elif key in ("mass", "id"):
+                dump_format[column] = key
+            else:
+                raise KeyError(f"Unknown LAMMPS schema key {key}")
+        if None in dump_format:
+            raise ValueError("Noncompact schema keys")
+        dump_format = " ".join(dump_format)
 
         dump_id = Counters.new_dump_id()
         cmds = [
@@ -1313,7 +1381,18 @@ class WriteTrajectory(AnalysisOperation):
         return cmds
 
     def process(self, sim, sim_op):
-        pass
+        filename = sim.directory.file(self.filename)
+        file_format = analyze.WriteTrajectory._detect_format(filename, self.format)
+        if file_format == "HOOMD-GSD":
+            if mpi.world.rank_is_root:
+                gsd_file = sim.directory.temporary_file(".gsd")
+                type_map = {v: k for k, v in sim["engine"]["types"].items()}
+                with gsd.hoomd.open(gsd_file, "wb") as t:
+                    for snap in lammpsio.DumpFile(filename, sort_ids=True):
+                        frame = snap.to_hoomd_gsd(type_map)
+                        t.append(frame)
+                shutil.move(gsd_file, filename)
+            mpi.world.barrier()
 
 
 class LAMMPS(simulate.Simulation):
@@ -1353,8 +1432,6 @@ class LAMMPS(simulate.Simulation):
     operations : array_like
         :class:`~relentless.simulate.SimulationOperation` to execute for run.
         Defaults to ``None``, which means nothing is done after initialization.
-    dimension : int
-        Dimensionality of the simulation. Defaults to 3.
     quiet : bool
         If ``True``, silence LAMMPS screen output. Setting this to ``False`` can
         be helpful for debugging but would be very noisy in a long production
@@ -1377,7 +1454,6 @@ class LAMMPS(simulate.Simulation):
         self,
         initializer,
         operations=None,
-        dimension=3,
         quiet=True,
         types=None,
         executable=None,
@@ -1441,7 +1517,6 @@ class LAMMPS(simulate.Simulation):
             raise ImportError("Only LAMMPS 29 Sep 2021 or newer is supported.")
 
         super().__init__(initializer, operations)
-        self.dimension = dimension
         self.quiet = quiet
         self.types = types
 
@@ -1451,7 +1526,7 @@ class LAMMPS(simulate.Simulation):
         if not sim["engine"]["use_python"]:
             # send the commands to file
             if mpi.world.rank_is_root:
-                file_ = sim.directory.file(str(uuid.uuid4().hex))
+                file_ = sim.directory.temporary_file()
                 with open(file_, "w") as f:
                     for cmd in sim["engine"]["_lammps_commands"]:
                         f.write(cmd + "\n")
@@ -1499,7 +1574,6 @@ class LAMMPS(simulate.Simulation):
         sim["engine"]["types"] = self.types
         sim["engine"]["units"] = "lj"
         sim["engine"]["atom_style"] = "atomic"
-        sim["engine"]["dimension"] = self.dimension
 
     # initialize
     _InitializeFromFile = InitializeFromFile

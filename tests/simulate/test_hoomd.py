@@ -5,6 +5,7 @@ import unittest
 
 import gsd
 import gsd.hoomd
+import lammpsio
 import numpy
 import scipy.stats
 from packaging import version
@@ -71,7 +72,7 @@ class test_HOOMD(unittest.TestCase):
         return (ens, pots)
 
     # mock gsd file for testing
-    def create_gsd(self):
+    def create_gsd_file(self):
         filename = self.directory.file("test.gsd")
         if relentless.mpi.world.rank_is_root:
             with gsd.hoomd.open(name=filename, mode="wb") as f:
@@ -96,12 +97,44 @@ class test_HOOMD(unittest.TestCase):
         relentless.mpi.world.barrier()
         return filename
 
-    def test_initialize_from_file(self):
+    def create_lammps_file(self):
+        file_ = self.directory.file("test.data")
+
+        if relentless.mpi.world.rank_is_root:
+            low = [-5, -5, -5 if self.dim == 3 else -0.1]
+            high = [5, 5, 5 if self.dim == 3 else 0.1]
+            snap = lammpsio.Snapshot(N=5, box=lammpsio.Box(low, high))
+            snap.position[:, :2] = [[-4, -4], [-2, -2], [0, 0], [2, 2], [4, 4]]
+            if self.dim == 3:
+                snap.position[:, 2] = [-4, -2, 0, 2, 4]
+            snap.typeid = [1, 1, 2, 2, 2]
+            snap.mass = [0.3, 0.3, 0.1, 0.1, 0.1]
+            lammpsio.DataFile.create(file_, snap)
+        relentless.mpi.world.barrier()
+
+        return file_
+
+    def test_initialize_from_gsd_file(self):
         ens, pot = self.ens_pot()
-        f = self.create_gsd()
+        f = self.create_gsd_file()
         op = relentless.simulate.InitializeFromFile(filename=f)
         h = relentless.simulate.HOOMD(op)
         h.run(pot, self.directory)
+
+    def test_initialize_from_lammps_file(self):
+        """Test running initialization simulation operations."""
+        pot = LinPot(("1", "2"), params=("m",))
+        for pair in pot.coeff:
+            pot.coeff[pair].update({"m": -2.0, "rmax": 1.0})
+        pots = relentless.simulate.Potentials()
+        pots.pair = relentless.simulate.PairPotentialTabulator(
+            pot, start=1e-6, stop=2.0, num=10, neighbor_buffer=0.1
+        )
+
+        f = self.create_lammps_file()
+        op = relentless.simulate.InitializeFromFile(filename=f)
+        h = relentless.simulate.HOOMD(op)
+        h.run(pots, self.directory)
 
     def test_initialize_randomly(self):
         ens, pot = self.ens_pot()
@@ -489,17 +522,45 @@ class test_HOOMD(unittest.TestCase):
         init = relentless.simulate.InitializeRandomly(
             seed=1, N=ens.N, V=ens.V, T=ens.T, diameters={"A": 1, "B": 1}
         )
-        analyzer = relentless.simulate.WriteTrajectory(
-            filename="test_writetrajectory.gsd", every=100, velocities=True
+        lmpstrj = relentless.simulate.WriteTrajectory(
+            filename="test_writetrajectory.lammpstrj",
+            every=100,
+            velocities=True,
+            images=True,
+            types=True,
+            masses=True,
+        )
+        gsdtrj = relentless.simulate.WriteTrajectory(
+            filename="test_writetrajectory.gsd",
+            every=100,
+            velocities=True,
+            images=True,
+            types=True,
+            masses=True,
         )
         lgv = relentless.simulate.RunLangevinDynamics(
-            steps=500, timestep=0.001, T=ens.T, friction=1.0, seed=1, analyzers=analyzer
+            steps=500,
+            timestep=0.001,
+            T=ens.T,
+            friction=1.0,
+            seed=1,
+            analyzers=[lmpstrj, gsdtrj],
         )
         h = relentless.simulate.HOOMD(init, lgv)
         sim = h.run(pot, self.directory)
 
-        # read trajectory file
-        file = sim.directory.file("test_writetrajectory.gsd")
+        # read lammps trajectory file
+        file = sim.directory.file(lmpstrj.filename)
+        traj = lammpsio.DumpFile(file)
+        for snap in traj:
+            self.assertEqual(snap.N, 5)
+            self.assertIsNotNone(snap.velocity)
+            self.assertIsNotNone(snap.image)
+            self.assertCountEqual(snap.typeid, [1, 1, 2, 2, 2])
+            self.assertCountEqual(snap.mass, [1, 1, 1, 1, 1])
+
+        # read hoomd trajectory file
+        file = sim.directory.file(gsdtrj.filename)
         with gsd.hoomd.open(file) as traj:
             for snap in traj:
                 self.assertEqual(snap.particles.N, 5)
