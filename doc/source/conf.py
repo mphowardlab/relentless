@@ -6,6 +6,7 @@
 
 # -- Path setup --------------------------------------------------------------
 
+import datetime
 import os
 import sys
 
@@ -14,7 +15,8 @@ sys.path.insert(0, os.path.abspath("../../src"))
 # -- Project information -----------------------------------------------------
 
 project = "relentless"
-copyright = "2021, Auburn University"
+year = datetime.date.today().year
+copyright = f"2021-{year}, Auburn University"
 author = "Michael P. Howard"
 version = "0.1.0"
 release = "0.1.0"
@@ -30,6 +32,7 @@ extensions = [
     "sphinx.ext.mathjax",
     "sphinx.ext.napoleon",
     "sphinx_design",
+    "sphinx_favicon",
 ]
 
 templates_path = ["_templates"]
@@ -41,9 +44,29 @@ default_role = "any"
 # -- Options for HTML output -------------------------------------------------
 
 html_theme = "pydata_sphinx_theme"
-html_theme_options = {}
 html_static_path = ["_static"]
 html_css_files = ["theme_overrides.css"]
+html_theme_options = {
+    "icon_links": [
+        {
+            "name": "GitHub",
+            "url": "https://github.com/mphowardlab/relentless",
+            "icon": "fa-brands fa-square-github",
+        },
+        {
+            "name": "PyPI",
+            "url": "https://pypi.org/project/relentless",
+            "icon": "fa-solid fa-cube",
+        },
+    ],
+    "logo": {
+        "image_light": "relentless_logo.svg",
+        "image_dark": "relentless_logo_dark.svg",
+        "alt_text": "relentless",
+    },
+}
+
+favicons = ["relentless_icon.svg"]
 
 # -- Options for autodoc & autosummary ---------------------------------------
 
