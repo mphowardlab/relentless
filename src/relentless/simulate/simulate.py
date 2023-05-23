@@ -706,7 +706,7 @@ class PairPotentialTabulator(PotentialTabulator):
                 if len(all_rmax) == 0:
                     # there are no potentials, cutoff at minimum number of points
                     rcut = x[minimum_num - 1]
-                elif None not in all_rmax:
+                elif False not in all_rmax:
                     # use rmax if set for all potentials
                     rcut = min(max(all_rmax), x[-1])
                 else:

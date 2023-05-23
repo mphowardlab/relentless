@@ -13,6 +13,7 @@ import abc
 
 import numpy
 
+from relentless import mpi
 from relentless.model import ensemble, extent
 
 from . import analyze, md, simulate
@@ -140,35 +141,8 @@ class RunMolecularDynamics(_Integrator):
 
 
 class EnsembleAverage(simulate.AnalysisOperation):
-    r"""Analyzer for the simulation ensemble.
-
-    The temperature, volume, and number of particles are copied from the current
-    simulation ensemble. The radial distribution function is:
-
-    .. math::
-
-        g_{ij}(r) = e^{-\beta u_{ij}(r)}
-
-    and the pressure is:
-
-    .. math::
-
-        P = k_B T \sum_i\rho_i
-            - \frac{2}{3} \sum_i \sum_j \rho_i \rho_j
-            \int_0^\infty drr^3 \nabla u_{ij}(r) g_{ij}(r)
-
-    Parameters
-    ----------
-    check_thermo_every : int
-        Number of timesteps between computing thermodynamic properties.
-    check_rdf_every : int
-        Number of time steps between computing the RDF.
-    rdf_dr : float
-        The width of a bin in the RDF histogram.
-
-    """
-
-    def __init__(self, every, rdf, assume_constraints):
+    def __init__(self, filename, every, rdf, assume_constraints):
+        self.filename = filename
         self.every = every
         self.rdf = rdf
         self.assume_constraints = assume_constraints
@@ -189,7 +163,7 @@ class EnsembleAverage(simulate.AnalysisOperation):
         rdf_params = self._get_rdf_params(sim)
         if rdf_params is not None:
             kT = sim.potentials.kB * ens.T
-            for pair in ens.pairs:
+            for pair in sim.pairs:
                 bin_edges = numpy.linspace(
                     0, rdf_params["stop"], rdf_params["bins"] + 1
                 )
@@ -200,6 +174,12 @@ class EnsembleAverage(simulate.AnalysisOperation):
         sim[self]["ensemble"] = ens
         sim[self]["num_thermo_samples"] = None
         sim[self]["num_rdf_samples"] = None
+
+        # optionally save file
+        if self.filename is not None:
+            if mpi.world.rank_is_root:
+                ens.save(sim.directory.file(self.filename))
+            mpi.world.barrier()
 
     _get_rdf_params = analyze.EnsembleAverage._get_rdf_params
 

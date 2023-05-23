@@ -1,7 +1,9 @@
 import enum
-import os
+import shutil
 import warnings
 
+import gsd.hoomd
+import lammpsio
 import numpy
 from packaging import version
 
@@ -58,6 +60,7 @@ class InitializationOperation(simulate.InitializationOperation):
         # parse masses by type
         snap = sim["engine"]["_hoomd"].state.get_snapshot()
         sim.masses = self._get_masses_from_snapshot(sim, snap)
+        self._assert_dimension_safe(sim, snap)
 
         # create the potentials, defer attaching until later
         neighbor_list = hoomd.md.nlist.Tree(buffer=sim.potentials.pair.neighbor_buffer)
@@ -85,6 +88,7 @@ class InitializationOperation(simulate.InitializationOperation):
         with sim["engine"]["_hoomd"]:
             snap = sim[self]["_system"].take_snapshot(particles=True)
             sim.masses = self._get_masses_from_snapshot(sim, snap)
+            self._assert_dimension_safe(sim, snap)
 
         # attach the potentials
         def _table_eval(r_i, rmin, rmax, **coeff):
@@ -145,26 +149,63 @@ class InitializationOperation(simulate.InitializationOperation):
         masses.update(masses_)
         return masses
 
+    def _assert_dimension_safe(self, sim, snap):
+        if sim.dimension == 3:
+            dim_safe = True
+        elif sim.dimension == 2:
+            if mpi.world.rank == 0:
+                dim_safe = numpy.allclose(
+                    snap.particles.position[:, 2], 0
+                ) and numpy.allclose(snap.particles.velocity[:, 2], 0)
+            else:
+                dim_safe = None
+            dim_safe = mpi.world.bcast(dim_safe, root=0)
+        else:
+            raise ValueError("Only 2d and 3d simulations are supported")
+
+        if not dim_safe:
+            raise ValueError("Simulation initialized inconsistent with dimension")
+
 
 class InitializeFromFile(InitializationOperation):
-    """Initialize a simulation from a GSD file.
-
-    Parameters
-    ----------
-    filename : str
-        The file from which to read the system data.
-
-    """
-
-    def __init__(self, filename):
-        self.filename = os.path.realpath(filename)
+    def __init__(self, filename, format, dimension):
+        self.filename = filename
+        self.format = format
+        self.dimension = dimension
 
     def _initialize_v3(self, sim):
-        sim["engine"]["_hoomd"].create_state_from_gsd(self.filename)
+        gsd_filename = self._convert_to_gsd_file(sim)
+        sim["engine"]["_hoomd"].create_state_from_gsd(gsd_filename)
 
     def _initialize_v2(self, sim):
+        gsd_filename = self._convert_to_gsd_file(sim)
         with sim["engine"]["_hoomd"]:
-            return hoomd.init.read_gsd(self.filename)
+            return hoomd.init.read_gsd(gsd_filename)
+
+    def _convert_to_gsd_file(self, sim):
+        filename = sim.directory.file(self.filename)
+        file_format = initialize.InitializeFromFile._detect_format(
+            filename, self.format
+        )
+        if file_format == "LAMMPS-data":
+            if mpi.world.rank_is_root:
+                snap = lammpsio.DataFile(filename).read()
+                frame = snap.to_hoomd_gsd()
+                frame.configuration.dimensions = self.dimension
+                if self.dimension == 2:
+                    frame.configuration.box[4:6] = 0.0
+                    if _version.major >= 3:
+                        frame.configuration.box[2] = 0.0
+                gsd_filename = sim.directory.temporary_file(".gsd")
+                with gsd.hoomd.open(gsd_filename, "wb") as f:
+                    f.append(frame)
+            else:
+                gsd_filename = None
+            gsd_filename = mpi.world.bcast(gsd_filename)
+        else:
+            gsd_filename = filename
+
+        return gsd_filename
 
 
 class InitializeRandomly(InitializationOperation):
@@ -860,7 +901,8 @@ class AnalysisOperation(simulate.AnalysisOperation):
 
 
 class EnsembleAverage(AnalysisOperation):
-    def __init__(self, every, rdf, assume_constraints):
+    def __init__(self, filename, every, rdf, assume_constraints):
+        self.filename = filename
         self.every = every
         self.rdf = rdf
         self.assume_constraints = assume_constraints
@@ -958,6 +1000,12 @@ class EnsembleAverage(AnalysisOperation):
         sim[self]["num_rdf_samples"] = thermo_recorder.num_rdf_samples
 
         del sim[self]["_thermo_callback"]
+
+        # optionally save file
+        if self.filename is not None:
+            if mpi.world.rank_is_root:
+                ens.save(sim.directory.file(self.filename))
+            mpi.world.barrier()
 
     def _get_constrained_quantities(self, sim, sim_op):
         if not self.assume_constraints:
@@ -1254,7 +1302,7 @@ class EnsembleAverage(AnalysisOperation):
             Radial distribution functions.
             """
             if self.num_rdf_samples > 0:
-                rdf = collections.PairMatrix(self._rdf.types)
+                rdf = collections.PairMatrix(self.types)
                 for pair in rdf:
                     if mpi.world.rank == 0:
                         gr = numpy.column_stack(
@@ -1270,9 +1318,10 @@ class EnsembleAverage(AnalysisOperation):
 
 
 class Record(AnalysisOperation):
-    def __init__(self, quantities, every):
-        self.quantities = quantities
+    def __init__(self, filename, every, quantities):
+        self.filename = filename
         self.every = every
+        self.quantities = quantities
 
     def _pre_run_v3(self, sim, sim_op):
         sim[self]["_thermo"] = hoomd.md.compute.ThermodynamicQuantities(
@@ -1324,8 +1373,15 @@ class Record(AnalysisOperation):
             if q == "temperature":
                 values /= sim.potentials.kB
             sim[self][q] = values
-
         del sim[self]["_recorder"]
+
+        # optionally save file
+        if self.filename is not None:
+            if mpi.world.rank_is_root:
+                analyze.Record._save(
+                    sim.directory.file(self.filename), self.quantities, sim[self]
+                )
+            mpi.world.barrier()
 
     class RecorderCallback(Action):
         flags = [Action.Flags.PRESSURE_TENSOR]
@@ -1363,9 +1419,10 @@ class Record(AnalysisOperation):
 
 
 class WriteTrajectory(AnalysisOperation):
-    def __init__(self, filename, every, velocities, images, types, masses):
+    def __init__(self, filename, every, format, velocities, images, types, masses):
         self.filename = filename
         self.every = every
+        self.format = format
         self.velocities = velocities
         self.images = images
         self.types = types
@@ -1403,7 +1460,23 @@ class WriteTrajectory(AnalysisOperation):
         del sim[self]["_gsd"]
 
     def process(self, sim, sim_op):
-        pass
+        filename = sim.directory.file(self.filename)
+        file_format = analyze.WriteTrajectory._detect_format(filename, self.format)
+        if file_format == "LAMMPS-dump":
+            if mpi.world.rank_is_root:
+                dump_file = sim.directory.temporary_file(".dump")
+                snaps = []
+                with gsd.hoomd.open(filename) as t:
+                    for s in t:
+                        snap, _ = lammpsio.Snapshot.from_hoomd_gsd(s)
+                        snaps.append(snap)
+
+                schema = analyze.WriteTrajectory._make_lammps_schema(
+                    self.velocities, self.images, self.types, self.masses
+                )
+                lammpsio.DumpFile.create(dump_file, schema, snaps)
+                shutil.move(dump_file, filename)
+            mpi.world.barrier()
 
     def _get_dynamic(self):
         # property group is always dyanmic in the trajectory file since it logs position

@@ -1,4 +1,5 @@
 import itertools
+import pathlib
 
 import numpy
 import scipy.spatial
@@ -12,20 +13,72 @@ from . import simulate
 class InitializeFromFile(simulate.DelegatedInitializationOperation):
     """Initialize a simulation from a file.
 
-    Description.
-
     Parameters
     ----------
     filename : str
         Initial configuration.
+    format : str
+        File format, from the following:
+
+        - ``"HOOMD-GSD"``: HOOMD GSD file
+        - ``"LAMMPS-data"``: LAMMPS data file
+
+        If ``None`` (default), ``format`` is inferred from the ``filename``
+        according to the following ordered rules:
+
+        - Files with ``.gsd`` as their sufix are HOOMD-GSD.
+        - Files with ``.data`` anywhere in their suffix or as the stem of their
+          file name are LAMMPS-data.
+
+        Simulations are *encouraged* but not *required* to support as many file
+        formats as possible.
+    dimension : int
+        Dimension of simulation. If ``None`` (default), the dimension is inferred
+        from the file. Note that depending on the file format, this default may
+        produce incorrect results.
 
     """
 
-    def __init__(self, filename):
+    def __init__(self, filename, format=None, dimension=None):
         self.filename = filename
+        self.format = format
+        self.dimension = dimension
 
     def _make_delegate(self, sim):
-        return self._get_delegate(sim, filename=self.filename)
+        return self._get_delegate(
+            sim,
+            filename=self.filename,
+            format=self.format,
+            dimension=self.dimension,
+        )
+
+    @staticmethod
+    def _detect_format(filename, format=None):
+        if format is not None:
+            known_formats = (
+                "HOOMD-GSD",
+                "LAMMPS-data",
+            )
+            if format not in known_formats:
+                raise ValueError(
+                    "Format not recognized, must be one of: " + " ".join(known_formats)
+                )
+            format_ = format
+        else:
+            file_path = pathlib.Path(filename)
+
+            file_suffix = file_path.suffix
+            file_suffixes = file_path.suffixes
+            suffix_length = sum(len(ext) for ext in file_suffixes)
+            file_stem = file_path.stem[:-suffix_length]
+
+            format_ = None
+            if file_suffix == ".gsd":
+                format_ = "HOOMD-GSD"
+            elif ".data" in file_suffixes or file_stem == "data":
+                format_ = "LAMMPS-data"
+
+        return format_
 
 
 class InitializeRandomly(simulate.DelegatedInitializationOperation):
@@ -121,7 +174,7 @@ class InitializeRandomly(simulate.DelegatedInitializationOperation):
         rng = numpy.random.default_rng(seed)
         ortho_box, is_skew = InitializeRandomly._make_orthorhombic(V)
         dimension = len(ortho_box)
-        positions = numpy.zeros((sum(N.values()), dimension), dtype=numpy.float64)
+        positions = numpy.zeros((sum(N.values()), dimension), dtype=float)
         types = []
         trees = {}
         Nadded = 0
@@ -161,7 +214,7 @@ class InitializeRandomly(simulate.DelegatedInitializationOperation):
             num_lattice = numpy.floor(aabb / lattice).astype(int)
             sites = numpy.zeros(
                 (numpy.prod(num_lattice) * cell_coord.shape[0], dimension),
-                dtype=numpy.float64,
+                dtype=float,
             )
             first = 0
             for cell_origin in itertools.product(

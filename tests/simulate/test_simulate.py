@@ -158,7 +158,7 @@ class test_PairPotentialTabulator(unittest.TestCase):
         p1 = QuadPairPot(types=("1",))
         p1.coeff["1", "1"]["m"] = relentless.model.IndependentVariable(2.0)
         p2 = QuadPairPot(types=("1", "2"))
-        for pair in p2.coeff.pairs:
+        for pair in p2.coeff:
             p2.coeff[pair]["m"] = 1.0
         t = relentless.simulate.PairPotentialTabulator(
             potentials=[p1, p2], start=0, stop=5, num=6, neighbor_buffer=0.4
@@ -208,6 +208,10 @@ class test_PairPotentialTabulator(unittest.TestCase):
         # manually specify single r
         r, u, f = t.pairwise_energy_and_force(("1",), x=t.linear_space[0])
         self.assertEqual(r, t.linear_space[0])
+
+        # tight without rmax
+        r, u, f = t.pairwise_energy_and_force(("1",), tight=True)
+        numpy.testing.assert_allclose(r, t.linear_space)
 
         # set rmax and use tight option
         p1.coeff["1", "1"]["rmax"] = 3.0

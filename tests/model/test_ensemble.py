@@ -40,7 +40,6 @@ class test_Ensemble(unittest.TestCase):
         # P and N set
         ens = relentless.model.Ensemble(T=10, P=2.0, N={"A": 1, "B": 2})
         self.assertCountEqual(ens.types, ("A", "B"))
-        self.assertCountEqual(ens.rdf.pairs, (("A", "B"), ("A", "A"), ("B", "B")))
         self.assertAlmostEqual(ens.T, 10)
         self.assertAlmostEqual(ens.P, 2.0)
         self.assertEqual(ens.V, None)
@@ -50,7 +49,6 @@ class test_Ensemble(unittest.TestCase):
         v_obj = relentless.model.Cube(L=3.0)
         ens = relentless.model.Ensemble(T=20, V=v_obj, N={"A": 1, "B": 2})
         self.assertCountEqual(ens.types, ("A", "B"))
-        self.assertCountEqual(ens.rdf.pairs, (("A", "B"), ("A", "A"), ("B", "B")))
         self.assertAlmostEqual(ens.T, 20)
         self.assertEqual(ens.P, None)
         self.assertIs(ens.V, v_obj)
@@ -60,7 +58,6 @@ class test_Ensemble(unittest.TestCase):
         # one N is None
         ens = relentless.model.Ensemble(T=100, V=v_obj, N={"A": None, "B": 2})
         self.assertCountEqual(ens.types, ("A", "B"))
-        self.assertCountEqual(ens.rdf.pairs, (("A", "B"), ("A", "A"), ("B", "B")))
         self.assertAlmostEqual(ens.T, 100)
         self.assertEqual(ens.P, None)
         self.assertIs(ens.V, v_obj)
@@ -70,7 +67,6 @@ class test_Ensemble(unittest.TestCase):
         # test creation with single type
         ens = relentless.model.Ensemble(T=100, V=v_obj, N={"A": 10})
         self.assertCountEqual(ens.types, ("A",))
-        self.assertCountEqual(ens.rdf.pairs, (("A", "A"),))
         self.assertAlmostEqual(ens.T, 100)
         self.assertEqual(ens.P, None)
         self.assertIs(ens.V, v_obj)
@@ -134,7 +130,6 @@ class test_Ensemble(unittest.TestCase):
         ens_ = ens.copy()
         self.assertIsNot(ens, ens_)
         self.assertCountEqual(ens.types, ens_.types)
-        self.assertCountEqual(ens.rdf.pairs, ens_.rdf.pairs)
         self.assertAlmostEqual(ens.T, ens_.T)
         self.assertAlmostEqual(ens.P, ens_.P)
         self.assertIsInstance(ens_.V, relentless.model.Cube)
@@ -164,7 +159,6 @@ class test_Ensemble(unittest.TestCase):
         ens_ = relentless.model.Ensemble.from_file(temp.name)
         self.assertIsNot(ens_, ens)
         self.assertCountEqual(ens.types, ens_.types)
-        self.assertCountEqual(ens.rdf.pairs, ens_.rdf.pairs)
         self.assertAlmostEqual(ens.T, ens_.T)
         self.assertAlmostEqual(ens.P, ens_.P)
         self.assertIsInstance(ens_.V, relentless.model.Cube)

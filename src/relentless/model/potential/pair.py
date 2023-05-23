@@ -77,14 +77,9 @@ class PairParameters(potential.Parameters):
     def __init__(self, types, params):
         super().__init__(types, params)
         # override data container of parent to use pair matrix
-        self._data = collections.PairMatrix(types)
-        for pair in self:
-            self._data[pair] = collections.FixedKeyDict(keys=self.params)
-
-    @property
-    def pairs(self):
-        """tuple[tuple[str]]: Pairs in matrix."""
-        return self._data.pairs
+        self._data = collections.PairMatrix(
+            keys=types, default=collections.FixedKeyDict(keys=self.params)
+        )
 
 
 class PairPotential(potential.Potential):
@@ -916,8 +911,8 @@ class PairSpline(PairPotential):
             raise ValueError("u must have the same length as the number of knots")
 
         # convert to r,knot form given the mode
-        rs = numpy.asarray(r, dtype=numpy.float64)
-        ks = numpy.asarray(u, dtype=numpy.float64)
+        rs = numpy.asarray(r, dtype=float)
+        ks = numpy.asarray(u, dtype=float)
         if self.mode == "diff":
             # difference is next knot minus my knot,
             # with last knot fixed at its current value

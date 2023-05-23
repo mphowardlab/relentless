@@ -23,17 +23,22 @@ else:
 import tempfile
 import unittest
 
+import gsd
+import gsd.hoomd
+import lammpsio
 import numpy
 import parameterized
 import scipy.stats
-
-try:
-    import lammpsio
-except ImportError:
-    pass
+from packaging import version
 
 import relentless
 from tests.model.potential.test_pair import LinPot
+
+# silence warnings about Snapshot being deprecated
+if version.Version(gsd.__version__) >= version.Version("2.8.0"):
+    HOOMDFrame = gsd.hoomd.Frame
+else:
+    HOOMDFrame = gsd.hoomd.Snapshot
 
 # parametrize testing fixture
 if _lammps_executable is not None:
@@ -73,11 +78,11 @@ class test_LAMMPS(unittest.TestCase):
     def ens_pot(self):
         if self.dim == 3:
             ens = relentless.model.Ensemble(
-                T=2.0, V=relentless.model.Cube(L=10.0), N={"1": 2, "2": 3}
+                T=2.0, V=relentless.model.Cube(L=10.0), N={"A": 2, "B": 3}
             )
         elif self.dim == 2:
             ens = relentless.model.Ensemble(
-                T=2.0, V=relentless.model.Square(L=10.0), N={"1": 2, "2": 3}
+                T=2.0, V=relentless.model.Square(L=10.0), N={"A": 2, "B": 3}
             )
         else:
             raise ValueError("LAMMPS supports 2d and 3d simulations")
@@ -93,7 +98,32 @@ class test_LAMMPS(unittest.TestCase):
 
         return (ens, pots)
 
-    def create_file(self):
+    def create_gsd_file(self):
+        filename = self.directory.file("test.gsd")
+        if relentless.mpi.world.rank_is_root:
+            with gsd.hoomd.open(name=filename, mode="wb") as f:
+                s = HOOMDFrame()
+                s.particles.N = 5
+                s.particles.types = ["A", "B"]
+                s.particles.typeid = [0, 0, 1, 1, 1]
+                if self.dim == 3:
+                    s.particles.position = numpy.random.uniform(
+                        low=-5.0, high=5.0, size=(5, 3)
+                    )
+                    s.configuration.box = [20, 20, 20, 0, 0, 0]
+                elif self.dim == 2:
+                    s.particles.position = numpy.random.uniform(
+                        low=-5.0, high=5.0, size=(5, 3)
+                    )
+                    s.particles.position[:, 2] = 0
+                    s.configuration.box = [20, 20, 0, 0, 0, 0]
+                else:
+                    raise ValueError("HOOMD supports 2d and 3d simulations")
+                f.append(s)
+        relentless.mpi.world.barrier()
+        return filename
+
+    def create_lammps_file(self):
         file_ = self.directory.file("test.data")
 
         if relentless.mpi.world.rank_is_root:
@@ -110,24 +140,33 @@ class test_LAMMPS(unittest.TestCase):
 
         return file_
 
-    def test_initialize(self):
+    def test_initialize_from_lammps_file(self):
         """Test running initialization simulation operations."""
         # InitializeFromFile
         ens, pot = self.ens_pot()
-        file_ = self.create_file()
+        file_ = self.create_lammps_file()
         op = relentless.simulate.InitializeFromFile(filename=file_)
         lmp = relentless.simulate.LAMMPS(
             op,
-            dimension=self.dim,
-            types={"1": 1, "2": 2},
+            types={"A": 1, "B": 2},
             executable=self.executable,
         )
         lmp.run(potentials=pot, directory=self.directory)
 
         # InitializeRandomly
         op = relentless.simulate.InitializeRandomly(seed=1, N=ens.N, V=ens.V, T=ens.T)
+        lmp = relentless.simulate.LAMMPS(op, executable=self.executable)
+        lmp.run(potentials=pot, directory=self.directory)
+
+    def test_initialize_from_gsd_file(self):
+        """Test running initialization simulation operations."""
+        _, pot = self.ens_pot()
+        file_ = self.create_gsd_file()
+        op = relentless.simulate.InitializeFromFile(filename=file_)
         lmp = relentless.simulate.LAMMPS(
-            op, dimension=self.dim, executable=self.executable
+            op,
+            types={"A": 1, "B": 2},
+            executable=self.executable,
         )
         lmp.run(potentials=pot, directory=self.directory)
 
@@ -135,14 +174,12 @@ class test_LAMMPS(unittest.TestCase):
         # no T
         ens, pot = self.ens_pot()
         op = relentless.simulate.InitializeRandomly(seed=1, N=ens.N, V=ens.V)
-        h = relentless.simulate.LAMMPS(
-            op, dimension=self.dim, executable=self.executable
-        )
+        h = relentless.simulate.LAMMPS(op, executable=self.executable)
         h.run(potentials=pot, directory=self.directory)
 
         # T + diameters
         h.initializer = relentless.simulate.InitializeRandomly(
-            seed=1, N=ens.N, V=ens.V, diameters={"1": 1.0, "2": 2.0}
+            seed=1, N=ens.N, V=ens.V, diameters={"A": 1.0, "B": 2.0}
         )
         h.run(potentials=pot, directory=self.directory)
 
@@ -162,7 +199,7 @@ class test_LAMMPS(unittest.TestCase):
     def test_minimization(self):
         """Test running energy minimization simulation operation."""
         ens, pot = self.ens_pot()
-        file_ = self.create_file()
+        file_ = self.create_lammps_file()
         init = relentless.simulate.InitializeFromFile(filename=file_)
 
         # MinimizeEnergy
@@ -175,8 +212,7 @@ class test_LAMMPS(unittest.TestCase):
         lmp = relentless.simulate.LAMMPS(
             init,
             operations=[emin],
-            dimension=self.dim,
-            types={"1": 1, "2": 2},
+            types={"A": 1, "B": 2},
             executable=self.executable,
         )
         lmp.run(potentials=pot, directory=self.directory)
@@ -196,16 +232,14 @@ class test_LAMMPS(unittest.TestCase):
         brn = relentless.simulate.RunBrownianDynamics(
             steps=1, timestep=1.0e-3, T=ens.T, friction=1.0, seed=2
         )
-        h = relentless.simulate.LAMMPS(
-            init, brn, dimension=self.dim, executable=self.executable
-        )
+        h = relentless.simulate.LAMMPS(init, brn, executable=self.executable)
         if "BROWNIAN" not in h.packages:
             self.skipTest("LAMMPS BROWNIAN package not installed")
         else:
             h.run(pot, self.directory)
 
         # different friction coefficients
-        brn.friction = {"1": 1.5, "2": 2.5}
+        brn.friction = {"A": 1.5, "B": 2.5}
         h.run(pot, self.directory)
 
         # temperature annealing
@@ -216,9 +250,7 @@ class test_LAMMPS(unittest.TestCase):
     def test_langevin_dynamics(self):
         ens, pot = self.ens_pot()
         init = relentless.simulate.InitializeRandomly(seed=1, N=ens.N, V=ens.V, T=ens.T)
-        lmp = relentless.simulate.LAMMPS(
-            init, dimension=self.dim, executable=self.executable
-        )
+        lmp = relentless.simulate.LAMMPS(init, executable=self.executable)
 
         # float friction
         lgv = relentless.simulate.RunLangevinDynamics(
@@ -228,15 +260,15 @@ class test_LAMMPS(unittest.TestCase):
         lmp.run(pot, self.directory)
 
         # dictionary friction
-        lgv.friction = {"1": 2.0, "2": 5.0}
+        lgv.friction = {"A": 2.0, "B": 5.0}
         lmp.run(pot, self.directory)
 
         # single-type friction
         init_1 = relentless.simulate.InitializeRandomly(
-            seed=1, N={"1": 2}, V=ens.V, T=ens.T
+            seed=1, N={"A": 2}, V=ens.V, T=ens.T
         )
         lgv = relentless.simulate.RunLangevinDynamics(
-            steps=1, timestep=0.5, T=ens.T, friction={"1": 3.0}, seed=2
+            steps=1, timestep=0.5, T=ens.T, friction={"A": 3.0}, seed=2
         )
         lmp.initializer = init_1
         lmp.operations = lgv
@@ -247,7 +279,7 @@ class test_LAMMPS(unittest.TestCase):
         lmp.run(pot, self.directory)
 
         # invalid-type friction
-        lgv.friction = {"2": 5.0, "3": 2.0}
+        lgv.friction = {"B": 5.0, "C": 2.0}
         lmp.initializer = init
         lmp.operations = lgv
         with self.assertRaises(KeyError):
@@ -256,9 +288,7 @@ class test_LAMMPS(unittest.TestCase):
     def test_molecular_dynamics(self):
         ens, pot = self.ens_pot()
         init = relentless.simulate.InitializeRandomly(seed=1, N=ens.N, V=ens.V, T=ens.T)
-        lmp = relentless.simulate.LAMMPS(
-            init, dimension=self.dim, executable=self.executable
-        )
+        lmp = relentless.simulate.LAMMPS(init, executable=self.executable)
 
         # VerletIntegrator - NVE
         vrl = relentless.simulate.RunMolecularDynamics(steps=1, timestep=1e-3)
@@ -309,9 +339,13 @@ class test_LAMMPS(unittest.TestCase):
         else:
             V = relentless.model.Square(100.0)
         init = relentless.simulate.InitializeRandomly(
-            seed=1, N={"1": 20000}, V=V, T=2.0
+            seed=1, N={"A": 20000}, V=V, T=2.0
         )
-        logger = relentless.simulate.Record(quantities=["temperature"], every=100)
+        logger = relentless.simulate.Record(
+            filename=None,
+            every=100,
+            quantities=["temperature"],
+        )
         brn = relentless.simulate.RunLangevinDynamics(
             steps=1000,
             timestep=1.0e-3,
@@ -320,9 +354,7 @@ class test_LAMMPS(unittest.TestCase):
             seed=2,
             analyzers=logger,
         )
-        lmp = relentless.simulate.LAMMPS(
-            init, brn, dimension=self.dim, executable=self.executable
-        )
+        lmp = relentless.simulate.LAMMPS(init, brn, executable=self.executable)
 
         pot = relentless.simulate.Potentials()
         pot.pair = relentless.simulate.PairPotentialTabulator(
@@ -340,13 +372,13 @@ class test_LAMMPS(unittest.TestCase):
         """Test ensemble analyzer simulation operation."""
         ens, pot = self.ens_pot()
         init = relentless.simulate.InitializeRandomly(
-            seed=1, N=ens.N, V=ens.V, T=ens.T, diameters={"1": 1, "2": 1}
+            seed=1, N=ens.N, V=ens.V, T=ens.T, diameters={"A": 1, "B": 1}
         )
         analyzer = relentless.simulate.EnsembleAverage(
-            every=5, rdf={"stop": 2.0, "num": 20}
+            filename=None, every=5, rdf={"stop": 2.0, "num": 20}
         )
         analyzer2 = relentless.simulate.EnsembleAverage(
-            every=10, rdf={"stop": 2.0, "num": 10}
+            filename=None, every=10, rdf={"stop": 2.0, "num": 10}
         )
         lgv = relentless.simulate.RunLangevinDynamics(
             steps=500,
@@ -356,9 +388,7 @@ class test_LAMMPS(unittest.TestCase):
             seed=1,
             analyzers=[analyzer, analyzer2],
         )
-        h = relentless.simulate.LAMMPS(
-            init, operations=lgv, dimension=self.dim, executable=self.executable
-        )
+        h = relentless.simulate.LAMMPS(init, operations=lgv, executable=self.executable)
         sim = h.run(potentials=pot, directory=self.directory)
 
         # extract ensemble
@@ -389,7 +419,9 @@ class test_LAMMPS(unittest.TestCase):
 
         # repeat same analysis with logger, and make sure it still works
         logger = relentless.simulate.Record(
-            quantities=["temperature", "pressure"], every=5
+            filename=None,
+            every=5,
+            quantities=["temperature", "pressure"],
         )
         lgv.analyzers = logger
         sim = h.run(pot, self.directory)
@@ -406,9 +438,11 @@ class test_LAMMPS(unittest.TestCase):
         """Test ensemble analyzer simulation operation."""
         ens, pot = self.ens_pot()
         init = relentless.simulate.InitializeRandomly(
-            seed=1, N=ens.N, V=ens.V, T=ens.T, diameters={"1": 1, "2": 1}
+            seed=1, N=ens.N, V=ens.V, T=ens.T, diameters={"A": 1, "B": 1}
         )
-        analyzer = relentless.simulate.EnsembleAverage(every=1, assume_constraints=True)
+        analyzer = relentless.simulate.EnsembleAverage(
+            filename=None, every=1, assume_constraints=True
+        )
         md = relentless.simulate.RunMolecularDynamics(
             steps=100,
             timestep=0.001,
@@ -416,9 +450,7 @@ class test_LAMMPS(unittest.TestCase):
             barostat=relentless.simulate.MTKBarostat(0.0, 1.0),
             analyzers=analyzer,
         )
-        h = relentless.simulate.LAMMPS(
-            init, md, dimension=self.dim, executable=self.executable
-        )
+        h = relentless.simulate.LAMMPS(init, md, executable=self.executable)
 
         # NPT
         sim = h.run(pot, self.directory)
@@ -427,6 +459,9 @@ class test_LAMMPS(unittest.TestCase):
         self.assertEqual(ens_.P, 0.0)
         self.assertNotEqual(ens_.V.extent, ens.V.extent)
         self.assertDictEqual(dict(ens_.N), dict(ens.N))
+        # check that file can be saved
+        if relentless.mpi.world.size == 1:
+            ens_.save(self.directory.file("ensemble.json"))
 
         # NVT
         md.barostat = None
@@ -488,14 +523,62 @@ class test_LAMMPS(unittest.TestCase):
             self.assertEqual(ens_.V.extent, ens.V.extent)
             self.assertDictEqual(dict(ens_.N), dict(ens.N))
 
+    def test_record(self):
+        ens, pot = self.ens_pot()
+        init = relentless.simulate.InitializeRandomly(
+            seed=1, N=ens.N, V=ens.V, T=ens.T, diameters={"A": 1, "B": 1}
+        )
+        analyzer = relentless.simulate.Record(
+            filename=None,
+            every=5,
+            quantities=[
+                "potential_energy",
+                "kinetic_energy",
+                "temperature",
+                "pressure",
+            ],
+        )
+        lgv = relentless.simulate.RunLangevinDynamics(
+            steps=10, timestep=0.001, T=ens.T, friction=1.0, seed=1, analyzers=analyzer
+        )
+        h = relentless.simulate.LAMMPS(init, lgv, executable=self.executable)
+        sim = h.run(pot, self.directory)
+
+        # check entries exist for data
+        record_file = self.directory.file("record.dat")
+        self.assertIn("timestep", sim[analyzer])
+        self.assertIn("potential_energy", sim[analyzer])
+        self.assertIn("kinetic_energy", sim[analyzer])
+        self.assertIn("temperature", sim[analyzer])
+        self.assertIn("pressure", sim[analyzer])
+        self.assertFalse(os.path.exists(record_file))
+
+        # rerun and check that arrays have same contents as file
+        analyzer.filename = record_file
+        sim = h.run(pot, self.directory)
+        dat = relentless.mpi.world.loadtxt(record_file)
+        numpy.testing.assert_allclose(dat[:, 0], sim[analyzer]["timestep"])
+        numpy.testing.assert_allclose(dat[:, 1], sim[analyzer]["potential_energy"])
+        numpy.testing.assert_allclose(dat[:, 2], sim[analyzer]["kinetic_energy"])
+        numpy.testing.assert_allclose(dat[:, 3], sim[analyzer]["temperature"])
+        numpy.testing.assert_allclose(dat[:, 4], sim[analyzer]["pressure"])
+
     def test_writetrajectory(self):
         """Test write trajectory simulation operation."""
         ens, pot = self.ens_pot()
         init = relentless.simulate.InitializeRandomly(
-            seed=1, N=ens.N, V=ens.V, T=ens.T, diameters={"1": 1, "2": 1}
+            seed=1, N=ens.N, V=ens.V, T=ens.T, diameters={"A": 1, "B": 1}
         )
-        analyzer = relentless.simulate.WriteTrajectory(
+        lmpstrj = relentless.simulate.WriteTrajectory(
             filename="test_writetrajectory.lammpstrj",
+            every=100,
+            velocities=True,
+            images=True,
+            types=True,
+            masses=True,
+        )
+        gsdtrj = relentless.simulate.WriteTrajectory(
+            filename="test_writetrajectory.gsd",
             every=100,
             velocities=True,
             images=True,
@@ -508,15 +591,13 @@ class test_LAMMPS(unittest.TestCase):
             T=ens.T,
             friction=1.0,
             seed=1,
-            analyzers=[analyzer],
+            analyzers=[lmpstrj, gsdtrj],
         )
-        h = relentless.simulate.LAMMPS(
-            init, operations=lgv, dimension=self.dim, executable=self.executable
-        )
+        h = relentless.simulate.LAMMPS(init, operations=lgv, executable=self.executable)
         sim = h.run(potentials=pot, directory=self.directory)
 
-        # read trajectory file
-        file = sim.directory.file("test_writetrajectory.lammpstrj")
+        # read lammps trajectory file
+        file = sim.directory.file(lmpstrj.filename)
         traj = lammpsio.DumpFile(file)
         for snap in traj:
             self.assertEqual(snap.N, 5)
@@ -524,6 +605,14 @@ class test_LAMMPS(unittest.TestCase):
             self.assertIsNotNone(snap.image)
             self.assertCountEqual(snap.typeid, [1, 1, 2, 2, 2])
             self.assertCountEqual(snap.mass, [1, 1, 1, 1, 1])
+
+        # read hoomd trajectory file
+        file = sim.directory.file(gsdtrj.filename)
+        with gsd.hoomd.open(file) as traj:
+            for snap in traj:
+                self.assertEqual(snap.particles.N, 5)
+                self.assertIsNotNone(snap.particles.velocity)
+                self.assertCountEqual(snap.particles.typeid, [0, 0, 1, 1, 1])
 
     def tearDown(self):
         relentless.mpi.world.barrier()

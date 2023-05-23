@@ -146,38 +146,23 @@ class test_PairMatrix(unittest.TestCase):
 
     def test_init(self):
         """Test construction with different list types."""
-        types = ("A", "B")
-        pairs = (("A", "B"), ("B", "B"), ("A", "A"))
-
         # test construction with tuple input
-        m = relentless.collections.PairMatrix(types=("A", "B"))
-        self.assertEqual(m.types, types)
-        self.assertCountEqual(m.pairs, pairs)
+        pairs = (("A", "B"), ("B", "B"), ("A", "A"))
+        m = relentless.collections.PairMatrix(("A", "B"))
+        self.assertCountEqual(tuple(m.keys()), pairs)
 
         # test construction with list input
-        m = relentless.collections.PairMatrix(types=["A", "B"])
-        self.assertEqual(m.types, types)
-        self.assertCountEqual(m.pairs, pairs)
-
-        types = ("A",)
-        pairs = (("A", "A"),)
+        m = relentless.collections.PairMatrix(["A", "B"])
+        self.assertCountEqual(tuple(m.keys()), pairs)
 
         # test construction with single type tuple
-        m = relentless.collections.PairMatrix(types=("A",))
-        self.assertEqual(m.types, types)
-        self.assertCountEqual(m.pairs, pairs)
-
-        # test construction with int type input
-        with self.assertRaises(TypeError):
-            m = relentless.collections.PairMatrix(types=(1, 2))
-
-        # test construction with mixed type input
-        with self.assertRaises(TypeError):
-            m = relentless.collections.PairMatrix(types=("1", 2))
+        pairs = (("A", "A"),)
+        m = relentless.collections.PairMatrix(("A",))
+        self.assertCountEqual(tuple(m.keys()), pairs)
 
     def test_accessors(self):
         """Test get and set methods on pairs."""
-        m = relentless.collections.PairMatrix(types=("A", "B"))
+        m = relentless.collections.PairMatrix(("A", "B"), default={})
 
         # test set and get for each pair type
         m["A", "A"]["energy"] = 1.0
@@ -238,7 +223,7 @@ class test_PairMatrix(unittest.TestCase):
 
     def test_iteration(self):
         """Test iteration on the matrix."""
-        m = relentless.collections.PairMatrix(types=("A", "B"))
+        m = relentless.collections.PairMatrix(("A", "B"), default={})
 
         # test iteration for initialization
         for pair in m:

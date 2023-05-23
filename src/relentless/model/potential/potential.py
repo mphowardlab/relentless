@@ -308,7 +308,7 @@ class Potential(abc.ABC):
 
         """
         s = numpy.isscalar(x)
-        x = numpy.array(x, dtype=numpy.float64, ndmin=1)
+        x = numpy.array(x, dtype=float, ndmin=1)
         if len(x.shape) != 1:
             raise TypeError("Potential coordinate must be 1D array.")
         return x, numpy.zeros_like(x), s

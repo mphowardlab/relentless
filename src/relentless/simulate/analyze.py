@@ -1,3 +1,7 @@
+import pathlib
+
+import numpy
+
 from . import simulate
 
 
@@ -6,6 +10,9 @@ class EnsembleAverage(simulate.DelegatedAnalysisOperation):
 
     Parameters
     ----------
+    filename : str
+        Filename to record quantities to. May be set to ``None`` so that no
+        file is written.
     every : int
         Interval of time steps at which to average thermodynamic properties of
         the ensemble.
@@ -35,7 +42,8 @@ class EnsembleAverage(simulate.DelegatedAnalysisOperation):
 
     """
 
-    def __init__(self, every, rdf=None, assume_constraints=False):
+    def __init__(self, filename, every, rdf=None, assume_constraints=False):
+        self.filename = filename
         self.every = every
         self.rdf = rdf
         self.assume_constraints = assume_constraints
@@ -43,6 +51,7 @@ class EnsembleAverage(simulate.DelegatedAnalysisOperation):
     def _make_delegate(self, sim):
         return self._get_delegate(
             sim,
+            filename=self.filename,
             every=self.every,
             rdf=self.rdf,
             assume_constraints=self.assume_constraints,
@@ -84,6 +93,11 @@ class Record(simulate.DelegatedAnalysisOperation):
 
     Parameters
     ----------
+    filename : str
+        Filename to record quantities to. May be set to ``None`` so that no
+        file is written.
+    every : int
+        Interval of time steps at which to record values.
     quantities : str or list
         One or more quantities to record. Valid values are:
 
@@ -92,20 +106,19 @@ class Record(simulate.DelegatedAnalysisOperation):
         - ``"temperature"``: Temperature.
         - ``"pressure"``: Pressure.
 
-    every : int
-        Interval of time steps at which to record values.
-
     """
 
-    def __init__(self, quantities, every):
+    def __init__(self, filename, every, quantities):
+        self.filename = filename
         self.quantities = quantities
         self.every = every
 
     def _make_delegate(self, sim):
         return self._get_delegate(
             sim,
-            quantities=self.quantities,
+            filename=self.filename,
             every=self.every,
+            quantities=self.quantities,
         )
 
     @property
@@ -121,6 +134,14 @@ class Record(simulate.DelegatedAnalysisOperation):
         else:
             value = list(value)
         self._quantities = value
+
+    @staticmethod
+    def _save(filename, quantities, data):
+        numpy.savetxt(
+            filename,
+            numpy.column_stack([data["timestep"]] + [data[q] for q in quantities]),
+            header="timestep " + " ".join(quantities),
+        )
 
 
 class WriteTrajectory(simulate.DelegatedAnalysisOperation):
@@ -140,6 +161,21 @@ class WriteTrajectory(simulate.DelegatedAnalysisOperation):
         Name of the trajectory file to be written, as a relative path.
     every : int
         Interval of time steps at which to write a snapshot.
+    format : str
+        File format, from the following:
+
+        - ``"HOOMD-GSD"``: HOOMD GSD file
+        - ``"LAMMPS-dump"``: LAMMPS dump file
+
+        If ``None`` (default), ``format`` is inferred from the ``filename``
+        according to the following ordered rules:
+
+        - Files with ``.gsd`` as their sufix are HOOMD-GSD.
+        - Files with ``.dump`` or ``.lammpstrj`` anywhere in their suffix or
+          ``dump`` as the stem of their file name are LAMMPS-dump.
+
+        Simulations are *encouraged* but not *required* to support as many file
+        formats as possible.
     velocities : bool
         Include particle velocities.
     images : bool
@@ -152,10 +188,18 @@ class WriteTrajectory(simulate.DelegatedAnalysisOperation):
     """
 
     def __init__(
-        self, filename, every, velocities=False, images=False, types=False, masses=False
+        self,
+        filename,
+        every,
+        format=None,
+        velocities=False,
+        images=False,
+        types=False,
+        masses=False,
     ):
         self.filename = filename
         self.every = every
+        self.format = format
         self.velocities = velocities
         self.images = images
         self.types = types
@@ -166,8 +210,62 @@ class WriteTrajectory(simulate.DelegatedAnalysisOperation):
             sim,
             filename=self.filename,
             every=self.every,
+            format=self.format,
             velocities=self.velocities,
             images=self.images,
             types=self.types,
             masses=self.masses,
         )
+
+    @staticmethod
+    def _detect_format(filename, format=None):
+        if format is not None:
+            known_formats = (
+                "HOOMD-GSD",
+                "LAMMPS-dump",
+            )
+            if format not in known_formats:
+                raise ValueError(
+                    "Format not recognized, must be one of: " + " ".join(known_formats)
+                )
+            format_ = format
+        else:
+            file_path = pathlib.Path(filename)
+
+            file_suffix = file_path.suffix
+            file_suffixes = file_path.suffixes
+            suffix_length = sum(len(ext) for ext in file_suffixes)
+            file_stem = file_path.stem[:-suffix_length]
+
+            format_ = None
+            if file_suffix == ".gsd":
+                format_ = "HOOMD-GSD"
+            elif (
+                ".lammpstrj" in file_suffixes
+                or ".dump" in file_suffixes
+                or file_stem == "dump"
+            ):
+                format_ = "LAMMPS-dump"
+
+        return format_
+
+    @staticmethod
+    def _make_lammps_schema(velocities, images, types, masses):
+        schema = {"id": 0}
+        column = 1
+        if types:
+            schema["typeid"] = column
+            column += 1
+        if masses:
+            schema["mass"] = column
+            column += 1
+        # position is always written
+        schema["position"] = (column, column + 1, column + 2)
+        column += 3
+        if velocities:
+            schema["velocity"] = (column, column + 1, column + 2)
+            column += 3
+        if images:
+            schema["image"] = (column, column + 1, column + 2)
+            column += 3
+        return schema
