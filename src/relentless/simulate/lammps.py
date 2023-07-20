@@ -7,6 +7,7 @@ import freud
 import gsd.hoomd
 import lammpsio
 import numpy
+import packaging.version
 
 from relentless import collections, mpi
 from relentless.model import ensemble, extent
@@ -19,6 +20,15 @@ try:
     _lammps_found = True
 except ImportError:
     _lammps_found = False
+
+try:
+    _gsd_version = gsd.version.version
+except AttributeError:
+    _gsd_version = gsd.__version__
+if packaging.version.Version(_gsd_version) >= packaging.version.Version("2.8.0"):
+    _gsd_write_mode = "w"
+else:
+    _gsd_write_mode = "wb"
 
 
 class Counters:
@@ -1387,7 +1397,7 @@ class WriteTrajectory(AnalysisOperation):
             if mpi.world.rank_is_root:
                 gsd_file = sim.directory.temporary_file(".gsd")
                 type_map = {v: k for k, v in sim["engine"]["types"].items()}
-                with gsd.hoomd.open(gsd_file, "wb") as t:
+                with gsd.hoomd.open(gsd_file, _gsd_write_mode) as t:
                     for snap in lammpsio.DumpFile(filename, sort_ids=True):
                         frame = snap.to_hoomd_gsd(type_map)
                         t.append(frame)

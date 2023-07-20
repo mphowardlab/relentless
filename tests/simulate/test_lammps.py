@@ -41,8 +41,10 @@ except AttributeError:
     gsd_version = gsd.__version__
 if version.Version(gsd_version) >= version.Version("2.8.0"):
     HOOMDFrame = gsd.hoomd.Frame
+    gsd_write_mode = "w"
 else:
     HOOMDFrame = gsd.hoomd.Snapshot
+    gsd_write_mode = "wb"
 
 # parametrize testing fixture
 if _lammps_executable is not None:
@@ -105,7 +107,7 @@ class test_LAMMPS(unittest.TestCase):
     def create_gsd_file(self):
         filename = self.directory.file("test.gsd")
         if relentless.mpi.world.rank_is_root:
-            with gsd.hoomd.open(name=filename, mode="wb") as f:
+            with gsd.hoomd.open(name=filename, mode=gsd_write_mode) as f:
                 s = HOOMDFrame()
                 s.particles.N = 5
                 s.particles.types = ["A", "B"]
