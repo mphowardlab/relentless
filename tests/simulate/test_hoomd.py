@@ -19,7 +19,11 @@ _has_modules = (
 )
 
 # silence warnings about Snapshot being deprecated
-if version.Version(gsd.__version__) >= version.Version("2.8.0"):
+try:
+    gsd_version = gsd.version.version
+except AttributeError:
+    gsd_version = gsd.__version__
+if version.Version(gsd_version) >= version.Version("2.8.0"):
     HOOMDFrame = gsd.hoomd.Frame
 else:
     HOOMDFrame = gsd.hoomd.Snapshot
