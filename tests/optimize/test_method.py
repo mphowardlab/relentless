@@ -226,6 +226,15 @@ class test_SteepestDescent(unittest.TestCase):
         with open(d.directory("1").file("x.log")) as f:
             self.assertAlmostEqual(float(f.readline()), 1.25)
 
+    def test_directory_str(self):
+        x = relentless.model.IndependentVariable(value=1.5)
+        q = QuadraticObjective(x=x)
+        t = relentless.optimize.GradientTest(tolerance=1e-8, variables=x)
+        o = relentless.optimize.SteepestDescent(stop=t, max_iter=1, step_size=0.25)
+        d = self.directory.path
+
+        o.optimize(q, x, d, overwrite=True)
+
     def test_directory_line_search(self):
         x = relentless.model.IndependentVariable(value=0.5)
         q = QuadraticObjective(x=x)

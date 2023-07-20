@@ -70,6 +70,7 @@ class Optimizer(abc.ABC):
                         directory.path
                     )
                 )
+        return directory
 
 
 class LineSearch:
@@ -375,7 +376,7 @@ class SteepestDescent(Optimizer):
             return None
 
         if directory is not None:
-            self._setup_directory(directory, overwrite)
+            directory = self._setup_directory(directory, overwrite)
 
         # fix scaling parameters
         scale = math.KeyedArray(keys=variables)
