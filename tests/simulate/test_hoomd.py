@@ -19,10 +19,16 @@ _has_modules = (
 )
 
 # silence warnings about Snapshot being deprecated
-if version.Version(gsd.__version__) >= version.Version("2.8.0"):
+try:
+    gsd_version = gsd.version.version
+except AttributeError:
+    gsd_version = gsd.__version__
+if version.Version(gsd_version) >= version.Version("2.8.0"):
     HOOMDFrame = gsd.hoomd.Frame
+    gsd_write_mode = "w"
 else:
     HOOMDFrame = gsd.hoomd.Snapshot
+    gsd_write_mode = "wb"
 
 
 @unittest.skipIf(not _has_modules, "HOOMD dependencies not installed")
@@ -75,7 +81,7 @@ class test_HOOMD(unittest.TestCase):
     def create_gsd_file(self):
         filename = self.directory.file("test.gsd")
         if relentless.mpi.world.rank_is_root:
-            with gsd.hoomd.open(name=filename, mode="wb") as f:
+            with gsd.hoomd.open(name=filename, mode=gsd_write_mode) as f:
                 s = HOOMDFrame()
                 s.particles.N = 5
                 s.particles.types = ["A", "B"]
@@ -325,10 +331,10 @@ class test_HOOMD(unittest.TestCase):
         sim = h.run(pot, self.directory)
 
         # HOOMD behavior for sampling differs between version 2 and 3
-        if relentless.simulate.hoomd._version.major == 3:
+        if relentless.simulate.hoomd._hoomd_version.major == 3:
             expected_thermo_samples = 101
             expected_rdf_samples = 51
-        elif relentless.simulate.hoomd._version.major == 2:
+        elif relentless.simulate.hoomd._hoomd_version.major == 2:
             expected_thermo_samples = 100
             expected_rdf_samples = 50
 
@@ -580,7 +586,7 @@ class test_HOOMD(unittest.TestCase):
 
         filename = self.directory.file("mock.gsd")
         if relentless.mpi.world.rank_is_root:
-            with gsd.hoomd.open(name=filename, mode="wb") as f:
+            with gsd.hoomd.open(name=filename, mode=gsd_write_mode) as f:
                 s = HOOMDFrame()
                 s.particles.N = 4
                 s.particles.types = ["A", "B"]
