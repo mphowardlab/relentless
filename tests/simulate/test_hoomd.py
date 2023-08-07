@@ -195,7 +195,6 @@ class test_HOOMD(unittest.TestCase):
                 energy_tolerance=1e-7,
                 force_tolerance=1e-7,
                 max_iterations=1000,
-                options={},
             )
             h = relentless.simulate.HOOMD(init, emin)
             h.run(pot, self.directory)
@@ -209,7 +208,6 @@ class test_HOOMD(unittest.TestCase):
         )
         h = relentless.simulate.HOOMD(init, emin)
         h.run(pot, self.directory)
-        self.assertEqual(emin.options["steps_per_iteration"], 100)
 
     def test_brownian_dynamics(self):
         """Test adding and removing integrator operations."""

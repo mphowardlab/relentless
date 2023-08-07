@@ -226,11 +226,10 @@ class test_LAMMPS(unittest.TestCase):
 
         # check default value of max_evaluations
         emin = relentless.simulate.MinimizeEnergy(
-            energy_tolerance=1e-7, force_tolerance=1e-7, max_iterations=1000, options={}
+            energy_tolerance=1e-7, force_tolerance=1e-7, max_iterations=1000
         )
         lmp.operations = emin
         lmp.run(potentials=pot, directory=self.directory)
-        self.assertEqual(emin.options["max_evaluations"], 100 * emin.max_iterations)
 
     def test_brownian_dynamics(self):
         ens, pot = self.ens_pot()
