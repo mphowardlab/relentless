@@ -510,20 +510,16 @@ class MinimizeEnergy(SimulationOperation):
         self.energy_tolerance = energy_tolerance
         self.force_tolerance = force_tolerance
         self.max_iterations = max_iterations
-        self.options = options
-        if "max_evaluations" not in self.options:
-            self.options["max_evaluations"] = None
+        self.options = options if options is not None else {}
 
     def _call_commands(self, sim):
-        if self.options["max_evaluations"] is None:
-            self.options["max_evaluations"] = 100 * self.max_iterations
-
+        max_eval = self.options.get("max_evaluations", 100 * self.max_iterations)
         cmds = [
             "minimize {etol} {ftol} {maxiter} {maxeval}".format(
                 etol=self.energy_tolerance,
                 ftol=self.force_tolerance,
                 maxiter=self.max_iterations,
-                maxeval=self.options["max_evaluations"],
+                maxeval=max_eval,
             )
         ]
         if sim.dimension == 2:

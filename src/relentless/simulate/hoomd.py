@@ -415,11 +415,9 @@ class MinimizeEnergy(SimulationOperation):
         self.energy_tolerance = energy_tolerance
         self.force_tolerance = force_tolerance
         self.max_iterations = max_iterations
-        self.options = options
+        self.options = options if options is not None else {}
         if "max_displacement" not in self.options:
             raise KeyError("HOOMD energy minimizer requires max_displacement option.")
-        if "steps_per_iteration" not in self.options:
-            self.options["steps_per_iteration"] = 100
 
     def _call_v3(self, sim):
         # setup FIRE minimization
@@ -438,9 +436,10 @@ class MinimizeEnergy(SimulationOperation):
         sim["engine"]["_hoomd"].operations.integrator = fire
 
         # run while not yet converged
+        steps_per_it = self.options.get("steps_per_iteration", 100)
         it = 0
         while not fire.converged and it < self.max_iterations:
-            sim["engine"]["_hoomd"].run(self.options["steps_per_iteration"])
+            sim["engine"]["_hoomd"].run(steps_per_it)
             it += 1
         if not fire.converged:
             raise RuntimeError("Energy minimization failed to converge.")
@@ -461,9 +460,10 @@ class MinimizeEnergy(SimulationOperation):
             nve = hoomd.md.integrate.nve(all_)
 
             # run while not yet converged
+            steps_per_it = self.options.get("steps_per_iteration", 100)
             it = 0
             while not fire.has_converged() and it < self.max_iterations:
-                hoomd.run(self.options["steps_per_iteration"])
+                hoomd.run(steps_per_it)
                 it += 1
             if not fire.has_converged():
                 raise RuntimeError("Energy minimization failed to converge.")
