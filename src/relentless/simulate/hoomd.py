@@ -1,4 +1,5 @@
 import enum
+import os
 import shutil
 import warnings
 
@@ -178,7 +179,7 @@ class InitializationOperation(simulate.InitializationOperation):
 
 class InitializeFromFile(InitializationOperation):
     def __init__(self, filename, format, dimension):
-        self.filename = filename
+        self.filename = os.path.abspath(filename)
         self.format = format
         self.dimension = dimension
 
@@ -192,7 +193,7 @@ class InitializeFromFile(InitializationOperation):
             return hoomd.init.read_gsd(gsd_filename)
 
     def _convert_to_gsd_file(self, sim):
-        filename = sim.directory.file(self.filename)
+        filename = self.filename
         file_format = initialize.InitializeFromFile._detect_format(
             filename, self.format
         )
