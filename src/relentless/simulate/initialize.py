@@ -1,4 +1,5 @@
 import itertools
+import os
 import pathlib
 
 import numpy
@@ -43,6 +44,14 @@ class InitializeFromFile(simulate.DelegatedInitializationOperation):
         self.filename = filename
         self.format = format
         self.dimension = dimension
+
+    @property
+    def filename(self):
+        return self._filename
+
+    @filename.setter
+    def filename(self, value):
+        self._filename = os.path.abspath(value)
 
     def _make_delegate(self, sim):
         return self._get_delegate(
