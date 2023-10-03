@@ -2,6 +2,7 @@
 # if being run directly, we may have arguments to handle
 import argparse
 import os
+import pathlib
 import sys
 
 if __name__ == "__main__":
@@ -163,6 +164,20 @@ class test_LAMMPS(unittest.TestCase):
         op = relentless.simulate.InitializeRandomly(seed=1, N=ens.N, V=ens.V, T=ens.T)
         lmp = relentless.simulate.LAMMPS(op, executable=self.executable)
         lmp.run(potentials=pot, directory=self.directory)
+
+        # Run in a different directory
+        with self.directory:
+            d = self.directory.directory(
+                "run", create=relentless.mpi.world.rank_is_root
+            )
+            relentless.mpi.world.barrier()
+            op = relentless.simulate.InitializeFromFile(pathlib.Path(file_).name)
+            lmp = relentless.simulate.LAMMPS(
+                op,
+                types={"A": 1, "B": 2},
+                executable=self.executable,
+            )
+            lmp.run(potentials=pot, directory=d)
 
     def test_initialize_from_gsd_file(self):
         """Test running initialization simulation operations."""
