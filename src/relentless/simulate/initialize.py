@@ -47,6 +47,7 @@ class InitializeFromFile(simulate.DelegatedInitializationOperation):
 
     @property
     def filename(self):
+        """str: Absolute path to file to be read."""
         return self._filename
 
     @filename.setter
