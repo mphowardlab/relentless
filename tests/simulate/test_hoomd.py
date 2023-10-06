@@ -135,6 +135,7 @@ class test_HOOMD(unittest.TestCase):
             )
             relentless.mpi.world.barrier()
             op.filename = pathlib.Path(f).name
+            h.initializer = relentless.simulate.InitializeFromFile(pathlib.Path(f).name)
             h.run(pot, d)
 
     def test_initialize_from_lammps_file(self):
