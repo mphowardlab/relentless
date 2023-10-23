@@ -2,6 +2,7 @@
 # if being run directly, we may have arguments to handle
 import argparse
 import os
+import pathlib
 import sys
 
 if __name__ == "__main__":
@@ -158,6 +159,19 @@ class test_LAMMPS(unittest.TestCase):
             executable=self.executable,
         )
         lmp.run(potentials=pot, directory=self.directory)
+
+        # Run in a different directory
+        with self.directory:
+            d = self.directory.directory(
+                "run", create=relentless.mpi.world.rank_is_root
+            )
+            relentless.mpi.world.barrier()
+            op.filename = pathlib.Path(file_).name
+            lmp.initializer = relentless.simulate.InitializeFromFile(
+                pathlib.Path(file_).name
+            )
+
+            lmp.run(potentials=pot, directory=d)
 
         # InitializeRandomly
         op = relentless.simulate.InitializeRandomly(seed=1, N=ens.N, V=ens.V, T=ens.T)

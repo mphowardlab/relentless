@@ -1,4 +1,5 @@
 import enum
+import os
 import shutil
 import warnings
 
@@ -178,7 +179,7 @@ class InitializationOperation(simulate.InitializationOperation):
 
 class InitializeFromFile(InitializationOperation):
     def __init__(self, filename, format, dimension):
-        self.filename = filename
+        self.filename = os.path.abspath(filename)
         self.format = format
         self.dimension = dimension
 
@@ -192,13 +193,12 @@ class InitializeFromFile(InitializationOperation):
             return hoomd.init.read_gsd(gsd_filename)
 
     def _convert_to_gsd_file(self, sim):
-        filename = sim.directory.file(self.filename)
         file_format = initialize.InitializeFromFile._detect_format(
-            filename, self.format
+            self.filename, self.format
         )
         if file_format == "LAMMPS-data":
             if mpi.world.rank_is_root:
-                snap = lammpsio.DataFile(filename).read()
+                snap = lammpsio.DataFile(self.filename).read()
                 frame = snap.to_hoomd_gsd()
                 frame.configuration.dimensions = self.dimension
                 if self.dimension == 2:
@@ -212,7 +212,7 @@ class InitializeFromFile(InitializationOperation):
                 gsd_filename = None
             gsd_filename = mpi.world.bcast(gsd_filename)
         else:
-            gsd_filename = filename
+            gsd_filename = self.filename
 
         return gsd_filename
 

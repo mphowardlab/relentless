@@ -1,5 +1,6 @@
 import abc
 import datetime
+import os
 import shutil
 import subprocess
 
@@ -285,7 +286,7 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
 
 class InitializeFromFile(InitializationOperation):
     def __init__(self, filename, format, dimension):
-        self.filename = filename
+        self.filename = os.path.abspath(filename)
         self.format = format
         self.dimension = dimension
 
@@ -300,14 +301,13 @@ class InitializeFromFile(InitializationOperation):
         return [f"read_data {data_filename}"]
 
     def _convert_to_data_file(self, sim):
-        filename = sim.directory.file(self.filename)
         file_format = initialize.InitializeFromFile._detect_format(
-            filename, self.format
+            self.filename, self.format
         )
         if file_format == "HOOMD-GSD":
             if mpi.world.rank_is_root:
                 data_filename = sim.directory.temporary_file(".data")
-                with gsd.hoomd.open(filename) as f:
+                with gsd.hoomd.open(self.filename) as f:
                     frame = f[0]
                 snap, type_map = lammpsio.Snapshot.from_hoomd_gsd(frame)
                 type_map = {v: k for k, v in type_map.items()}
@@ -337,7 +337,7 @@ class InitializeFromFile(InitializationOperation):
             dimension = mpi.world.bcast(dimension)
             type_map = mpi.world.bcast(type_map)
         else:
-            data_filename = filename
+            data_filename = self.filename
             dimension = self.dimension if self.dimension is not None else 3
 
             type_map = sim["engine"]["types"]

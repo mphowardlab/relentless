@@ -1,5 +1,6 @@
 """Unit tests for relentless.simulate.hoomd."""
 import os
+import pathlib
 import tempfile
 import unittest
 
@@ -126,6 +127,16 @@ class test_HOOMD(unittest.TestCase):
         op = relentless.simulate.InitializeFromFile(filename=f)
         h = relentless.simulate.HOOMD(op)
         h.run(pot, self.directory)
+
+        # Run in a different directory
+        with self.directory:
+            d = self.directory.directory(
+                "run", create=relentless.mpi.world.rank_is_root
+            )
+            relentless.mpi.world.barrier()
+            op.filename = pathlib.Path(f).name
+            h.initializer = relentless.simulate.InitializeFromFile(pathlib.Path(f).name)
+            h.run(pot, d)
 
     def test_initialize_from_lammps_file(self):
         """Test running initialization simulation operations."""
