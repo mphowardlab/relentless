@@ -81,7 +81,7 @@ intersphinx_mapping = {
     "networkx": ("https://networkx.org/documentation/stable", None),
     "mpi4py": ("https://mpi4py.readthedocs.io/en/stable", None),
     "numpy": ("https://numpy.org/doc/stable", None),
-    "hoomd": ("https://hoomd-blue.readthedocs.io/en/v2.9.7", None),
+    "hoomd": ("https://hoomd-blue.readthedocs.io/en/stable", None),
     "lammps": ("https://docs.lammps.org", None),
     "freud": ("https://freud.readthedocs.io/en/stable", None),
 }
