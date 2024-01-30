@@ -212,7 +212,30 @@ class InitializeFromFile(InitializationOperation):
                 gsd_filename = None
             gsd_filename = mpi.world.bcast(gsd_filename)
         else:
-            gsd_filename = self.filename
+            if mpi.world.rank_is_root:
+                gsd_filename = self.filename
+                with gsd.hoomd.open(self.filename) as snap:
+                    frame = snap[0]
+                    if frame.configuration.dimensions == 2:
+                        if _hoomd_version.major >= 3:
+                            if frame.configuration.box[2] == 0.0:
+                                pass
+                            else:
+                                frame.configuration.box[2] = 0
+                                gsd_filename = sim.directory.temporary_file(".gsd")
+                                with gsd.hoomd.open(gsd_filename, _gsd_write_mode) as f:
+                                    f.append(frame)
+                        else:
+                            if frame.configuration.box[2] > 0.0:
+                                pass
+                            else:
+                                frame.configuration.box[2] = 1
+                                gsd_filename = sim.directory.temporary_file(".gsd")
+                                with gsd.hoomd.open(gsd_filename, _gsd_write_mode) as f:
+                                    f.append(frame)
+            else:
+                gsd_filename = None
+            gsd_filename = mpi.world.bcast(gsd_filename)
 
         return gsd_filename
 
