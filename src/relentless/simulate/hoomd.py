@@ -214,8 +214,8 @@ class InitializeFromFile(InitializationOperation):
         else:
             if mpi.world.rank_is_root:
                 gsd_filename = self.filename
-                with gsd.hoomd.open(self.filename) as snap:
-                    frame = snap[0]
+                with gsd.hoomd.open(self.filename) as trajectory:
+                    frame = trajectory[0]
                     if frame.configuration.dimensions == 2:
                         if _hoomd_version.major >= 3:
                             if frame.configuration.box[2] == 0.0:
