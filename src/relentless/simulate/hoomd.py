@@ -212,6 +212,7 @@ class InitializeFromFile(InitializationOperation):
                 gsd_filename = None
             gsd_filename = mpi.world.bcast(gsd_filename)
         else:
+            gsd_filename = self.filename
             if mpi.world.rank_is_root:
                 with gsd.hoomd.open(self.filename) as trajectory:
                     frame = trajectory[0]
