@@ -212,8 +212,8 @@ class InitializeFromFile(InitializationOperation):
                 gsd_filename = None
             gsd_filename = mpi.world.bcast(gsd_filename)
         else:
-            gsd_filename = self.filename
             if mpi.world.rank_is_root:
+                gsd_filename = self.filename
                 with gsd.hoomd.open(self.filename) as trajectory:
                     frame = trajectory[0]
                     if frame.configuration.dimensions == 2:
@@ -235,8 +235,6 @@ class InitializeFromFile(InitializationOperation):
                             gsd_filename = sim.directory.temporary_file(".gsd")
                             with gsd.hoomd.open(gsd_filename, _gsd_write_mode) as f:
                                 f.append(frame)
-                        else:
-                            gsd_filename = self.filename
             else:
                 gsd_filename = None
             gsd_filename = mpi.world.bcast(gsd_filename)
