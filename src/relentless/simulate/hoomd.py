@@ -656,9 +656,19 @@ class RunLangevinDynamics(_Integrator):
 
     """
 
-    def __init__(self, steps, timestep, T, friction, seed, analyzers):
+    def __init__(
+        self,
+        steps,
+        timestep,
+        T,
+        barostat,
+        friction,
+        seed,
+        analyzers,
+    ):
         super().__init__(steps, timestep, analyzers)
         self.T = T
+        self.barostat = barostat
         self.friction = friction
         self.seed = seed
 
@@ -709,6 +719,38 @@ class RunLangevinDynamics(_Integrator):
             for analyzer in self.analyzers:
                 analyzer.pre_run(sim, self)
 
+            if isinstance(self.barostat, extent.Extent):
+                if sim.dimension == 2:
+                    Lx, Ly, xy = self.barostat.as_array("HOOMD")
+                    Lz, xz, yz = 0.0, 0.0, 0.0
+                else:
+                    Lx, Ly, Lz, xy, xz, yz = self.barostat.as_array("HOOMD")
+            elif all(isinstance(n, extent.Extent) for n in self.barostat):
+                if sim.dimension == 2:
+                    Lx1, Ly1, xy1 = self.barostat[0].as_array("HOOMD")
+                    Lz1, xz1, yz1 = 0.0, 0.0, 0.0
+
+                    Lx2, Ly2, xy2 = self.barostat[1].as_array("HOOMD")
+                    Lz2, xz2, yz2 = 0.0, 0.0, 0.0
+
+                    Lz, xz, yz = 0.0, 0.0, 0.0
+                    Lx = hoomd.variant.linear_interp([(0, Lx1), (self.steps, Lx2)])
+                    Ly = hoomd.variant.linear_interp([(0, Ly1), (self.steps, Ly2)])
+                    xy = hoomd.variant.linear_interp([(0, xy1), (self.steps, xy2)])
+                else:
+                    Lx1, Ly1, Lz1, xy1, xz1, yz1 = self.barostat[0].as_array("HOOMD")
+                    Lx2, Ly2, Lz2, xy2, xz2, yz2 = self.barostat[1].as_array("HOOMD")
+
+                    Lx = hoomd.variant.linear_interp([(0, Lx1), (self.steps, Lx2)])
+                    Ly = hoomd.variant.linear_interp([(0, Ly1), (self.steps, Ly2)])
+                    Lz = hoomd.variant.linear_interp([(0, Lz1), (self.steps, Lz2)])
+                    xy = hoomd.variant.linear_interp([(0, xy1), (self.steps, xy2)])
+                    xz = hoomd.variant.linear_interp([(0, xz1), (self.steps, xz2)])
+                    yz = hoomd.variant.linear_interp([(0, yz1), (self.steps, yz2)])
+
+            hoomd.update.box_resize(
+                Lx=Lx, Ly=Ly, Lz=Lz, xy=xy, xz=xz, yz=yz, scale_particles=False
+            )
             hoomd.run(self.steps)
 
             for analyzer in self.analyzers:
