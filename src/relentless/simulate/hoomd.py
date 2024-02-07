@@ -711,12 +711,14 @@ class RunLangevinDynamics(_Integrator):
                 analyzer.pre_run(sim, self)
 
             if isinstance(self.barostat, extent.Extent):
+                period = None
                 if sim.dimension == 2:
                     Lx, Ly, xy = self.barostat.as_array("HOOMD")
                     Lz, xz, yz = None, None, None
                 else:
                     Lx, Ly, Lz, xy, xz, yz = self.barostat.as_array("HOOMD")
             elif all(isinstance(n, extent.Extent) for n in self.barostat):
+                period = 1
                 if sim.dimension == 2:
                     Lx1, Ly1, xy1 = self.barostat[0].as_array("HOOMD")
                     Lz1, xz1, yz1 = None, None, None
@@ -739,7 +741,9 @@ class RunLangevinDynamics(_Integrator):
                     xz = hoomd.variant.linear_interp([(0, xz1), (self.steps - 1, xz2)])
                     yz = hoomd.variant.linear_interp([(0, yz1), (self.steps - 1, yz2)])
 
-            hoomd.update.box_resize(Lx=Lx, Ly=Ly, Lz=Lz, xy=xy, xz=xz, yz=yz, phase=-1)
+            hoomd.update.box_resize(
+                Lx=Lx, Ly=Ly, Lz=Lz, xy=xy, xz=xz, yz=yz, period=period
+            )
             hoomd.run(self.steps)
 
             for analyzer in self.analyzers:
