@@ -70,6 +70,7 @@ class InitializationOperation(simulate.InitializationOperation):
         # parse masses by type
         snap = sim["engine"]["_hoomd"].state.get_snapshot()
         sim.masses = self._get_masses_from_snapshot(sim, snap)
+        sim.bonds = self._get_bonds_from_snapshot(sim, snap)
         self._assert_dimension_safe(sim, snap)
 
         # create the potentials, defer attaching until later
@@ -158,6 +159,9 @@ class InitializationOperation(simulate.InitializationOperation):
         masses_ = mpi.world.bcast(masses_, root=0)
         masses.update(masses_)
         return masses
+
+    def _get_bonds_from_snapshot(self, sim, snap):
+        return snap.bonds.group
 
     def _assert_dimension_safe(self, sim, snap):
         if sim.dimension == 3:
@@ -1228,11 +1232,22 @@ class EnsembleAverage(AnalysisOperation):
                         for i, j in self._rdf:
                             query_args = dict(self._rdf[i, j].default_query_args)
                             query_args.update(exclude_ii=(i == j))
+                            neighbors = (
+                                aabbs[j]
+                                .query(
+                                    snap.particles.position[type_masks[i]], query_args
+                                )
+                                .toNeighborList()
+                            )
+                            bonds = numpy.vstack(
+                                [snap.bonds.group, numpy.flip(snap.bonds.group, axis=1)]
+                            )
+                            filter = ~(neighbors[:][:, None] == bonds).all(-1).any(1)
                             # resetting when the samples are zero clears the RDF
                             self._rdf[i, j].compute(
                                 aabbs[j],
                                 snap.particles.position[type_masks[i]],
-                                neighbors=query_args,
+                                neighbors=neighbors.filter(filter),
                                 reset=(self.num_samples == 0),
                             )
 
