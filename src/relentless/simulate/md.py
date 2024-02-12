@@ -119,7 +119,14 @@ class RunLangevinDynamics(_Integrator):
     """
 
     def __init__(
-        self, steps, timestep, T, friction, seed, barostat=None, analyzers=None
+        self,
+        steps,
+        timestep,
+        T,
+        friction,
+        seed,
+        analyzers=None,
+        barostat=None,
     ):
         super().__init__(steps, timestep, analyzers)
         self.T = T
@@ -133,10 +140,10 @@ class RunLangevinDynamics(_Integrator):
             steps=self.steps,
             timestep=self.timestep,
             T=self.T,
-            barostat=self.barostat,
             friction=self.friction,
             seed=self.seed,
             analyzers=self.analyzers,
+            barostat=self.barostat,
         )
 
 
