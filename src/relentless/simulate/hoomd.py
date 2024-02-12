@@ -70,8 +70,8 @@ class InitializationOperation(simulate.InitializationOperation):
         # parse masses by type
         snap = sim["engine"]["_hoomd"].state.get_snapshot()
         sim.masses = self._get_masses_from_snapshot(sim, snap)
+        sim[self]["_bonds"] = self._get_bonds_from_snapshot(sim, snap)
         self._assert_dimension_safe(sim, snap)
-
         # create the potentials, defer attaching until later
         neighbor_list = hoomd.md.nlist.Tree(buffer=sim.potentials.pair.neighbor_buffer)
         pair_potential = hoomd.md.pair.Table(nlist=neighbor_list)
@@ -158,6 +158,9 @@ class InitializationOperation(simulate.InitializationOperation):
         masses_ = mpi.world.bcast(masses_, root=0)
         masses.update(masses_)
         return masses
+
+    def _get_bonds_from_snapshot(self, sim, snap):
+        return snap.bonds.group
 
     def _assert_dimension_safe(self, sim, snap):
         if sim.dimension == 3:
@@ -953,6 +956,7 @@ class EnsembleAverage(AnalysisOperation):
             system=sim["engine"]["_hoomd"].state,
             rdf_params=self._get_rdf_params(sim),
             constraints=self._get_constrained_quantities(sim, sim_op),
+            bonds=sim[sim.initializer]["_bonds"],
         )
         sim[self]["_hoomd_thermo_callback"] = hoomd.write.CustomWriter(
             trigger=self.every,
@@ -1137,7 +1141,14 @@ class EnsembleAverage(AnalysisOperation):
         flags = [Action.Flags.PRESSURE_TENSOR]
 
         def __init__(
-            self, types, dimension, thermo, system, rdf_params=None, constraints=None
+            self,
+            types,
+            dimension,
+            thermo,
+            system,
+            rdf_params=None,
+            constraints=None,
+            bonds=None,
         ):
             if dimension not in (2, 3):
                 raise ValueError("Only 2 or 3 dimensions supported")
@@ -1148,6 +1159,7 @@ class EnsembleAverage(AnalysisOperation):
             self.system = system
             self.rdf_params = rdf_params
             self.constraints = constraints if constraints is not None else {}
+            self.bonds = bonds
 
             # this method handles all the initialization
             self.reset()
@@ -1228,11 +1240,27 @@ class EnsembleAverage(AnalysisOperation):
                         for i, j in self._rdf:
                             query_args = dict(self._rdf[i, j].default_query_args)
                             query_args.update(exclude_ii=(i == j))
+                            neighbors = (
+                                aabbs[j]
+                                .query(
+                                    snap.particles.position[type_masks[i]], query_args
+                                )
+                                .toNeighborList()
+                            )
+                            if snap.bonds is not None:
+                                bonds = numpy.vstack(
+                                    [self.bonds, numpy.flip(self.bonds, axis=1)]
+                                )
+                                # list intersect method from:
+                                # https://stackoverflow.com/a/67113105
+                                filter = ~(neighbors[:, None] == bonds).all(-1).any(1)
+                            else:
+                                filter = numpy.full((len(neighbors[:])), True)
                             # resetting when the samples are zero clears the RDF
                             self._rdf[i, j].compute(
                                 aabbs[j],
                                 snap.particles.position[type_masks[i]],
-                                neighbors=query_args,
+                                neighbors=neighbors.filter(filter),
                                 reset=(self.num_samples == 0),
                             )
 
