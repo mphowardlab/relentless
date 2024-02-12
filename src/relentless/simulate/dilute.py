@@ -110,9 +110,10 @@ class RunBrownianDynamics(_Integrator):
 
 
 class RunLangevinDynamics(_Integrator):
-    def __init__(self, steps, timestep, T, friction, seed, analyzers):
+    def __init__(self, steps, timestep, T, friction, seed, analyzers, barostat):
         super().__init__(steps, timestep, analyzers)
         self.T = T
+        self.barostat = barostat
 
     _modify_ensemble = RunBrownianDynamics._modify_ensemble
 
