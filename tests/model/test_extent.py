@@ -1,4 +1,5 @@
 """Unit tests for core.extent module."""
+
 import unittest
 
 import numpy

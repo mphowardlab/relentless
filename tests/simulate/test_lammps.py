@@ -1,4 +1,5 @@
 """Unit tests for relentless.simulate.lammps."""
+
 # if being run directly, we may have arguments to handle
 import argparse
 import os

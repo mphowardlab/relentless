@@ -1213,9 +1213,9 @@ class EnsembleAverage(AnalysisOperation):
                     aabbs = {}
                     type_masks = {}
                     for i in self.types:
-                        type_masks[
-                            i
-                        ] = snap.particles.typeid == snap.particles.types.index(i)
+                        type_masks[i] = (
+                            snap.particles.typeid == snap.particles.types.index(i)
+                        )
                         if "N" not in self.constraints:
                             self._N[i] += numpy.sum(type_masks[i])
 

@@ -1,4 +1,5 @@
 """Unit tests for relentless.simulate.hoomd."""
+
 import os
 import pathlib
 import tempfile

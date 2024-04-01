@@ -71,6 +71,7 @@ It may be helpful for the class to be composed having a :class:`Tolerance`.
     :member-order: bysource
 
 """
+
 import abc
 
 import numpy

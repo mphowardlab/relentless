@@ -19,6 +19,7 @@ Construct a simulation box with defined basis vectors and volume::
     27.0
 
 """
+
 import abc
 
 import numpy
@@ -77,6 +78,7 @@ class Volume(Extent):
     Volume must be specified so that the object can be saved to disk.
 
     """
+
     pass
 
 
@@ -484,6 +486,7 @@ class Area(Extent):
     Area must be specified so that the object can be saved to disk.
 
     """
+
     pass
 
 
