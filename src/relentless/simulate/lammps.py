@@ -1434,6 +1434,12 @@ class LAMMPS(simulate.Simulation):
 
         relentless.simulate.LAMMPS(init, ops, executable="mpiexec -n 8 lmp_mpi")
 
+    The `freud <https://freud.readthedocs.io>`_ analysis package (version >= 2.x)
+    is also required for initialization and analysis. To use this simulation backend,
+    you will need to install both :mod:`hoomd` and :mod:`freud` into your Python
+    environment. :mod:`hoomd` is available through conda-forge or can be built
+    from source, while :mod`freud` is available through both PyPI and conda-forge.
+    Please refer to the package documentation for details of how to install these.
 
     .. warning::
 
