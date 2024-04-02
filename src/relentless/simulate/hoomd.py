@@ -3,6 +3,7 @@ import os
 import shutil
 import warnings
 
+import freud
 import gsd.hoomd
 import lammpsio
 import numpy
@@ -48,13 +49,6 @@ if packaging.version.Version(_gsd_version) >= packaging.version.Version("2.8.0")
     _gsd_write_mode = "w"
 else:
     _gsd_write_mode = "wb"
-
-try:
-    import freud
-
-    _freud_found = True
-except ImportError:
-    _freud_found = False
 
 
 # initializers
@@ -1544,7 +1538,7 @@ class HOOMD(simulate.Simulation):
     will be automatically selected for you when the simulation is run. Both
     HOOMD 2.x and 3.x are supported.
 
-    The `freud <https://freud.readthedocs.io>`_ analysis package (version 2.x)
+    The `freud <https://freud.readthedocs.io>`_ analysis package (version >= 2.x)
     is also required for initialization and analysis. To use this simulation backend,
     you will need to install both :mod:`hoomd` and :mod:`freud` into your Python
     environment. :mod:`hoomd` is available through conda-forge or can be built
@@ -1564,8 +1558,6 @@ class HOOMD(simulate.Simulation):
     ------
     ImportError
         If the :mod:`hoomd` package is not found or is not version 2.x.
-    ImportError
-        If the :mod:`freud` package is not found or is not version 2.x.
 
     """
 
@@ -1573,8 +1565,6 @@ class HOOMD(simulate.Simulation):
         if not _hoomd_found:
             raise ImportError("HOOMD not found.")
 
-        if not _freud_found:
-            raise ImportError("freud not found.")
         super().__init__(initializer, operations)
 
     def _initialize_engine(self, sim):
