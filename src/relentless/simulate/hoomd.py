@@ -1568,7 +1568,7 @@ class HOOMD(simulate.Simulation):
             packaging.version.parse(freud.__version__).major != 2
             or packaging.version.parse(freud.__version__).major != 3
         ):
-            raise ImportError("Only freud 2.x is supported.")
+            raise ImportError("Only freud 2.x and 3.x is supported.")
 
         super().__init__(initializer, operations)
 
