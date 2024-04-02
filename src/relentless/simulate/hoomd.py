@@ -1564,7 +1564,10 @@ class HOOMD(simulate.Simulation):
 
         if not _freud_found:
             raise ImportError("freud not found.")
-        elif packaging.version.parse(freud.__version__).major != 2:
+        elif (
+            packaging.version.parse(freud.__version__).major != 2
+            or packaging.version.parse(freud.__version__).major != 3
+        ):
             raise ImportError("Only freud 2.x is supported.")
 
         super().__init__(initializer, operations)
