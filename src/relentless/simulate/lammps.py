@@ -1129,11 +1129,22 @@ class EnsembleAverage(AnalysisOperation):
             if mpi.world.rank_is_root:
                 rdf_ = collections.PairMatrix(sim.types)
                 for i, j in rdf_:
-                    rdf_[i, j] = freud.density.RDF(
-                        bins=sim[self]["_rdf_params"]["bins"],
-                        r_max=sim[self]["_rdf_params"]["stop"],
-                        normalize=(i == j),
-                    )
+                    if packaging.version.parse(freud.__version__).major == 2:
+                        rdf_[i, j] = freud.density.RDF(
+                            bins=sim[self]["_rdf_params"]["bins"],
+                            r_max=sim[self]["_rdf_params"]["stop"],
+                            normalize=(i == j),
+                        )
+                    elif packaging.version.parse(freud.__version__).major == 3:
+                        if i == j:
+                            normalize = "finite_size"
+                        else:
+                            normalize = "exact"
+                        rdf_[i, j] = freud.density.RDF(
+                            bins=sim[self]["_rdf_params"]["bins"],
+                            r_max=sim[self]["_rdf_params"]["stop"],
+                            normalization_mode=normalize,
+                        )
 
                 traj = lammpsio.DumpFile(sim[self]["_rdf_file"])
                 for snap in traj:

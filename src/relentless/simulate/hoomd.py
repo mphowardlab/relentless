@@ -1263,11 +1263,22 @@ class EnsembleAverage(AnalysisOperation):
             if self.rdf_params is not None:
                 self._rdf = collections.PairMatrix(self.types)
                 for i, j in self._rdf:
-                    self._rdf[i, j] = freud.density.RDF(
-                        bins=self.rdf_params["bins"],
-                        r_max=self.rdf_params["stop"],
-                        normalize=(i == j),
-                    )
+                    if packaging.version.parse(freud.__version__).major == 2:
+                        self._rdf[i, j] = freud.density.RDF(
+                            bins=self.rdf_params["bins"],
+                            r_max=self.rdf_params["stop"],
+                            normalize=(i == j),
+                        )
+                    elif packaging.version.parse(freud.__version__).major == 3:
+                        if i == j:
+                            normalize = "finite_size"
+                        else:
+                            normalize = "exact"
+                        self._rdf[i, j] = freud.density.RDF(
+                            bins=self.rdf_params["bins"],
+                            r_max=self.rdf_params["stop"],
+                            normalization_mode=normalize,
+                        )
             else:
                 self._rdf = None
 
@@ -1564,12 +1575,6 @@ class HOOMD(simulate.Simulation):
 
         if not _freud_found:
             raise ImportError("freud not found.")
-        elif (
-            packaging.version.parse(freud.__version__).major != 2
-            or packaging.version.parse(freud.__version__).major != 3
-        ):
-            raise ImportError("Only freud 2.x and 3.x is supported.")
-
         super().__init__(initializer, operations)
 
     def _initialize_engine(self, sim):
