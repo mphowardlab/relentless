@@ -74,7 +74,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
       - name: Setup Python ${{ matrix.python-version }}
-        uses: conda-incubator/setup-miniconda@v2
+        uses: conda-incubator/setup-miniconda@v3
         with:
           channels: conda-forge
           channel-priority: true
@@ -111,7 +111,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
       - name: Setup Python ${{ matrix.python-version }}
-        uses: conda-incubator/setup-miniconda@v2
+        uses: conda-incubator/setup-miniconda@v3
         with:
           channels: conda-forge
           channel-priority: true
@@ -148,7 +148,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
       - name: Setup Python 3.8
-        uses: conda-incubator/setup-miniconda@v2
+        uses: conda-incubator/setup-miniconda@v3
         with:
           channels: conda-forge
           channel-priority: true
