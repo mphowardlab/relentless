@@ -1,4 +1,5 @@
 """Unit tests for core.math module."""
+
 import unittest
 
 import numpy

@@ -13,6 +13,7 @@ Math functions (`relentless.math`)
     KeyedArray
 
 """
+
 import numpy
 import scipy.interpolate
 

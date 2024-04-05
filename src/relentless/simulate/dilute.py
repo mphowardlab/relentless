@@ -9,6 +9,7 @@ operations. It is best to interface with these operations using the frontend in
 .. autoclass:: NullOperation
 
 """
+
 import abc
 
 import numpy

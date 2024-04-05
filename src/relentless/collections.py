@@ -13,6 +13,7 @@ Collections (`relentless.collections`)
     PairMatrix
 
 """
+
 import collections
 import copy
 

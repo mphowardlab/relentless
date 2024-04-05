@@ -72,6 +72,7 @@ Variables
     variable.VariableGraph
 
 """
+
 from . import potential
 from .ensemble import RDF, Ensemble
 from .extent import (

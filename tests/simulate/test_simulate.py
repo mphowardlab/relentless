@@ -1,4 +1,5 @@
 """Unit tests for simulate module."""
+
 import unittest
 
 import numpy
