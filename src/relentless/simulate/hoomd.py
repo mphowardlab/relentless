@@ -50,6 +50,8 @@ if packaging.version.Version(_gsd_version) >= packaging.version.Version("2.8.0")
 else:
     _gsd_write_mode = "wb"
 
+_freud_version = packaging.version.parse(freud.__version__)
+
 
 # initializers
 class InitializationOperation(simulate.InitializationOperation):
@@ -1257,22 +1259,17 @@ class EnsembleAverage(AnalysisOperation):
             if self.rdf_params is not None:
                 self._rdf = collections.PairMatrix(self.types)
                 for i, j in self._rdf:
-                    if packaging.version.parse(freud.__version__).major == 2:
-                        self._rdf[i, j] = freud.density.RDF(
-                            bins=self.rdf_params["bins"],
-                            r_max=self.rdf_params["stop"],
-                            normalize=(i == j),
+                    freud_rdf_args = dict(
+                        bins=self.rdf_params["bins"],
+                        r_max=self.rdf_params["stop"],
+                    )
+                    if _freud_version == 3:
+                        freud_rdf_args.update(
+                            normalization_mode="finite_size" if i == j else "exact"
                         )
-                    elif packaging.version.parse(freud.__version__).major == 3:
-                        if i == j:
-                            normalize = "finite_size"
-                        else:
-                            normalize = "exact"
-                        self._rdf[i, j] = freud.density.RDF(
-                            bins=self.rdf_params["bins"],
-                            r_max=self.rdf_params["stop"],
-                            normalization_mode=normalize,
-                        )
+                    elif _freud_version == 2:
+                        freud_rdf_args.update(normalize=(i == j))
+                    self._rdf[i, j] = freud.density.RDF(**freud_rdf_args)
             else:
                 self._rdf = None
 
@@ -1537,13 +1534,6 @@ class HOOMD(simulate.Simulation):
     GPUs, as a single process or with MPI parallelism. The launch configuration
     will be automatically selected for you when the simulation is run. Both
     HOOMD 2.x and 3.x are supported.
-
-    The `freud <https://freud.readthedocs.io>`_ analysis package (version >= 2.x)
-    is also required for initialization and analysis. To use this simulation backend,
-    you will need to install both :mod:`hoomd` and :mod:`freud` into your Python
-    environment. :mod:`hoomd` is available through conda-forge or can be built
-    from source, while :mod`freud` is available through both PyPI and conda-forge.
-    Please refer to the package documentation for details of how to install these.
 
     .. warning::
 
