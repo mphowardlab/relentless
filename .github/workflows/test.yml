@@ -19,6 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       MPIEXEC_TIMEOUT: 300
+      RDMAV_FORK_SAFE: 1
     strategy:
       fail-fast: false
       matrix:
@@ -96,6 +97,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       MPIEXEC_TIMEOUT: 300
+      RDMAV_FORK_SAFE: 1
     defaults:
       run:
         shell: bash -el {0}
