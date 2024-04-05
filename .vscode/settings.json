@@ -2,7 +2,7 @@
     "cSpell.diagnosticLevel": "Hint",
     "editor.autoIndent": "keep",
     "editor.codeActionsOnSave": {
-        "source.organizeImports": true
+        "source.organizeImports": "explicit"
     },
     "editor.detectIndentation": false,
     "editor.formatOnSave": true,
@@ -13,10 +13,6 @@
     "python.analysis.exclude": [
         "**/env*"
     ],
-    "python.formatting.provider": "none",
-    "python.linting.flake8Enabled": true,
-    "python.linting.pycodestyleEnabled": false,
-    "python.linting.pylintEnabled": false,
     "python.testing.pytestEnabled": false,
     "python.testing.unittestEnabled": true,
     "python.testing.unittestArgs": [
