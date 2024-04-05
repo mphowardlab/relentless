@@ -1132,8 +1132,8 @@ class EnsembleAverage(AnalysisOperation):
                 rdf_ = collections.PairMatrix(sim.types)
                 for i, j in rdf_:
                     freud_rdf_args = dict(
-                        bins=self.rdf_params["bins"],
-                        r_max=self.rdf_params["stop"],
+                        bins=sim[self]["_rdf_params"]["bins"],
+                        r_max=sim[self]["_rdf_params"]["stop"],
                     )
                     if _freud_version == 3:
                         freud_rdf_args.update(
@@ -1141,6 +1141,7 @@ class EnsembleAverage(AnalysisOperation):
                         )
                     elif _freud_version == 2:
                         freud_rdf_args.update(normalize=(i == j))
+                    rdf_[i, j] = freud.density.RDF(**freud_rdf_args)
 
                 traj = lammpsio.DumpFile(sim[self]["_rdf_file"])
                 for snap in traj:
