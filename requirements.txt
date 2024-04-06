@@ -1,4 +1,4 @@
-freud-analysis==2.13.2
+freud-analysis>=2
 gsd
 lammpsio>=0.4
 networkx>=2.5
