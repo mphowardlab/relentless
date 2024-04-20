@@ -1221,35 +1221,49 @@ class EnsembleAverage(AnalysisOperation):
                         )
 
                     box = freud.box.Box.from_box(box_array, dimensions=dimensions)
-                    # pre build aabbs per type and count particles by type
-                    aabbs = {}
-                    type_masks = {}
-                    for i in self.types:
-                        type_masks[
-                            i
-                        ] = snap.particles.typeid == snap.particles.types.index(i)
-                        if "N" not in self.constraints:
-                            self._N[i] += numpy.sum(type_masks[i])
-
-                        if compute_rdf:
-                            aabbs[i] = freud.locality.AABBQuery(
-                                box, snap.particles.position[type_masks[i]]
-                            )
-                    # then do rdfs using the AABBs
+                    # pre build aabbs for full system
+                    aabbs = freud.locality.AABBQuery(box, snap.particles.position)
+                    # then do rdfs using the aabbs
                     if compute_rdf:
                         for i, j in self._rdf:
                             query_args = dict(self._rdf[i, j].default_query_args)
                             query_args.update(exclude_ii=(i == j))
-                            neighbors = (
-                                aabbs[j]
-                                .query(
-                                    snap.particles.position[type_masks[i]], query_args
-                                )
-                                .toNeighborList()
+                            neighbors = aabbs.query(
+                                snap.particles.position, query_args
+                            ).toNeighborList()
+                            type_dict = dict(
+                                zip(snap.particles.types, snap.particles.typeid)
                             )
+                            typeid_dict = dict(
+                                zip(
+                                    numpy.arange(0, snap.particles.N),
+                                    snap.particles.typeid,
+                                )
+                            )
+                            neighbors_typeid = numpy.zeros(
+                                numpy.shape(neighbors[:]), dtype=int
+                            )
+                            row = 0
+                            for n1, n2 in neighbors:
+                                neighbors_typeid[row] = [
+                                    typeid_dict[n1],
+                                    typeid_dict[n2],
+                                ]
+                                row += 1
+                            type_mask = numpy.logical_or(
+                                numpy.logical_and(
+                                    numpy.isin(neighbors_typeid[:, 0], type_dict[i]),
+                                    numpy.isin(neighbors_typeid[:, 1], type_dict[j]),
+                                ),
+                                numpy.logical_and(
+                                    numpy.isin(neighbors_typeid[:, 1], type_dict[i]),
+                                    numpy.isin(neighbors_typeid[:, 0], type_dict[j]),
+                                ),
+                            )
+                            neighbors = neighbors.filter(type_mask)
                             if snap.bonds is not None:
                                 bonds = numpy.vstack(
-                                    [self.bonds, numpy.flip(self.bonds, axis=1)]
+                                    [self.bonds, numpy.flip(self.bonds, axis=1)],
                                 )
                                 # list intersect method from:
                                 # https://stackoverflow.com/a/67113105
@@ -1258,12 +1272,11 @@ class EnsembleAverage(AnalysisOperation):
                                 filter = numpy.full((len(neighbors[:])), True)
                             # resetting when the samples are zero clears the RDF
                             self._rdf[i, j].compute(
-                                aabbs[j],
-                                snap.particles.position[type_masks[i]],
+                                aabbs,
+                                snap.particles.position,
                                 neighbors=neighbors.filter(filter),
                                 reset=(self.num_samples == 0),
                             )
-
             self.num_samples += 1
             if compute_rdf:
                 self.num_rdf_samples += 1
