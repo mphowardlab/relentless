@@ -1197,84 +1197,94 @@ class EnsembleAverage(AnalysisOperation):
                     raise NotImplementedError(f"HOOMD {_hoomd_version} not supported")
 
                 if mpi.world.rank == 0:
-                    if _hoomd_version.major == 3:
-                        dimensions = snap.configuration.dimensions
-                        box_array = numpy.array(snap.configuration.box)
-                    elif _hoomd_version.major == 2:
-                        dimensions = snap.box.dimensions
-                        box_array = numpy.array(
-                            [
-                                snap.box.Lx,
-                                snap.box.Ly,
-                                snap.box.Lz,
-                                snap.box.xy,
-                                snap.box.xz,
-                                snap.box.yz,
-                            ]
-                        )
-                        if snap.box.dimensions == 2:
-                            box_array[2] = 0.0
-                            box_array[-2:] = 0.0
-                    else:
-                        raise NotImplementedError(
-                            f"HOOMD {_hoomd_version} not supported"
-                        )
+                    # compute number of particles of each type
+                    # save type masks for use in RDF calculations if needed
+                    type_masks = {}
+                    for i in self.types:
+                        type_masks[
+                            i
+                        ] = snap.particles.typeid == snap.particles.types.index(i)
+                        if "N" not in self.constraints:
+                            self._N[i] += numpy.sum(type_masks[i])
 
-                    box = freud.box.Box.from_box(box_array, dimensions=dimensions)
-                    # pre build aabbs for full system
-                    aabbs = freud.locality.AABBQuery(box, snap.particles.position)
-                    # then do rdfs using the aabbs
+                    # then do rdf if requested
                     if compute_rdf:
-                        for i, j in self._rdf:
-                            query_args = dict(self._rdf[i, j].default_query_args)
-                            query_args.update(exclude_ii=(i == j))
-                            neighbors = aabbs.query(
-                                snap.particles.position, query_args
-                            ).toNeighborList()
-                            type_dict = dict(
-                                zip(snap.particles.types, snap.particles.typeid)
-                            )
-                            typeid_dict = dict(
-                                zip(
-                                    numpy.arange(0, snap.particles.N),
-                                    snap.particles.typeid,
-                                )
-                            )
-                            neighbors_typeid = numpy.zeros(
-                                numpy.shape(neighbors[:]), dtype=int
-                            )
-                            row = 0
-                            for n1, n2 in neighbors:
-                                neighbors_typeid[row] = [
-                                    typeid_dict[n1],
-                                    typeid_dict[n2],
+                        if _hoomd_version.major == 3:
+                            dimensions = snap.configuration.dimensions
+                            box_array = numpy.array(snap.configuration.box)
+                        elif _hoomd_version.major == 2:
+                            dimensions = snap.box.dimensions
+                            box_array = numpy.array(
+                                [
+                                    snap.box.Lx,
+                                    snap.box.Ly,
+                                    snap.box.Lz,
+                                    snap.box.xy,
+                                    snap.box.xz,
+                                    snap.box.yz,
                                 ]
-                                row += 1
-                            type_mask = numpy.logical_or(
-                                numpy.logical_and(
-                                    numpy.isin(neighbors_typeid[:, 0], type_dict[i]),
-                                    numpy.isin(neighbors_typeid[:, 1], type_dict[j]),
-                                ),
-                                numpy.logical_and(
-                                    numpy.isin(neighbors_typeid[:, 1], type_dict[i]),
-                                    numpy.isin(neighbors_typeid[:, 0], type_dict[j]),
-                                ),
                             )
-                            neighbors = neighbors.filter(type_mask)
-                            if snap.bonds is not None:
-                                bonds = numpy.vstack(
-                                    [self.bonds, numpy.flip(self.bonds, axis=1)],
+                            if snap.box.dimensions == 2:
+                                box_array[2] = 0.0
+                                box_array[-2:] = 0.0
+                        else:
+                            raise NotImplementedError(
+                                f"HOOMD {_hoomd_version} not supported"
+                            )
+                        box = freud.box.Box.from_box(box_array, dimensions=dimensions)
+
+                        # build aabb of all particles and generate a parent
+                        # neighbor list with the RDF cutoff
+                        aabb = freud.locality.AABBQuery(box, snap.particles.position)
+                        neighbors = aabb.query(
+                            snap.particles.position,
+                            dict(
+                                mode="ball",
+                                r_max=self.rdf_params["stop"],
+                                exclude_ii=True,
+                            ),
+                        ).toNeighborList()
+
+                        # filter bonds from the neighbor list if they are present
+                        # bond exclusions apply regardless of order, so
+                        # consider both (i,j) and (j,i) permutations
+                        if snap.bonds is not None and len(neighbors[:]) > 0:
+                            bonds = numpy.vstack(
+                                [self.bonds, numpy.flip(self.bonds, axis=1)],
+                            )
+                            # list intersect method from:
+                            # https://stackoverflow.com/a/67113105
+                            bond_exclusion_filter = (
+                                ~(neighbors[:, None] == bonds).all(-1).any(1)
+                            )
+                            neighbors.filter(bond_exclusion_filter)
+
+                        for i, j in self._rdf:
+                            # make a neighbor list of all particles of type i
+                            # whose neighbors are type j
+                            neighbors_ij = neighbors.copy()
+                            filter_ij = numpy.logical_and(
+                                type_masks[i][neighbors[:, 0]],
+                                type_masks[j][neighbors[:, 1]],
+                            )
+                            # if the types are different, also consider
+                            # neighbors of j that are type i
+                            if j != i:
+                                filter_ji = numpy.logical_and(
+                                    type_masks[j][neighbors[:, 0]],
+                                    type_masks[i][neighbors[:, 1]],
                                 )
-                                # list intersect method from:
-                                # https://stackoverflow.com/a/67113105
-                                filter = ~(neighbors[:, None] == bonds).all(-1).any(1)
-                            else:
-                                filter = numpy.full((len(neighbors[:])), True)
+                                filter_ij = numpy.logical_or(filter_ij, filter_ji)
+                            neighbors_ij.filter(filter_ij)
+
+                            # it doesn't look like it but this calculation should
+                            # only calculate g_ij because we prefiltered the neighbors
+                            #
                             # resetting when the samples are zero clears the RDF
                             self._rdf[i, j].compute(
-                                aabbs,
+                                aabb,
                                 snap.particles.position,
-                                neighbors=neighbors.filter(filter),
+                                neighbors=neighbors_ij,
                                 reset=(self.num_samples == 0),
                             )
             self.num_samples += 1
