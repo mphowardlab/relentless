@@ -1167,7 +1167,7 @@ class EnsembleAverage(AnalysisOperation):
                     # compute number of particles of each type
                     # save type masks for use in RDF calculations if needed
                     type_masks = {}
-                    for i in sim["engine"]["types"]:
+                    for i in sim.types:
                         type_masks[i] = snap.typeid == sim["engine"]["types"][i]
                     # build aabb of all particles and generate a parent
                     # neighbor list with the RDF cutoff
@@ -1198,6 +1198,8 @@ class EnsembleAverage(AnalysisOperation):
                             )
                             filter_ij = numpy.logical_or(filter_ij, filter_ji)
                         neighbors_ij.filter(filter_ij)
+                        print("types: ", i, j)
+                        print(neighbors_ij[:])
                         # it doesn't look like it but this calculation should
                         # only calculate g_ij because we prefiltered the neighbors
                         #
