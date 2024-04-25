@@ -1198,8 +1198,6 @@ class EnsembleAverage(AnalysisOperation):
                             )
                             filter_ij = numpy.logical_or(filter_ij, filter_ji)
                         neighbors_ij.filter(filter_ij)
-                        print("types: ", i, j)
-                        print(neighbors_ij[:])
                         # it doesn't look like it but this calculation should
                         # only calculate g_ij because we prefiltered the neighbors
                         #
