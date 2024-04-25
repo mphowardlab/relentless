@@ -1164,22 +1164,48 @@ class EnsembleAverage(AnalysisOperation):
                         box_array[-2:] = 0.0
                     box = freud.box.Box.from_box(box_array, dimensions=sim.dimension)
 
-                    # pre build aabbs per type and count particles by type
-                    aabbs = {}
+                    # compute number of particles of each type
+                    # save type masks for use in RDF calculations if needed
                     type_masks = {}
-                    for i in sim.types:
+                    for i in sim["engine"]["types"]:
                         type_masks[i] = snap.typeid == sim["engine"]["types"][i]
-                        aabbs[i] = freud.locality.AABBQuery(
-                            box, snap.position[type_masks[i]]
-                        )
+                    # build aabb of all particles and generate a parent
+                    # neighbor list with the RDF cutoff
+                    aabb = freud.locality.AABBQuery(box, snap.position)
+                    neighbors = aabb.query(
+                        snap.position,
+                        dict(
+                            mode="ball",
+                            r_max=sim[self]["_rdf_params"]["stop"],
+                            exclude_ii=True,
+                        ),
+                    ).toNeighborList()
                     # then do rdfs using the AABBs
                     for i, j in rdf_:
-                        query_args = dict(rdf_[i, j].default_query_args)
-                        query_args.update(exclude_ii=(i == j))
+                        # make a neighbor list of all particles of type i
+                        # whose neighbors are type j
+                        neighbors_ij = neighbors.copy()
+                        filter_ij = numpy.logical_and(
+                            type_masks[i][neighbors[:, 0]],
+                            type_masks[j][neighbors[:, 1]],
+                        )
+                        # if the types are different, also consider
+                        # neighbors of j that are type i
+                        if j != i:
+                            filter_ji = numpy.logical_and(
+                                type_masks[j][neighbors[:, 0]],
+                                type_masks[i][neighbors[:, 1]],
+                            )
+                            filter_ij = numpy.logical_or(filter_ij, filter_ji)
+                        neighbors_ij.filter(filter_ij)
+                        # it doesn't look like it but this calculation should
+                        # only calculate g_ij because we prefiltered the neighbors
+                        #
+                        # resetting when the samples are zero clears the RDF
                         rdf_[i, j].compute(
-                            aabbs[j],
-                            snap.position[type_masks[i]],
-                            neighbors=query_args,
+                            aabb,
+                            snap.position,
+                            neighbors=neighbors_ij,
                             reset=False,
                         )
 
