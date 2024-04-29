@@ -1240,6 +1240,7 @@ class EnsembleAverage(AnalysisOperation):
                         # calculate average density per type
                         for i in self.types:
                             self._rdf_density[i] += N[i] / box.volume
+                            self._rdf_num_origins[i] += N[i]
 
                         # build aabb of all particles and generate a parent
                         # neighbor list with the RDF cutoff
