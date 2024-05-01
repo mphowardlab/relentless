@@ -1131,13 +1131,14 @@ class EnsembleAverage(AnalysisOperation):
             _rdf_counts = {}
             _rdf_density = {}
             _rdf_num_origins = {}
-            for i in sim.types:
-                _rdf_density[i] = 0
-                _rdf_num_origins[i] = 0
-                for j in sim.types:
-                    _rdf_counts[i, j] = numpy.zeros(
-                        sim[self]["_rdf_params"]["bins"], dtype=int
-                    )
+            if mpi.world.rank_is_root:
+                for i in sim.types:
+                    _rdf_density[i] = 0
+                    _rdf_num_origins[i] = 0
+                    for j in sim.types:
+                        _rdf_counts[i, j] = numpy.zeros(
+                            sim[self]["_rdf_params"]["bins"], dtype=int
+                        )
             if mpi.world.rank_is_root:
                 traj = lammpsio.DumpFile(sim[self]["_rdf_file"])
                 for snap in traj:
