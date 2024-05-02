@@ -31,8 +31,6 @@ if packaging.version.Version(_gsd_version) >= packaging.version.Version("2.8.0")
 else:
     _gsd_write_mode = "wb"
 
-_freud_version = packaging.version.parse(freud.__version__)
-
 
 class Counters:
     _compute = 1
@@ -1128,10 +1126,10 @@ class EnsembleAverage(AnalysisOperation):
             sim[self]["_rdf_dump"].process(sim, sim_op)
             rdf = collections.PairMatrix(sim.types)
             num_rdf_samples = 0
-            _rdf_counts = {}
-            _rdf_density = {}
-            _rdf_num_origins = {}
             if mpi.world.rank_is_root:
+                _rdf_counts = {}
+                _rdf_density = {}
+                _rdf_num_origins = {}
                 for i in sim.types:
                     _rdf_density[i] = 0
                     _rdf_num_origins[i] = 0
@@ -1139,7 +1137,6 @@ class EnsembleAverage(AnalysisOperation):
                         _rdf_counts[i, j] = numpy.zeros(
                             sim[self]["_rdf_params"]["bins"], dtype=int
                         )
-            if mpi.world.rank_is_root:
                 traj = lammpsio.DumpFile(sim[self]["_rdf_file"])
                 for snap in traj:
                     # get freud box
@@ -1161,8 +1158,8 @@ class EnsembleAverage(AnalysisOperation):
                         box_array[-2:] = 0.0
                     box = freud.box.Box.from_box(box_array, dimensions=sim.dimension)
 
-                    # compute number of particles of each type
-                    # save type masks for use in RDF calculations if needed
+                    # determine type masks for RDF calculations
+                    # number of particles of each type was already determined above
                     type_masks = {}
                     for i in sim.types:
                         type_masks[i] = snap.typeid == sim["engine"]["types"][i]
