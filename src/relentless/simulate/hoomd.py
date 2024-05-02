@@ -50,8 +50,6 @@ if packaging.version.Version(_gsd_version) >= packaging.version.Version("2.8.0")
 else:
     _gsd_write_mode = "wb"
 
-_freud_version = packaging.version.parse(freud.__version__)
-
 
 # initializers
 class InitializationOperation(simulate.InitializationOperation):
@@ -67,7 +65,6 @@ class InitializationOperation(simulate.InitializationOperation):
         snap = sim["engine"]["_hoomd"].state.get_snapshot()
         sim.masses = self._get_masses_from_snapshot(sim, snap)
         self._assert_dimension_safe(sim, snap)
-
         # create the potentials, defer attaching until later
         neighbor_list = hoomd.md.nlist.Tree(buffer=sim.potentials.pair.neighbor_buffer)
         pair_potential = hoomd.md.pair.Table(nlist=neighbor_list)
@@ -1133,7 +1130,13 @@ class EnsembleAverage(AnalysisOperation):
         flags = [Action.Flags.PRESSURE_TENSOR]
 
         def __init__(
-            self, types, dimension, thermo, system, rdf_params=None, constraints=None
+            self,
+            types,
+            dimension,
+            thermo,
+            system,
+            rdf_params=None,
+            constraints=None,
         ):
             if dimension not in (2, 3):
                 raise ValueError("Only 2 or 3 dimensions supported")
@@ -1181,57 +1184,75 @@ class EnsembleAverage(AnalysisOperation):
                     raise NotImplementedError(f"HOOMD {_hoomd_version} not supported")
 
                 if mpi.world.rank == 0:
-                    if _hoomd_version.major == 3:
-                        dimensions = snap.configuration.dimensions
-                        box_array = numpy.array(snap.configuration.box)
-                    elif _hoomd_version.major == 2:
-                        dimensions = snap.box.dimensions
-                        box_array = numpy.array(
-                            [
-                                snap.box.Lx,
-                                snap.box.Ly,
-                                snap.box.Lz,
-                                snap.box.xy,
-                                snap.box.xz,
-                                snap.box.yz,
-                            ]
-                        )
-                        if snap.box.dimensions == 2:
-                            box_array[2] = 0.0
-                            box_array[-2:] = 0.0
-                    else:
-                        raise NotImplementedError(
-                            f"HOOMD {_hoomd_version} not supported"
-                        )
-
-                    box = freud.box.Box.from_box(box_array, dimensions=dimensions)
-                    # pre build aabbs per type and count particles by type
-                    aabbs = {}
+                    # compute number of particles of each type
+                    # save type masks for use in RDF calculations if needed
                     type_masks = {}
+                    N = {}
                     for i in self.types:
                         type_masks[i] = (
                             snap.particles.typeid == snap.particles.types.index(i)
                         )
                         if "N" not in self.constraints:
-                            self._N[i] += numpy.sum(type_masks[i])
+                            N[i] = numpy.sum(type_masks[i])
+                            self._N[i] += N[i]
+                        else:
+                            N[i] = self.constraints["N"][i]
 
-                        if compute_rdf:
-                            aabbs[i] = freud.locality.AABBQuery(
-                                box, snap.particles.position[type_masks[i]]
-                            )
-                    # then do rdfs using the AABBs
+                    # then do rdf if requested
                     if compute_rdf:
-                        for i, j in self._rdf:
-                            query_args = dict(self._rdf[i, j].default_query_args)
-                            query_args.update(exclude_ii=(i == j))
-                            # resetting when the samples are zero clears the RDF
-                            self._rdf[i, j].compute(
-                                aabbs[j],
-                                snap.particles.position[type_masks[i]],
-                                neighbors=query_args,
-                                reset=(self.num_samples == 0),
+                        if _hoomd_version.major == 3:
+                            dimensions = snap.configuration.dimensions
+                            box_array = numpy.array(snap.configuration.box)
+                        elif _hoomd_version.major == 2:
+                            dimensions = snap.box.dimensions
+                            box_array = numpy.array(
+                                [
+                                    snap.box.Lx,
+                                    snap.box.Ly,
+                                    snap.box.Lz,
+                                    snap.box.xy,
+                                    snap.box.xz,
+                                    snap.box.yz,
+                                ]
                             )
+                            if snap.box.dimensions == 2:
+                                box_array[2] = 0.0
+                                box_array[-2:] = 0.0
+                        else:
+                            raise NotImplementedError(
+                                f"HOOMD {_hoomd_version} not supported"
+                            )
+                        box = freud.box.Box.from_box(box_array, dimensions=dimensions)
 
+                        # calculate average density per type
+                        for i in self.types:
+                            self._rdf_density[i] += N[i] / box.volume
+                            self._rdf_num_origins[i] += N[i]
+
+                        # build aabb of all particles and generate a parent
+                        # neighbor list with the RDF cutoff
+                        aabb = freud.locality.AABBQuery(box, snap.particles.position)
+                        neighbors = aabb.query(
+                            snap.particles.position,
+                            dict(
+                                mode="ball",
+                                r_max=self.rdf_params["stop"],
+                                exclude_ii=True,
+                            ),
+                        ).toNeighborList()
+
+                        for i in self.types:
+                            for j in self.types:
+                                filter_ij = numpy.logical_and(
+                                    type_masks[i][neighbors[:, 0]],
+                                    type_masks[j][neighbors[:, 1]],
+                                )
+                                counts, _ = numpy.histogram(
+                                    neighbors.distances[filter_ij],
+                                    bins=self.rdf_params["bins"],
+                                    range=(0, self.rdf_params["stop"]),
+                                )
+                                self._rdf_counts[i, j] += counts
             self.num_samples += 1
             if compute_rdf:
                 self.num_rdf_samples += 1
@@ -1257,21 +1278,20 @@ class EnsembleAverage(AnalysisOperation):
                 self._N[i] = 0
 
             if self.rdf_params is not None:
-                self._rdf = collections.PairMatrix(self.types)
-                for i, j in self._rdf:
-                    freud_rdf_args = dict(
-                        bins=self.rdf_params["bins"],
-                        r_max=self.rdf_params["stop"],
-                    )
-                    if _freud_version == 3:
-                        freud_rdf_args.update(
-                            normalization_mode="finite_size" if i == j else "exact"
+                self._rdf_counts = {}
+                self._rdf_density = {}
+                self._rdf_num_origins = {}
+                for i in self.types:
+                    self._rdf_density[i] = 0
+                    self._rdf_num_origins[i] = 0
+                    for j in self.types:
+                        self._rdf_counts[i, j] = numpy.zeros(
+                            self.rdf_params["bins"], dtype=int
                         )
-                    elif _freud_version == 2:
-                        freud_rdf_args.update(normalize=(i == j))
-                    self._rdf[i, j] = freud.density.RDF(**freud_rdf_args)
             else:
-                self._rdf = None
+                self._rdf_counts = None
+                self._rdf_density = None
+                self._rdf_num_origins = None
 
             self.num_samples = 0
             self.num_rdf_samples = 0
@@ -1340,16 +1360,49 @@ class EnsembleAverage(AnalysisOperation):
             Radial distribution functions.
             """
             if self.num_rdf_samples > 0:
+                bin_edges = numpy.linspace(
+                    0, self.rdf_params["stop"], self.rdf_params["bins"] + 1
+                )
+                bin_centers = 0.5 * (bin_edges[:-1] + bin_edges[1:])
+                if self.dimension == 3:
+                    bin_extents = (4 * numpy.pi / 3) * (
+                        bin_edges[1:] ** 3 - bin_edges[:-1] ** 3
+                    )
+                elif self.dimension == 2:
+                    bin_extents = numpy.pi * (bin_edges[1:] ** 2 - bin_edges[:-1] ** 2)
+
                 rdf = collections.PairMatrix(self.types)
-                for pair in rdf:
+                for i, j in rdf:
                     if mpi.world.rank == 0:
-                        gr = numpy.column_stack(
-                            (self._rdf[pair].bin_centers, self._rdf[pair].rdf)
-                        )
+                        density = {
+                            k: self._rdf_density[k] / self.num_rdf_samples
+                            for k in self.types
+                        }
+                        g = numpy.zeros_like(bin_centers)
+                        if i == j:
+                            if self._rdf_num_origins[i] > 0 and density[i] > 0:
+                                g = self._rdf_counts[i, i] / (
+                                    self._rdf_num_origins[i] * density[i] * bin_extents
+                                )
+                        else:
+                            # this takes the weighted average of g_ij and g_ji
+                            num_ij_origins = (
+                                self._rdf_num_origins[i] + self._rdf_num_origins[j]
+                            )
+                            if num_ij_origins > 0:
+                                if density[j] > 0:
+                                    g += self._rdf_counts[i, j] / (
+                                        num_ij_origins * density[j] * bin_extents
+                                    )
+                                if density[i] > 0:
+                                    g += self._rdf_counts[j, i] / (
+                                        num_ij_origins * density[i] * bin_extents
+                                    )
+                        gr = numpy.column_stack((bin_centers, g))
                     else:
                         gr = None
                     gr = mpi.world.bcast_numpy(gr, root=0)
-                    rdf[pair] = ensemble.RDF(gr[:, 0], gr[:, 1])
+                    rdf[i, j] = ensemble.RDF(gr[:, 0], gr[:, 1])
                 return rdf
             else:
                 return None
