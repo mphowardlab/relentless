@@ -31,8 +31,6 @@ if packaging.version.Version(_gsd_version) >= packaging.version.Version("2.8.0")
 else:
     _gsd_write_mode = "wb"
 
-_freud_version = packaging.version.parse(freud.__version__)
-
 
 class Counters:
     _compute = 1
@@ -1130,20 +1128,16 @@ class EnsembleAverage(AnalysisOperation):
             rdf = collections.PairMatrix(sim.types)
             num_rdf_samples = 0
             if mpi.world.rank_is_root:
-                rdf_ = collections.PairMatrix(sim.types)
-                for i, j in rdf_:
-                    freud_rdf_args = dict(
-                        bins=sim[self]["_rdf_params"]["bins"],
-                        r_max=sim[self]["_rdf_params"]["stop"],
-                    )
-                    if _freud_version == 3:
-                        freud_rdf_args.update(
-                            normalization_mode="finite_size" if i == j else "exact"
+                _rdf_counts = {}
+                _rdf_density = {}
+                _rdf_num_origins = {}
+                for i in sim.types:
+                    _rdf_density[i] = 0
+                    _rdf_num_origins[i] = 0
+                    for j in sim.types:
+                        _rdf_counts[i, j] = numpy.zeros(
+                            sim[self]["_rdf_params"]["bins"], dtype=int
                         )
-                    elif _freud_version == 2:
-                        freud_rdf_args.update(normalize=(i == j))
-                    rdf_[i, j] = freud.density.RDF(**freud_rdf_args)
-
                 traj = lammpsio.DumpFile(sim[self]["_rdf_file"])
                 for snap in traj:
                     # get freud box
@@ -1165,31 +1159,76 @@ class EnsembleAverage(AnalysisOperation):
                         box_array[-2:] = 0.0
                     box = freud.box.Box.from_box(box_array, dimensions=sim.dimension)
 
-                    # pre build aabbs per type and count particles by type
-                    aabbs = {}
+                    # determine type masks for RDF calculations
+                    # number of particles of each type was already determined above
                     type_masks = {}
                     for i in sim.types:
                         type_masks[i] = snap.typeid == sim["engine"]["types"][i]
-                        aabbs[i] = freud.locality.AABBQuery(
-                            box, snap.position[type_masks[i]]
-                        )
+                    # build aabb of all particles and generate a parent
+                    # neighbor list with the RDF cutoff
+                    aabb = freud.locality.AABBQuery(box, snap.position)
+                    neighbors = aabb.query(
+                        snap.position,
+                        dict(
+                            mode="ball",
+                            r_max=sim[self]["_rdf_params"]["stop"],
+                            exclude_ii=True,
+                        ),
+                    ).toNeighborList()
+                    for i in sim.types:
+                        _rdf_density[i] += N[i] / box.volume
+                        _rdf_num_origins[i] += N[i]
+                        for j in sim.types:
+                            filter_ij = numpy.logical_and(
+                                type_masks[i][neighbors[:, 0]],
+                                type_masks[j][neighbors[:, 1]],
+                            )
+                            counts, _ = numpy.histogram(
+                                neighbors.distances[filter_ij],
+                                bins=sim[self]["_rdf_params"]["bins"],
+                                range=(0, sim[self]["_rdf_params"]["stop"]),
+                            )
+                            _rdf_counts[i, j] += counts
                     # then do rdfs using the AABBs
-                    for i, j in rdf_:
-                        query_args = dict(rdf_[i, j].default_query_args)
-                        query_args.update(exclude_ii=(i == j))
-                        rdf_[i, j].compute(
-                            aabbs[j],
-                            snap.position[type_masks[i]],
-                            neighbors=query_args,
-                            reset=False,
-                        )
 
                     num_rdf_samples += 1
 
-                for pair in rdf:
-                    rdf[pair] = numpy.column_stack(
-                        (rdf_[pair].bin_centers, rdf_[pair].rdf)
-                    )
+                for i, j in rdf:
+                    if num_rdf_samples > 0:
+                        bin_edges = numpy.linspace(
+                            0,
+                            sim[self]["_rdf_params"]["stop"],
+                            sim[self]["_rdf_params"]["bins"] + 1,
+                        )
+                        bin_centers = 0.5 * (bin_edges[:-1] + bin_edges[1:])
+                    if sim.dimension == 3:
+                        bin_extents = (4 * numpy.pi / 3) * (
+                            bin_edges[1:] ** 3 - bin_edges[:-1] ** 3
+                        )
+                    elif sim.dimension == 2:
+                        bin_extents = numpy.pi * (
+                            bin_edges[1:] ** 2 - bin_edges[:-1] ** 2
+                        )
+                    density = {k: _rdf_density[k] / num_rdf_samples for k in sim.types}
+                    g = numpy.zeros_like(bin_centers)
+                    if i == j:
+                        if _rdf_num_origins[i] > 0 and density[i] > 0:
+                            g = _rdf_counts[i, i] / (
+                                _rdf_num_origins[i] * density[i] * bin_extents
+                            )
+                    else:
+                        # this takes the weighted average of g_ij and g_ji
+                        num_ij_origins = _rdf_num_origins[i] + _rdf_num_origins[j]
+                        if num_ij_origins > 0:
+                            if density[j] > 0:
+                                g += _rdf_counts[i, j] / (
+                                    num_ij_origins * density[j] * bin_extents
+                                )
+                            if density[i] > 0:
+                                g += _rdf_counts[j, i] / (
+                                    num_ij_origins * density[i] * bin_extents
+                                )
+                    rdf[i, j] = numpy.column_stack((bin_centers, g))
             # sync across ranks and convert to RDF object
             num_rdf_samples = mpi.world.bcast(num_rdf_samples)
             for pair in rdf:
