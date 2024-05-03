@@ -19,6 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       MPIEXEC_TIMEOUT: 300
+      RDMAV_FORK_SAFE: 1
     strategy:
       fail-fast: false
       matrix:
@@ -26,14 +27,14 @@ jobs:
         mpi: ["nompi", "mpich", "openmpi"]
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Setup MPI
         if: ${{ matrix.mpi != 'nompi' }}
         uses: mpi4py/setup-mpi@v1
         with:
           mpi: ${{ matrix.mpi }}
       - name: Setup Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install test dependencies
@@ -71,9 +72,9 @@ jobs:
             hoomd-version: "2.9.7"
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Setup Python ${{ matrix.python-version }}
-        uses: conda-incubator/setup-miniconda@v2
+        uses: conda-incubator/setup-miniconda@v3
         with:
           channels: conda-forge
           channel-priority: true
@@ -96,6 +97,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       MPIEXEC_TIMEOUT: 300
+      RDMAV_FORK_SAFE: 1
     defaults:
       run:
         shell: bash -el {0}
@@ -107,9 +109,9 @@ jobs:
         mpi: ["mpich", "openmpi"]
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Setup Python ${{ matrix.python-version }}
-        uses: conda-incubator/setup-miniconda@v2
+        uses: conda-incubator/setup-miniconda@v3
         with:
           channels: conda-forge
           channel-priority: true
@@ -144,9 +146,9 @@ jobs:
         shell: bash -el {0}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Setup Python 3.8
-        uses: conda-incubator/setup-miniconda@v2
+        uses: conda-incubator/setup-miniconda@v3
         with:
           channels: conda-forge
           channel-priority: true

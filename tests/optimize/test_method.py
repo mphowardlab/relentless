@@ -1,4 +1,5 @@
 """Unit tests for method module."""
+
 import os
 import tempfile
 import unittest

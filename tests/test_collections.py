@@ -1,4 +1,5 @@
 """Unit tests for collections module."""
+
 import unittest
 
 import relentless

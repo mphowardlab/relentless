@@ -31,6 +31,8 @@ if packaging.version.Version(_gsd_version) >= packaging.version.Version("2.8.0")
 else:
     _gsd_write_mode = "wb"
 
+_freud_version = packaging.version.parse(freud.__version__)
+
 
 class Counters:
     _compute = 1
@@ -1130,11 +1132,17 @@ class EnsembleAverage(AnalysisOperation):
             if mpi.world.rank_is_root:
                 rdf_ = collections.PairMatrix(sim.types)
                 for i, j in rdf_:
-                    rdf_[i, j] = freud.density.RDF(
+                    freud_rdf_args = dict(
                         bins=sim[self]["_rdf_params"]["bins"],
                         r_max=sim[self]["_rdf_params"]["stop"],
-                        normalize=(i == j),
                     )
+                    if _freud_version == 3:
+                        freud_rdf_args.update(
+                            normalization_mode="finite_size" if i == j else "exact"
+                        )
+                    elif _freud_version == 2:
+                        freud_rdf_args.update(normalize=(i == j))
+                    rdf_[i, j] = freud.density.RDF(**freud_rdf_args)
 
                 traj = lammpsio.DumpFile(sim[self]["_rdf_file"])
                 for snap in traj:
@@ -1423,7 +1431,6 @@ class LAMMPS(simulate.Simulation):
     ``mpiexec` command and options in the ``executable``::
 
         relentless.simulate.LAMMPS(init, ops, executable="mpiexec -n 8 lmp_mpi")
-
 
     .. warning::
 

@@ -1,4 +1,5 @@
 """Unit tests for ensemble module."""
+
 import tempfile
 import unittest
 

@@ -51,6 +51,7 @@ Developer classes
 
 
 """
+
 from .criteria import (
     AllTest,
     AndTest,
