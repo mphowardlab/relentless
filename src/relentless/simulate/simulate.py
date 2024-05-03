@@ -5,6 +5,7 @@ Simulation interface
 See :mod:`relentless.simulate` for module level documentation.
 
 """
+
 import abc
 
 import numpy

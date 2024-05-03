@@ -1,4 +1,5 @@
 """Unit tests for relentless.simulate.hoomd."""
+
 import os
 import pathlib
 import tempfile
@@ -15,9 +16,7 @@ from parameterized import parameterized_class
 import relentless
 from tests.model.potential.test_pair import LinPot
 
-_has_modules = (
-    relentless.simulate.hoomd._hoomd_found and relentless.simulate.hoomd._freud_found
-)
+_has_modules = relentless.simulate.hoomd._hoomd_found
 
 # silence warnings about Snapshot being deprecated
 try:

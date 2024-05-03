@@ -17,22 +17,22 @@ repos:
     hooks:
       - id: isort
   - repo: https://github.com/psf/black
-    rev: 23.12.1
+    rev: 24.3.0
     hooks:
       - id: black
   - repo: https://github.com/PyCQA/flake8
-    rev: 6.1.0
+    rev: 7.0.0
     hooks:
       - id: flake8
   - repo: https://github.com/kynan/nbstripout
-    rev: 0.6.1
+    rev: 0.7.1
     hooks:
       - id: nbstripout
         args:
           - --keep-count
           - --keep-output
   - repo: https://github.com/nbQA-dev/nbQA
-    rev: 1.7.1
+    rev: 1.8.5
     hooks:
       - id: nbqa-isort
       - id: nbqa-flake8

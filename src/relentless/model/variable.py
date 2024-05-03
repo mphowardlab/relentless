@@ -10,6 +10,7 @@ adjusted, while a :class:`DependentVariable` is a function of other
 these values.
 
 """
+
 import abc
 
 import networkx

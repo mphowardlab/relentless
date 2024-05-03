@@ -3,6 +3,7 @@ import os
 import shutil
 import warnings
 
+import freud
 import gsd.hoomd
 import lammpsio
 import numpy
@@ -48,13 +49,6 @@ if packaging.version.Version(_gsd_version) >= packaging.version.Version("2.8.0")
     _gsd_write_mode = "w"
 else:
     _gsd_write_mode = "wb"
-
-try:
-    import freud
-
-    _freud_found = True
-except ImportError:
-    _freud_found = False
 
 
 # initializers
@@ -1202,9 +1196,9 @@ class EnsembleAverage(AnalysisOperation):
                     type_masks = {}
                     N = {}
                     for i in self.types:
-                        type_masks[
-                            i
-                        ] = snap.particles.typeid == snap.particles.types.index(i)
+                        type_masks[i] = (
+                            snap.particles.typeid == snap.particles.types.index(i)
+                        )
                         if "N" not in self.constraints:
                             N[i] = numpy.sum(type_masks[i])
                             self._N[i] += N[i]
@@ -1616,13 +1610,6 @@ class HOOMD(simulate.Simulation):
     will be automatically selected for you when the simulation is run. Both
     HOOMD 2.x and 3.x are supported.
 
-    The `freud <https://freud.readthedocs.io>`_ analysis package (version 2.x)
-    is also required for initialization and analysis. To use this simulation backend,
-    you will need to install both :mod:`hoomd` and :mod:`freud` into your Python
-    environment. :mod:`hoomd` is available through conda-forge or can be built
-    from source, while :mod`freud` is available through both PyPI and conda-forge.
-    Please refer to the package documentation for details of how to install these.
-
     .. warning::
 
         HOOMD requires that tabulated pair potentials be finite. A common place to
@@ -1636,19 +1623,12 @@ class HOOMD(simulate.Simulation):
     ------
     ImportError
         If the :mod:`hoomd` package is not found or is not version 2.x.
-    ImportError
-        If the :mod:`freud` package is not found or is not version 2.x.
 
     """
 
     def __init__(self, initializer, operations=None):
         if not _hoomd_found:
             raise ImportError("HOOMD not found.")
-
-        if not _freud_found:
-            raise ImportError("freud not found.")
-        elif packaging.version.parse(freud.__version__).major != 2:
-            raise ImportError("Only freud 2.x is supported.")
 
         super().__init__(initializer, operations)
 

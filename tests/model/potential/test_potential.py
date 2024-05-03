@@ -1,4 +1,5 @@
 """Unit tests for potential module."""
+
 import json
 import tempfile
 import unittest

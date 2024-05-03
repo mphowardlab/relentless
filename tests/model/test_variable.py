@@ -1,4 +1,5 @@
 """Unit tests for core.variable module."""
+
 import unittest
 
 import numpy

@@ -1,4 +1,5 @@
 """Unit tests for criteria module."""
+
 import unittest
 
 import relentless
