@@ -398,7 +398,7 @@ class SteepestDescent(Optimizer):
         cur_res = objective.compute(variables, cur_dir)
         while not self.stop.converged(cur_res) and iter_num < self.max_iter:
             grad_y = scale * cur_res.gradient
-            update = self.descent_amount(grad_y) * grad_y
+            update = scale * self.descent_amount(grad_y) * grad_y
 
             # steepest descent update
             for x in variables:
