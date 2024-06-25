@@ -555,7 +555,7 @@ class ObliqueArea(Area):
         box_vec = self.a + self.b
         self._low = -0.5 * box_vec
         self._high = 0.5 * box_vec
-        self._extent = numpy.linalg.norm(numpy.cross(self.a, self.b))
+        self._extent = numpy.linalg.det([self.a, self.b])
         self._convention = convention
 
     @classmethod

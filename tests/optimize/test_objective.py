@@ -4,7 +4,6 @@ import tempfile
 import unittest
 
 import numpy
-import scipy.integrate
 
 import relentless
 
@@ -161,7 +160,7 @@ class test_RelativeEntropy(unittest.TestCase):
             * (sim_factor * sim_rdf(r) - tgt_factor * tgt_rdf(r))
             * dudvar(r)
         )
-        return scipy.integrate.trapz(x=r, y=y)
+        return relentless.math._trapezoid(x=r, y=y)
 
     def test_init(self):
         relent = relentless.optimize.RelativeEntropy(

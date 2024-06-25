@@ -1608,6 +1608,16 @@ class HOOMD(simulate.Simulation):
         if not _hoomd_found:
             raise ImportError("HOOMD not found.")
 
+        if (
+            _hoomd_version.major == 2
+            and packaging.version.Version(numpy.__version__).major >= 2
+        ):
+            warnings.warn(
+                "NumPy 2 is likely incompatible with HOOMD 2, "
+                "suggest to downgrade to numpy<2.",
+                RuntimeWarning,
+            )
+
         super().__init__(initializer, operations)
 
     def _initialize_engine(self, sim):

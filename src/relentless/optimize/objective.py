@@ -60,7 +60,6 @@ import json
 import tempfile
 
 import numpy
-import scipy.integrate
 
 from relentless import data, math, mpi
 from relentless.model import extent, variable
@@ -479,7 +478,7 @@ class RelativeEntropy(ObjectiveFunction):
                     * (sim_factor * g_sim[i, j](r) - tgt_factor * g_tgt[i, j](r))
                     * dudvar(r)
                 )
-                update += scipy.integrate.trapz(y, x=r)
+                update += math._trapezoid(y, r)
 
             gradient[var] = update
 
