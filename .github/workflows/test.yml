@@ -80,6 +80,10 @@ jobs:
           channel-priority: true
           mamba-version: "*"
           python-version: ${{ matrix.python-version }}
+      - name: Force HOOMD 2 NumPy version
+        if: ${{ matrix.hoomd-version == '2.9.7' }}
+        run: |
+          mamba install "numpy<2"
       - name: Install test dependencies
         run: |
           mamba install hoomd=${{ matrix.hoomd-version }}
