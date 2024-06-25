@@ -129,7 +129,7 @@ class LineSearch:
         self.tolerance = tolerance
         self.max_iter = max_iter
 
-    def find(self, objective, start, end, directory=None):
+    def find(self, objective, start, end, directory=None, scale=1.0):
         """Apply the line search algorithm to take the optimal step.
 
         Note that the objective function is kept at its initial state, and the
@@ -159,14 +159,16 @@ class LineSearch:
         ovars = {x: x.value for x in start.variables}
 
         # compute search direction
-        d = end.variables - start.variables
+        d = (end.variables - start.variables) / scale
         if d.norm() == 0:
             raise ValueError(
                 "The start and end of the search interval must be different."
             )
 
         # compute start and end target values
-        targets = numpy.array([-d.dot(start.gradient), -d.dot(end.gradient)])
+        targets = numpy.array(
+            [-d.dot(start.gradient) * scale, -d.dot(end.gradient) * scale]
+        )
         if targets[0] < 0:
             raise ValueError("The defined search interval must be a descent direction.")
 
@@ -189,7 +191,7 @@ class LineSearch:
 
                 # adjust variables based on new step size, compute new target
                 for x in start.variables:
-                    x.value = start.variables[x] + new_step * d[x]
+                    x.value = start.variables[x] + scale * new_step * d[x]
                 if directory is not None:
                     new_dir = directory.directory(
                         str(iter_num), create=mpi.world.rank_is_root
