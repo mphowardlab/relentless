@@ -15,6 +15,7 @@ Math functions (`relentless.math`)
 """
 
 import numpy
+import scipy.integrate
 import scipy.interpolate
 
 from .collections import FixedKeyDict
@@ -487,3 +488,30 @@ class KeyedArray(FixedKeyDict):
         """
         self._assert_same_keys(val)
         return numpy.sum([self[x] * val[x] for x in self])
+
+
+def _trapezoid(y, x):
+    """Wrapper around SciPy trapezoidal integration.
+
+    This function is a compatibility layer around different versions of SciPy,
+    which changed the name of the trapezoidal integration method.
+
+    Parameters
+    ----------
+    y : array_like
+        Integrand.
+    x : array_like
+        Independent variable.
+
+    Returns
+    -------
+    float
+        The integral.
+
+    """
+    try:
+        trapz = scipy.integrate.trapezoid
+    except AttributeError:
+        trapz = scipy.integrate.trapz
+
+    return trapz(y, x=x)
