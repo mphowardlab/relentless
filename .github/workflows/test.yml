@@ -133,7 +133,7 @@ jobs:
           python -m unittest -v tests/simulate/test_lammps.py
       - name: Test executable
         run: |
-          python tests/simulate/test_lammps.py -v --lammps lmp_serial
+          python tests/simulate/test_lammps.py -v --lammps ${{ matrix.lammps-version == '2022.06.23' && 'lmp_serial' || 'lmp' }}
       - name: Test MPI
         run: |
           mpiexec -n 2 python -m unittest -v tests/simulate/test_lammps.py
