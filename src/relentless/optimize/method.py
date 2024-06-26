@@ -201,7 +201,7 @@ class LineSearch:
 
                 # adjust variables based on new step size, compute new target
                 for x in start.variables:
-                    x.value = start.variables[x] + scale_array * new_step * d[x]
+                    x.value = start.variables[x] + scale_array[x] * new_step * d[x]
                 if directory is not None:
                     new_dir = directory.directory(
                         str(iter_num), create=mpi.world.rank_is_root
