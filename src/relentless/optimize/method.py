@@ -158,8 +158,18 @@ class LineSearch:
             mpi.world.barrier()
         ovars = {x: x.value for x in start.variables}
 
+        scale_array = math.KeyedArray(keys=start.variables)
+        for x in start.variables:
+            if numpy.isscalar(scale):
+                scale_array[x] = scale
+            else:
+                try:
+                    scale_array[x] = scale[x]
+                except KeyError:
+                    scale_array[x] = 1.0
+
         # compute search direction
-        d = (end.variables - start.variables) / scale
+        d = (end.variables - start.variables) / scale_array
         if d.norm() == 0:
             raise ValueError(
                 "The start and end of the search interval must be different."
@@ -167,7 +177,9 @@ class LineSearch:
 
         # compute start and end target values
         targets = numpy.array(
-            [-d.dot(start.gradient) * scale, -d.dot(end.gradient) * scale]
+            [-d.dot(start.gradient * scale_array), 
+             -d.dot(end.gradient * scale_array)
+             ]
         )
         if targets[0] < 0:
             raise ValueError("The defined search interval must be a descent direction.")
@@ -191,7 +203,7 @@ class LineSearch:
 
                 # adjust variables based on new step size, compute new target
                 for x in start.variables:
-                    x.value = start.variables[x] + scale * new_step * d[x]
+                    x.value = start.variables[x] + scale_array * new_step * d[x]
                 if directory is not None:
                     new_dir = directory.directory(
                         str(iter_num), create=mpi.world.rank_is_root
@@ -200,7 +212,7 @@ class LineSearch:
                 else:
                     new_dir = None
                 new_res = objective.compute(start.variables, new_dir)
-                new_target = -d.dot(new_res.gradient)
+                new_target = -d.dot(new_res.gradient * scale_array)
 
                 # update search intervals
                 if new_target > 0:
