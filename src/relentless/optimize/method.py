@@ -177,9 +177,7 @@ class LineSearch:
 
         # compute start and end target values
         targets = numpy.array(
-            [-d.dot(start.gradient * scale_array), 
-             -d.dot(end.gradient * scale_array)
-             ]
+            [-d.dot(start.gradient * scale_array), -d.dot(end.gradient * scale_array)]
         )
         if targets[0] < 0:
             raise ValueError("The defined search interval must be a descent direction.")
