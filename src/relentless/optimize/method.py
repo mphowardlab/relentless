@@ -130,7 +130,7 @@ class LineSearch:
         self.max_iter = max_iter
 
     def find(self, objective, start, end, directory=None, scale=1.0):
-        """Apply the line search algorithm to take the optimal step.
+        r"""Apply the line search algorithm to take the optimal step.
 
         Note that the objective function is kept at its initial state, and the
         function evaluted after taking the optimal step is returned separately.
@@ -146,6 +146,11 @@ class LineSearch:
         directory : str or :class:`~relentless.data.Directory`
             Directory for writing output during search. Default of ``None``
             requests no output is written.
+        scale : float or dict
+            A scalar scaling parameter or scaling parameters
+            (:math:\mathbf{X}`) keyed on one or more
+            :class:`~relentless.optimize.objective.ObjectiveFunction` design
+            variables (defaults to ``1.0``, so that the variables are unscaled).
 
         Returns
         -------
@@ -430,7 +435,11 @@ class SteepestDescent(Optimizer):
                 else:
                     line_dir = None
                 line_res = self.line_search.find(
-                    objective=objective, start=cur_res, end=next_res, directory=line_dir
+                    objective=objective,
+                    start=cur_res,
+                    end=next_res,
+                    directory=line_dir,
+                    scale=self.scale,
                 )
 
                 if line_res is not next_res:
