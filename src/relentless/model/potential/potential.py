@@ -1,6 +1,7 @@
 import abc
 import inspect
 import json
+import re
 
 import numpy
 
@@ -135,6 +136,7 @@ class Potential(abc.ABC):
 
     count = 0
     names = set()
+    _default_name_pattern = re.compile(r"__u\[[0-9]+\]")
 
     def __init__(self, keys, params, container=None, name=None):
         # set unique id and name
@@ -142,7 +144,7 @@ class Potential(abc.ABC):
         if name is None:
             name = "__u[{}]".format(self.id)
         if name in self.names:
-            raise ValueError("Potential name already used")
+            raise ValueError(f"Potential name {name} already used")
         else:
             self.names.add(name)
             self.name = name
@@ -153,7 +155,7 @@ class Potential(abc.ABC):
         self.coeff = container(keys, params)
 
     @classmethod
-    def from_json(cls, data):
+    def from_json(cls, data, name=None):
         """Create potential from JSON data.
 
         It is assumed that the data is compatible with the pair potential.
@@ -162,6 +164,13 @@ class Potential(abc.ABC):
         ----------
         data : dict
             JSON data for potential.
+        name : str or bool or None
+            Name of the potential. If a `str`, ``name`` overrides the value in
+            the JSON data. If ``True``, the name in the JSON data is always
+            preserved. If ``False``, the name in the JSON data is always ignored,
+            and a default name is created. If ``None``, the value in the JSON
+            data is used if it is not taken and does not match the default name
+            pattern; otherwise, a new default name is generated.
 
         """
         # build build constructor arguments from data and create object
@@ -176,7 +185,22 @@ class Potential(abc.ABC):
             if arg == "types":
                 x = data["coeff"]["types"]
             elif arg == "name":
-                x = data["name"] if data["name"] not in Potential.names else None
+                if isinstance(name, str):
+                    # override
+                    x = name
+                elif name is True:
+                    # force to preserve
+                    x = data["name"]
+                elif name is False:
+                    # force to default
+                    x = None
+                else:
+                    # default the name to None if it is taken or matches default pattern
+                    x = data["name"]
+                    if x in Potential.names or re.fullmatch(
+                        cls._default_name_pattern, x
+                    ):
+                        x = None
             else:
                 x = data[arg]
 
@@ -205,7 +229,7 @@ class Potential(abc.ABC):
         return u
 
     @classmethod
-    def from_file(cls, filename):
+    def from_file(cls, filename, name=None):
         """Create potential from a JSON file.
 
         It is assumed that the JSON file is compatible with the potential type.
@@ -214,10 +238,17 @@ class Potential(abc.ABC):
         ----------
         filename : str
             JSON file to load.
+        name : str or bool or None
+            Name of the potential. If a `str`, ``name`` overrides the value in
+            the file. If ``True``, the name in the file is always preserved. If
+            ``False``, the name in the file is always ignored, and a default
+            name is created. If ``None``, the value in the file is used if it is
+            not taken and does not match the default name pattern; otherwise, a
+            new default name is generated.
 
         """
         data = mpi.world.load_json(filename)
-        return cls.from_json(data)
+        return cls.from_json(data, name)
 
     @abc.abstractmethod
     def energy(self, key, x):

@@ -1530,7 +1530,7 @@ class LAMMPS(simulate.Simulation):
             self.executable = executable
             lines = result.stdout.splitlines()
             for i, line in enumerate(result.stdout.splitlines()):
-                if i == 1:
+                if "Large-scale Atomic/Molecular Massively Parallel Simulator" in line:
                     # these split indexes are hardcoded based on standard help output
                     version_str = line.split("-")[2].strip()
                     # then this coerces the version into the LAMMPS integer format
