@@ -129,8 +129,8 @@ class LineSearch:
         self.tolerance = tolerance
         self.max_iter = max_iter
 
-    def find(self, objective, start, end, directory=None):
-        """Apply the line search algorithm to take the optimal step.
+    def find(self, objective, start, end, directory=None, scale=1.0):
+        r"""Apply the line search algorithm to take the optimal step.
 
         Note that the objective function is kept at its initial state, and the
         function evaluted after taking the optimal step is returned separately.
@@ -146,6 +146,11 @@ class LineSearch:
         directory : str or :class:`~relentless.data.Directory`
             Directory for writing output during search. Default of ``None``
             requests no output is written.
+        scale : float or dict
+            A scalar scaling parameter or scaling parameters
+            (:math:\mathbf{X}`) keyed on one or more
+            :class:`~relentless.optimize.objective.ObjectiveFunction` design
+            variables (defaults to ``1.0``, so that the variables are unscaled).
 
         Returns
         -------
@@ -158,15 +163,27 @@ class LineSearch:
             mpi.world.barrier()
         ovars = {x: x.value for x in start.variables}
 
+        scale_array = math.KeyedArray(keys=start.variables)
+        for x in start.variables:
+            if numpy.isscalar(scale):
+                scale_array[x] = scale
+            else:
+                try:
+                    scale_array[x] = scale[x]
+                except KeyError:
+                    scale_array[x] = 1.0
+
         # compute search direction
-        d = end.variables - start.variables
+        d = (end.variables - start.variables) / scale_array
         if d.norm() == 0:
             raise ValueError(
                 "The start and end of the search interval must be different."
             )
 
         # compute start and end target values
-        targets = numpy.array([-d.dot(start.gradient), -d.dot(end.gradient)])
+        targets = numpy.array(
+            [-d.dot(start.gradient * scale_array), -d.dot(end.gradient * scale_array)]
+        )
         if targets[0] < 0:
             raise ValueError("The defined search interval must be a descent direction.")
 
@@ -189,7 +206,7 @@ class LineSearch:
 
                 # adjust variables based on new step size, compute new target
                 for x in start.variables:
-                    x.value = start.variables[x] + new_step * d[x]
+                    x.value = start.variables[x] + scale_array[x] * new_step * d[x]
                 if directory is not None:
                     new_dir = directory.directory(
                         str(iter_num), create=mpi.world.rank_is_root
@@ -198,7 +215,7 @@ class LineSearch:
                 else:
                     new_dir = None
                 new_res = objective.compute(start.variables, new_dir)
-                new_target = -d.dot(new_res.gradient)
+                new_target = -d.dot(new_res.gradient * scale_array)
 
                 # update search intervals
                 if new_target > 0:
@@ -398,7 +415,7 @@ class SteepestDescent(Optimizer):
         cur_res = objective.compute(variables, cur_dir)
         while not self.stop.converged(cur_res) and iter_num < self.max_iter:
             grad_y = scale * cur_res.gradient
-            update = self.descent_amount(grad_y) * grad_y
+            update = scale * self.descent_amount(grad_y) * grad_y
 
             # steepest descent update
             for x in variables:
@@ -418,7 +435,11 @@ class SteepestDescent(Optimizer):
                 else:
                     line_dir = None
                 line_res = self.line_search.find(
-                    objective=objective, start=cur_res, end=next_res, directory=line_dir
+                    objective=objective,
+                    start=cur_res,
+                    end=next_res,
+                    directory=line_dir,
+                    scale=self.scale,
                 )
 
                 if line_res is not next_res:
