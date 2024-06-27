@@ -14,7 +14,7 @@ import abc
 
 import numpy
 
-from relentless import mpi
+from relentless import math, mpi
 from relentless.model import ensemble, extent
 
 from . import analyze, md, simulate
@@ -263,7 +263,7 @@ class Dilute(simulate.Simulation):
                 geo_prefactor = 2 * numpy.pi * r
             else:
                 raise ValueError("Geometric integration factor unknown for extent type")
-            B_ij = -0.5 * numpy.trapz(geo_prefactor * (numpy.exp(-u / kT) - 1), x=r)
+            B_ij = -0.5 * math._trapezoid(geo_prefactor * (numpy.exp(-u / kT) - 1), r)
 
             y_i = ens.N[i] / N
             y_j = ens.N[j] / N
