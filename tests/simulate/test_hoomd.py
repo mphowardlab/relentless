@@ -182,6 +182,10 @@ class test_HOOMD(unittest.TestCase):
         )
         h.run(pot, self.directory)
 
+    @unittest.skipIf(
+        _has_modules and relentless.simulate.hoomd._hoomd_version.major == 2,
+        "Device selection is limited in HOOMD 2",
+    )
     def test_device(self):
         ens, pot = self.ens_pot()
         op = relentless.simulate.InitializeRandomly(seed=1, N=ens.N, V=ens.V, T=ens.T)
