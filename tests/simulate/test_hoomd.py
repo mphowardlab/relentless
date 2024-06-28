@@ -339,7 +339,7 @@ class test_HOOMD(unittest.TestCase):
         sim = h.run(pot, self.directory)
 
         # HOOMD behavior for sampling differs between version 2 and 3
-        if relentless.simulate.hoomd._hoomd_version.major == 3:
+        if relentless.simulate.hoomd._hoomd_version.major >= 3:
             expected_thermo_samples = 101
             expected_rdf_samples = 51
         elif relentless.simulate.hoomd._hoomd_version.major == 2:
