@@ -1645,6 +1645,17 @@ class HOOMD(simulate.Simulation):
         e.g., setting :attr:`~relentless.simulate.PairPotentialTabulator.rmin` to a
         small value larger than 0.
 
+    Parameters
+    ----------
+    initializer : :class:`~relentless.simulate.SimulationOperation`
+        Operation that initializes the simulation.
+    operations : array_like
+        :class:`~relentless.simulate.SimulationOperation` to execute for run.
+        Defaults to ``None``, which means nothing is done after initialization.
+    device : str
+        Device to execute on. Values are "cpu" (run on CPU), "gpu" (run on GPU),
+        and "auto" (default, select best available).
+
     Raises
     ------
     ImportError
@@ -1652,7 +1663,7 @@ class HOOMD(simulate.Simulation):
 
     """
 
-    def __init__(self, initializer, operations=None):
+    def __init__(self, initializer, operations=None, device="auto"):
         if not _hoomd_found:
             raise ImportError("HOOMD not found.")
 
@@ -1667,19 +1678,39 @@ class HOOMD(simulate.Simulation):
             )
 
         super().__init__(initializer, operations)
+        self.device = device
 
     def _initialize_engine(self, sim):
         sim["engine"]["version"] = _hoomd_version
 
         if _hoomd_version.major >= 3:
-            device = hoomd.device.auto_select(
-                communicator=mpi.world.comm, notice_level=0
-            )
+            if self.device == "auto":
+                device_class = hoomd.device.auto_select
+            elif self.device.lower() == "cpu":
+                device_class = hoomd.device.CPU
+            elif self.device.lower() == "gpu":
+                device_class = hoomd.device.GPU
+            else:
+                raise ValueError(
+                    "Unrecognized device type, must be in (auto, cpu, gpu)"
+                )
+            device = device_class(communicator=mpi.world.comm, notice_level=0)
             sim["engine"]["_hoomd"] = hoomd.Simulation(device)
         elif _hoomd_version.major == 2:
             # initialize hoomd exec conf once, then make a context
             if hoomd.context.exec_conf is None:
-                hoomd.context.initialize("--notice-level=0")
+                cmd_args = "--notice-level=0"
+                if self.device == "CPU":
+                    cmd_args += " --mode=cpu"
+                elif self.device == "GPU":
+                    cmd_args += " --mode=gpu"
+                elif self.device != "auto":
+                    # auto-select is default, so only raise error if device is
+                    # not in recognized list
+                    raise ValueError(
+                        "Unrecognized device type, must be in (auto, cpu, gpu)"
+                    )
+                hoomd.context.initialize(cmd_args)
                 hoomd.util.quiet_status()
             sim["engine"]["_hoomd"] = hoomd.context.SimulationContext()
         else:
