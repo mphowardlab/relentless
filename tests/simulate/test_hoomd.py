@@ -182,6 +182,31 @@ class test_HOOMD(unittest.TestCase):
         )
         h.run(pot, self.directory)
 
+    @unittest.skipIf(
+        _has_modules and relentless.simulate.hoomd._hoomd_version.major == 2,
+        "Device selection is limited in HOOMD 2",
+    )
+    def test_device(self):
+        ens, pot = self.ens_pot()
+        op = relentless.simulate.InitializeRandomly(seed=1, N=ens.N, V=ens.V, T=ens.T)
+
+        # auto
+        h = relentless.simulate.HOOMD(op, device="auto")
+        h.run(pot, self.directory)
+
+        # cpu
+        h = relentless.simulate.HOOMD(op, device="cpu")
+        h.run(pot, self.directory)
+        h = relentless.simulate.HOOMD(op, device="CPU")
+        h.run(pot, self.directory)
+
+        # can't do gpu on systems that don't have one available, so won't test
+        # can check for a disallowed value though
+
+        h = relentless.simulate.HOOMD(op, device="knl")
+        with self.assertRaises(ValueError):
+            h.run(pot, self.directory)
+
     def test_minimization(self):
         """Test running energy minimization simulation operation."""
         # MinimizeEnergy
@@ -339,7 +364,7 @@ class test_HOOMD(unittest.TestCase):
         sim = h.run(pot, self.directory)
 
         # HOOMD behavior for sampling differs between version 2 and 3
-        if relentless.simulate.hoomd._hoomd_version.major == 3:
+        if relentless.simulate.hoomd._hoomd_version.major >= 3:
             expected_thermo_samples = 101
             expected_rdf_samples = 51
         elif relentless.simulate.hoomd._hoomd_version.major == 2:
