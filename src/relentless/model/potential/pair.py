@@ -872,8 +872,8 @@ class PairSpline(PairPotential):
         super().__init__(types=types, params=params, name=name)
 
     @classmethod
-    def from_json(cls, data):
-        u = super().from_json(data)
+    def from_json(cls, data, name=None):
+        u = super().from_json(data, name)
         # reset the knot values as variables since they were set as floats
         for pair in u.coeff:
             for i, (r, k) in enumerate(u.knots(pair)):

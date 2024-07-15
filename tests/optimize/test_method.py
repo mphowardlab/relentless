@@ -178,6 +178,13 @@ class test_SteepestDescent(unittest.TestCase):
         o.max_iter = 1
         self.assertFalse(o.optimize(objective=q, variables=x))
 
+        # test result of an interation of nontrivial scalar scaling parameter
+        x.value = 9
+        o.scale = 0.5
+        o.max_iter = 1
+        o.optimize(objective=q, variables=x)
+        self.assertAlmostEqual(x.value, 8)
+
         # test with nontrivial scalar scaling parameter
         x.value = 50
         o.scale = 0.85
