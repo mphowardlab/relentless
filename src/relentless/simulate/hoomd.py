@@ -1610,6 +1610,8 @@ class WriteTrajectory(AnalysisOperation):
             )
 
     def _post_run_v3(self, sim, sim_op):
+        if _hoomd_version.major >= 4:
+            sim[self]["_gsd"].flush()
         sim["engine"]["_hoomd"].operations.writers.remove(sim[self]["_gsd"])
         del sim[self]["_gsd"]
 
