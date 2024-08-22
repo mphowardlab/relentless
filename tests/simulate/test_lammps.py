@@ -251,6 +251,8 @@ class test_LAMMPS(unittest.TestCase):
         emin.options = {"max_evaluations": 10000.0}
         lmp.operations = emin
         lmp.run(potentials=pot, directory=self.directory)
+
+        # Resetting to integers
         emin.max_iterations = 1000
         emin.options = {"max_evaluations": 10000}
 
@@ -259,6 +261,8 @@ class test_LAMMPS(unittest.TestCase):
         lmp.operations = emin
         with self.assertRaises(ValueError):
             lmp.run(potentials=pot, directory=self.directory)
+
+        # Resetting to integer
         emin.max_iterations = 1000
 
         # Non-whole number of evaulations as float
@@ -288,6 +292,8 @@ class test_LAMMPS(unittest.TestCase):
         brn.steps = 1.5
         with self.assertRaises(ValueError):
             h.run(pot, self.directory)
+
+        # Resetting to integer
         brn.steps = 1
 
         # different friction coefficients
@@ -336,6 +342,8 @@ class test_LAMMPS(unittest.TestCase):
         lmp.operations = lgv
         with self.assertRaises(KeyError):
             lmp.run(pot, self.directory)
+
+        # Resetting to float
         lgv.friction = 1.5
 
         # Whole number of steps as float
@@ -365,8 +373,10 @@ class test_LAMMPS(unittest.TestCase):
         with self.assertRaises(ValueError):
             lmp.run(pot, self.directory)
 
-        # VerletIntegrator - NVE
+        # Resetting to integer
         vrl.steps = 1
+
+        # VerletIntegrator - NVE
         lmp.operations = vrl
         lmp.run(pot, self.directory)
 
