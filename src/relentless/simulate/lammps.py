@@ -509,11 +509,18 @@ class MinimizeEnergy(SimulationOperation):
     def __init__(self, energy_tolerance, force_tolerance, max_iterations, options):
         self.energy_tolerance = energy_tolerance
         self.force_tolerance = force_tolerance
-        self.max_iterations = max_iterations
+        if max_iterations.is_integer():
+            self.max_iterations = int(max_iterations)
+        else:
+            raise ValueError("Max iterations should be an integer.")
         self.options = options if options is not None else {}
 
     def _call_commands(self, sim):
         max_eval = self.options.get("max_evaluations", 100 * self.max_iterations)
+        if max_eval.is_integer():
+            max_eval = int(max_eval)
+        else:
+            raise ValueError("Max evalulations should be an integer.")
         cmds = [
             "minimize {etol} {ftol} {maxiter} {maxeval}".format(
                 etol=self.energy_tolerance,
@@ -549,7 +556,10 @@ class _Integrator(SimulationOperation):
 
     def __init__(self, steps, timestep, analyzers):
         super().__init__(analyzers)
-        self.steps = steps
+        if steps.is_integer():
+            self.steps = int(steps)
+        else:
+            raise ValueError("Steps should be an integer.")
         self.timestep = timestep
 
     def __call__(self, sim):
@@ -915,7 +925,10 @@ class AnalysisOperation(simulate.AnalysisOperation):
 class EnsembleAverage(AnalysisOperation):
     def __init__(self, filename, every, rdf, assume_constraints):
         self.filename = filename
-        self.every = every
+        if every.is_integer():
+            self.every = int(every)
+        else:
+            raise ValueError("Every should be an integer.")
         self.rdf = rdf
         self.assume_constraints = assume_constraints
 
@@ -1295,7 +1308,10 @@ class EnsembleAverage(AnalysisOperation):
 class Record(AnalysisOperation):
     def __init__(self, filename, every, quantities):
         self.filename = filename
-        self.every = every
+        if every.is_integer():
+            self.every = int(every)
+        else:
+            raise ValueError("Every should be an integer.")
         self.quantities = quantities
 
     def _pre_run_commands(self, sim, sim_op):
@@ -1374,7 +1390,10 @@ class WriteTrajectory(AnalysisOperation):
 
     def __init__(self, filename, every, format, velocities, images, types, masses):
         self.filename = filename
-        self.every = every
+        if every.is_integer():
+            self.every = int(every)
+        else:
+            raise ValueError("Every should be an integer.")
         self.format = format
         self.velocities = velocities
         self.images = images
