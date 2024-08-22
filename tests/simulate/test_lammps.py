@@ -248,8 +248,11 @@ class test_LAMMPS(unittest.TestCase):
 
         # Whole number of iterations and evalulations as float
         emin.max_iterations = 1000.0
+        emin.options = {"max_evaluations": 10000.0}
         lmp.operations = emin
         lmp.run(potentials=pot, directory=self.directory)
+        emin.max_iterations = 1000
+        emin.options = {"max_evaluations": 10000}
 
         # Non-whole number of iterations as float
         emin.max_iterations = 1000.5
