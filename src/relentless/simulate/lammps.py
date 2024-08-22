@@ -509,7 +509,7 @@ class MinimizeEnergy(SimulationOperation):
     def __init__(self, energy_tolerance, force_tolerance, max_iterations, options):
         self.energy_tolerance = energy_tolerance
         self.force_tolerance = force_tolerance
-        if max_iterations.is_integer():
+        if float(max_iterations).is_integer():
             self.max_iterations = int(max_iterations)
         else:
             raise ValueError("Max iterations should be an integer.")
@@ -517,7 +517,7 @@ class MinimizeEnergy(SimulationOperation):
 
     def _call_commands(self, sim):
         max_eval = self.options.get("max_evaluations", 100 * self.max_iterations)
-        if max_eval.is_integer():
+        if float(max_eval).is_integer():
             max_eval = int(max_eval)
         else:
             raise ValueError("Max evalulations should be an integer.")
@@ -556,7 +556,7 @@ class _Integrator(SimulationOperation):
 
     def __init__(self, steps, timestep, analyzers):
         super().__init__(analyzers)
-        if steps.is_integer():
+        if float(steps).is_integer():
             self.steps = int(steps)
         else:
             raise ValueError("Steps should be an integer.")
@@ -925,7 +925,7 @@ class AnalysisOperation(simulate.AnalysisOperation):
 class EnsembleAverage(AnalysisOperation):
     def __init__(self, filename, every, rdf, assume_constraints):
         self.filename = filename
-        if every.is_integer():
+        if float(every).is_integer():
             self.every = int(every)
         else:
             raise ValueError("Every should be an integer.")
@@ -1308,7 +1308,7 @@ class EnsembleAverage(AnalysisOperation):
 class Record(AnalysisOperation):
     def __init__(self, filename, every, quantities):
         self.filename = filename
-        if every.is_integer():
+        if float(every).is_integer():
             self.every = int(every)
         else:
             raise ValueError("Every should be an integer.")
@@ -1390,7 +1390,7 @@ class WriteTrajectory(AnalysisOperation):
 
     def __init__(self, filename, every, format, velocities, images, types, masses):
         self.filename = filename
-        if every.is_integer():
+        if float(every).is_integer():
             self.every = int(every)
         else:
             raise ValueError("Every should be an integer.")
