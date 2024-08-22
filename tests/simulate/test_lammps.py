@@ -282,12 +282,10 @@ class test_LAMMPS(unittest.TestCase):
 
         # Whole number of steps as float
         brn.steps = 1.0
-        h = relentless.simulate.LAMMPS(init, brn, executable=self.executable)
         h.run(pot, self.directory)
 
         # Non-whole number of steps
         brn.steps = 1.5
-        h = relentless.simulate.LAMMPS(init, brn, executable=self.executable)
         with self.assertRaises(ValueError):
             h.run(pot, self.directory)
         brn.steps = 1
@@ -716,13 +714,11 @@ class test_LAMMPS(unittest.TestCase):
         # repeat with whole number of steps as float
         lmpstrj.every = 100.0
         lgv.analyzers = [lmpstrj]
-        h = relentless.simulate.LAMMPS(init, operations=lgv, executable=self.executable)
         sim = h.run(potentials=pot, directory=self.directory)
 
         # repeat with non-whole number of steps as float
         lmpstrj.every = 100.5
         lgv.analyzers = [lmpstrj]
-        h = relentless.simulate.LAMMPS(init, operations=lgv, executable=self.executable)
         with self.assertRaises(ValueError):
             sim = h.run(potentials=pot, directory=self.directory)
 
