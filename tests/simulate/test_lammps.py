@@ -247,23 +247,23 @@ class test_LAMMPS(unittest.TestCase):
         lmp.run(potentials=pot, directory=self.directory)
 
         # Whole number of iterations and evalulations as float
-        emin.max_iterations=1000.0
+        emin.max_iterations = 1000.0
         lmp.operations = emin
         lmp.run(potentials=pot, directory=self.directory)
 
         # Non-whole number of iterations as float
-        emin.max_iterations=1000.5
+        emin.max_iterations = 1000.5
         lmp.operations = emin
         with self.assertRaises(ValueError):
             lmp.run(potentials=pot, directory=self.directory)
-        emin.max_iterations=1000
-        
+        emin.max_iterations = 1000
+
         # Non-whole number of evaulations as float
-        emin.options={"max_evaluations": 10000.5}
+        emin.options = {"max_evaluations": 10000.5}
         lmp.operations = emin
         with self.assertRaises(ValueError):
             lmp.run(potentials=pot, directory=self.directory)
-        emin.options={"max_evaluations": 10000}
+        emin.options = {"max_evaluations": 10000}
 
     def test_brownian_dynamics(self):
         ens, pot = self.ens_pot()
@@ -336,7 +336,7 @@ class test_LAMMPS(unittest.TestCase):
         with self.assertRaises(KeyError):
             lmp.run(pot, self.directory)
         lgv.friction = 1.5
-        
+
         # Whole number of steps as float
         lgv.steps = 1.0
         lmp.operations = lgv
@@ -347,7 +347,7 @@ class test_LAMMPS(unittest.TestCase):
         lmp.operations = lgv
         with self.assertRaises(ValueError):
             lmp.run(pot, self.directory)
-    
+
     def test_molecular_dynamics(self):
         ens, pot = self.ens_pot()
         init = relentless.simulate.InitializeRandomly(seed=1, N=ens.N, V=ens.V, T=ens.T)
@@ -361,7 +361,7 @@ class test_LAMMPS(unittest.TestCase):
         # VerletIntegrator - Non-whole number of steps as float
         vrl.steps = 1.5
         lmp.operations = vrl
-        with self.assertRaises(ValueError): 
+        with self.assertRaises(ValueError):
             lmp.run(pot, self.directory)
 
         # VerletIntegrator - NVE
@@ -492,14 +492,14 @@ class test_LAMMPS(unittest.TestCase):
             self.assertNotEqual(ens2_.rdf[i, j].table.shape, ens_.rdf[i, j].table.shape)
 
         # repeat with whole number of steps as float
-        analyzer.every=5.0
+        analyzer.every = 5.0
         lgv.analyzers = analyzer
         sim = h.run(pot, self.directory)
 
         # repeat with non-whole number of steps as float
-        analyzer.every=5.5
+        analyzer.every = 5.5
         lgv.analyzers = analyzer
-        with self.assertRaises(ValueError): 
+        with self.assertRaises(ValueError):
             sim = h.run(pot, self.directory)
 
         # repeat same analysis with logger, and make sure it still works
@@ -648,7 +648,7 @@ class test_LAMMPS(unittest.TestCase):
         numpy.testing.assert_allclose(dat[:, 3], sim[analyzer]["temperature"])
         numpy.testing.assert_allclose(dat[:, 4], sim[analyzer]["pressure"])
 
-                # repeat with whole number of steps as float
+        # repeat with whole number of steps as float
         analyzer.every = 5.0
         lgv.analyzers = analyzer
         sim = h.run(pot, self.directory)
@@ -656,7 +656,7 @@ class test_LAMMPS(unittest.TestCase):
         # repeat with non-whole number of steps as float
         analyzer.every = 5.5
         lgv.analyzers = analyzer
-        with self.assertRaises(ValueError): 
+        with self.assertRaises(ValueError):
             sim = h.run(pot, self.directory)
 
     def test_writetrajectory(self):
@@ -712,13 +712,13 @@ class test_LAMMPS(unittest.TestCase):
 
         # repeat with whole number of steps as float
         lmpstrj.every = 100.0
-        lgv.analyzers=[lmpstrj]
+        lgv.analyzers = [lmpstrj]
         h = relentless.simulate.LAMMPS(init, operations=lgv, executable=self.executable)
         sim = h.run(potentials=pot, directory=self.directory)
 
         # repeat with non-whole number of steps as float
         lmpstrj.every = 100.5
-        lgv.analyzers=[lmpstrj]
+        lgv.analyzers = [lmpstrj]
         h = relentless.simulate.LAMMPS(init, operations=lgv, executable=self.executable)
         with self.assertRaises(ValueError):
             sim = h.run(potentials=pot, directory=self.directory)
