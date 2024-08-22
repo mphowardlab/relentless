@@ -513,7 +513,9 @@ class MinimizeEnergy(SimulationOperation):
         self.options = options if options is not None else {}
 
     def _call_commands(self, sim):
-        max_eval = to_int(self.options.get("max_evaluations", 100 * self.max_iterations))
+        max_eval = to_int(
+            self.options.get("max_evaluations", 100 * self.max_iterations)
+        )
         cmds = [
             "minimize {etol} {ftol} {maxiter} {maxeval}".format(
                 etol=self.energy_tolerance,
@@ -1641,6 +1643,7 @@ class LAMMPS(simulate.Simulation):
     _EnsembleAverage = EnsembleAverage
     _Record = Record
     _WriteTrajectory = WriteTrajectory
+
 
 def to_int(a):
     b = int(a)
