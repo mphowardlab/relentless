@@ -29,6 +29,7 @@ Developer classes
 
 """
 
+from .bond import Harmonic
 from .pair import (
     Depletion,
     LennardJones,
