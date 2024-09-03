@@ -246,6 +246,32 @@ class test_LAMMPS(unittest.TestCase):
         lmp.operations = emin
         lmp.run(potentials=pot, directory=self.directory)
 
+        # Whole number of iterations and evalulations as float
+        emin.max_iterations = 1000.0
+        emin.options = {"max_evaluations": 10000.0}
+        lmp.operations = emin
+        lmp.run(potentials=pot, directory=self.directory)
+
+        # Resetting to integers
+        emin.max_iterations = 1000
+        emin.options = {"max_evaluations": 10000}
+
+        # Non-whole number of iterations as float
+        emin.max_iterations = 1000.5
+        lmp.operations = emin
+        with self.assertRaises(ValueError):
+            lmp.run(potentials=pot, directory=self.directory)
+
+        # Resetting to integer
+        emin.max_iterations = 1000
+
+        # Non-whole number of evaulations as float
+        emin.options = {"max_evaluations": 10000.5}
+        lmp.operations = emin
+        with self.assertRaises(ValueError):
+            lmp.run(potentials=pot, directory=self.directory)
+        emin.options = {"max_evaluations": 10000}
+
     def test_brownian_dynamics(self):
         ens, pot = self.ens_pot()
         init = relentless.simulate.InitializeRandomly(seed=1, N=ens.N, V=ens.V, T=ens.T)
@@ -257,6 +283,18 @@ class test_LAMMPS(unittest.TestCase):
             self.skipTest("LAMMPS BROWNIAN package not installed")
         else:
             h.run(pot, self.directory)
+
+        # Whole number of steps as float
+        brn.steps = 1.0
+        h.run(pot, self.directory)
+
+        # Non-whole number of steps
+        brn.steps = 1.5
+        with self.assertRaises(ValueError):
+            h.run(pot, self.directory)
+
+        # Resetting to integer
+        brn.steps = 1
 
         # different friction coefficients
         brn.friction = {"A": 1.5, "B": 2.5}
@@ -305,13 +343,40 @@ class test_LAMMPS(unittest.TestCase):
         with self.assertRaises(KeyError):
             lmp.run(pot, self.directory)
 
+        # Resetting to float
+        lgv.friction = 1.5
+
+        # Whole number of steps as float
+        lgv.steps = 1.0
+        lmp.operations = lgv
+        lmp.run(pot, self.directory)
+
+        # Non-whole number of steps
+        lgv.steps = 1.5
+        lmp.operations = lgv
+        with self.assertRaises(ValueError):
+            lmp.run(pot, self.directory)
+
     def test_molecular_dynamics(self):
         ens, pot = self.ens_pot()
         init = relentless.simulate.InitializeRandomly(seed=1, N=ens.N, V=ens.V, T=ens.T)
         lmp = relentless.simulate.LAMMPS(init, executable=self.executable)
 
+        # VerletIntegrator - Whole number of steps as float
+        vrl = relentless.simulate.RunMolecularDynamics(steps=1.0, timestep=1e-3)
+        lmp.operations = vrl
+        lmp.run(pot, self.directory)
+
+        # VerletIntegrator - Non-whole number of steps as float
+        vrl.steps = 1.5
+        lmp.operations = vrl
+        with self.assertRaises(ValueError):
+            lmp.run(pot, self.directory)
+
+        # Resetting to integer
+        vrl.steps = 1
+
         # VerletIntegrator - NVE
-        vrl = relentless.simulate.RunMolecularDynamics(steps=1, timestep=1e-3)
         lmp.operations = vrl
         lmp.run(pot, self.directory)
 
@@ -436,6 +501,17 @@ class test_LAMMPS(unittest.TestCase):
         self.assertEqual(ens2_.V.extent, ens_.V.extent)
         for i, j in ens2_.rdf:
             self.assertNotEqual(ens2_.rdf[i, j].table.shape, ens_.rdf[i, j].table.shape)
+
+        # repeat with whole number of steps as float
+        analyzer.every = 5.0
+        lgv.analyzers = analyzer
+        sim = h.run(pot, self.directory)
+
+        # repeat with non-whole number of steps as float
+        analyzer.every = 5.5
+        lgv.analyzers = analyzer
+        with self.assertRaises(ValueError):
+            sim = h.run(pot, self.directory)
 
         # repeat same analysis with logger, and make sure it still works
         logger = relentless.simulate.Record(
@@ -583,6 +659,17 @@ class test_LAMMPS(unittest.TestCase):
         numpy.testing.assert_allclose(dat[:, 3], sim[analyzer]["temperature"])
         numpy.testing.assert_allclose(dat[:, 4], sim[analyzer]["pressure"])
 
+        # repeat with whole number of steps as float
+        analyzer.every = 5.0
+        lgv.analyzers = analyzer
+        sim = h.run(pot, self.directory)
+
+        # repeat with non-whole number of steps as float
+        analyzer.every = 5.5
+        lgv.analyzers = analyzer
+        with self.assertRaises(ValueError):
+            sim = h.run(pot, self.directory)
+
     def test_writetrajectory(self):
         """Test write trajectory simulation operation."""
         ens, pot = self.ens_pot()
@@ -633,6 +720,17 @@ class test_LAMMPS(unittest.TestCase):
                 self.assertEqual(snap.particles.N, 5)
                 self.assertIsNotNone(snap.particles.velocity)
                 self.assertCountEqual(snap.particles.typeid, [0, 0, 1, 1, 1])
+
+        # repeat with whole number of steps as float
+        lmpstrj.every = 100.0
+        lgv.analyzers = [lmpstrj]
+        sim = h.run(potentials=pot, directory=self.directory)
+
+        # repeat with non-whole number of steps as float
+        lmpstrj.every = 100.5
+        lgv.analyzers = [lmpstrj]
+        with self.assertRaises(ValueError):
+            sim = h.run(potentials=pot, directory=self.directory)
 
     def tearDown(self):
         relentless.mpi.world.barrier()

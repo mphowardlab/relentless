@@ -1,6 +1,17 @@
 Release notes
 =============
 
+0.2.1 - 2024-08-23
+------------------
+
+*Fixed*
+
+* Flush GSD files in `WriteTrajectory` for HOOMD simulations. This fixes an
+  error in HOOMD 4 that may have caused GSD files to not contain data (#262).
+* Ensure steps get converted to integers for LAMMPS simulations. This fixes an
+  error for integer values represented as floats (#263).
+* Convert README to Markdown format to fix rendering on PyPI (#264).
+
 0.2.0 - 2024-07-26
 ------------------
 
