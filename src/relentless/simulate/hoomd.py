@@ -60,6 +60,7 @@ class InitializationOperation(simulate.InitializationOperation):
         self._initialize_v3(sim)
         sim.dimension = sim["engine"]["_hoomd"].state.box.dimensions
         sim.types = sim["engine"]["_hoomd"].state.particle_types
+        sim.bond_types = sim["engine"]["_hoomd"].state.bond_types
 
         # parse masses by type
         snap = sim["engine"]["_hoomd"].state.get_snapshot()
@@ -68,18 +69,34 @@ class InitializationOperation(simulate.InitializationOperation):
         # create the potentials, defer attaching until later
         neighbor_list = hoomd.md.nlist.Tree(buffer=sim.potentials.pair.neighbor_buffer)
         pair_potential = hoomd.md.pair.Table(nlist=neighbor_list)
-        r, u, f = sim.potentials.pair.pairwise_energy_and_force(
+        r_pair, u, f = sim.potentials.pair.pairwise_energy_and_force(
             sim.types, tight=True, minimum_num=2
         )
         for i, j in sim.pairs:
             if numpy.any(numpy.isinf(u[i, j])) or numpy.any(numpy.isinf(f[i, j])):
                 raise ValueError("Pair potential/force is infinite at evaluated r")
             pair_potential.params[(i, j)] = dict(
-                r_min=r[0], U=u[i, j][:-1], F=f[i, j][:-1]
+                r_min=r_pair[0], U=u[i, j][:-1], F=f[i, j][:-1]
             )
-            pair_potential.r_cut[(i, j)] = r[-1]
+            pair_potential.r_cut[(i, j)] = r_pair[-1]
         sim[self]["_potentials"] = [pair_potential]
-        sim[self]["_potentials_rmax"] = r[-1]
+
+        if snap.bonds.N > 0:
+            bond_potential = hoomd.md.bond.Table(width=sim.potentials.bond.num)
+
+            for i in sim.bond_types:
+                r_bond, u, f = (
+                    sim.potentials.bond.linear_space,
+                    sim.potentials.bond.energy(key=i),
+                    sim.potentials.bond.force(key=i),
+                )
+                if numpy.any(numpy.isinf(u)):
+                    raise ValueError("Bond potential/force is infinite at evaluated r")
+                bond_potential.params[i] = dict(
+                    r_min=r_bond[0], r_max=r_bond[-1], U=u[:], F=f[:]
+                )
+        sim[self]["_potentials"].append(bond_potential)
+        sim[self]["_potentials_rmax"] = max(r_pair[-1], r_bond[-1])
 
     def _call_v2(self, sim):
         # initialize

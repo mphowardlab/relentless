@@ -746,3 +746,29 @@ class PairPotentialTabulator(PotentialTabulator):
                 f[pair] = f[pair].item()
 
         return x, u, f
+
+
+class BondPotentialTabulator(PotentialTabulator):
+    r"""Tabulate one or more bond potentials.
+
+    Enables evaluation of energy, force, and derivative at different
+    positional values (i.e. ``r``).
+
+    Parameters
+    ----------
+    potentials : :class:`~relentless.potential.bond.BondPotential` or array_like
+        The bond potential(s) to be tabulated. If array_like, all elements must
+        be :class:`~relentless.potential.bond.BondPotential`\s.
+    start : float
+        The minimum value of ``r`` at which to tabulate.
+    stop : float
+        The maximum value of ``r`` at which to tabulate.
+    num : int
+        The number of points (value of ``r``) at which to tabulate and evaluate the
+        potential.
+    neighbor_buffer : float
+        Buffer radius used in computing the neighbor list.
+
+    """
+
+    pass
