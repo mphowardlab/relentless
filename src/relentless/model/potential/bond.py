@@ -6,27 +6,13 @@ from . import potential
 class BondParameters(potential.Parameters):
     """Parameters for a bond potential."""
 
-    def __init__(self, types, params):
-        super().__init__(types, params)
+    pass
 
 
 class BondPotential(potential.Potential):
     r"""Abstract base class for a bond potential."""
 
-    def __init__(self, types, params, name=None):
-        super().__init__(types, params, name)
-
-    def energy(self, type, r):
-        """Evaluate bond energy."""
-        pass
-
-    def force(self, type, r):
-        """Evaluate bond force."""
-        pass
-
-    def derivative(self, type, var, r):
-        r"""Evaluate bond derivative with respect to a variable."""
-        pass
+    pass
 
 
 class Harmonic(BondPotential):
