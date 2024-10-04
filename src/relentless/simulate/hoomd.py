@@ -1327,9 +1327,9 @@ class EnsembleAverage(AnalysisOperation):
                             pi_neighbor = (neighbors[:, 0] + neighbors[:, 1]) * (
                                 neighbors[:, 0] + neighbors[:, 1] + 1
                             ) / 2 + neighbors[:, 1]
-                            bond_exclusion_filter = ~numpy.isin(pi_neighbor, pi_angle)
+                            angle_exclusion_filter = ~numpy.isin(pi_neighbor, pi_angle)
 
-                            neighbors.filter(bond_exclusion_filter)
+                            neighbors.filter(angle_exclusion_filter)
                         for i in self.types:
                             for j in self.types:
                                 filter_ij = numpy.logical_and(
