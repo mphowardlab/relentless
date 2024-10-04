@@ -65,6 +65,7 @@ class InitializationOperation(simulate.InitializationOperation):
         snap = sim["engine"]["_hoomd"].state.get_snapshot()
         sim.masses = self._get_masses_from_snapshot(sim, snap)
         sim[self]["_bonds"] = self._get_bonds_from_snapshot(sim, snap)
+        sim[self]["_angles"] = self._get_angles_from_snapshot(sim, snap)
         self._assert_dimension_safe(sim, snap)
         # create the potentials, defer attaching until later
         neighbor_list = hoomd.md.nlist.Tree(buffer=sim.potentials.pair.neighbor_buffer)
@@ -155,6 +156,9 @@ class InitializationOperation(simulate.InitializationOperation):
 
     def _get_bonds_from_snapshot(self, sim, snap):
         return snap.bonds.group
+
+    def _get_angles_from_snapshot(self, sim, snap):
+        return snap.angles.group
 
     def _assert_dimension_safe(self, sim, snap):
         if sim.dimension == 3:
@@ -992,6 +996,7 @@ class EnsembleAverage(AnalysisOperation):
             rdf_params=self._get_rdf_params(sim),
             constraints=self._get_constrained_quantities(sim, sim_op),
             bonds=sim[sim.initializer]["_bonds"],
+            angles=sim[sim.initializer]["_angles"],
         )
         sim[self]["_hoomd_thermo_callback"] = hoomd.write.CustomWriter(
             trigger=self.every,
@@ -1184,6 +1189,7 @@ class EnsembleAverage(AnalysisOperation):
             rdf_params=None,
             constraints=None,
             bonds=None,
+            angles=None,
         ):
             if dimension not in (2, 3):
                 raise ValueError("Only 2 or 3 dimensions supported")
@@ -1195,6 +1201,7 @@ class EnsembleAverage(AnalysisOperation):
             self.rdf_params = rdf_params
             self.constraints = constraints if constraints is not None else {}
             self.bonds = bonds
+            self.angles = angles
 
             # this method handles all the initialization
             self.reset()
@@ -1308,6 +1315,21 @@ class EnsembleAverage(AnalysisOperation):
 
                             neighbors.filter(bond_exclusion_filter)
 
+                        if snap.angles is not None and len(neighbors[:]) > 0:
+                            angles = numpy.vstack(
+                                [self.angles, numpy.flip(self.angles, axis=1)],
+                            )
+                            # list intersect using Cantor Pairing Function (pi):
+                            # https://en.wikipedia.org/wiki/Pairing_function
+                            pi_angle = (angles[:, 0] + angles[:, 2]) * (
+                                angles[:, 0] + angles[:, 2] + 1
+                            ) / 2 + angles[:, 2]
+                            pi_neighbor = (neighbors[:, 0] + neighbors[:, 1]) * (
+                                neighbors[:, 0] + neighbors[:, 1] + 1
+                            ) / 2 + neighbors[:, 1]
+                            bond_exclusion_filter = ~numpy.isin(pi_neighbor, pi_angle)
+
+                            neighbors.filter(bond_exclusion_filter)
                         for i in self.types:
                             for j in self.types:
                                 filter_ij = numpy.logical_and(
