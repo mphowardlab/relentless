@@ -65,6 +65,7 @@ class InitializationOperation(simulate.InitializationOperation):
         # parse masses by type
         snap = sim["engine"]["_hoomd"].state.get_snapshot()
         sim.masses = self._get_masses_from_snapshot(sim, snap)
+        sim[self]["_bonds"] = self._get_bonds_from_snapshot(sim, snap)
         self._assert_dimension_safe(sim, snap)
         # create the potentials, defer attaching until later
         neighbor_list = hoomd.md.nlist.Tree(buffer=sim.potentials.pair.neighbor_buffer)
@@ -168,6 +169,9 @@ class InitializationOperation(simulate.InitializationOperation):
         masses_ = mpi.world.bcast(masses_, root=0)
         masses.update(masses_)
         return masses
+
+    def _get_bonds_from_snapshot(self, sim, snap):
+        return snap.bonds.group
 
     def _assert_dimension_safe(self, sim, snap):
         if sim.dimension == 3:
@@ -1004,6 +1008,8 @@ class EnsembleAverage(AnalysisOperation):
             system=sim["engine"]["_hoomd"].state,
             rdf_params=self._get_rdf_params(sim),
             constraints=self._get_constrained_quantities(sim, sim_op),
+            exclusions=sim.potentials.pair.exclusions,
+            bonds=sim[sim.initializer]["_bonds"],
         )
         sim[self]["_hoomd_thermo_callback"] = hoomd.write.CustomWriter(
             trigger=self.every,
@@ -1195,6 +1201,8 @@ class EnsembleAverage(AnalysisOperation):
             system,
             rdf_params=None,
             constraints=None,
+            exclusions=None,
+            bonds=None,
         ):
             if dimension not in (2, 3):
                 raise ValueError("Only 2 or 3 dimensions supported")
@@ -1205,6 +1213,8 @@ class EnsembleAverage(AnalysisOperation):
             self.system = system
             self.rdf_params = rdf_params
             self.constraints = constraints if constraints is not None else {}
+            self.bonds = bonds
+            self.exclusion = exclusions
 
             # this method handles all the initialization
             self.reset()
@@ -1298,6 +1308,29 @@ class EnsembleAverage(AnalysisOperation):
                                 exclude_ii=True,
                             ),
                         ).toNeighborList()
+
+                        # filter bonds from the neighbor list if they are present
+                        # bond exclusions apply regardless of order, so
+                        # consider both (i,j) and (j,i) permutations
+                        if (
+                            snap.bonds.N != 0
+                            and len(neighbors[:]) > 0
+                            and self.exclusion == ("1-2")
+                        ):
+                            bonds = numpy.vstack(
+                                [self.bonds, numpy.flip(self.bonds, axis=1)],
+                            )
+                            # list intersect using Cantor Pairing Function (pi):
+                            # https://en.wikipedia.org/wiki/Pairing_function
+                            pi_bond = (bonds[:, 0] + bonds[:, 1]) * (
+                                bonds[:, 0] + bonds[:, 1] + 1
+                            ) / 2 + bonds[:, 1]
+                            pi_neighbor = (neighbors[:, 0] + neighbors[:, 1]) * (
+                                neighbors[:, 0] + neighbors[:, 1] + 1
+                            ) / 2 + neighbors[:, 1]
+                            bond_exclusion_filter = ~numpy.isin(pi_neighbor, pi_bond)
+
+                            neighbors.filter(bond_exclusion_filter)
 
                         for i in self.types:
                             for j in self.types:
