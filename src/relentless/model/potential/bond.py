@@ -56,7 +56,7 @@ class Harmonic(BondPotential):
     """
 
     def __init__(self, types, name=None):
-        super().__init__(types=types, params=("k", "r0"), name=name)
+        super().__init__(keys=types, params=("k", "r0"), name=name)
 
     def energy(self, type, r):
         """Evaluate bond energy."""
@@ -123,7 +123,7 @@ class FENE(BondPotential):
     """
 
     def __init__(self, types, name=None):
-        super().__init__(types=types, params=("k", "r0"), name=name)
+        super().__init__(keys=types, params=("k", "r0"), name=name)
 
     def energy(self, type, r):
         """Evaluate bond energy."""
