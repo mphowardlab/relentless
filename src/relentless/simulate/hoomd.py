@@ -60,12 +60,10 @@ class InitializationOperation(simulate.InitializationOperation):
         self._initialize_v3(sim)
         sim.dimension = sim["engine"]["_hoomd"].state.box.dimensions
         sim.types = sim["engine"]["_hoomd"].state.particle_types
-        sim.bond_types = sim["engine"]["_hoomd"].state.bond_types
 
         # parse masses by type
         snap = sim["engine"]["_hoomd"].state.get_snapshot()
         sim.masses = self._get_masses_from_snapshot(sim, snap)
-        sim[self]["_bonds"] = self._get_bonds_from_snapshot(sim, snap)
         self._assert_dimension_safe(sim, snap)
         # create the potentials, defer attaching until later
         neighbor_list = hoomd.md.nlist.Tree(buffer=sim.potentials.pair.neighbor_buffer)
@@ -81,8 +79,11 @@ class InitializationOperation(simulate.InitializationOperation):
             )
             pair_potential.r_cut[(i, j)] = r_pair[-1]
         sim[self]["_potentials"] = [pair_potential]
+        sim[self]["_potentials_rmax"] = r_pair[-1]
 
+        sim[self]["_bonds"] = self._get_bonds_from_snapshot(sim, snap)
         if snap.bonds.N > 0:
+            sim.bond_types = sim["engine"]["_hoomd"].state.bond_types
             bond_potential = hoomd.md.bond.Table(width=sim.potentials.bond.num)
 
             for i in sim.bond_types:
@@ -96,8 +97,8 @@ class InitializationOperation(simulate.InitializationOperation):
                 bond_potential.params[i] = dict(
                     r_min=r_bond[0], r_max=r_bond[-1], U=u[:], F=f[:]
                 )
-        sim[self]["_potentials"].append(bond_potential)
-        sim[self]["_potentials_rmax"] = max(r_pair[-1], r_bond[-1])
+            sim[self]["_potentials"].append(bond_potential)
+            sim[self]["_potentials_rmax"] = max(r_pair[-1], r_bond[-1])
 
     def _call_v2(self, sim):
         # initialize
