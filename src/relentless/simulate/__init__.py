@@ -157,6 +157,7 @@ from .md import (
 )
 from .simulate import (
     AnalysisOperation,
+    BondPotentialTabulator,
     PairPotentialTabulator,
     Potentials,
     PotentialTabulator,
