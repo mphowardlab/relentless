@@ -68,7 +68,9 @@ class InitializationOperation(simulate.InitializationOperation):
         sim[self]["_angles"] = self._get_angles_from_snapshot(sim, snap)
         self._assert_dimension_safe(sim, snap)
         # create the potentials, defer attaching until later
-        neighbor_list = hoomd.md.nlist.Tree(buffer=sim.potentials.pair.neighbor_buffer)
+        neighbor_list = hoomd.md.nlist.Tree(
+            buffer=sim.potentials.pair.neighbor_buffer, exclusions=["bond", "angle"]
+        )
         pair_potential = hoomd.md.pair.Table(nlist=neighbor_list)
         r, u, f = sim.potentials.pair.pairwise_energy_and_force(
             sim.types, tight=True, minimum_num=2
