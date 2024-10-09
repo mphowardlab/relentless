@@ -79,7 +79,6 @@ class InitializationOperation(simulate.InitializationOperation):
             )
             pair_potential.r_cut[(i, j)] = r_pair[-1]
         sim[self]["_potentials"] = [pair_potential]
-        sim[self]["_potentials_rmax"] = r_pair[-1]
 
         sim[self]["_bonds"] = self._get_bonds_from_snapshot(sim, snap)
         if snap.bonds.N > 0:
@@ -98,7 +97,6 @@ class InitializationOperation(simulate.InitializationOperation):
                     r_min=r_bond[0], r_max=r_bond[-1], U=u[:], F=f[:]
                 )
             sim[self]["_potentials"].append(bond_potential)
-            sim[self]["_potentials_rmax"] = max(r_pair[-1], r_bond[-1])
 
     def _call_v2(self, sim):
         # initialize
@@ -141,7 +139,6 @@ class InitializationOperation(simulate.InitializationOperation):
                     rmax=r[-1],
                     coeff=dict(r=r, u=u[i, j], f=f[i, j]),
                 )
-            sim[self]["_potentials_rmax"] = r[-1]
 
     def _initialize_v3(self, sim):
         raise NotImplementedError(

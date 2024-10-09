@@ -212,7 +212,6 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
             sim.types, x=sim.potentials.pair.squared_space, tight=True, minimum_num=2
         )
         Nr = len(r)
-        sim[self]["_potentials_rmax"] = r[-1]
 
         def pair_map(sim, pair):
             # Map lammps type indexes as a pair, lowest type first
