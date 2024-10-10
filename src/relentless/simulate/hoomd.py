@@ -1311,7 +1311,8 @@ class EnsembleAverage(AnalysisOperation):
                         # bond exclusions apply regardless of order, so
                         # consider both (i,j) and (j,i) permutations
                         if (
-                            snap.bonds.N != 0
+                            self.rdf_params["exclude"]
+                            and snap.bonds.N != 0
                             and len(neighbors[:]) > 0
                             and self.exclusion == ("1-2")
                         ):
