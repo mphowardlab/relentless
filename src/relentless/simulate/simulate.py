@@ -566,15 +566,15 @@ class PairPotentialTabulator(PotentialTabulator):
         potential.
     neighbor_buffer : float
         Buffer radius used in computing the neighbor list.
-    exclusions : tuple
+    exclusions : list
         The neighborlist nominally includes all pairs within ``rmax`` of each other.
         This option allows for exclusions of pairs that should not be included in the
         neighbor list. The string should be formatted as a tuple of strings, e.g.,
-        ``('1-2', '1-3', 1-4)``.
+        ``['bond', '1-3', 1-4]``.
 
     """
 
-    def __init__(self, potentials, start, stop, num, neighbor_buffer, exclusions=None):
+    def __init__(self, potentials, start, stop, num, neighbor_buffer, exclusions=[]):
         super().__init__(potentials, start, stop, num)
         self.neighbor_buffer = neighbor_buffer
         self.exclusions = exclusions

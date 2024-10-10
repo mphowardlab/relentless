@@ -66,7 +66,10 @@ class InitializationOperation(simulate.InitializationOperation):
         sim.masses = self._get_masses_from_snapshot(sim, snap)
         self._assert_dimension_safe(sim, snap)
         # create the potentials, defer attaching until later
-        neighbor_list = hoomd.md.nlist.Tree(buffer=sim.potentials.pair.neighbor_buffer)
+        neighbor_list = hoomd.md.nlist.Tree(
+            buffer=sim.potentials.pair.neighbor_buffer,
+            exclusions=sim.potentials.pair.exclusions,
+        )
         pair_potential = hoomd.md.pair.Table(nlist=neighbor_list)
         r_pair, u, f = sim.potentials.pair.pairwise_energy_and_force(
             sim.types, tight=True, minimum_num=2
@@ -1314,7 +1317,6 @@ class EnsembleAverage(AnalysisOperation):
                             self.rdf_params["exclude"]
                             and snap.bonds.N != 0
                             and len(neighbors[:]) > 0
-                            and self.exclusion == ("1-2")
                         ):
                             bonds = numpy.vstack(
                                 [self.bonds, numpy.flip(self.bonds, axis=1)],
