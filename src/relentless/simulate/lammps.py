@@ -213,6 +213,17 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
         )
         Nr = len(r)
 
+        if snap.bonds.N != 0:
+            for i in sim[self]["bonds"].type_label.types:
+                rB, uB, fB = (
+                    sim.potentials.bond.linear_space,
+                    sim.potentials.bond.energy(key=i),
+                    sim.potentials.bond.force(key=i),
+                )
+                if numpy.any(numpy.isinf(uB)):
+                    raise ValueError("Bond potential/force is infinite at evaluated r")
+            NrB = len(rB)
+
         def pair_map(sim, pair):
             # Map lammps type indexes as a pair, lowest type first
             i, j = pair
@@ -256,6 +267,24 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
                         fw.write(
                             "{idx} {r} {u} {f}\n".format(idx=idx, r=r_, u=u_, f=f_)
                         )
+
+                # write bond potentials into the file
+                fw.write("# LAMMPS tabulated bond potentials\n")
+                for i in sim[self]["bonds"].type_label.types:
+                    fw.write("# bond {}\n\n".format(i))
+                    fw.write("{}\n".format(i))
+                    fw.write(
+                        "N {N} FP {f_low} {f_high} \n\n".format(
+                            N=NrB, f_low=fB[0], f_high=fB[-1]
+                        )
+                    )
+                    for idx, (rB_, uB_, fB_) in enumerate(zip(rB, uB, fB), start=1):
+                        fw.write(
+                            "{id} {rB} {uB} {fB}\n".format(
+                                id=idx, rB=rB_, uB=uB_, fB=fB_
+                            )
+                        )
+
         else:
             file_ = None
         file_ = mpi.world.bcast(file_)
@@ -267,6 +296,9 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
         ]
         cmds += ["pair_style table linear {N}".format(N=Nr)]
 
+        if snap.bonds.N != 0:
+            cmds += ["bond_style table linear {Nb}".format(Nb=NrB)]
+
         for i, j in sim.pairs:
             # get lammps type indexes, lowest type first
             id_i, id_j = pair_map(sim, (i, j))
@@ -276,6 +308,15 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
                 )
             ]
 
+        if snap.bonds.N != 0:
+            for id in sim[self]["bonds"].type_label.typeid:
+                cmds += [
+                    ("bond_coeff {typeid} {filename}" " {id}").format(
+                        typeid=id,
+                        filename=file_,
+                        id=sim[self]["bonds"].type_label.__getitem__(id),
+                    )
+                ]
         return cmds
 
     @abc.abstractmethod
@@ -311,6 +352,9 @@ class InitializeFromFile(InitializationOperation):
                 snap, type_map = lammpsio.Snapshot.from_hoomd_gsd(frame)
                 type_map = {v: k for k, v in type_map.items()}
 
+                # store topology data
+                if snap.bonds.N != 0:
+                    sim[self]["bonds"] = snap.bonds
                 # figure out dimensions
                 dimension = self.dimension
                 if dimension is None:
@@ -1175,6 +1219,36 @@ class EnsembleAverage(AnalysisOperation):
                             exclude_ii=True,
                         ),
                     ).toNeighborList()
+                    # filter bonds from the neighbor list if they are present
+                    # bond exclusions apply regardless of order, so
+                    # consider both (i,j) and (j,i) permutations
+                    if (
+                        sim[self]["_rdf_params"]["exclude"]
+                        and sim[sim.initializer]["bonds"].N != 0
+                        and len(neighbors[:]) > 0
+                    ):
+                        bonds = numpy.vstack(
+                            [
+                                sim[sim.initializer]["bonds"].members,
+                                numpy.flip(
+                                    sim[sim.initializer]["bonds"].members, axis=1
+                                ),
+                            ],
+                        )
+                        # Zero index bonds
+                        bonds -= 1
+                        # list intersect using Cantor Pairing Function (pi):
+                        # https://en.wikipedia.org/wiki/Pairing_function
+                        pi_bond = (bonds[:, 0] + bonds[:, 1]) * (
+                            bonds[:, 0] + bonds[:, 1] + 1
+                        ) / 2 + bonds[:, 1]
+                        pi_neighbor = (neighbors[:, 0] + neighbors[:, 1]) * (
+                            neighbors[:, 0] + neighbors[:, 1] + 1
+                        ) / 2 + neighbors[:, 1]
+                        bond_exclusion_filter = ~numpy.isin(pi_neighbor, pi_bond)
+
+                        neighbors.filter(bond_exclusion_filter)
+
                     for i in sim.types:
                         _rdf_density[i] += N[i] / box.volume
                         _rdf_num_origins[i] += N[i]
@@ -1626,7 +1700,8 @@ class LAMMPS(simulate.Simulation):
 
         sim["engine"]["types"] = self.types
         sim["engine"]["units"] = "lj"
-        sim["engine"]["atom_style"] = "atomic"
+        # come back and fix this
+        # sim["engine"]["atom_style"] = "atomic"
 
     # initialize
     _InitializeFromFile = InitializeFromFile
