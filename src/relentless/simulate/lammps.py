@@ -271,23 +271,24 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
                         )
 
                 # write bond potentials into the file
-                fw.write("# LAMMPS tabulated bond potentials\n")
-                for i in sim[self]["bonds"].type_label.types:
-                    fw.write("# bond {}\n\n".format(i))
-                    fw.write("{}\n".format(i))
-                    fw.write(
-                        "N {N} FP {f_low} {f_high} \n\n".format(
-                            N=NrB, f_low=fB[i][0], f_high=fB[i][-1]
-                        )
-                    )
-                    for idx, (rB_, uB_, fB_) in enumerate(
-                        zip(rB, uB[i], fB[i]), start=1
-                    ):
+                if snap.has_bonds():
+                    fw.write("# LAMMPS tabulated bond potentials\n")
+                    for i in sim[self]["bonds"].type_label.types:
+                        fw.write("# bond {}\n\n".format(i))
+                        fw.write("{}\n".format(i))
                         fw.write(
-                            "{id} {rB} {uB} {fB}\n".format(
-                                id=idx, rB=rB_, uB=uB_, fB=fB_
+                            "N {N} FP {f_low} {f_high} \n\n".format(
+                                N=NrB, f_low=fB[i][0], f_high=fB[i][-1]
                             )
                         )
+                        for idx, (rB_, uB_, fB_) in enumerate(
+                            zip(rB, uB[i], fB[i]), start=1
+                        ):
+                            fw.write(
+                                "{id} {rB} {uB} {fB}\n".format(
+                                    id=idx, rB=rB_, uB=uB_, fB=fB_
+                                )
+                            )
 
         else:
             file_ = None
