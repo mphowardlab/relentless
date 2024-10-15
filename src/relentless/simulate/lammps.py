@@ -213,14 +213,16 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
         )
         Nr = len(r)
 
-        if snap.bonds.N != 0:
+        if snap.has_bonds():
+            uB = collections.FixedKeyDict(sim[self]["bonds"].type_label.types)
+            fB = collections.FixedKeyDict(sim[self]["bonds"].type_label.types)
             for i in sim[self]["bonds"].type_label.types:
-                rB, uB, fB = (
+                rB, uB[i], fB[i] = (
                     sim.potentials.bond.linear_space,
                     sim.potentials.bond.energy(key=i),
                     sim.potentials.bond.force(key=i),
                 )
-                if numpy.any(numpy.isinf(uB)):
+                if numpy.any(numpy.isinf(uB[i])):
                     raise ValueError("Bond potential/force is infinite at evaluated r")
             NrB = len(rB)
 
@@ -275,10 +277,12 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
                     fw.write("{}\n".format(i))
                     fw.write(
                         "N {N} FP {f_low} {f_high} \n\n".format(
-                            N=NrB, f_low=fB[0], f_high=fB[-1]
+                            N=NrB, f_low=fB[i][0], f_high=fB[i][-1]
                         )
                     )
-                    for idx, (rB_, uB_, fB_) in enumerate(zip(rB, uB, fB), start=1):
+                    for idx, (rB_, uB_, fB_) in enumerate(
+                        zip(rB, uB[i], fB[i]), start=1
+                    ):
                         fw.write(
                             "{id} {rB} {uB} {fB}\n".format(
                                 id=idx, rB=rB_, uB=uB_, fB=fB_
@@ -296,7 +300,7 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
         ]
         cmds += ["pair_style table linear {N}".format(N=Nr)]
 
-        if snap.bonds.N != 0:
+        if snap.has_bonds():
             cmds += ["bond_style table linear {Nb}".format(Nb=NrB)]
 
         for i, j in sim.pairs:
@@ -308,7 +312,7 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
                 )
             ]
 
-        if snap.bonds.N != 0:
+        if snap.has_bonds():
             for id in sim[self]["bonds"].type_label.typeid:
                 cmds += [
                     ("bond_coeff {typeid} {filename}" " {id}").format(
@@ -353,7 +357,7 @@ class InitializeFromFile(InitializationOperation):
                 type_map = {v: k for k, v in type_map.items()}
 
                 # store topology data
-                if snap.bonds.N != 0:
+                if snap.has_bonds():
                     sim[self]["bonds"] = snap.bonds
                 # figure out dimensions
                 dimension = self.dimension
@@ -391,6 +395,18 @@ class InitializeFromFile(InitializationOperation):
                     ).read()
                     typeids = numpy.unique(snap.typeid)
                     type_map = {str(typeid): typeid for typeid in typeids}
+                    # store topology data
+                    if snap.has_bonds():
+                        sim[self]["bonds"] = snap.bonds
+                        # get all bond potentials
+                        types = [
+                            sim.potentials.bond.potentials[i].coeff.types
+                            for (i, j) in enumerate(sim.potentials.bond.potentials)
+                        ]
+                        # get all types from all potentials
+                        types = [t for sublist in types for t in sublist]
+                        bond_type_map = {i: types[i - 1] for i in snap.bonds.typeid}
+                        sim[self]["bonds"].type_label = lammpsio.LabelMap(bond_type_map)
                 else:
                     type_map = None
                 type_map = mpi.world.bcast(type_map)
@@ -1702,6 +1718,7 @@ class LAMMPS(simulate.Simulation):
         sim["engine"]["units"] = "lj"
         # come back and fix this
         # sim["engine"]["atom_style"] = "atomic"
+        sim["engine"]["atom_style"] = "molecular"
 
     # initialize
     _InitializeFromFile = InitializeFromFile
