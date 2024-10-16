@@ -301,6 +301,14 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
         ]
         cmds += ["pair_style table linear {N}".format(N=Nr)]
 
+        # set exclusions if snap has topology
+        if snap.has_bonds() or snap.has_angles() or snap.has_dihedrals():
+            excl_12, excl_13, excl_14 = 1.0, 1.0, 1.0
+            if sim.potentials.pair.exclusions is not None:
+                if "1-2" in sim.potentials.pair.exclusions:
+                    excl_12 = 0.0
+            cmds += [f"special_bonds lj/coul {excl_12} {excl_13} {excl_14}"]
+
         if snap.has_bonds():
             cmds += ["bond_style table linear {Nb}".format(Nb=NrB)]
 
