@@ -212,7 +212,19 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
             sim.types, x=sim.potentials.pair.squared_space, tight=True, minimum_num=2
         )
         Nr = len(r)
-        sim[self]["_potentials_rmax"] = r[-1]
+
+        if snap.has_bonds():
+            uB = collections.FixedKeyDict(sim[self]["bonds"].type_label.types)
+            fB = collections.FixedKeyDict(sim[self]["bonds"].type_label.types)
+            for i in sim[self]["bonds"].type_label.types:
+                rB, uB[i], fB[i] = (
+                    sim.potentials.bond.linear_space,
+                    sim.potentials.bond.energy(key=i),
+                    sim.potentials.bond.force(key=i),
+                )
+                if numpy.any(numpy.isinf(uB[i])):
+                    raise ValueError("Bond potential/force is infinite at evaluated r")
+            NrB = len(rB)
 
         def pair_map(sim, pair):
             # Map lammps type indexes as a pair, lowest type first
@@ -257,6 +269,27 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
                         fw.write(
                             "{idx} {r} {u} {f}\n".format(idx=idx, r=r_, u=u_, f=f_)
                         )
+
+                # write bond potentials into the file
+                if snap.has_bonds():
+                    fw.write("# LAMMPS tabulated bond potentials\n")
+                    for i in sim[self]["bonds"].type_label.types:
+                        fw.write("# bond BOND_TABLE_{}\n\n".format(i))
+                        fw.write("BOND_TABLE_{}\n".format(i))
+                        fw.write(
+                            "N {N} FP {f_low} {f_high} \n\n".format(
+                                N=NrB, f_low=fB[i][0], f_high=fB[i][-1]
+                            )
+                        )
+                        for idx, (rB_, uB_, fB_) in enumerate(
+                            zip(rB, uB[i], fB[i]), start=1
+                        ):
+                            fw.write(
+                                "{id} {rB} {uB} {fB}\n".format(
+                                    id=idx, rB=rB_, uB=uB_, fB=fB_
+                                )
+                            )
+
         else:
             file_ = None
         file_ = mpi.world.bcast(file_)
@@ -268,6 +301,17 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
         ]
         cmds += ["pair_style table linear {N}".format(N=Nr)]
 
+        # set exclusions if snap has topology
+        if snap.has_bonds() or snap.has_angles() or snap.has_dihedrals():
+            excl_12, excl_13, excl_14 = 1.0, 1.0, 1.0
+            if sim.potentials.pair.exclusions is not None:
+                if "1-2" in sim.potentials.pair.exclusions:
+                    excl_12 = 0.0
+            cmds += [f"special_bonds lj/coul {excl_12} {excl_13} {excl_14}"]
+
+        if snap.has_bonds():
+            cmds += ["bond_style table linear {Nb}".format(Nb=NrB)]
+
         for i, j in sim.pairs:
             # get lammps type indexes, lowest type first
             id_i, id_j = pair_map(sim, (i, j))
@@ -277,6 +321,15 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
                 )
             ]
 
+        if snap.has_bonds():
+            for id in sim[self]["bonds"].type_label.typeid:
+                cmds += [
+                    ("bond_coeff {typeid} {filename}" " BOND_TABLE_{id}").format(
+                        typeid=id,
+                        filename=file_,
+                        id=sim[self]["bonds"].type_label.__getitem__(id),
+                    )
+                ]
         return cmds
 
     @abc.abstractmethod
@@ -312,6 +365,20 @@ class InitializeFromFile(InitializationOperation):
                 snap, type_map = lammpsio.Snapshot.from_hoomd_gsd(frame)
                 type_map = {v: k for k, v in type_map.items()}
 
+                # check atom style is compatible with topology data if present
+                if (
+                    snap.has_bonds()
+                    or snap.has_angles()
+                    or snap.has_dihedrals()
+                    or snap.has_impropers()
+                ):
+                    if sim["engine"]["atom_style"] == "atomic":
+                        raise ValueError(
+                            "Atomic atom style is not compatible with topology data."
+                        )
+                # store topology data
+                if snap.has_bonds():
+                    sim[self]["bonds"] = snap.bonds
                 # figure out dimensions
                 dimension = self.dimension
                 if dimension is None:
@@ -348,6 +415,18 @@ class InitializeFromFile(InitializationOperation):
                     ).read()
                     typeids = numpy.unique(snap.typeid)
                     type_map = {str(typeid): typeid for typeid in typeids}
+                    # store topology data
+                    if snap.has_bonds():
+                        sim[self]["bonds"] = snap.bonds
+                        # get all bond potentials
+                        types = [
+                            sim.potentials.bond.potentials[i].coeff.types
+                            for (i, j) in enumerate(sim.potentials.bond.potentials)
+                        ]
+                        # get all types from all potentials
+                        types = [t for sublist in types for t in sublist]
+                        bond_type_map = {i: types[i - 1] for i in snap.bonds.typeid}
+                        sim[self]["bonds"].type_label = lammpsio.LabelMap(bond_type_map)
                 else:
                     type_map = None
                 type_map = mpi.world.bcast(type_map)
@@ -1176,6 +1255,36 @@ class EnsembleAverage(AnalysisOperation):
                             exclude_ii=True,
                         ),
                     ).toNeighborList()
+                    # filter bonds from the neighbor list if they are present
+                    # bond exclusions apply regardless of order, so
+                    # consider both (i,j) and (j,i) permutations
+                    if (
+                        sim[self]["_rdf_params"]["exclude"]
+                        and sim[sim.initializer]["bonds"].N != 0
+                        and len(neighbors[:]) > 0
+                    ):
+                        bonds = numpy.vstack(
+                            [
+                                sim[sim.initializer]["bonds"].members,
+                                numpy.flip(
+                                    sim[sim.initializer]["bonds"].members, axis=1
+                                ),
+                            ],
+                        )
+                        # Zero index bonds
+                        bonds -= 1
+                        # list intersect using Cantor Pairing Function (pi):
+                        # https://en.wikipedia.org/wiki/Pairing_function
+                        pi_bond = (bonds[:, 0] + bonds[:, 1]) * (
+                            bonds[:, 0] + bonds[:, 1] + 1
+                        ) / 2 + bonds[:, 1]
+                        pi_neighbor = (neighbors[:, 0] + neighbors[:, 1]) * (
+                            neighbors[:, 0] + neighbors[:, 1] + 1
+                        ) / 2 + neighbors[:, 1]
+                        bond_exclusion_filter = ~numpy.isin(pi_neighbor, pi_bond)
+
+                        neighbors.filter(bond_exclusion_filter)
+
                     for i in sim.types:
                         _rdf_density[i] += N[i] / box.volume
                         _rdf_num_origins[i] += N[i]
@@ -1511,6 +1620,7 @@ class LAMMPS(simulate.Simulation):
         quiet=True,
         types=None,
         executable=None,
+        atom_style="atomic",
     ):
         # test executable if it is specified
         if executable is not None:
@@ -1573,6 +1683,7 @@ class LAMMPS(simulate.Simulation):
         super().__init__(initializer, operations)
         self.quiet = quiet
         self.types = types
+        self.atom_style = atom_style
 
     def _post_run(self, sim):
         # force all the lammps commands to execute, since the operations did
@@ -1627,7 +1738,7 @@ class LAMMPS(simulate.Simulation):
 
         sim["engine"]["types"] = self.types
         sim["engine"]["units"] = "lj"
-        sim["engine"]["atom_style"] = "atomic"
+        sim["engine"]["atom_style"] = self.atom_style
 
     # initialize
     _InitializeFromFile = InitializeFromFile

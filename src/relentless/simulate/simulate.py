@@ -566,12 +566,18 @@ class PairPotentialTabulator(PotentialTabulator):
         potential.
     neighbor_buffer : float
         Buffer radius used in computing the neighbor list.
+    exclusions : list
+        The neighborlist nominally includes all pairs within ``rmax`` of each other.
+        This option allows for exclusions of pairs that should not be included in the
+        neighbor list. The string should be formatted as a tuple of strings, e.g.,
+        ``['bond', '1-3', 1-4]``.
 
     """
 
-    def __init__(self, potentials, start, stop, num, neighbor_buffer):
+    def __init__(self, potentials, start, stop, num, neighbor_buffer, exclusions=[]):
         super().__init__(potentials, start, stop, num)
         self.neighbor_buffer = neighbor_buffer
+        self.exclusions = exclusions
 
     @property
     def neighbor_buffer(self):
@@ -582,6 +588,15 @@ class PairPotentialTabulator(PotentialTabulator):
     @neighbor_buffer.setter
     def neighbor_buffer(self, val):
         self._neighbor_buffer = val
+
+    @property
+    def exclusions(self):
+        """tuple: The pairs to exclude from the neighbor list."""
+        return self._exclusions
+
+    @exclusions.setter
+    def exclusions(self, val):
+        self._exclusions = val
 
     def energy(self, pair, x=None):
         """Evaluates and accumulates energy for all potentials.
@@ -746,3 +761,29 @@ class PairPotentialTabulator(PotentialTabulator):
                 f[pair] = f[pair].item()
 
         return x, u, f
+
+
+class BondPotentialTabulator(PotentialTabulator):
+    r"""Tabulate one or more bond potentials.
+
+    Enables evaluation of energy, force, and derivative at different
+    positional values (i.e. ``r``).
+
+    Parameters
+    ----------
+    potentials : :class:`~relentless.potential.bond.BondPotential` or array_like
+        The bond potential(s) to be tabulated. If array_like, all elements must
+        be :class:`~relentless.potential.bond.BondPotential`\s.
+    start : float
+        The minimum value of ``r`` at which to tabulate.
+    stop : float
+        The maximum value of ``r`` at which to tabulate.
+    num : int
+        The number of points (value of ``r``) at which to tabulate and evaluate the
+        potential.
+    neighbor_buffer : float
+        Buffer radius used in computing the neighbor list.
+
+    """
+
+    pass
