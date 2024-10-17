@@ -274,8 +274,8 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
                 if snap.has_bonds():
                     fw.write("# LAMMPS tabulated bond potentials\n")
                     for i in sim[self]["bonds"].type_label.types:
-                        fw.write("# bond {}\n\n".format(i))
-                        fw.write("{}\n".format(i))
+                        fw.write("# bond BOND_TABLE_{}\n\n".format(i))
+                        fw.write("BOND_TABLE_{}\n".format(i))
                         fw.write(
                             "N {N} FP {f_low} {f_high} \n\n".format(
                                 N=NrB, f_low=fB[i][0], f_high=fB[i][-1]
@@ -324,7 +324,7 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
         if snap.has_bonds():
             for id in sim[self]["bonds"].type_label.typeid:
                 cmds += [
-                    ("bond_coeff {typeid} {filename}" " {id}").format(
+                    ("bond_coeff {typeid} {filename}" " BOND_TABLE_{id}").format(
                         typeid=id,
                         filename=file_,
                         id=sim[self]["bonds"].type_label.__getitem__(id),
@@ -365,6 +365,17 @@ class InitializeFromFile(InitializationOperation):
                 snap, type_map = lammpsio.Snapshot.from_hoomd_gsd(frame)
                 type_map = {v: k for k, v in type_map.items()}
 
+                # check atom style is compatible with topology data if present
+                if (
+                    snap.has_bonds()
+                    or snap.has_angles()
+                    or snap.has_dihedrals()
+                    or snap.has_impropers()
+                ):
+                    if sim["engine"]["atom_style"] == "atomic":
+                        raise ValueError(
+                            "Atomic atom style is not compatible with topology data."
+                        )
                 # store topology data
                 if snap.has_bonds():
                     sim[self]["bonds"] = snap.bonds
@@ -1609,6 +1620,7 @@ class LAMMPS(simulate.Simulation):
         quiet=True,
         types=None,
         executable=None,
+        atom_style="atomic",
     ):
         # test executable if it is specified
         if executable is not None:
@@ -1671,6 +1683,7 @@ class LAMMPS(simulate.Simulation):
         super().__init__(initializer, operations)
         self.quiet = quiet
         self.types = types
+        self.atom_style = atom_style
 
     def _post_run(self, sim):
         # force all the lammps commands to execute, since the operations did
@@ -1725,9 +1738,7 @@ class LAMMPS(simulate.Simulation):
 
         sim["engine"]["types"] = self.types
         sim["engine"]["units"] = "lj"
-        # come back and fix this
-        # sim["engine"]["atom_style"] = "atomic"
-        sim["engine"]["atom_style"] = "molecular"
+        sim["engine"]["atom_style"] = self.atom_style
 
     # initialize
     _InitializeFromFile = InitializeFromFile
