@@ -8,7 +8,7 @@ on:
       - main
 
   schedule:
-    - cron: "0 8 1,15 * *"
+    - cron: "18 10 1,15 * *"
 
   workflow_call:
 
