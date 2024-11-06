@@ -74,7 +74,7 @@ class EnsembleAverage(simulate.DelegatedAnalysisOperation):
                 rdf_every = self.every
 
             if "exclude" in self.rdf:
-                rdf_exclude = self.rdf["exclude"]
+                rdf_exclude = bool(self.rdf["exclude"])
             else:
                 rdf_exclude = False
             rdf_params = {

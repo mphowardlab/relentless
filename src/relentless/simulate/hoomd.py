@@ -1321,15 +1321,10 @@ class EnsembleAverage(AnalysisOperation):
                             bonds = numpy.vstack(
                                 [self.bonds, numpy.flip(self.bonds, axis=1)],
                             )
-                            # list intersect using Cantor Pairing Function (pi):
-                            # https://en.wikipedia.org/wiki/Pairing_function
-                            pi_bond = (bonds[:, 0] + bonds[:, 1]) * (
-                                bonds[:, 0] + bonds[:, 1] + 1
-                            ) / 2 + bonds[:, 1]
-                            pi_neighbor = (neighbors[:, 0] + neighbors[:, 1]) * (
-                                neighbors[:, 0] + neighbors[:, 1] + 1
-                            ) / 2 + neighbors[:, 1]
-                            bond_exclusion_filter = ~numpy.isin(pi_neighbor, pi_bond)
+
+                            bond_exclusion_filter = EnsembleAverage._cantor_pairing(
+                                bonds, neighbors
+                            )
 
                             neighbors.filter(bond_exclusion_filter)
 

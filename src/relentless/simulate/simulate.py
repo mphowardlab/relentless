@@ -78,6 +78,35 @@ class AnalysisOperation(abc.ABC):
     def process(self, sim, sim_op):
         pass
 
+    def _cantor_pairing(self, connection, neighbor):
+        """Compute the list intersect using the Cantor pairing function to
+        filter neighborlist.
+
+        https://en.wikipedia.org/wiki/Pairing_function
+
+        Parameters
+        ----------
+        pi_connection : numpy.ndarray
+            (N, 2) array of typeids to be filtered from neighborlist.
+        pi_neighbor : numpy.ndarray
+            Neighborlist to be filtered.
+
+        Returns
+        -------
+        numpy.ndarray
+            Boolean array of length of neighborlist, True if neighbor is not in
+            connection.
+        """
+
+        pi_connection = (connection[:, 0] + connection[:, 1]) * (
+            connection[:, 0] + connection[:, 1] + 1
+        ) / 2 + connection[:, 1]
+        pi_neighbor = (neighbor[:, 0] + neighbor[:, 1]) * (
+            neighbor[:, 0] + neighbor[:, 1] + 1
+        ) / 2 + neighbor[:, 1]
+
+        return ~numpy.isin(pi_neighbor, pi_connection)
+
 
 class DelegatedInitializationOperation(InitializationOperation):
     def __call__(self, sim):
@@ -574,7 +603,7 @@ class PairPotentialTabulator(PotentialTabulator):
 
     """
 
-    def __init__(self, potentials, start, stop, num, neighbor_buffer, exclusions=[]):
+    def __init__(self, potentials, start, stop, num, neighbor_buffer, exclusions=None):
         super().__init__(potentials, start, stop, num)
         self.neighbor_buffer = neighbor_buffer
         self.exclusions = exclusions
@@ -781,8 +810,6 @@ class BondPotentialTabulator(PotentialTabulator):
     num : int
         The number of points (value of ``r``) at which to tabulate and evaluate the
         potential.
-    neighbor_buffer : float
-        Buffer radius used in computing the neighbor list.
 
     """
 
