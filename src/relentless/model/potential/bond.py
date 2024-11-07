@@ -1,6 +1,7 @@
 import numpy
 
 from relentless import math
+from relentless.model import variable
 
 from . import potential
 
@@ -17,7 +18,7 @@ class BondPotential(potential.Potential):
     pass
 
 
-class Harmonic(BondPotential):
+class HarmonicBond(BondPotential):
     r"""Harmonic bond potential.
 
     .. math::
@@ -27,18 +28,18 @@ class Harmonic(BondPotential):
     where :math:`r` is the distance between two bonded particles. The parameters
     for each type are:
 
-    +-------------+--------------------------------------------------+-----------+
-    | Parameter   | Description                                      | Initial   |
-    +=============+==================================================+===========+
-    | ``k``       | potential constant                               |           |
-    +-------------+--------------------------------------------------+-----------+
-    | ``r0``      | rest length.                                     |           |
-    +-------------+--------------------------------------------------+-----------+
+    +-------------+--------------------------------------------------+
+    | Parameter   | Description                                      |
+    +=============+==================================================+
+    | ``k``       | Spring constant :math:`k`.                       |
+    +-------------+--------------------------------------------------+
+    | ``r0``      | Minimum-energy length :math:`r_0`.               |
+    +-------------+--------------------------------------------------+
 
     Parameters
     ----------
-    type : str
-        Type.
+    types : tuple[str]
+        Types.
     name : str
         Unique name of the potential. Defaults to ``__u[id]``, where ``id`` is the
         unique integer ID of the potential.
@@ -52,45 +53,78 @@ class Harmonic(BondPotential):
     --------
     Harmonic Bond::
 
-        >>> u = relentless.potential.bond.Harmonic("A")
-        >>> u.coeff["A"].update({'k': 1.0, 'r0': 1.0})
+        >>> u = relentless.potential.bond.Harmonic(("A"))
+        >>> u.coeff["A"].update({'k': 1000, 'r0': 1})
 
     """
 
     def __init__(self, types, name=None):
         super().__init__(keys=types, params=("k", "r0"), name=name)
 
-    def energy(self, type, r):
+    def energy(self, types, r):
         """Evaluate bond energy."""
-        k = self.coeff[type]["k"]
-        r0 = self.coeff[type]["r0"]
-        return k / 2 * (r - r0) ** 2
+        k = self.coeff[types]["k"]
+        r0 = self.coeff[types]["r0"]
 
-    def force(self, type, r):
+        r, u, s = self._zeros(r)
+
+        u = 0.5 * k * (r - r0) ** 2
+
+        if s:
+            u = u.item()
+        return u
+
+    def force(self, types, r):
         """Evaluate bond force."""
-        k = self.coeff[type]["k"]
-        r0 = self.coeff[type]["r0"]
-        return -k * (r - r0)
+        k = self.coeff[types]["k"]
+        r0 = self.coeff[types]["r0"]
 
-    def derivative(self, type, var, r):
+        r, f, s = self._zeros(r)
+
+        f = -k * (r - r0)
+
+        if s:
+            f = f.item()
+        return f
+
+    def derivative(self, types, var, r):
         r"""Evaluate bond derivative with respect to a variable."""
-        k = self.coeff[type]["k"]
-        r0 = self.coeff[type]["r0"]
+        k = self.coeff[types]["k"]
+        r0 = self.coeff[types]["r0"]
+
+        r, d, s = self._zeros(r)
+
         if var == "k":
-            return (r - r0) ** 2 / 2
+            d = (r - r0) ** 2 / 2
         elif var == "r0":
-            return -k * (r - r0)
+            d = -k * (r - r0)
         else:
             raise ValueError("Unknown parameter")
 
+        if s:
+            d = d.item()
+        return d
 
-class FENE(BondPotential):
-    r"""The Finite Extensible Nonlinear Elastic (FENE) bond interaction.
+
+class FENEWCA(BondPotential):
+    r"""Finitely extensible nonlinear elastic (FENE) + Weeks-Chandler-Andersen
+    (WCA) bond interaction.
 
     .. math::
 
-        u(r) = -\frac{k r_0^2}{2} \ln \left(1 -
-            \left(\frac{r - r_0}{r_0}\right)^2\right)
+        u(r) = - \frac{1}{2} k r_0^2 \ln \left[ 1 - \left( \frac{r}{r_0}
+                \right)^2 \right] + u_{\rm{WCA}}(r)
+
+    where
+
+    .. math::
+        u_{\rm{WCA}}(r)  =
+        \begin{cases} 4 \varepsilon \left[ \left( \frac{\sigma}{r}
+                                \right)^{12} - \left( \frac{\sigma}{r}
+                                \right)^{6} \right]  + \varepsilon
+                               & r < 2^{\frac{1}{6}}\sigma\\
+        0 & r \ge 2^{\frac{1}{6}}\sigma
+        \end{cases}
 
     where :math:`r` is the distance between two bonded particles. The parameters
     for each type are:
@@ -98,15 +132,19 @@ class FENE(BondPotential):
     +-------------+--------------------------------------------------+-----------+
     | Parameter   | Description                                      | Initial   |
     +=============+==================================================+===========+
-    | ``k``       | attractive force strength.                       |           |
+    | ``k``       | Spring constant :math:`k`.                       |           |
     +-------------+--------------------------------------------------+-----------+
-    | ``r0``      |  size parameter.                                 |           |
+    | ``r0``      | Minimum-energy length :math:`r_0`.               |           |
+    +-------------+--------------------------------------------------+-----------+
+    | ``epsilon`` | Interaction energy :math:`\varepsilon`.          |     0     |
+    +-------------+--------------------------------------------------+-----------+
+    | ``sigma``   | Interaction length :math:`\sigma`.               |     0     |
     +-------------+--------------------------------------------------+-----------+
 
     Parameters
     ----------
-    type : str
-        Type.
+    types : tuple[str]
+        Types.
     name : str
         Unique name of the potential. Defaults to ``__u[id]``, where ``id`` is the
         unique integer ID of the potential.
@@ -118,37 +156,151 @@ class FENE(BondPotential):
 
     Examples
     --------
-    Harmonic Bond::
+    Kremer-Grest bond (no repulsion included)::
 
-        >>> u = relentless.potential.bond.FENE("A")
-        >>> u.coeff["A"].update({'k': 1.0, 'r0': 1.0})
+        >>> u = relentless.potential.bond.FENEWCA(("A"))
+        >>> u.coeff["A"].update({'k': 30, 'r0': 1.5})
+
+    Kremer-Grest bond (repulsion included)::
+
+        >>> u = relentless.potential.bond.FENEWCA(("A"))
+        >>> u.coeff["A"].update({'k': 30, 'r0': 1.5, "epsilon":1, "sigma": 1})
     """
 
     def __init__(self, types, name=None):
-        super().__init__(keys=types, params=("k", "r0"), name=name)
+        super().__init__(keys=types, params=("k", "r0", "epsilon", "sigma"), name=name)
 
-    def energy(self, type, r):
+    def energy(self, types, r):
         """Evaluate bond energy."""
-        k = self.coeff[type]["k"]
-        r0 = self.coeff[type]["r0"]
-        return -0.5 * k * r0**2 * numpy.log(1 - (r - r0) ** 2 / r0**2)
+        k = self.coeff[types]["k"]
+        r0 = self.coeff[types]["r0"]
+        # default epsilon and sigma to 0 if not set
+        if self.coeff[types]["epsilon"] is None:
+            epsilon = 0
+        else:
+            epsilon = self.coeff[types]["epsilon"]
+        if self.coeff[types]["sigma"] is None:
+            sigma = 0
+        else:
+            sigma = self.coeff[types]["sigma"]
 
-    def force(self, type, r):
+        # initialize arrays
+        r, FENE, s = self._zeros(r)
+        WCA = FENE.copy()
+
+        # set flags for FENE potential
+        fene_flag = ~numpy.greater_equal(r, r0)
+
+        # evaluate FENE potential
+        FENE[fene_flag] = -0.5 * k * r0**2 * numpy.log(1 - (r[fene_flag] / r0) ** 2)
+        FENE[~fene_flag] = numpy.inf
+
+        # set flags for WCA potential
+        zero_flags = ~numpy.isclose(r, 0)
+        wca_flags = r < 2 ** (1 / 6) * sigma
+
+        # evaluate WCA potential
+        r6_inv = numpy.power(sigma / r[zero_flags], 6)
+        WCA[zero_flags] = 4.0 * epsilon * (r6_inv**2 - r6_inv) + 1
+        WCA[~zero_flags] = numpy.inf
+        WCA[~wca_flags] = 0
+
+        if s:
+            FENE = FENE.item()
+            WCA = WCA.item()
+
+        return FENE + WCA
+
+    def force(self, types, r):
         """Evaluate bond force."""
-        k = self.coeff[type]["k"]
-        r0 = self.coeff[type]["r0"]
-        return k * r0**2 / (r0**2 - (r - r0) ** 2)
+        k = self.coeff[types]["k"]
+        r0 = self.coeff[types]["r0"]
+        # default epsilon and sigma to 0 if not set
+        if self.coeff[types]["epsilon"] is None:
+            epsilon = 0
+        else:
+            epsilon = self.coeff[types]["epsilon"]
+        if self.coeff[types]["sigma"] is None:
+            sigma = 0
+        else:
+            sigma = self.coeff[types]["sigma"]
 
-    def derivative(self, type, var, r):
+        # initialize arrays
+        r, dFENE_dr, s = self._zeros(r)
+        dWCA_dr = dFENE_dr.copy()
+
+        # set flags for FENE potential
+        fene_flag = ~numpy.greater_equal(r, r0)
+
+        # evaluate FENE potential
+        dFENE_dr[fene_flag] = (k * r0) / (1 - (r[fene_flag] / r0))
+        dFENE_dr[~fene_flag] = numpy.inf
+
+        # set flags for WCA potential
+        zero_flags = ~numpy.isclose(r, 0)
+        wca_flags = r < 2 ** (1 / 6) * sigma
+
+        # evaluate WCA potential
+        rinv = 1.0 / r[zero_flags]
+        r6_inv = numpy.power(sigma * rinv, 6)
+        dWCA_dr[zero_flags] = (48.0 * epsilon * rinv) * (r6_inv**2 - 0.5 * r6_inv)
+        dWCA_dr[~zero_flags] = numpy.inf
+        dWCA_dr[~wca_flags] = 0
+
+        if s:
+            dFENE_dr = dFENE_dr.item()
+            dWCA_dr = dWCA_dr.item()
+
+        return dFENE_dr + dWCA_dr
+
+    def derivative(self, types, var, r):
         r"""Evaluate bond derivative with respect to a variable."""
-        k = self.coeff[type]["k"]
-        r0 = self.coeff[type]["r0"]
+        k = self.coeff[types]["k"]
+        r0 = self.coeff[types]["r0"]
+        # default epsilon and sigma to 0 if not set
+        if self.coeff[types]["epsilon"] is None:
+            epsilon = 0
+        else:
+            epsilon = self.coeff[types]["epsilon"]
+        if self.coeff[types]["sigma"] is None:
+            sigma = 0
+        else:
+            sigma = self.coeff[types]["sigma"]
+
+        # initialize arrays
+        r, d, s = self._zeros(r)
+
+        # set flags for FENE potential
+        fene_flag = ~numpy.greater_equal(r, r0)
+
+        # set flags for WCA potential
+        zero_flags = ~numpy.isclose(r, 0)
+        wca_flags = r < 2 ** (1 / 6) * sigma
+
+        # set r**6 for WCA potential
+        r6_inv = numpy.power(sigma / r[zero_flags], 6)
+
         if var == "k":
-            return -0.5 * r0**2 * numpy.log(1 - (r - r0) ** 2 / r0**2)
+            d[fene_flag] = -0.5 * r0**2 * numpy.log(1 - (r[fene_flag] / r0) ** 2)
+            d[~fene_flag] = numpy.inf
         elif var == "r0":
-            return k * r0 * (r - r0) / (r0**2 - (r - r0) ** 2)
+            d[fene_flag] = (-k * r[fene_flag]) / (
+                1 - (r[fene_flag] / r0)
+            ) - k * r0 * numpy.log((1 - (r[fene_flag] / r0)) ** 2)
+            d[~fene_flag] = numpy.inf
+        elif var == "epsilon":
+            d[zero_flags] = 4 * (r6_inv**2 - r6_inv)
+            d[~zero_flags] = numpy.inf
+            d[~wca_flags] = 0
+        elif var == "sigma":
+            d[zero_flags] = (48.0 * epsilon / sigma) * (r6_inv**2 - 0.5 * r6_inv)
+            d[~zero_flags] = numpy.inf
+            d[~wca_flags] = 0
         else:
             raise ValueError("Unknown parameter")
+        if s:
+            d = d.item()
+        return d
 
 
 class BondSpline(BondPotential):
@@ -219,12 +371,12 @@ class BondSpline(BondPotential):
 
         return u
 
-    def from_array(self, type, r, u):
+    def from_array(self, types, r, u):
         r"""Set up the potential from knot points.
 
         Parameters
         ----------
-        type : str
+        types : tuple[str]
             The type for which to set up the potential.
         r : list
             Position of each knot.
@@ -249,7 +401,7 @@ class BondSpline(BondPotential):
         rs = numpy.asarray(r, dtype=float)
         ks = numpy.asarray(u, dtype=float)
         if self.mode == "diff":
-            # difference is next knot minus my knot,
+            # difference is next knot minus m y knot,
             # with last knot fixed at its current value
             ks[:-1] -= ks[1:]
 
@@ -259,7 +411,7 @@ class BondSpline(BondPotential):
         drs[1:] = rs[1:] - rs[:-1]
 
         for i in range(self.num_knots):
-            self._set_knot(type, i, drs[i], ks[i])
+            self._set_knot(types, i, drs[i], ks[i])
 
     def to_json(self):
         data = super().to_json()
@@ -292,7 +444,7 @@ class BondSpline(BondPotential):
             raise TypeError("Knots are keyed by integers")
         return f"dr-{i}", f"{self.mode}-{i}"
 
-    def _set_knot(self, type, i, dr, k):
+    def _set_knot(self, types, i, dr, k):
         """Set the value of knot variables.
 
         The meaning of the value of the knot variable is defined by the ``mode``.
@@ -300,7 +452,7 @@ class BondSpline(BondPotential):
 
         Parameters
         ----------
-        type : str
+        types : tuple[str]
             The type for which to set up the potential.
         i : int
             Index of the knot.
@@ -314,27 +466,34 @@ class BondSpline(BondPotential):
             raise ValueError("Knot spacings must be positive")
 
         dri, ki = self.knot_params(i)
-        self.coeff[type][dri] = dr
-        self.coeff[type][ki] = k
+        if isinstance(self.coeff[types][dri], variable.IndependentVariable):
+            self.coeff[types][dri].value = dr
+        else:
+            self.coeff[types][dri] = variable.IndependentVariable(dr)
 
-    def energy(self, type, r):
-        params = self.coeff.evaluate(type)
+        if isinstance(self.coeff[types][ki], variable.IndependentVariable):
+            self.coeff[types][ki].value = k
+        else:
+            self.coeff[types][ki] = variable.IndependentVariable(k)
+
+    def energy(self, types, r):
+        params = self.coeff.evaluate(types)
         r, u, s = self._zeros(r)
         u = self._interpolate(params)(r)
         if s:
             u = u.item()
         return u
 
-    def force(self, type, r):
-        params = self.coeff.evaluate(type)
+    def force(self, types, r):
+        params = self.coeff.evaluate(types)
         r, f, s = self._zeros(r)
         f = -self._interpolate(params).derivative(r, 1)
         if s:
             f = f.item()
         return f
 
-    def derivative(self, type, r):
-        params = self.coeff.evaluate(type)
+    def derivative(self, types, r):
+        params = self.coeff.evaluate(types)
         r, d, s = self._zeros(r)
         h = 0.001
 
@@ -404,13 +563,13 @@ class BondSpline(BondPotential):
         """str: Spline construction mode."""
         return self._mode
 
-    def knots(self, type):
+    def knots(self, types):
         r"""Generator for knot points.
 
         Parameters
         ----------
-        type : str
-            The type for which to retrieve the knot points.
+        types : tuple[str]
+            The types for which to retrieve the knot points.
 
         Yields
         ------
@@ -422,4 +581,14 @@ class BondSpline(BondPotential):
         """
         for i in range(self.num_knots):
             dri, ki = self.knot_params(i)
-            yield self.coeff[type][dri], self.coeff[type][ki]
+            yield self.coeff[types][dri], self.coeff[types][ki]
+
+    @property
+    def design_variables(self):
+        """tuple: Designable variables of the spline."""
+        dvars = []
+        for types in self.coeff:
+            for i, (dr, k) in enumerate(self.knots(types)):
+                if i != self.num_knots - 1:
+                    dvars.append(k)
+        return tuple(dvars)
