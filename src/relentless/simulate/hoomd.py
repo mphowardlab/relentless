@@ -67,8 +67,10 @@ class InitializationOperation(simulate.InitializationOperation):
         self._assert_dimension_safe(sim, snap)
         # create the potentials, defer attaching until later
         exclusion = sim.potentials.pair.exclusions
+        if exclusion is None:
+            exclusion = []
         # hoomd requires "1-2" to be "bond" for exclusions
-        if exclusion == ["1-2"]:
+        elif exclusion == ["1-2"]:
             exclusion = ["bond"]
         neighbor_list = hoomd.md.nlist.Tree(
             buffer=sim.potentials.pair.neighbor_buffer,
