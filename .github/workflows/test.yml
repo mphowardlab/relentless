@@ -7,6 +7,9 @@ on:
     branches:
       - main
 
+  schedule:
+    - cron: "18 10 1,15 * *"
+
   workflow_call:
 
 concurrency:
@@ -84,13 +87,13 @@ jobs:
           mamba-version: "*"
           python-version: ${{ matrix.python-version }}
       - name: Force HOOMD 2 NumPy version
-        if: ${{ matrix.hoomd-version == '2.9.7' }}
+        if: ${{ matrix.hoomd-version == '2.9.7' || matrix.hoomd-version == '3.11.0' }}
         run: |
-          mamba install "numpy<2"
+          mamba install "numpy<2" "gsd<3.4"
       - name: Install test dependencies
         run: |
-          mamba install hoomd=${{ matrix.hoomd-version }}
-          pip install -r tests/requirements.txt
+          mamba install hoomd=${{ matrix.hoomd-version }} --no-update-deps
+          pip install -r tests/requirements.txt --upgrade-strategy only-if-needed
       - name: Install
         run: |
           pip install .
