@@ -1214,8 +1214,8 @@ class EnsembleAverage(AnalysisOperation):
             self.system = system
             self.rdf_params = rdf_params
             self.constraints = constraints if constraints is not None else {}
-            self.bonds = bonds
             self.exclusion = exclusions
+            self.bonds = bonds
 
             # this method handles all the initialization
             self.reset()
