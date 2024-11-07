@@ -181,6 +181,7 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
         sim.masses = collections.FixedKeyDict(sim.types)
         masses = {}
         dim_safe = None
+        snap = None
         if mpi.world.rank_is_root:
             snap = lammpsio.DataFile(sim[self]["_datafile"]).read()
             for i in sim.types:
@@ -202,6 +203,7 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
         masses = mpi.world.bcast(masses)
         sim.masses.update(masses)
         dim_safe = mpi.world.bcast(dim_safe)
+        snap = mpi.world.bcast(snap)
         if not dim_safe:
             raise ValueError("Simulation initialized inconsistent with dimension")
 
