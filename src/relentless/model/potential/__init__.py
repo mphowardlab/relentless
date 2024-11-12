@@ -29,7 +29,7 @@ Developer classes
 
 """
 
-from .bond import FENEWCA, BondSpline, HarmonicBond
+from .bond import FENEWCA, BondParameters, BondPotential, BondSpline, HarmonicBond
 from .pair import (
     Depletion,
     LennardJones,
