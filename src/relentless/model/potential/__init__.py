@@ -29,6 +29,13 @@ Developer classes
 
 """
 
+from .angle import (
+    AngleParameters,
+    AnglePotential,
+    AngleSpline,
+    CosineSquaredAngle,
+    HarmonicAngle,
+)
 from .bond import FENEWCA, BondParameters, BondPotential, BondSpline, HarmonicBond
 from .pair import (
     Depletion,
