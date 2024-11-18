@@ -12,7 +12,7 @@ class BondParameters(potential.Parameters):
     pass
 
 
-class BondPotential(potential.Potential):
+class BondPotential(potential.BondedPotential):
     r"""Abstract base class for a bond potential."""
 
     pass
@@ -63,8 +63,9 @@ class HarmonicBond(BondPotential):
 
     def energy(self, types, r):
         """Evaluate bond energy."""
-        k = self.coeff[types]["k"]
-        r0 = self.coeff[types]["r0"]
+        params = self.coeff.evaluate(types)
+        k = params["k"]
+        r0 = params["r0"]
 
         r, u, s = self._zeros(r)
 
@@ -76,8 +77,9 @@ class HarmonicBond(BondPotential):
 
     def force(self, types, r):
         """Evaluate bond force."""
-        k = self.coeff[types]["k"]
-        r0 = self.coeff[types]["r0"]
+        params = self.coeff.evaluate(types)
+        k = params["k"]
+        r0 = params["r0"]
 
         r, f, s = self._zeros(r)
 
@@ -87,16 +89,13 @@ class HarmonicBond(BondPotential):
             f = f.item()
         return f
 
-    def derivative(self, types, var, r):
+    def _derivative(self, param, r, k, r0, **params):
         r"""Evaluate bond derivative with respect to a variable."""
-        k = self.coeff[types]["k"]
-        r0 = self.coeff[types]["r0"]
-
         r, d, s = self._zeros(r)
 
-        if var == "k":
+        if param == "k":
             d = (r - r0) ** 2 / 2
-        elif var == "r0":
+        elif param == "r0":
             d = -k * (r - r0)
         else:
             raise ValueError("Unknown parameter")
@@ -172,17 +171,11 @@ class FENEWCA(BondPotential):
 
     def energy(self, types, r):
         """Evaluate bond energy."""
-        k = self.coeff[types]["k"]
-        r0 = self.coeff[types]["r0"]
-        # default epsilon and sigma to 0 if not set
-        if self.coeff[types]["epsilon"] is None:
-            epsilon = 0
-        else:
-            epsilon = self.coeff[types]["epsilon"]
-        if self.coeff[types]["sigma"] is None:
-            sigma = 0
-        else:
-            sigma = self.coeff[types]["sigma"]
+        params = self.coeff.evaluate(types)
+        k = params["k"]
+        r0 = params["r0"]
+        epsilon = params["epsilon"]
+        sigma = params["sigma"]
 
         # initialize arrays
         r, FENE, s = self._zeros(r)
@@ -201,7 +194,7 @@ class FENEWCA(BondPotential):
 
         # evaluate WCA potential
         r6_inv = numpy.power(sigma / r[zero_flags], 6)
-        WCA[zero_flags] = 4.0 * epsilon * (r6_inv**2 - r6_inv) + 1
+        WCA[zero_flags] = 4.0 * epsilon * (r6_inv**2 - r6_inv) + epsilon
         WCA[~zero_flags] = numpy.inf
         WCA[~wca_flags] = 0
 
@@ -213,17 +206,11 @@ class FENEWCA(BondPotential):
 
     def force(self, types, r):
         """Evaluate bond force."""
-        k = self.coeff[types]["k"]
-        r0 = self.coeff[types]["r0"]
-        # default epsilon and sigma to 0 if not set
-        if self.coeff[types]["epsilon"] is None:
-            epsilon = 0
-        else:
-            epsilon = self.coeff[types]["epsilon"]
-        if self.coeff[types]["sigma"] is None:
-            sigma = 0
-        else:
-            sigma = self.coeff[types]["sigma"]
+        params = self.coeff.evaluate(types)
+        k = params["k"]
+        r0 = params["r0"]
+        epsilon = params["epsilon"]
+        sigma = params["sigma"]
 
         # initialize arrays
         r, dFENE_dr, s = self._zeros(r)
@@ -233,7 +220,7 @@ class FENEWCA(BondPotential):
         fene_flag = ~numpy.greater_equal(r, r0)
 
         # evaluate FENE potential
-        dFENE_dr[fene_flag] = (k * r0) / (1 - (r[fene_flag] / r0))
+        dFENE_dr[fene_flag] = (k * r0) / (1 - (r[fene_flag] / r0) ** 2)
         dFENE_dr[~fene_flag] = numpy.inf
 
         # set flags for WCA potential
@@ -253,20 +240,8 @@ class FENEWCA(BondPotential):
 
         return dFENE_dr + dWCA_dr
 
-    def derivative(self, types, var, r):
+    def _derivative(self, param, r, k, r0, epsilon, sigma, **params):
         r"""Evaluate bond derivative with respect to a variable."""
-        k = self.coeff[types]["k"]
-        r0 = self.coeff[types]["r0"]
-        # default epsilon and sigma to 0 if not set
-        if self.coeff[types]["epsilon"] is None:
-            epsilon = 0
-        else:
-            epsilon = self.coeff[types]["epsilon"]
-        if self.coeff[types]["sigma"] is None:
-            sigma = 0
-        else:
-            sigma = self.coeff[types]["sigma"]
-
         # initialize arrays
         r, d, s = self._zeros(r)
 
@@ -280,19 +255,19 @@ class FENEWCA(BondPotential):
         # set r**6 for WCA potential
         r6_inv = numpy.power(sigma / r[zero_flags], 6)
 
-        if var == "k":
-            d[fene_flag] = -0.5 * r0**2 * numpy.log(1 - (r[fene_flag] / r0) ** 2)
+        if param == "k":
+            d[fene_flag] = 0.5 * r0**2 * numpy.log(1 - (r[fene_flag] / r0) ** 2)
             d[~fene_flag] = numpy.inf
-        elif var == "r0":
-            d[fene_flag] = (-k * r[fene_flag]) / (
-                1 - (r[fene_flag] / r0)
-            ) - k * r0 * numpy.log((1 - (r[fene_flag] / r0)) ** 2)
+        elif param == "r0":
+            d[fene_flag] = (k * r[fene_flag] ** 2) / (
+                (1 - (r[fene_flag] / r0) ** 2) * r0
+            ) + k * r0 * numpy.log(1 - (r[fene_flag] / r0) ** 2)
             d[~fene_flag] = numpy.inf
-        elif var == "epsilon":
-            d[zero_flags] = 4 * (r6_inv**2 - r6_inv)
+        elif param == "epsilon":
+            d[zero_flags] = 4 * (r6_inv**2 - r6_inv) + 1
             d[~zero_flags] = numpy.inf
             d[~wca_flags] = 0
-        elif var == "sigma":
+        elif param == "sigma":
             d[zero_flags] = (48.0 * epsilon / sigma) * (r6_inv**2 - 0.5 * r6_inv)
             d[~zero_flags] = numpy.inf
             d[~wca_flags] = 0
@@ -492,26 +467,25 @@ class BondSpline(BondPotential):
             f = f.item()
         return f
 
-    def derivative(self, types, r):
-        params = self.coeff.evaluate(types)
+    def _derivative(self, param, r, **params):
         r, d, s = self._zeros(r)
         h = 0.001
 
-        if "dr-" in params:
+        if "dr-" in param:
             f_low = self._interpolate(params)(r)
-            knot_p = params[params]
-            params[params] = knot_p + h
+            knot_p = params[param]
+            params[param] = knot_p + h
             f_high = self._interpolate(params)(r)
-            params[params] = knot_p
+            params[param] = knot_p
             d = (f_high - f_low) / h
-        elif self.mode + "-" in params:
+        elif self.mode + "-" in param:
             # perturb knot param value
-            knot_p = params[params]
-            params[params] = knot_p + h
+            knot_p = params[param]
+            params[param] = knot_p + h
             f_high = self._interpolate(params)(r)
-            params[params] = knot_p - h
+            params[param] = knot_p - h
             f_low = self._interpolate(params)(r)
-            params[params] = knot_p
+            params[param] = knot_p
             d = (f_high - f_low) / (2 * h)
         else:
             raise ValueError("Parameter cannot be differentiated")

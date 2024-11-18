@@ -375,3 +375,111 @@ class Potential(abc.ABC):
         data = self.to_json()
         with open(filename, "w") as f:
             json.dump(data, f, sort_keys=True, indent=4)
+
+
+class BondedPotential(Potential):
+
+    def __init__(self, keys, params, container=None, name=None):
+        super().__init__(keys, params, container, name)
+
+    def derivative(self, types, var, r):
+        r"""Evaluate pair derivative with respect to a variable.
+
+        The derivative is evaluated using the :meth:`_derivative` function for all
+        :math:`u_{0,\lambda}(r)`. The truncation and shifting scheme is applied.
+
+        The derivative will be carried out with respect to ``var`` for all
+        :class:`~relentless.variable.Variable` parameters. The appropriate chain
+        rules are handled automatically. If the potential does not depend on
+        ``var``, the derivative will be zero by definition.
+
+        Parameters
+        ----------
+        pair : tuple[str]
+            The pair for which to calculate the derivative.
+        var : :class:`~relentless.variable.Variable`
+            The variable with respect to which the derivative is calculated.
+        r : float or list
+            The pair distance(s) at which to evaluate the derivative.
+
+        Returns
+        -------
+        float or numpy.ndarray
+            The pair derivative evaluated at ``r``. The return type is consistent
+            with ``r``.
+
+        Raises
+        ------
+        ValueError
+            If any value in ``r`` is negative.
+        TypeError
+            If the parameter with respect to which to take the derivative
+            is not a :class:`~relentless.variable.Variable`.
+        ValueError
+            If the potential is shifted without setting ``rmax``.
+
+        """
+        params = self.coeff.evaluate(types)
+        r, deriv, scalar_r = self._zeros(r)
+        if any(r < 0):
+            raise ValueError("r cannot be negative")
+        if not isinstance(var, variable.Variable):
+            raise TypeError(
+                "Parameter with respect to which to take the derivative"
+                " must be a Variable."
+            )
+
+        flags = numpy.ones(r.shape[0], dtype=bool)
+
+        for p in self.coeff.params:
+            # try to take chain rule w.r.t. variable first
+            p_obj = self.coeff[types][p]
+            if isinstance(p_obj, variable.DependentVariable):
+                dp_dvar = p_obj.derivative(var)
+            elif isinstance(p_obj, variable.IndependentVariable) and var is p_obj:
+                dp_dvar = 1.0
+            else:
+                dp_dvar = 0.0
+
+            # skip when dp_dvar is exactly zero, since this does not contribute
+            if dp_dvar == 0.0:
+                continue
+
+            # now take the parameter derivative
+            below = numpy.zeros(r.shape[0], dtype=bool)
+            above = numpy.zeros(r.shape[0], dtype=bool)
+
+            flags = numpy.logical_and(~below, ~above)
+            deriv[flags] += self._derivative(p, r[flags], **params) * dp_dvar
+
+        # coerce derivative back into shape of the input
+        if scalar_r:
+            deriv = deriv.item()
+        return deriv
+
+    @abc.abstractmethod
+    def _derivative(self, param, r, **params):
+        """Implementation of the parameter derivative function.
+
+        This abstract method defines the interface for computing the parameter
+        derivative of a pair interaction. ``**params`` will include all the
+        parameters from :class:`PairParameters`. The derivative should be
+        consistent with :meth:`_energy`.
+
+        Parameters
+        ----------
+        param : str
+            Name of the parameter.
+        r : float or list
+            The pair distance(s) at which to evaluate the derivative.
+        **params : kwargs
+            Named parameters of the potential.
+
+        Returns
+        -------
+        float or numpy.ndarray
+            The pair derivative evaluated at ``r``. The return type is consistent
+            with ``r``.
+
+        """
+        pass

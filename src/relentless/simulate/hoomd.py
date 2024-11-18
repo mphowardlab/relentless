@@ -95,16 +95,14 @@ class InitializationOperation(simulate.InitializationOperation):
             bond_potential = hoomd.md.bond.Table(width=sim.potentials.bond.num)
 
             for i in sim.bond_types:
-                r_bond, u, f = (
+                r, u, f = (
                     sim.potentials.bond.linear_space,
                     sim.potentials.bond.energy(key=i),
                     sim.potentials.bond.force(key=i),
                 )
                 if numpy.any(numpy.isinf(u)):
                     raise ValueError("Bond potential/force is infinite at evaluated r")
-                bond_potential.params[i] = dict(
-                    r_min=r_bond[0], r_max=r_bond[-1], U=u[:], F=f[:]
-                )
+                bond_potential.params[i] = dict(r_min=r[0], r_max=r[-1], U=u[:], F=f[:])
             sim[self]["_potentials"].append(bond_potential)
 
     def _call_v2(self, sim):

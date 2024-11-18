@@ -99,7 +99,7 @@ class LinPot(relentless.model.potential.bond.BondPotential):
             f = f.item()
         return f
 
-    def derivative(self, types, param, r):
+    def _derivative(self, param, r, **params):
         r, d, s = self._zeros(r)
         if param == "m":
             d[:] = r
@@ -124,7 +124,7 @@ class TwoVarPot(relentless.model.potential.bond.BondPotential):
     def force(self, r, x, y, **params):
         pass
 
-    def derivative(self, param, r, **params):
+    def _derivative(self, param, r, **params):
         # not real derivative, just used to test functionality
         r, d, s = self._zeros(r)
         if param == "x":
@@ -183,9 +183,9 @@ class test_BondPotential(unittest.TestCase):
         p.coeff["1"]["m"] = x
 
         # test with no cutoffs
-        d = p.derivative(types=("1"), param=x, r=0.5)
+        d = p.derivative(types=("1"), var=x, r=0.5)
         self.assertAlmostEqual(d, 0.5)
-        d = p.derivative(types=("1"), param=x, r=[0.25, 0.75])
+        d = p.derivative(types=("1"), var=x, r=[0.25, 0.75])
         numpy.testing.assert_allclose(d, [0.25, 0.75])
 
     def test_derivative_types(self):
@@ -315,43 +315,169 @@ class test_HarmonicBond(unittest.TestCase):
         # w.r.t. k
         # test scalar r
         r_input = 0.5
-        d_actual = 0
-        d = harmonic_bond._derivative(param="k", r=r_input)
+        d_actual = 0.125
+        d = harmonic_bond._derivative(param="k", r=r_input, k=1000, r0=1.0)
         self.assertAlmostEqual(d, d_actual)
 
         # test array r
         r_input = numpy.array([0, 1, 1.5])
-        d_actual = numpy.array([numpy.inf, -0.061523438, -0.0054794417])
-        d = harmonic_bond._derivative(
-            param="epsilon", r=r_input, epsilon=1.0, sigma=0.5
-        )
+        d_actual = numpy.array([0.50, 0.0, 0.125])
+        d = harmonic_bond._derivative(param="k", r=r_input, k=1000, r0=1.0)
         numpy.testing.assert_allclose(d, d_actual)
 
-        # w.r.t. sigma
+        # w.r.t. r0
         # test scalar r
         r_input = 0.5
-        d_actual = 48
-        d = harmonic_bond._derivative(param="sigma", r=r_input, epsilon=1.0, sigma=0.5)
+        d_actual = 500
+        d = harmonic_bond._derivative(param="r0", r=r_input, k=1000.0, r0=1.0)
         self.assertAlmostEqual(d, d_actual)
 
         # test array r
         r_input = numpy.array([0, 1, 1.5])
-        d_actual = numpy.array([numpy.inf, -0.7265625, -0.06566298])
-        d = harmonic_bond._derivative(param="sigma", r=r_input, epsilon=1.0, sigma=0.5)
+        d_actual = numpy.array([1000, 0, -500])
+        d = harmonic_bond._derivative(param="r0", r=r_input, k=1000.0, r0=1.0)
         numpy.testing.assert_allclose(d, d_actual)
 
         # test invalid param
         with self.assertRaises(ValueError):
-            harmonic_bond._derivative(param="simga", r=r_input, epsilon=1.0, sigma=1.0)
+            harmonic_bond._derivative(param="ro", r=r_input, k=1000.0, r0=1.0)
+
+
+class test_FENEWCA(unittest.TestCase):
+    """Unit tests for relentless.model.potential.FENEWCA"""
+
+    def test_init(self):
+        """Test creation from data"""
+        FENEWCA = relentless.model.potential.FENEWCA(types=("1",))
+        coeff = relentless.model.potential.BondParameters(
+            types=("1",),
+            params=(
+                "k",
+                "r0",
+                "epsilon",
+                "sigma",
+            ),
+        )
+        self.assertCountEqual(FENEWCA.coeff.types, coeff.types)
+        self.assertCountEqual(FENEWCA.coeff.params, coeff.params)
+
+    def test_energy(self):
+        """Test _energy method"""
+        FENEWCA = relentless.model.potential.FENEWCA(types=("1",))
+        FENEWCA.coeff["1"].update(k=30, r0=1.5, epsilon=1.0, sigma=1.0)
+
+        # test scalar r
+        r_input = 0.95
+        u_actual = 20.2638974009
+        u = FENEWCA.energy(types=("1"), r=r_input)
+        self.assertAlmostEqual(u, u_actual)
+
+        # test array r
+        r_input = numpy.array([0, 0.9, 1.2, 2])
+        u_actual = numpy.array([numpy.inf, 22.698308667, 34.4807296042, numpy.inf])
+        u = FENEWCA.energy(types=("1"), r=r_input)
+        numpy.testing.assert_allclose(u, u_actual)
+
+    def test_force(self):
+        """Test _force method"""
+        FENEWCA = relentless.model.potential.FENEWCA(types=("1",))
+        FENEWCA.coeff["1"].update(k=30, r0=1.5, epsilon=1.0, sigma=1.0)
+
+        # test scalar r
+        r_input = 0.95
+        f_actual = 134.276699505
+        f = FENEWCA.force(types=("1"), r=r_input)
+        numpy.testing.assert_allclose(f, f_actual)
+
+        # test array r
+        r_input = numpy.array([0, 0.9, 1.2, 2])
+        f_actual = numpy.array([numpy.inf, 208.972123994, 125, numpy.inf])
+        f = FENEWCA.force(types=("1"), r=r_input)
+        numpy.testing.assert_allclose(f, f_actual)
+
+    def test_derivative(self):
+        """Test _derivative method"""
+        FENEWCA = relentless.model.potential.FENEWCA(types=("1",))
+
+        # w.r.t. k
+        # test scalar r
+        r_input = 0.95
+        d_actual = -0.576764091467
+        d = FENEWCA._derivative(param="k", r=r_input, k=30, r0=1.5, epsilon=1, sigma=1)
+        self.assertAlmostEqual(d, d_actual)
+
+        # test array r
+        r_input = numpy.array([0, 1, 1.6])
+        d_actual = numpy.array([0, -0.661259998015, numpy.inf])
+        d = FENEWCA._derivative(param="k", r=r_input, k=30, r0=1.5, epsilon=1, sigma=1)
+        numpy.testing.assert_allclose(d, d_actual)
+
+        # w.r.t. r0
+        # test scalar r
+        r_input = 0.95
+        d_actual = 7.06858290903
+        d = FENEWCA._derivative(param="r0", r=r_input, k=30, r0=1.5, epsilon=1, sigma=1)
+        self.assertAlmostEqual(d, d_actual)
+
+        # test array r
+        r_input = numpy.array([0, 1, 1.6])
+        d_actual = numpy.array([0, 9.5496000794, numpy.inf])
+        d = FENEWCA._derivative(param="r0", r=r_input, k=30, r0=1.5, epsilon=1, sigma=1)
+        numpy.testing.assert_allclose(d, d_actual)
+
+        # w.r.t. epsilon
+        # test scalar r
+        r_input = 0.95
+        d_actual = 2.96097465689
+        d = FENEWCA._derivative(
+            param="epsilon", r=r_input, k=30, r0=1.5, epsilon=1, sigma=1
+        )
+        self.assertAlmostEqual(d, d_actual)
+
+        # test array r
+        r_input = numpy.array([0, 1.0, 1.1, 2.0])
+        d_actual = numpy.array([numpy.inf, 1.0, 0.0166275506263, 0])
+        d = FENEWCA._derivative(
+            param="epsilon", r=r_input, k=30, r0=1.5, epsilon=1, sigma=1
+        )
+
+        # test array r
+        r_input = numpy.array([0, 1, 1.6])
+        d_actual = numpy.array([0, 9.5496000794, numpy.inf])
+        d = FENEWCA._derivative(param="r0", r=r_input, k=30, r0=1.5, epsilon=1, sigma=1)
+        numpy.testing.assert_allclose(d, d_actual)
+
+        # w.r.t. sigma
+        # test scalar r
+        r_input = 0.95
+        d_actual = 56.1806752906
+        d = FENEWCA._derivative(
+            param="sigma", r=r_input, k=30, r0=1.5, epsilon=1, sigma=1
+        )
+        self.assertAlmostEqual(d, d_actual)
+
+        # test array r
+        r_input = numpy.array([0, 1.0, 1.1, 2.0])
+        d_actual = numpy.array([numpy.inf, 24, 1.74690492881, 0])
+        d = FENEWCA._derivative(
+            param="sigma", r=r_input, k=30, r0=1.5, epsilon=1, sigma=1
+        )
+        numpy.testing.assert_allclose(d, d_actual)
+
+        # test invalid param
+        with self.assertRaises(ValueError):
+            FENEWCA._derivative(
+                param="sgima", r=r_input, k=30, r0=1.5, epsilon=1, sigma=1
+            )
 
     def test_json(self):
-        harmonic_bond = relentless.model.potential.HarmonicBond(types=("1",))
-        harmonic_bond.coeff["1"].update(k=1000, r0=1.0)
-        data = harmonic_bond.to_json()
+        FENEWCA = relentless.model.potential.FENEWCA(types=("1",))
+        FENEWCA.coeff["1"].update(k=1000, r0=1.0, epsilon=1.0, sigma=1.0)
+        data = FENEWCA.to_json()
 
-        harmonic_bond2 = relentless.model.potential.HarmonicBond.from_json(data)
-        self.assertEqual(harmonic_bond2.coeff["1"]["k"], 1000)
-        self.assertEqual(harmonic_bond2.coeff["1"]["r0"], 1.0)
+        FENEWCA2 = relentless.model.potential.FENEWCA.from_json(data)
+        self.assertEqual(FENEWCA2.coeff["1"]["k"], 1000)
+        self.assertEqual(FENEWCA2.coeff["1"]["r0"], 1.0)
 
 
 class test_BondSpline(unittest.TestCase):
