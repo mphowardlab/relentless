@@ -11,7 +11,7 @@ class AngleParameters(potential.Parameters):
     pass
 
 
-class AnglePotential(potential.Potential):
+class AnglePotential(potential.BondedPotential):
     r"""Abstract base class for an angle potential."""
 
     pass
@@ -62,8 +62,9 @@ class HarmonicAngle(AnglePotential):
 
     def energy(self, types, theta):
         """Evaluate angle energy."""
-        k = self.coeff[types]["k"]
-        theta0 = self.coeff[types]["theta0"]
+        params = self.coeff.evaluate(types)
+        k = params["k"]
+        theta0 = params["theta0"]
 
         theta, u, s = self._zeros(theta)
 
@@ -75,8 +76,9 @@ class HarmonicAngle(AnglePotential):
 
     def force(self, types, theta):
         """Evaluate angle force."""
-        k = self.coeff[types]["k"]
-        theta0 = self.coeff[types]["theta0"]
+        params = self.coeff.evaluate(types)
+        k = params["k"]
+        theta0 = params["theta0"]
 
         theta, f, s = self._zeros(theta)
 
@@ -86,16 +88,13 @@ class HarmonicAngle(AnglePotential):
             f = f.item()
         return f
 
-    def derivative(self, types, var, theta):
+    def _derivative(self, param, theta, k, theta0, **params):
         r"""Evaluate angle derivative with respect to a variable."""
-        k = self.coeff[types]["k"]
-        theta0 = self.coeff[types]["theta0"]
-
         theta, d, s = self._zeros(theta)
 
-        if var == "k":
+        if param == "k":
             d = (theta - theta0) ** 2 / 2
-        elif var == "theta0":
+        elif param == "theta0":
             d = -k * (theta - theta0)
         else:
             raise ValueError("Unknown parameter")
@@ -150,8 +149,9 @@ class CosineSquaredAngle(AnglePotential):
 
     def energy(self, types, theta):
         """Evaluate angle energy."""
-        k = self.coeff[types]["k"]
-        theta0 = self.coeff[types]["theta0"]
+        params = self.coeff.evaluate(types)
+        k = params["k"]
+        theta0 = params["theta0"]
 
         theta, u, s = self._zeros(theta)
 
@@ -163,8 +163,9 @@ class CosineSquaredAngle(AnglePotential):
 
     def force(self, types, theta):
         """Evaluate angle force."""
-        k = self.coeff[types]["k"]
-        theta0 = self.coeff[types]["theta0"]
+        params = self.coeff.evaluate(types)
+        k = params["k"]
+        theta0 = params["theta0"]
 
         theta, f, s = self._zeros(theta)
 
@@ -174,17 +175,14 @@ class CosineSquaredAngle(AnglePotential):
             f = f.item()
         return f
 
-    def derivative(self, types, var, theta):
+    def _derivative(self, param, theta, k, theta0, **params):
         r"""Evaluate angle derivative with respect to a variable."""
-        k = self.coeff[types]["k"]
-        theta0 = self.coeff[types]["theta0"]
-
         theta, d, s = self._zeros(theta)
 
-        if var == "k":
+        if param == "k":
             d = (numpy.cos(theta) - numpy.cos(theta0)) ** 2
-        elif var == "theta0":
-            d = 2 * k * (numpy.cos(theta) - numpy.cos(theta0)) * numpy.sin(theta)
+        elif param == "theta0":
+            d = 2 * k * (numpy.cos(theta) - numpy.cos(theta0)) * numpy.sin(theta0)
         else:
             raise ValueError("Unknown parameter")
 
@@ -231,4 +229,20 @@ class AngleSpline(BondSpline):
 
     """
 
-    pass
+    def __init__(self, types, num_knots, mode="diff", name=None):
+        super().__init__(types=types, num_knots=num_knots, mode=mode, name=name)
+
+    def from_array(self, types, theta, u):
+        return super().from_array(types=types, r=theta, u=u)
+
+    def energy(self, types, theta):
+        """Evaluate angle energy."""
+        return super().energy(types=types, r=theta)
+
+    def force(self, types, theta):
+        """Evaluate angle force."""
+        return super().force(types=types, r=theta)
+
+    def _derivative(self, param, theta, **params):
+        """Evaluate angle derivative with respect to a variable."""
+        return super()._derivative(param=param, r=theta, **params)

@@ -99,7 +99,7 @@ class LinPot(relentless.model.potential.angle.AnglePotential):
             f = f.item()
         return f
 
-    def derivative(self, types, param, theta):
+    def _derivative(self, param, theta, **params):
         theta, d, s = self._zeros(theta)
         if param == "m":
             d[:] = theta
@@ -124,7 +124,7 @@ class TwoVarPot(relentless.model.potential.angle.AnglePotential):
     def force(self, theta, x, y, **params):
         pass
 
-    def derivative(self, param, theta, **params):
+    def _derivative(self, param, theta, **params):
         # not real derivative, just used to test functionality
         theta, d, s = self._zeros(theta)
         if param == "x":
@@ -183,9 +183,9 @@ class test_AnglePotential(unittest.TestCase):
         p.coeff["1"]["m"] = x
 
         # test with no cutoffs
-        d = p.derivative(types=("1"), param=x, theta=0.5)
+        d = p.derivative(types=("1"), var=x, r=0.5)
         self.assertAlmostEqual(d, 0.5)
-        d = p.derivative(types=("1"), param=x, theta=[0.25, 0.75])
+        d = p.derivative(types=("1"), var=x, r=[0.25, 0.75])
         numpy.testing.assert_allclose(d, [0.25, 0.75])
 
     def test_derivative_types(self):
@@ -197,20 +197,20 @@ class test_AnglePotential(unittest.TestCase):
         q.coeff["1"]["m"] = z
 
         # test with respect to dependent variable parameter
-        d = q.derivative(types=("1"), var=z, theta=2.0)
+        d = q.derivative(types=("1"), var=z, r=2.0)
         self.assertAlmostEqual(d, 2.0)
 
         # test with respect to independent variable on which parameter is dependent
-        d = q.derivative(types=("1"), var=x, theta=1.5)
+        d = q.derivative(types=("1"), var=x, r=1.5)
         self.assertAlmostEqual(d, 3.0)
-        d = q.derivative(types=("1"), var=y, theta=4.0)
+        d = q.derivative(types=("1"), var=y, r=4.0)
         self.assertAlmostEqual(d, 0.5)
 
         # test invalid derivative w.r.t. scalar
         a = 2.5
         q.coeff["1"]["m"] = a
         with self.assertRaises(TypeError):
-            d = q.derivative(types=("1"), var=a, theta=2.0)
+            d = q.derivative(types=("1"), var=a, r=2.0)
 
         # test with respect to independent variable which is
         # related to a SameAs variable
@@ -218,12 +218,12 @@ class test_AnglePotential(unittest.TestCase):
 
         r.coeff["1"]["x"] = x
         r.coeff["1"]["y"] = relentless.model.variable.SameAs(x)
-        d = r.derivative(types=("1"), var=x, theta=4.0)
+        d = r.derivative(types=("1"), var=x, r=4.0)
         self.assertAlmostEqual(d, 20.0)
 
         r.coeff["1"]["y"] = x
         r.coeff["1"]["x"] = relentless.model.variable.SameAs(x)
-        d = r.derivative(types=("1"), var=x, theta=4.0)
+        d = r.derivative(types=("1"), var=x, r=4.0)
         self.assertAlmostEqual(d, 20.0)
 
     def test_iteration(self):
@@ -315,39 +315,37 @@ class test_HarmonicAngle(unittest.TestCase):
         # w.r.t. k
         # test scalar r
         theta_input = 0.5
-        d_actual = 0
-        d = harmonic_angle._derivative(param="k", theta=theta_input)
+        d_actual = 0.125
+        d = harmonic_angle._derivative(param="k", theta=theta_input, k=1000, theta0=1.0)
         self.assertAlmostEqual(d, d_actual)
 
         # test array r
         theta_input = numpy.array([0, 1, 1.5])
-        d_actual = numpy.array([numpy.inf, -0.061523438, -0.0054794417])
-        d = harmonic_angle._derivative(
-            param="epsilon", theta=theta_input, epsilon=1.0, sigma=0.5
-        )
+        d_actual = numpy.array([0.50, 0.0, 0.125])
+        d = harmonic_angle._derivative(param="k", theta=theta_input, k=1000, theta0=1.0)
         numpy.testing.assert_allclose(d, d_actual)
 
-        # w.r.t. sigma
+        # w.r.t. theta0
         # test scalar r
         theta_input = 0.5
-        d_actual = 48
+        d_actual = 500
         d = harmonic_angle._derivative(
-            param="sigma", theta=theta_input, epsilon=1.0, sigma=0.5
+            param="theta0", theta=theta_input, k=1000.0, theta0=1.0
         )
         self.assertAlmostEqual(d, d_actual)
 
         # test array r
         theta_input = numpy.array([0, 1, 1.5])
-        d_actual = numpy.array([numpy.inf, -0.7265625, -0.06566298])
+        d_actual = numpy.array([1000, 0, -500])
         d = harmonic_angle._derivative(
-            param="sigma", theta=theta_input, epsilon=1.0, sigma=0.5
+            param="theta0", theta=theta_input, k=1000.0, theta0=1.0
         )
         numpy.testing.assert_allclose(d, d_actual)
 
         # test invalid param
         with self.assertRaises(ValueError):
             harmonic_angle._derivative(
-                param="simga", theta=theta_input, epsilon=1.0, sigma=1.0
+                param="ro", theta=theta_input, k=1000.0, theta0=1.0
             )
 
     def test_json(self):
@@ -417,46 +415,48 @@ class test_CosineSquaredAngle(unittest.TestCase):
 
     def test_derivative(self):
         """Test _derivative method"""
-        cosine_squred_angle = relentless.model.potential.CosineSquaredAngle(
+        cosinesquared_angle = relentless.model.potential.CosineSquaredAngle(
             types=("1",)
         )
 
         # w.r.t. k
         # test scalar r
-        theta_input = 0.5
-        d_actual = 0
-        d = cosine_squred_angle._derivative(param="k", theta=theta_input)
+        theta_input = numpy.pi
+        d_actual = 1
+        d = cosinesquared_angle._derivative(
+            param="k", theta=theta_input, k=1000, theta0=numpy.pi / 2
+        )
         self.assertAlmostEqual(d, d_actual)
 
         # test array r
-        theta_input = numpy.array([0, 1, 1.5])
-        d_actual = numpy.array([numpy.inf, -0.061523438, -0.0054794417])
-        d = cosine_squred_angle._derivative(
-            param="epsilon", theta=theta_input, epsilon=1.0, sigma=0.5
+        theta_input = numpy.array([numpy.pi / 4, numpy.pi / 2, numpy.pi])
+        d_actual = numpy.array([0.50, 0.0, 1])
+        d = cosinesquared_angle._derivative(
+            param="k", theta=theta_input, k=1000, theta0=numpy.pi / 2
         )
         numpy.testing.assert_allclose(d, d_actual)
 
-        # w.r.t. sigma
+        # w.r.t. theta0
         # test scalar r
-        theta_input = 0.5
-        d_actual = 48
-        d = cosine_squred_angle._derivative(
-            param="sigma", theta=theta_input, epsilon=1.0, sigma=0.5
+        theta_input = numpy.pi
+        d_actual = -2000
+        d = cosinesquared_angle._derivative(
+            param="theta0", theta=theta_input, k=1000.0, theta0=numpy.pi / 2
         )
         self.assertAlmostEqual(d, d_actual)
 
         # test array r
-        theta_input = numpy.array([0, 1, 1.5])
-        d_actual = numpy.array([numpy.inf, -0.7265625, -0.06566298])
-        d = cosine_squred_angle._derivative(
-            param="sigma", theta=theta_input, epsilon=1.0, sigma=0.5
+        theta_input = numpy.array([numpy.pi / 4, numpy.pi / 2, numpy.pi])
+        d_actual = numpy.array([1414.21356237, 0, -2000])
+        d = cosinesquared_angle._derivative(
+            param="theta0", theta=theta_input, k=1000.0, theta0=numpy.pi / 2
         )
         numpy.testing.assert_allclose(d, d_actual)
 
         # test invalid param
         with self.assertRaises(ValueError):
-            cosine_squred_angle._derivative(
-                param="simga", theta=theta_input, epsilon=1.0, sigma=1.0
+            cosinesquared_angle._derivative(
+                param="thetao", theta=theta_input, k=1000.0, theta0=1.0
             )
 
     def test_json(self):
@@ -632,12 +632,12 @@ class test_AngleSpline(unittest.TestCase):
 
     def test_derivative(self):
         """Test derivative method"""
-        r_arr = [1, 2, 3]
+        theta_arr = [1, 2, 3]
         u_arr = [9, 4, 1]
 
         # test diff mode
         s = relentless.model.potential.AngleSpline(types=("1",), num_knots=3)
-        s.from_array(types=("1"), theta=r_arr, u=u_arr)
+        s.from_array(types=("1"), theta=theta_arr, u=u_arr)
         d_actual = numpy.array([1.125, 0.625, 0])
         param = list(s.knots(("1")))[1][1]
         d = s.derivative(types=("1"), var=param, r=[1.5, 2.5, 3.5])
@@ -647,7 +647,7 @@ class test_AngleSpline(unittest.TestCase):
         s = relentless.model.potential.AngleSpline(
             types=("1",), num_knots=3, mode="value"
         )
-        s.from_array(types=("1"), theta=r_arr, u=u_arr)
+        s.from_array(types=("1"), theta=theta_arr, u=u_arr)
         d_actual = numpy.array([0.75, 0.75, 0])
         param = list(s.knots(("1")))[1][1]
         d = s.derivative(types=("1"), var=param, r=[1.5, 2.5, 3.5])
