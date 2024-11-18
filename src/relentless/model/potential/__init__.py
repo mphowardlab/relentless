@@ -37,6 +37,13 @@ from .angle import (
     HarmonicAngle,
 )
 from .bond import FENEWCA, BondParameters, BondPotential, BondSpline, HarmonicBond
+from .dihedral import (
+    DihedralParameters,
+    DihedralPotential,
+    DihedralSpline,
+    OPLSDihedral,
+    RyckaertBellemansDihedral,
+)
 from .pair import (
     Depletion,
     LennardJones,
