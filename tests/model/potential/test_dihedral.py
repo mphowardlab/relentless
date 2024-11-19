@@ -435,13 +435,13 @@ class test_RyckaertBellemansDihedral(unittest.TestCase):
         )
         # test scalar r
         phi_input = numpy.pi / 4
-        u_actual = 11.2280791822
+        u_actual = 7.33192081783
         u = ryckaert_bellemans_dihedral.energy(types=("1"), phi=phi_input)
         self.assertAlmostEqual(u, u_actual)
 
         # test array r
         phi_input = numpy.array([0, numpy.pi / 2, numpy.pi])
-        u_actual = numpy.array([0.0, 9.28, 44.8])
+        u_actual = numpy.array([44.8, 9.28, 0])
         u = ryckaert_bellemans_dihedral.energy(types=("1"), phi=phi_input)
         numpy.testing.assert_allclose(u, u_actual, atol=1e-14)
 
@@ -456,13 +456,13 @@ class test_RyckaertBellemansDihedral(unittest.TestCase):
         )
         # test scalar r
         phi_input = numpy.pi / 4
-        f_actual = 18.4727983336
+        f_actual = 7.76720166642
         f = ryckaert_bellemans_dihedral.force(types=("1"), phi=phi_input)
         self.assertAlmostEqual(f, f_actual)
 
         # test array r
         phi_input = numpy.array([0, numpy.pi / 2, numpy.pi])
-        f_actual = numpy.array([0.0, 12.16, 0.0])
+        f_actual = numpy.array([0.0, -12.16, 0.0])
         f = ryckaert_bellemans_dihedral.force(types=("1"), phi=phi_input)
         numpy.testing.assert_allclose(f, f_actual, atol=1e-14)
 
@@ -474,7 +474,7 @@ class test_RyckaertBellemansDihedral(unittest.TestCase):
         # w.r.t. c0
         # test scalar r
         phi_input = numpy.pi / 4
-        d_actual = 1.0
+        d_actual = 1
         d = cosinesquared_dihedral._derivative(
             param="c0",
             phi=phi_input,
@@ -505,7 +505,7 @@ class test_RyckaertBellemansDihedral(unittest.TestCase):
         # w.r.t. c1
         # test scalar r
         phi_input = numpy.pi / 4
-        d_actual = 0.707106781187
+        d_actual = -0.707106781187
         d = cosinesquared_dihedral._derivative(
             param="c1",
             phi=phi_input,
@@ -520,7 +520,7 @@ class test_RyckaertBellemansDihedral(unittest.TestCase):
 
         # test array r
         phi_input = numpy.array([0, numpy.pi / 2, numpy.pi])
-        d_actual = numpy.array([1.0, 0.0, -1.0])
+        d_actual = numpy.array([-1.0, 0.0, 1.0])
         d = cosinesquared_dihedral._derivative(
             param="c1",
             phi=phi_input,
@@ -567,7 +567,7 @@ class test_RyckaertBellemansDihedral(unittest.TestCase):
         # w.r.t. c3
         # test scalar r
         phi_input = numpy.pi / 4
-        d_actual = 0.353553390593
+        d_actual = -0.353553390593
         d = cosinesquared_dihedral._derivative(
             param="c3",
             phi=phi_input,
@@ -582,7 +582,7 @@ class test_RyckaertBellemansDihedral(unittest.TestCase):
 
         # test array r
         phi_input = numpy.array([0, numpy.pi / 2, numpy.pi])
-        d_actual = numpy.array([1.0, 0.0, -1.0])
+        d_actual = numpy.array([-1.0, 0.0, 1.0])
         d = cosinesquared_dihedral._derivative(
             param="c3",
             phi=phi_input,
@@ -629,7 +629,7 @@ class test_RyckaertBellemansDihedral(unittest.TestCase):
         # w.r.t. c5
         # test scalar r
         phi_input = numpy.pi / 4
-        d_actual = 0.176776695297
+        d_actual = -0.176776695297
         d = cosinesquared_dihedral._derivative(
             param="c5",
             phi=phi_input,
@@ -644,7 +644,7 @@ class test_RyckaertBellemansDihedral(unittest.TestCase):
 
         # test array r
         phi_input = numpy.array([0, numpy.pi / 2, numpy.pi])
-        d_actual = numpy.array([1.0, 0.0, -1.0])
+        d_actual = numpy.array([-1.0, 0.0, 1.0])
         d = cosinesquared_dihedral._derivative(
             param="c5",
             phi=phi_input,

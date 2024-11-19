@@ -179,13 +179,15 @@ class RyckaertBellemansDihedral(DihedralPotential):
 
         phi, u, s = self._zeros(phi)
 
+        psi = phi - numpy.pi
+
         u = (
             c0
-            + c1 * numpy.cos(phi)
-            + c2 * numpy.cos(phi) ** 2
-            + c3 * numpy.cos(phi) ** 3
-            + c4 * numpy.cos(phi) ** 4
-            + c5 * numpy.cos(phi) ** 5
+            + c1 * numpy.cos(psi)
+            + c2 * numpy.cos(psi) ** 2
+            + c3 * numpy.cos(psi) ** 3
+            + c4 * numpy.cos(psi) ** 4
+            + c5 * numpy.cos(psi) ** 5
         )
 
         if s:
@@ -202,11 +204,13 @@ class RyckaertBellemansDihedral(DihedralPotential):
 
         phi, f, s = self._zeros(phi)
 
+        psi = phi - numpy.pi
+
         f = (
-            c1 * numpy.sin(phi)
-            + 2 * c2 * numpy.cos(phi) * numpy.sin(phi)
-            + 3 * c3 * numpy.cos(phi) ** 2 * numpy.sin(phi)
-            + 4 * c4 * numpy.cos(phi) ** 3 * numpy.sin(phi)
+            c1 * numpy.sin(psi)
+            + 2 * c2 * numpy.cos(psi) * numpy.sin(psi)
+            + 3 * c3 * numpy.cos(psi) ** 2 * numpy.sin(psi)
+            + 4 * c4 * numpy.cos(psi) ** 3 * numpy.sin(psi)
         )
         if s:
             f = f.item()
@@ -216,18 +220,20 @@ class RyckaertBellemansDihedral(DihedralPotential):
         r"""Evaluate dihedral derivative with respect to a variable."""
         phi, d, s = self._zeros(phi)
 
+        psi = phi - numpy.pi
+
         if param == "c0":
-            d = numpy.ones_like(phi)
+            d = numpy.ones_like(psi)
         elif param == "c1":
-            d = numpy.cos(phi)
+            d = numpy.cos(psi)
         elif param == "c2":
-            d = numpy.cos(phi) ** 2
+            d = numpy.cos(psi) ** 2
         elif param == "c3":
-            d = numpy.cos(phi) ** 3
+            d = numpy.cos(psi) ** 3
         elif param == "c4":
-            d = numpy.cos(phi) ** 4
+            d = numpy.cos(psi) ** 4
         elif param == "c5":
-            d = numpy.cos(phi) ** 5
+            d = numpy.cos(psi) ** 5
         else:
             raise ValueError("Unknown parameter")
 
