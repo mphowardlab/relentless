@@ -191,6 +191,89 @@ class CosineSquaredAngle(AnglePotential):
         return d
 
 
+class CosineAngle(AnglePotential):
+    r"""Cosine squared angle potential.
+
+    .. math::
+
+        u(\theta) = \frac{k}{2} (\theta - \theta_0)^2
+
+    where :math:`\theta` is the angle between three bonded particles. The parameters
+    for each type are:
+
+    +-------------+--------------------------------------------------+
+    | Parameter   | Description                                      |
+    +=============+==================================================+
+    | ``k``       | Spring constant :math:`k`.                       |
+    +-------------+--------------------------------------------------+
+    | ``theta0``  | Minimum-energy angle :math:`\thata_0`.           |
+    +-------------+--------------------------------------------------+
+
+    Parameters
+    ----------
+    types : tuple[str]
+        Types.
+    name : str
+        Unique name of the potential. Defaults to ``__u[id]``, where ``id`` is the
+        unique integer ID of the potential.
+
+    Attributes
+    ----------
+    coeff : :class:`AngleParameters`
+        Parameters of the potential for each type.
+
+    Examples
+    --------
+    Harmonic Angle::
+
+        >>> u = relentless.potential.angle.HarmonicAngle(("A"))
+        >>> u.coeff["A"].update({'k': 1000, 'theta0': 1})
+
+    """
+
+    def __init__(self, types, name=None):
+        super().__init__(keys=types, params=("k",), name=name)
+
+    def energy(self, types, theta):
+        """Evaluate angle energy."""
+        params = self.coeff.evaluate(types)
+        k = params["k"]
+
+        theta, u, s = self._zeros(theta)
+
+        u = k * (1 + numpy.cos(theta))
+
+        if s:
+            u = u.item()
+        return u
+
+    def force(self, types, theta):
+        """Evaluate angle force."""
+        params = self.coeff.evaluate(types)
+        k = params["k"]
+
+        theta, f, s = self._zeros(theta)
+
+        f = k * numpy.sin(theta)
+
+        if s:
+            f = f.item()
+        return f
+
+    def _derivative(self, param, theta, k, **params):
+        r"""Evaluate angle derivative with respect to a variable."""
+        theta, d, s = self._zeros(theta)
+
+        if param == "k":
+            d = 1 + numpy.cos(theta)
+        else:
+            raise ValueError("Unknown parameter")
+
+        if s:
+            d = d.item()
+        return d
+
+
 class AngleSpline(BondSpline):
     """Spline angle potential.
 

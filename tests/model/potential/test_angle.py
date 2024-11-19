@@ -358,6 +358,86 @@ class test_HarmonicAngle(unittest.TestCase):
         self.assertEqual(harmonic_angle2.coeff["1"]["theta0"], 1.0)
 
 
+class test_CosineAngle(unittest.TestCase):
+    """Unit tests for relentless.model.potential.CosineAngle"""
+
+    def test_init(self):
+        """Test creation from data"""
+        cosine_angle = relentless.model.potential.CosineAngle(types=("1",))
+        coeff = relentless.model.potential.AngleParameters(
+            types=("1",),
+            params=("k",),
+        )
+        self.assertCountEqual(cosine_angle.coeff.types, coeff.types)
+        self.assertCountEqual(cosine_angle.coeff.params, coeff.params)
+
+    def test_energy(self):
+        """Test _energy method"""
+        cosine_angle = relentless.model.potential.CosineAngle(types=("1",))
+        cosine_angle.coeff["1"].update(
+            k=1000,
+        )
+        # test scalar r
+        theta_input = numpy.pi / 2
+        u_actual = 1000
+        u = cosine_angle.energy(types=("1"), theta=theta_input)
+        self.assertAlmostEqual(u, u_actual)
+
+        # test array r
+        theta_input = numpy.array([0.0, numpy.pi / 4, numpy.pi])
+        u_actual = numpy.array([2000.0, 1707.10678119, 0])
+        u = cosine_angle.energy(types=("1"), theta=theta_input)
+        numpy.testing.assert_allclose(u, u_actual)
+
+    def test_force(self):
+        """Test _force method"""
+        cosine_angle = relentless.model.potential.CosineAngle(types=("1",))
+        cosine_angle.coeff["1"].update(k=1000)
+
+        # test scalar r
+        theta_input = numpy.pi / 2
+        f_actual = 1000
+        f = cosine_angle.force(types=("1"), theta=theta_input)
+        self.assertAlmostEqual(f, f_actual)
+
+        # test array r
+        theta_input = numpy.array([0.0, numpy.pi / 4, numpy.pi])
+        f_actual = numpy.array([0.0, 707.106781187, 0])
+        f = cosine_angle.force(types=("1"), theta=theta_input)
+        numpy.testing.assert_allclose(f, f_actual, atol=1e-10)
+
+    def test_derivative(self):
+        """Test _derivative method"""
+        cosine_angle = relentless.model.potential.CosineAngle(types=("1",))
+
+        # w.r.t. k
+        # test scalar r
+        theta_input = numpy.pi
+        d_actual = 0.0
+        d = cosine_angle._derivative(param="k", theta=theta_input, k=1000)
+        self.assertAlmostEqual(d, d_actual)
+
+        # test array r
+        theta_input = numpy.array([0.0, numpy.pi / 4, numpy.pi])
+        d_actual = numpy.array([2.0, 1.70710678119, 0])
+        d = cosine_angle._derivative(param="k", theta=theta_input, k=1000)
+        numpy.testing.assert_allclose(d, d_actual)
+
+        # test invalid param
+        with self.assertRaises(ValueError):
+            cosine_angle._derivative(
+                param="thetao", theta=theta_input, k=1000.0, theta0=1.0
+            )
+
+    def test_json(self):
+        cosine_angle = relentless.model.potential.CosineAngle(types=("1",))
+        cosine_angle.coeff["1"].update(k=1000)
+        data = cosine_angle.to_json()
+
+        cosine_angle2 = relentless.model.potential.CosineAngle.from_json(data)
+        self.assertEqual(cosine_angle2.coeff["1"]["k"], 1000)
+
+
 class test_CosineSquaredAngle(unittest.TestCase):
     """Unit tests for relentless.model.potential.CosineSquaredAngle"""
 
