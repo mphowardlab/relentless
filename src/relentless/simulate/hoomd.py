@@ -87,7 +87,7 @@ class InitializationOperation(simulate.InitializationOperation):
         sim[self]["_potentials"] = [pair_potential]
 
         sim[self]["_bonds"] = self._get_bonds_from_snapshot(sim, snap)
-        if snap.bonds.N > 0:
+        if sim["engine"]["_hoomd"].state.N_bonds > 0:
             sim.bond_types = sim["engine"]["_hoomd"].state.bond_types
             bond_potential = hoomd.md.bond.Table(width=sim.potentials.bond.num)
 
@@ -173,7 +173,10 @@ class InitializationOperation(simulate.InitializationOperation):
         return masses
 
     def _get_bonds_from_snapshot(self, sim, snap):
-        return snap.bonds.group
+        if mpi.world.rank_is_root:
+            return snap.bonds.group
+        else:
+            return None
 
     def _assert_dimension_safe(self, sim, snap):
         if sim.dimension == 3:
