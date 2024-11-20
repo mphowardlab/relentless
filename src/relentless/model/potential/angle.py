@@ -300,8 +300,8 @@ class AngleSpline(BondSpline):
     The spline potential is setup from a tabulated potential instead of
     specifying knot parameters directly::
 
-        spline = relentless.potential.angle.AngleSpline(types=[angleA], num_knots=3)
-        spline.from_array("angleA",[0,1,2],[4,2,0])
+        spline = relentless.potential.angle.AngleSpline(types=(angleA,), num_knots=3)
+        spline.from_array(("angleA",),[0,1,2],[4,2,0])
 
     However, the knot variables can be iterated over and manipulated directly::
 
