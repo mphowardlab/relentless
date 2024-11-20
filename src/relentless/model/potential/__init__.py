@@ -52,4 +52,4 @@ from .pair import (
     PairSpline,
     Yukawa,
 )
-from .potential import Parameters, Potential
+from .potential import BondedPotential, Parameters, Potential
