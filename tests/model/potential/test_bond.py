@@ -183,9 +183,9 @@ class test_BondPotential(unittest.TestCase):
         p.coeff["1"]["m"] = x
 
         # test with no cutoffs
-        d = p.derivative(types=("1"), var=x, r=0.5)
+        d = p.derivative(type_=("1"), var=x, r=0.5)
         self.assertAlmostEqual(d, 0.5)
-        d = p.derivative(types=("1"), var=x, r=[0.25, 0.75])
+        d = p.derivative(type_=("1"), var=x, r=[0.25, 0.75])
         numpy.testing.assert_allclose(d, [0.25, 0.75])
 
     def test_derivative_types(self):
@@ -197,20 +197,20 @@ class test_BondPotential(unittest.TestCase):
         q.coeff["1"]["m"] = z
 
         # test with respect to dependent variable parameter
-        d = q.derivative(types=("1"), var=z, r=2.0)
+        d = q.derivative(type_=("1"), var=z, r=2.0)
         self.assertAlmostEqual(d, 2.0)
 
         # test with respect to independent variable on which parameter is dependent
-        d = q.derivative(types=("1"), var=x, r=1.5)
+        d = q.derivative(type_=("1"), var=x, r=1.5)
         self.assertAlmostEqual(d, 3.0)
-        d = q.derivative(types=("1"), var=y, r=4.0)
+        d = q.derivative(type_=("1"), var=y, r=4.0)
         self.assertAlmostEqual(d, 0.5)
 
         # test invalid derivative w.r.t. scalar
         a = 2.5
         q.coeff["1"]["m"] = a
         with self.assertRaises(TypeError):
-            d = q.derivative(types=("1"), var=a, r=2.0)
+            d = q.derivative(type_=("1"), var=a, r=2.0)
 
         # test with respect to independent variable which is
         # related to a SameAs variable
@@ -218,12 +218,12 @@ class test_BondPotential(unittest.TestCase):
 
         r.coeff["1"]["x"] = x
         r.coeff["1"]["y"] = relentless.model.variable.SameAs(x)
-        d = r.derivative(types=("1"), var=x, r=4.0)
+        d = r.derivative(type_=("1"), var=x, r=4.0)
         self.assertAlmostEqual(d, 20.0)
 
         r.coeff["1"]["y"] = x
         r.coeff["1"]["x"] = relentless.model.variable.SameAs(x)
-        d = r.derivative(types=("1"), var=x, r=4.0)
+        d = r.derivative(type_=("1"), var=x, r=4.0)
         self.assertAlmostEqual(d, 20.0)
 
     def test_iteration(self):
@@ -647,7 +647,7 @@ class test_BondSpline(unittest.TestCase):
         s.from_array(types=("1"), r=r_arr, u=u_arr)
         d_actual = numpy.array([1.125, 0.625, 0])
         param = list(s.knots(("1")))[1][1]
-        d = s.derivative(types=("1"), var=param, r=[1.5, 2.5, 3.5])
+        d = s.derivative(type_=("1"), var=param, r=[1.5, 2.5, 3.5])
         numpy.testing.assert_allclose(d, d_actual)
 
         # test value mode
@@ -657,7 +657,7 @@ class test_BondSpline(unittest.TestCase):
         s.from_array(types=("1"), r=r_arr, u=u_arr)
         d_actual = numpy.array([0.75, 0.75, 0])
         param = list(s.knots(("1")))[1][1]
-        d = s.derivative(types=("1"), var=param, r=[1.5, 2.5, 3.5])
+        d = s.derivative(type_=("1"), var=param, r=[1.5, 2.5, 3.5])
         numpy.testing.assert_allclose(d, d_actual)
 
     def test_json(self):
