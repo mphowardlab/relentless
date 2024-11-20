@@ -52,7 +52,7 @@ class OPLSDihedral(DihedralPotential):
     --------
     OPLS Dihedral::
 
-        >>> u = relentless.potential.dihedral.OPLSDihedral(("A"))
+        >>> u = relentless.potential.dihedral.OPLSDihedral(("A",))
         >>> u.coeff["A"].update({'k': 1000, 'theta0': 1})
 
     """
@@ -157,7 +157,7 @@ class RyckaertBellemansDihedral(DihedralPotential):
     --------
     Harmonic Dihedral::
 
-        >>> u = relentless.potential.dihedral.HarmonicDihedral(("A"))
+        >>> u = relentless.potential.dihedral.HarmonicDihedral(("A",))
         >>> u.coeff["A"].update({'k': 1000, 'phi0': 1})
 
     """
@@ -271,7 +271,7 @@ class DihedralSpline(BondSpline):
     specifying knot parameters directly::
 
         spline = relentless.potential.dihedral.DihedralSpline(
-            types=[dihedralA], num_knots=3
+            types=(dihedralA,), num_knots=3
         )
         spline.from_array("dihedralA",[0,1,2],[4,2,0])
 
