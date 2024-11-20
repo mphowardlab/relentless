@@ -625,6 +625,10 @@ class PairPotentialTabulator(PotentialTabulator):
 
     @exclusions.setter
     def exclusions(self, val):
+        if val is not None:
+            allowed = ["bond", "1-3", "1-4"]
+            if not all([ex in allowed for ex in val]):
+                raise ValueError("Exclusions must be 'bond', '1-3', or '1-4'")
         self._exclusions = val
 
     def energy(self, pair, x=None):
