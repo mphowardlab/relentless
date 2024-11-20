@@ -282,13 +282,13 @@ class test_HarmonicAngle(unittest.TestCase):
         # test scalar r
         theta_input = 0.5
         u_actual = 125.0
-        u = harmonic_angle.energy(types=("1"), theta=theta_input)
+        u = harmonic_angle.energy(type_=("1"), theta=theta_input)
         self.assertAlmostEqual(u, u_actual)
 
         # test array r
         theta_input = numpy.array([0.0, 0.5, 1.0])
         u_actual = numpy.array([500.0, 125.0, 0.0])
-        u = harmonic_angle.energy(types=("1"), theta=theta_input)
+        u = harmonic_angle.energy(type_=("1"), theta=theta_input)
         numpy.testing.assert_allclose(u, u_actual)
 
     def test_force(self):
@@ -299,13 +299,13 @@ class test_HarmonicAngle(unittest.TestCase):
         # test scalar r
         theta_input = 0.5
         f_actual = 500
-        f = harmonic_angle.force(types=("1"), theta=theta_input)
+        f = harmonic_angle.force(type_=("1"), theta=theta_input)
         self.assertAlmostEqual(f, f_actual)
 
         # test array r
         theta_input = numpy.array([0.0, 0.5, 1.0])
         f_actual = numpy.array([1000, 500, 0])
-        f = harmonic_angle.force(types=("1"), theta=theta_input)
+        f = harmonic_angle.force(type_=("1"), theta=theta_input)
         numpy.testing.assert_allclose(f, f_actual)
 
     def test_derivative(self):
@@ -380,13 +380,13 @@ class test_CosineAngle(unittest.TestCase):
         # test scalar r
         theta_input = numpy.pi / 2
         u_actual = 1000
-        u = cosine_angle.energy(types=("1"), theta=theta_input)
+        u = cosine_angle.energy(type_=("1"), theta=theta_input)
         self.assertAlmostEqual(u, u_actual)
 
         # test array r
         theta_input = numpy.array([0.0, numpy.pi / 4, numpy.pi])
         u_actual = numpy.array([2000.0, 1707.10678119, 0])
-        u = cosine_angle.energy(types=("1"), theta=theta_input)
+        u = cosine_angle.energy(type_=("1"), theta=theta_input)
         numpy.testing.assert_allclose(u, u_actual)
 
     def test_force(self):
@@ -397,13 +397,13 @@ class test_CosineAngle(unittest.TestCase):
         # test scalar r
         theta_input = numpy.pi / 2
         f_actual = 1000
-        f = cosine_angle.force(types=("1"), theta=theta_input)
+        f = cosine_angle.force(type_=("1"), theta=theta_input)
         self.assertAlmostEqual(f, f_actual)
 
         # test array r
         theta_input = numpy.array([0.0, numpy.pi / 4, numpy.pi])
         f_actual = numpy.array([0.0, 707.106781187, 0])
-        f = cosine_angle.force(types=("1"), theta=theta_input)
+        f = cosine_angle.force(type_=("1"), theta=theta_input)
         numpy.testing.assert_allclose(f, f_actual, atol=1e-10)
 
     def test_derivative(self):
@@ -426,7 +426,9 @@ class test_CosineAngle(unittest.TestCase):
         # test invalid param
         with self.assertRaises(ValueError):
             cosine_angle._derivative(
-                param="thetao", theta=theta_input, k=1000.0, theta0=1.0
+                param="thetao",
+                theta=theta_input,
+                k=1000.0,
             )
 
     def test_json(self):
@@ -465,13 +467,13 @@ class test_CosineSquaredAngle(unittest.TestCase):
         # test scalar r
         theta_input = numpy.pi
         u_actual = 1000
-        u = cosine_squred_angle.energy(types=("1"), theta=theta_input)
+        u = cosine_squred_angle.energy(type_=("1"), theta=theta_input)
         self.assertAlmostEqual(u, u_actual)
 
         # test array r
         theta_input = numpy.array([0.0, numpy.pi / 2, numpy.pi])
         u_actual = numpy.array([1000.0, 0, 1000.0])
-        u = cosine_squred_angle.energy(types=("1"), theta=theta_input)
+        u = cosine_squred_angle.energy(type_=("1"), theta=theta_input)
         numpy.testing.assert_allclose(u, u_actual)
 
     def test_force(self):
@@ -484,13 +486,13 @@ class test_CosineSquaredAngle(unittest.TestCase):
         # test scalar r
         theta_input = numpy.pi
         f_actual = 0
-        f = cosine_squred_angle.force(types=("1"), theta=theta_input)
+        f = cosine_squred_angle.force(type_=("1"), theta=theta_input)
         self.assertAlmostEqual(f, f_actual)
 
         # test array r
         theta_input = numpy.array([numpy.pi / 4, numpy.pi / 2, 3 * numpy.pi / 4])
         f_actual = numpy.array([1000, 0, -1000])
-        f = cosine_squred_angle.force(types=("1"), theta=theta_input)
+        f = cosine_squred_angle.force(type_=("1"), theta=theta_input)
         numpy.testing.assert_allclose(f, f_actual)
 
     def test_derivative(self):

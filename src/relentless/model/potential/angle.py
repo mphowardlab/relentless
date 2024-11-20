@@ -52,7 +52,7 @@ class HarmonicAngle(AnglePotential):
     --------
     Harmonic Angle::
 
-        >>> u = relentless.potential.angle.HarmonicAngle(("A"))
+        >>> u = relentless.potential.angle.HarmonicAngle(("A",))
         >>> u.coeff["A"].update({'k': 1000, 'theta0': 1.9})
 
     """
@@ -60,9 +60,9 @@ class HarmonicAngle(AnglePotential):
     def __init__(self, types, name=None):
         super().__init__(keys=types, params=("k", "theta0"), name=name)
 
-    def energy(self, types, theta):
+    def energy(self, type_, theta):
         """Evaluate angle energy."""
-        params = self.coeff.evaluate(types)
+        params = self.coeff.evaluate(type_)
         k = params["k"]
         theta0 = params["theta0"]
 
@@ -74,9 +74,9 @@ class HarmonicAngle(AnglePotential):
             u = u.item()
         return u
 
-    def force(self, types, theta):
+    def force(self, type_, theta):
         """Evaluate angle force."""
-        params = self.coeff.evaluate(types)
+        params = self.coeff.evaluate(type_)
         k = params["k"]
         theta0 = params["theta0"]
 
@@ -88,7 +88,7 @@ class HarmonicAngle(AnglePotential):
             f = f.item()
         return f
 
-    def _derivative(self, param, theta, k, theta0, **params):
+    def _derivative(self, param, theta, k, theta0):
         r"""Evaluate angle derivative with respect to a variable."""
         theta, d, s = self._zeros(theta)
 
@@ -139,7 +139,7 @@ class CosineSquaredAngle(AnglePotential):
     --------
     Cosine Squared Angle::
 
-        >>> u = relentless.potential.angle.CosineSquaredAngle(("A"))
+        >>> u = relentless.potential.angle.CosineSquaredAngle(("A",))
         >>> u.coeff["A"].update({'k': 1000, 'theta0': 1})
 
     """
@@ -147,9 +147,9 @@ class CosineSquaredAngle(AnglePotential):
     def __init__(self, types, name=None):
         super().__init__(keys=types, params=("k", "theta0"), name=name)
 
-    def energy(self, types, theta):
+    def energy(self, type_, theta):
         """Evaluate angle energy."""
-        params = self.coeff.evaluate(types)
+        params = self.coeff.evaluate(type_)
         k = params["k"]
         theta0 = params["theta0"]
 
@@ -161,9 +161,9 @@ class CosineSquaredAngle(AnglePotential):
             u = u.item()
         return u
 
-    def force(self, types, theta):
+    def force(self, type_, theta):
         """Evaluate angle force."""
-        params = self.coeff.evaluate(types)
+        params = self.coeff.evaluate(type_)
         k = params["k"]
         theta0 = params["theta0"]
 
@@ -175,7 +175,7 @@ class CosineSquaredAngle(AnglePotential):
             f = f.item()
         return f
 
-    def _derivative(self, param, theta, k, theta0, **params):
+    def _derivative(self, param, theta, k, theta0):
         r"""Evaluate angle derivative with respect to a variable."""
         theta, d, s = self._zeros(theta)
 
@@ -224,7 +224,7 @@ class CosineAngle(AnglePotential):
     --------
     Cosine Angle::
 
-        >>> u = relentless.potential.angle.CosineAngle(("A"))
+        >>> u = relentless.potential.angle.CosineAngle(("A",))
         >>> u.coeff["A"].update({'k': 1000})
 
     """
@@ -232,9 +232,9 @@ class CosineAngle(AnglePotential):
     def __init__(self, types, name=None):
         super().__init__(keys=types, params=("k",), name=name)
 
-    def energy(self, types, theta):
+    def energy(self, type_, theta):
         """Evaluate angle energy."""
-        params = self.coeff.evaluate(types)
+        params = self.coeff.evaluate(type_)
         k = params["k"]
 
         theta, u, s = self._zeros(theta)
@@ -245,9 +245,9 @@ class CosineAngle(AnglePotential):
             u = u.item()
         return u
 
-    def force(self, types, theta):
+    def force(self, type_, theta):
         """Evaluate angle force."""
-        params = self.coeff.evaluate(types)
+        params = self.coeff.evaluate(type_)
         k = params["k"]
 
         theta, f, s = self._zeros(theta)
@@ -258,7 +258,7 @@ class CosineAngle(AnglePotential):
             f = f.item()
         return f
 
-    def _derivative(self, param, theta, k, **params):
+    def _derivative(self, param, theta, k):
         r"""Evaluate angle derivative with respect to a variable."""
         theta, d, s = self._zeros(theta)
 
