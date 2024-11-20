@@ -623,9 +623,10 @@ class PairPotentialTabulator(PotentialTabulator):
         r"""tuple: The pairs to exclude from the neighbor list.
 
         Exclusions are formatted as a tuple of strings. Allowed values are:
-        -``'1-2'``: Exclude pairs separated by one bond.
-        -``'1-3'``: Exclude pairs separated by two bonds.
-        -``'1-4'``: Exclude pairs separated by three bonds.
+
+        - ``'1-2'``: Exclude pairs separated by one bond.
+        - ``'1-3'``: Exclude pairs separated by two bonds.
+        - ``'1-4'``: Exclude pairs separated by three bonds.
         """
         return self._exclusions
 
