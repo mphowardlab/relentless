@@ -53,7 +53,7 @@ class HarmonicBond(BondPotential):
     --------
     Harmonic Bond::
 
-        >>> u = relentless.potential.bond.Harmonic(("A"))
+        >>> u = relentless.potential.bond.Harmonic(("A",))
         >>> u.coeff["A"].update({'k': 1000, 'r0': 1})
 
     """
@@ -61,9 +61,9 @@ class HarmonicBond(BondPotential):
     def __init__(self, types, name=None):
         super().__init__(keys=types, params=("k", "r0"), name=name)
 
-    def energy(self, types, r):
+    def energy(self, type_, r):
         """Evaluate bond energy."""
-        params = self.coeff.evaluate(types)
+        params = self.coeff.evaluate(type_)
         k = params["k"]
         r0 = params["r0"]
 
@@ -75,9 +75,9 @@ class HarmonicBond(BondPotential):
             u = u.item()
         return u
 
-    def force(self, types, r):
+    def force(self, type_, r):
         """Evaluate bond force."""
-        params = self.coeff.evaluate(types)
+        params = self.coeff.evaluate(type_)
         k = params["k"]
         r0 = params["r0"]
 
@@ -89,7 +89,7 @@ class HarmonicBond(BondPotential):
             f = f.item()
         return f
 
-    def _derivative(self, param, r, k, r0, **params):
+    def _derivative(self, param, r, k, r0):
         r"""Evaluate bond derivative with respect to a variable."""
         r, d, s = self._zeros(r)
 
@@ -120,9 +120,9 @@ class FENEWCA(BondPotential):
         u_{\rm{WCA}}(r)  =
         \begin{cases} 4 \varepsilon \left[ \left( \frac{\sigma}{r}
                                 \right)^{12} - \left( \frac{\sigma}{r}
-                                \right)^{6} \right]  + \varepsilon
-                               & r < 2^{\frac{1}{6}}\sigma\\
-        0 & r \ge 2^{\frac{1}{6}}\sigma
+                                \right)^6 \right]  + \varepsilon
+                               & r < 2^{1/6}\sigma\\
+        0 & r \ge 2^{1/6}\sigma
         \end{cases}
 
     where :math:`r` is the distance between two bonded particles. The parameters
@@ -169,78 +169,78 @@ class FENEWCA(BondPotential):
     def __init__(self, types, name=None):
         super().__init__(keys=types, params=("k", "r0", "epsilon", "sigma"), name=name)
 
-    def energy(self, types, r):
+    def energy(self, type_, r):
         """Evaluate bond energy."""
-        params = self.coeff.evaluate(types)
+        params = self.coeff.evaluate(type_)
         k = params["k"]
         r0 = params["r0"]
         epsilon = params["epsilon"]
         sigma = params["sigma"]
 
         # initialize arrays
-        r, FENE, s = self._zeros(r)
-        WCA = FENE.copy()
+        r, u_fene, s = self._zeros(r)
+        u_wca = u_fene.copy()
 
         # set flags for FENE potential
-        fene_flag = ~numpy.greater_equal(r, r0)
+        fene_flag = numpy.less(r, r0)
 
         # evaluate FENE potential
-        FENE[fene_flag] = -0.5 * k * r0**2 * numpy.log(1 - (r[fene_flag] / r0) ** 2)
-        FENE[~fene_flag] = numpy.inf
+        u_fene[fene_flag] = -0.5 * k * r0**2 * numpy.log(1 - (r[fene_flag] / r0) ** 2)
+        u_fene[~fene_flag] = numpy.inf
 
         # set flags for WCA potential
-        zero_flags = ~numpy.isclose(r, 0)
+        nonzero_flags = ~numpy.isclose(r, 0)
         wca_flags = r < 2 ** (1 / 6) * sigma
 
         # evaluate WCA potential
-        r6_inv = numpy.power(sigma / r[zero_flags], 6)
-        WCA[zero_flags] = 4.0 * epsilon * (r6_inv**2 - r6_inv) + epsilon
-        WCA[~zero_flags] = numpy.inf
-        WCA[~wca_flags] = 0
+        r6_inv = numpy.power(sigma / r[nonzero_flags], 6)
+        u_wca[nonzero_flags] = 4.0 * epsilon * (r6_inv**2 - r6_inv) + epsilon
+        u_wca[~nonzero_flags] = numpy.inf
+        u_wca[~wca_flags] = 0
 
         if s:
-            FENE = FENE.item()
-            WCA = WCA.item()
+            u_fene = u_fene.item()
+            u_wca = u_wca.item()
 
-        return FENE + WCA
+        return u_fene + u_wca
 
-    def force(self, types, r):
+    def force(self, type_, r):
         """Evaluate bond force."""
-        params = self.coeff.evaluate(types)
+        params = self.coeff.evaluate(type_)
         k = params["k"]
         r0 = params["r0"]
         epsilon = params["epsilon"]
         sigma = params["sigma"]
 
         # initialize arrays
-        r, dFENE_dr, s = self._zeros(r)
-        dWCA_dr = dFENE_dr.copy()
+        r, f_fene, s = self._zeros(r)
+        f_wca = f_fene.copy()
 
         # set flags for FENE potential
         fene_flag = ~numpy.greater_equal(r, r0)
 
         # evaluate FENE potential
-        dFENE_dr[fene_flag] = (k * r0) / (1 - (r[fene_flag] / r0) ** 2)
-        dFENE_dr[~fene_flag] = numpy.inf
+        f_fene[fene_flag] = (k * r0) / (1 - (r[fene_flag] / r0) ** 2)
+        f_fene[~fene_flag] = numpy.inf
 
         # set flags for WCA potential
-        zero_flags = ~numpy.isclose(r, 0)
+        nonzero_flags = ~numpy.isclose(r, 0)
         wca_flags = r < 2 ** (1 / 6) * sigma
 
         # evaluate WCA potential
-        rinv = 1.0 / r[zero_flags]
+        rinv = 1.0 / r[nonzero_flags]
         r6_inv = numpy.power(sigma * rinv, 6)
-        dWCA_dr[zero_flags] = (48.0 * epsilon * rinv) * (r6_inv**2 - 0.5 * r6_inv)
-        dWCA_dr[~zero_flags] = numpy.inf
-        dWCA_dr[~wca_flags] = 0
+        f_wca[nonzero_flags] = (48.0 * epsilon * rinv) * (r6_inv**2 - 0.5 * r6_inv)
+        f_wca[~nonzero_flags] = numpy.inf
+        f_wca[~wca_flags] = 0
 
         if s:
-            dFENE_dr = dFENE_dr.item()
-            dWCA_dr = dWCA_dr.item()
+            f_fene = f_fene.item()
+            f_wca = f_wca.item()
 
-        return dFENE_dr + dWCA_dr
+        return f_fene + f_wca
 
-    def _derivative(self, param, r, k, r0, epsilon, sigma, **params):
+    def _derivative(self, param, r, k, r0, epsilon, sigma):
         r"""Evaluate bond derivative with respect to a variable."""
         # initialize arrays
         r, d, s = self._zeros(r)
@@ -249,11 +249,11 @@ class FENEWCA(BondPotential):
         fene_flag = ~numpy.greater_equal(r, r0)
 
         # set flags for WCA potential
-        zero_flags = ~numpy.isclose(r, 0)
+        nonzero_flags = ~numpy.isclose(r, 0)
         wca_flags = r < 2 ** (1 / 6) * sigma
 
         # set r**6 for WCA potential
-        r6_inv = numpy.power(sigma / r[zero_flags], 6)
+        r6_inv = numpy.power(sigma / r[nonzero_flags], 6)
 
         if param == "k":
             d[fene_flag] = 0.5 * r0**2 * numpy.log(1 - (r[fene_flag] / r0) ** 2)
@@ -264,12 +264,12 @@ class FENEWCA(BondPotential):
             ) + k * r0 * numpy.log(1 - (r[fene_flag] / r0) ** 2)
             d[~fene_flag] = numpy.inf
         elif param == "epsilon":
-            d[zero_flags] = 4 * (r6_inv**2 - r6_inv) + 1
-            d[~zero_flags] = numpy.inf
+            d[nonzero_flags] = 4 * (r6_inv**2 - r6_inv) + 1
+            d[~nonzero_flags] = numpy.inf
             d[~wca_flags] = 0
         elif param == "sigma":
-            d[zero_flags] = (48.0 * epsilon / sigma) * (r6_inv**2 - 0.5 * r6_inv)
-            d[~zero_flags] = numpy.inf
+            d[nonzero_flags] = (48.0 * epsilon / sigma) * (r6_inv**2 - 0.5 * r6_inv)
+            d[~nonzero_flags] = numpy.inf
             d[~wca_flags] = 0
         else:
             raise ValueError("Unknown parameter")
@@ -451,16 +451,16 @@ class BondSpline(BondPotential):
         else:
             self.coeff[types][ki] = variable.IndependentVariable(k)
 
-    def energy(self, types, r):
-        params = self.coeff.evaluate(types)
+    def energy(self, type_, r):
+        params = self.coeff.evaluate(type_)
         r, u, s = self._zeros(r)
         u = self._interpolate(params)(r)
         if s:
             u = u.item()
         return u
 
-    def force(self, types, r):
-        params = self.coeff.evaluate(types)
+    def force(self, type_, r):
+        params = self.coeff.evaluate(type_)
         r, f, s = self._zeros(r)
         f = -self._interpolate(params).derivative(r, 1)
         if s:

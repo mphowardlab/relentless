@@ -282,13 +282,13 @@ class test_HarmonicBond(unittest.TestCase):
         # test scalar r
         r_input = 0.5
         u_actual = 125.0
-        u = harmonic_bond.energy(types=("1"), r=r_input)
+        u = harmonic_bond.energy(type_=("1"), r=r_input)
         self.assertAlmostEqual(u, u_actual)
 
         # test array r
         r_input = numpy.array([0.0, 0.5, 1.0])
         u_actual = numpy.array([500.0, 125.0, 0.0])
-        u = harmonic_bond.energy(types=("1"), r=r_input)
+        u = harmonic_bond.energy(type_=("1"), r=r_input)
         numpy.testing.assert_allclose(u, u_actual)
 
     def test_force(self):
@@ -299,13 +299,13 @@ class test_HarmonicBond(unittest.TestCase):
         # test scalar r
         r_input = 0.5
         f_actual = 500
-        f = harmonic_bond.force(types=("1"), r=r_input)
+        f = harmonic_bond.force(type_=("1"), r=r_input)
         self.assertAlmostEqual(f, f_actual)
 
         # test array r
         r_input = numpy.array([0.0, 0.5, 1.0])
         f_actual = numpy.array([1000, 500, 0])
-        f = harmonic_bond.force(types=("1"), r=r_input)
+        f = harmonic_bond.force(type_=("1"), r=r_input)
         numpy.testing.assert_allclose(f, f_actual)
 
     def test_derivative(self):
@@ -369,13 +369,13 @@ class test_FENEWCA(unittest.TestCase):
         # test scalar r
         r_input = 0.95
         u_actual = 20.2638974009
-        u = FENEWCA.energy(types=("1"), r=r_input)
+        u = FENEWCA.energy(type_=("1"), r=r_input)
         self.assertAlmostEqual(u, u_actual)
 
         # test array r
         r_input = numpy.array([0, 0.9, 1.2, 2])
         u_actual = numpy.array([numpy.inf, 22.698308667, 34.4807296042, numpy.inf])
-        u = FENEWCA.energy(types=("1"), r=r_input)
+        u = FENEWCA.energy(type_=("1"), r=r_input)
         numpy.testing.assert_allclose(u, u_actual)
 
     def test_force(self):
@@ -386,13 +386,13 @@ class test_FENEWCA(unittest.TestCase):
         # test scalar r
         r_input = 0.95
         f_actual = 134.276699505
-        f = FENEWCA.force(types=("1"), r=r_input)
+        f = FENEWCA.force(type_=("1"), r=r_input)
         numpy.testing.assert_allclose(f, f_actual)
 
         # test array r
         r_input = numpy.array([0, 0.9, 1.2, 2])
         f_actual = numpy.array([numpy.inf, 208.972123994, 125, numpy.inf])
-        f = FENEWCA.force(types=("1"), r=r_input)
+        f = FENEWCA.force(type_=("1"), r=r_input)
         numpy.testing.assert_allclose(f, f_actual)
 
     def test_derivative(self):
@@ -588,7 +588,7 @@ class test_BondSpline(unittest.TestCase):
         s = relentless.model.potential.BondSpline(types=("1",), num_knots=3)
         s.from_array(types=("1"), r=r_arr, u=u_arr)
         u_actual = numpy.array([6.25, 2.25, 1])
-        u = s.energy(types=("1"), r=[1.5, 2.5, 3.5])
+        u = s.energy(type_=("1"), r=[1.5, 2.5, 3.5])
         numpy.testing.assert_allclose(u, u_actual)
 
         # test value mode
@@ -597,7 +597,7 @@ class test_BondSpline(unittest.TestCase):
         )
         s.from_array(types=("1"), r=r_arr, u=u_arr)
         u_actual = numpy.array([6.25, 2.25, 1])
-        u = s.energy(types=("1"), r=[1.5, 2.5, 3.5])
+        u = s.energy(type_=("1"), r=[1.5, 2.5, 3.5])
         numpy.testing.assert_allclose(u, u_actual)
 
         # test BondSpline with 2 knots
@@ -605,7 +605,7 @@ class test_BondSpline(unittest.TestCase):
             types=("1",), num_knots=2, mode="value"
         )
         s.from_array(types=("1"), r=[1, 2], u=[4, 2])
-        u = s.energy(types=("1"), r=1.5)
+        u = s.energy(type_=("1"), r=1.5)
         self.assertAlmostEqual(u, 3)
 
     def test_force(self):
@@ -617,7 +617,7 @@ class test_BondSpline(unittest.TestCase):
         s = relentless.model.potential.BondSpline(types=("1",), num_knots=3)
         s.from_array(types=("1"), r=r_arr, u=u_arr)
         f_actual = numpy.array([5, 3, 0])
-        f = s.force(types=("1"), r=[1.5, 2.5, 3.5])
+        f = s.force(type_=("1"), r=[1.5, 2.5, 3.5])
         numpy.testing.assert_allclose(f, f_actual)
 
         # test value mode
@@ -626,7 +626,7 @@ class test_BondSpline(unittest.TestCase):
         )
         s.from_array(types=("1"), r=r_arr, u=u_arr)
         f_actual = numpy.array([5, 3, 0])
-        f = s.force(types=("1"), r=[1.5, 2.5, 3.5])
+        f = s.force(type_=("1"), r=[1.5, 2.5, 3.5])
         numpy.testing.assert_allclose(f, f_actual)
 
         # test BondSpline with 2 knots
@@ -634,7 +634,7 @@ class test_BondSpline(unittest.TestCase):
             types=("1",), num_knots=2, mode="value"
         )
         s.from_array(types=("1"), r=[1, 2], u=[4, 2])
-        f = s.force(types=("1"), r=1.5)
+        f = s.force(type_=("1"), r=1.5)
         self.assertAlmostEqual(f, 2)
 
     def test_derivative(self):
