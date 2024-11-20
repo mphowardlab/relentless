@@ -86,9 +86,9 @@ class AnalysisOperation(abc.ABC):
 
         Parameters
         ----------
-        pi_connection : numpy.ndarray
+        connection : numpy.ndarray
             (N, 2) array of typeids to be filtered from neighborlist.
-        pi_neighbor : numpy.ndarray
+        neighbor : numpy.ndarray
             Neighborlist to be filtered.
 
         Returns
@@ -598,8 +598,11 @@ class PairPotentialTabulator(PotentialTabulator):
     exclusions : list
         The neighborlist nominally includes all pairs within ``rmax`` of each other.
         This option allows for exclusions of pairs that should not be included in the
-        neighbor list. The string should be formatted as a tuple of strings, e.g.,
-        ``['bond', '1-3', 1-4]``.
+        neighbor list. The string should be formatted as a tuple of strings. Allowed
+        values are:
+            - ``'1-2'``: Exclude pairs separated by one bond.
+            - ``'1-3'``: Exclude pairs separated by two bonds.
+            - ``'1-4'``: Exclude pairs separated by three bonds.
 
     """
 
@@ -626,7 +629,7 @@ class PairPotentialTabulator(PotentialTabulator):
     @exclusions.setter
     def exclusions(self, val):
         if val is not None:
-            allowed = ["bond", "1-3", "1-4"]
+            allowed = ["1-2", "1-3", "1-4"]
             if not all([ex in allowed for ex in val]):
                 raise ValueError("Exclusions must be 'bond', '1-3', or '1-4'")
         self._exclusions = val
