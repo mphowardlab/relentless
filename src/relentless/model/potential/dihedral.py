@@ -60,9 +60,9 @@ class OPLSDihedral(DihedralPotential):
     def __init__(self, types, name=None):
         super().__init__(keys=types, params=("k1", "k2", "k3", "k4"), name=name)
 
-    def energy(self, types, phi):
+    def energy(self, type_, phi):
         """Evaluate dihedral energy."""
-        params = self.coeff.evaluate(types)
+        params = self.coeff.evaluate(type_)
         k1 = params["k1"]
         k2 = params["k2"]
         k3 = params["k3"]
@@ -81,9 +81,9 @@ class OPLSDihedral(DihedralPotential):
             u = u.item()
         return u
 
-    def force(self, types, phi):
+    def force(self, type_, phi):
         """Evaluate dihedral force."""
-        params = self.coeff.evaluate(types)
+        params = self.coeff.evaluate(type_)
         k1 = params["k1"]
         k2 = params["k2"]
         k3 = params["k3"]
@@ -102,7 +102,7 @@ class OPLSDihedral(DihedralPotential):
             f = f.item()
         return f
 
-    def _derivative(self, param, phi, k1, k2, k3, k4, **params):
+    def _derivative(self, param, phi, k1, k2, k3, k4):
         r"""Evaluate dihedral derivative with respect to a variable."""
         phi, d, s = self._zeros(phi)
 
@@ -167,9 +167,9 @@ class RyckaertBellemansDihedral(DihedralPotential):
             keys=types, params=("c0", "c1", "c2", "c3", "c4", "c5"), name=name
         )
 
-    def energy(self, types, phi):
+    def energy(self, type_, phi):
         """Evaluate dihedral energy."""
-        params = self.coeff.evaluate(types)
+        params = self.coeff.evaluate(type_)
         c0 = params["c0"]
         c1 = params["c1"]
         c2 = params["c2"]
@@ -194,9 +194,9 @@ class RyckaertBellemansDihedral(DihedralPotential):
             u = u.item()
         return u
 
-    def force(self, types, phi):
+    def force(self, type_, phi):
         """Evaluate dihedral force."""
-        params = self.coeff.evaluate(types)
+        params = self.coeff.evaluate(type_)
         c1 = params["c1"]
         c2 = params["c2"]
         c3 = params["c3"]
@@ -216,7 +216,7 @@ class RyckaertBellemansDihedral(DihedralPotential):
             f = f.item()
         return f
 
-    def _derivative(self, param, phi, c0, c1, c2, c3, c4, c5, **params):
+    def _derivative(self, param, phi, c0, c1, c2, c3, c4, c5):
         r"""Evaluate dihedral derivative with respect to a variable."""
         phi, d, s = self._zeros(phi)
 
@@ -237,7 +237,6 @@ class RyckaertBellemansDihedral(DihedralPotential):
         else:
             raise ValueError("Unknown parameter")
 
-        print(s)
         if s:
             d = d.item()
         return d
@@ -286,16 +285,16 @@ class DihedralSpline(BondSpline):
     def __init__(self, types, num_knots, mode="diff", name=None):
         super().__init__(types=types, num_knots=num_knots, mode=mode, name=name)
 
-    def from_array(self, types, phi, u):
-        return super().from_array(types=types, r=phi, u=u)
+    def from_array(self, type_, phi, u):
+        return super().from_array(types=type_, r=phi, u=u)
 
-    def energy(self, types, phi):
+    def energy(self, type_, phi):
         """Evaluate dihedral energy."""
-        return super().energy(types=types, r=phi)
+        return super().energy(types=type_, r=phi)
 
-    def force(self, types, phi):
+    def force(self, type_, phi):
         """Evaluate dihedral force."""
-        return super().force(types=types, r=phi)
+        return super().force(types=type_, r=phi)
 
     def _derivative(self, param, phi, **params):
         """Evaluate dihedral derivative with respect to a variable."""
