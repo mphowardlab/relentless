@@ -69,24 +69,21 @@ class InitializationOperation(simulate.InitializationOperation):
         exclusion = sim.potentials.pair.exclusions
         if exclusion is None:
             exclusion = []
-        # hoomd requires "1-2" to be "bond" for exclusions
-        elif exclusion == ["1-2"]:
-            exclusion = ["bond"]
         neighbor_list = hoomd.md.nlist.Tree(
             buffer=sim.potentials.pair.neighbor_buffer,
             exclusions=exclusion,
         )
         pair_potential = hoomd.md.pair.Table(nlist=neighbor_list)
-        r_pair, u, f = sim.potentials.pair.pairwise_energy_and_force(
+        r, u, f = sim.potentials.pair.pairwise_energy_and_force(
             sim.types, tight=True, minimum_num=2
         )
         for i, j in sim.pairs:
             if numpy.any(numpy.isinf(u[i, j])) or numpy.any(numpy.isinf(f[i, j])):
                 raise ValueError("Pair potential/force is infinite at evaluated r")
             pair_potential.params[(i, j)] = dict(
-                r_min=r_pair[0], U=u[i, j][:-1], F=f[i, j][:-1]
+                r_min=r[0], U=u[i, j][:-1], F=f[i, j][:-1]
             )
-            pair_potential.r_cut[(i, j)] = r_pair[-1]
+            pair_potential.r_cut[(i, j)] = r[-1]
         sim[self]["_potentials"] = [pair_potential]
 
         sim[self]["_bonds"] = self._get_bonds_from_snapshot(sim, snap)

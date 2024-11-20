@@ -307,7 +307,7 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
         if snap.has_bonds() or snap.has_angles() or snap.has_dihedrals():
             excl_12, excl_13, excl_14 = 1.0, 1.0, 1.0
             if sim.potentials.pair.exclusions is not None:
-                if "1-2" in sim.potentials.pair.exclusions:
+                if "bond" in sim.potentials.pair.exclusions:
                     excl_12 = 0.0
             cmds += [f"special_bonds lj/coul {excl_12} {excl_13} {excl_14}"]
 
