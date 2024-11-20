@@ -599,10 +599,7 @@ class PairPotentialTabulator(PotentialTabulator):
         The neighborlist nominally includes all pairs within ``rmax`` of each other.
         This option allows for exclusions of pairs that should not be included in the
         neighbor list. The string should be formatted as a tuple of strings. Allowed
-        values are:
-            - ``'1-2'``: Exclude pairs separated by one bond.
-            - ``'1-3'``: Exclude pairs separated by two bonds.
-            - ``'1-4'``: Exclude pairs separated by three bonds.
+        values are '1-2', '1-3', and '1-4'.
 
     """
 
@@ -623,7 +620,13 @@ class PairPotentialTabulator(PotentialTabulator):
 
     @property
     def exclusions(self):
-        """tuple: The pairs to exclude from the neighbor list."""
+        r"""tuple: The pairs to exclude from the neighbor list.
+
+        Exclusions are formatted as a tuple of strings. Allowed values are:
+        -``'1-2'``: Exclude pairs separated by one bond.
+        -``'1-3'``: Exclude pairs separated by two bonds.
+        -``'1-4'``: Exclude pairs separated by three bonds.
+        """
         return self._exclusions
 
     @exclusions.setter
