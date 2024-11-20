@@ -32,7 +32,7 @@ class HarmonicAngle(AnglePotential):
     +=============+==================================================+
     | ``k``       | Spring constant :math:`k`.                       |
     +-------------+--------------------------------------------------+
-    | ``theta0``  | Minimum-energy angle :math:`\thata_0`.           |
+    | ``theta0``  | Minimum-energy angle :math:`\theta_0`.           |
     +-------------+--------------------------------------------------+
 
     Parameters
@@ -53,7 +53,7 @@ class HarmonicAngle(AnglePotential):
     Harmonic Angle::
 
         >>> u = relentless.potential.angle.HarmonicAngle(("A"))
-        >>> u.coeff["A"].update({'k': 1000, 'theta0': 1})
+        >>> u.coeff["A"].update({'k': 1000, 'theta0': 1.9})
 
     """
 
@@ -109,7 +109,7 @@ class CosineSquaredAngle(AnglePotential):
 
     .. math::
 
-        u(\theta) = \frac{k}{2} (\theta - \theta_0)^2
+        u(\theta) = k * (cos(\theta) - cos(\theta_0))^2
 
     where :math:`\theta` is the angle between three bonded particles. The parameters
     for each type are:
@@ -119,7 +119,7 @@ class CosineSquaredAngle(AnglePotential):
     +=============+==================================================+
     | ``k``       | Spring constant :math:`k`.                       |
     +-------------+--------------------------------------------------+
-    | ``theta0``  | Minimum-energy angle :math:`\thata_0`.           |
+    | ``theta0``  | Minimum-energy angle :math:`\theta_0`.           |
     +-------------+--------------------------------------------------+
 
     Parameters
@@ -137,9 +137,9 @@ class CosineSquaredAngle(AnglePotential):
 
     Examples
     --------
-    Harmonic Angle::
+    Cosine Squared Angle::
 
-        >>> u = relentless.potential.angle.HarmonicAngle(("A"))
+        >>> u = relentless.potential.angle.CosineSquaredAngle(("A"))
         >>> u.coeff["A"].update({'k': 1000, 'theta0': 1})
 
     """
@@ -192,11 +192,11 @@ class CosineSquaredAngle(AnglePotential):
 
 
 class CosineAngle(AnglePotential):
-    r"""Cosine squared angle potential.
+    r"""Cosine angle potential.
 
     .. math::
 
-        u(\theta) = \frac{k}{2} (\theta - \theta_0)^2
+        u(\theta) = k * (1 + cos(\theta))
 
     where :math:`\theta` is the angle between three bonded particles. The parameters
     for each type are:
@@ -205,8 +205,6 @@ class CosineAngle(AnglePotential):
     | Parameter   | Description                                      |
     +=============+==================================================+
     | ``k``       | Spring constant :math:`k`.                       |
-    +-------------+--------------------------------------------------+
-    | ``theta0``  | Minimum-energy angle :math:`\thata_0`.           |
     +-------------+--------------------------------------------------+
 
     Parameters
@@ -224,10 +222,10 @@ class CosineAngle(AnglePotential):
 
     Examples
     --------
-    Harmonic Angle::
+    Cosine Angle::
 
-        >>> u = relentless.potential.angle.HarmonicAngle(("A"))
-        >>> u.coeff["A"].update({'k': 1000, 'theta0': 1})
+        >>> u = relentless.potential.angle.CosineAngle(("A"))
+        >>> u.coeff["A"].update({'k': 1000})
 
     """
 
