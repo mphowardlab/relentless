@@ -128,17 +128,17 @@ class FENEWCA(BondPotential):
     where :math:`r` is the distance between two bonded particles. The parameters
     for each type are:
 
-    +-------------+--------------------------------------------------+-----------+
-    | Parameter   | Description                                      | Initial   |
-    +=============+==================================================+===========+
-    | ``k``       | Spring constant :math:`k`.                       |           |
-    +-------------+--------------------------------------------------+-----------+
-    | ``r0``      | Minimum-energy length :math:`r_0`.               |           |
-    +-------------+--------------------------------------------------+-----------+
-    | ``epsilon`` | Interaction energy :math:`\varepsilon`.          |     0     |
-    +-------------+--------------------------------------------------+-----------+
-    | ``sigma``   | Interaction length :math:`\sigma`.               |     0     |
-    +-------------+--------------------------------------------------+-----------+
+    +-------------+--------------------------------------------------+
+    | Parameter   | Description                                      |
+    +=============+==================================================+
+    | ``k``       | Spring constant :math:`k`.                       |
+    +-------------+--------------------------------------------------+
+    | ``r0``      | Minimum-energy length :math:`r_0`.               |
+    +-------------+--------------------------------------------------+
+    | ``epsilon`` | Interaction energy :math:`\varepsilon`.          |
+    +-------------+--------------------------------------------------+
+    | ``sigma``   | Interaction length :math:`\sigma`.               |
+    +-------------+--------------------------------------------------+
 
     Parameters
     ----------
@@ -188,15 +188,12 @@ class FENEWCA(BondPotential):
         u_fene[fene_flag] = -0.5 * k * r0**2 * numpy.log(1 - (r[fene_flag] / r0) ** 2)
         u_fene[~fene_flag] = numpy.inf
 
-        # set flags for WCA potential
-        nonzero_flags = ~numpy.isclose(r, 0)
-        wca_flags = r < 2 ** (1 / 6) * sigma
-
         # evaluate WCA potential
-        r6_inv = numpy.power(sigma / r[nonzero_flags], 6)
-        u_wca[nonzero_flags] = 4.0 * epsilon * (r6_inv**2 - r6_inv) + epsilon
+        nonzero_flags = ~numpy.isclose(r, 0)
+        wca_flags = numpy.logical_and(nonzero_flags, r < 2 ** (1 / 6) * sigma)
+        r6_inv = numpy.power(sigma / r[wca_flags], 6)
+        u_wca[wca_flags] = 4.0 * epsilon * (r6_inv**2 - r6_inv) + epsilon
         u_wca[~nonzero_flags] = numpy.inf
-        u_wca[~wca_flags] = 0
 
         if s:
             u_fene = u_fene.item()
@@ -217,22 +214,19 @@ class FENEWCA(BondPotential):
         f_wca = f_fene.copy()
 
         # set flags for FENE potential
-        fene_flag = ~numpy.greater_equal(r, r0)
+        fene_flag = numpy.less(r, r0)
 
         # evaluate FENE potential
         f_fene[fene_flag] = (k * r0) / (1 - (r[fene_flag] / r0) ** 2)
         f_fene[~fene_flag] = numpy.inf
 
-        # set flags for WCA potential
-        nonzero_flags = ~numpy.isclose(r, 0)
-        wca_flags = r < 2 ** (1 / 6) * sigma
-
         # evaluate WCA potential
-        rinv = 1.0 / r[nonzero_flags]
+        nonzero_flags = ~numpy.isclose(r, 0)
+        wca_flags = numpy.logical_and(nonzero_flags, r < 2 ** (1 / 6) * sigma)
+        rinv = 1.0 / r[wca_flags]
         r6_inv = numpy.power(sigma * rinv, 6)
-        f_wca[nonzero_flags] = (48.0 * epsilon * rinv) * (r6_inv**2 - 0.5 * r6_inv)
+        f_wca[wca_flags] = (48.0 * epsilon * rinv) * (r6_inv**2 - 0.5 * r6_inv)
         f_wca[~nonzero_flags] = numpy.inf
-        f_wca[~wca_flags] = 0
 
         if s:
             f_fene = f_fene.item()
@@ -246,14 +240,14 @@ class FENEWCA(BondPotential):
         r, d, s = self._zeros(r)
 
         # set flags for FENE potential
-        fene_flag = ~numpy.greater_equal(r, r0)
+        fene_flag = numpy.less(r, r0)
 
         # set flags for WCA potential
         nonzero_flags = ~numpy.isclose(r, 0)
-        wca_flags = r < 2 ** (1 / 6) * sigma
+        wca_flags = numpy.logical_and(nonzero_flags, r < 2 ** (1 / 6) * sigma)
 
         # set r**6 for WCA potential
-        r6_inv = numpy.power(sigma / r[nonzero_flags], 6)
+        r6_inv = numpy.power(sigma / r[wca_flags], 6)
 
         if param == "k":
             d[fene_flag] = 0.5 * r0**2 * numpy.log(1 - (r[fene_flag] / r0) ** 2)
@@ -264,13 +258,11 @@ class FENEWCA(BondPotential):
             ) + k * r0 * numpy.log(1 - (r[fene_flag] / r0) ** 2)
             d[~fene_flag] = numpy.inf
         elif param == "epsilon":
-            d[nonzero_flags] = 4 * (r6_inv**2 - r6_inv) + 1
+            d[wca_flags] = 4 * (r6_inv**2 - r6_inv) + 1
             d[~nonzero_flags] = numpy.inf
-            d[~wca_flags] = 0
         elif param == "sigma":
-            d[nonzero_flags] = (48.0 * epsilon / sigma) * (r6_inv**2 - 0.5 * r6_inv)
+            d[wca_flags] = (48.0 * epsilon / sigma) * (r6_inv**2 - 0.5 * r6_inv)
             d[~nonzero_flags] = numpy.inf
-            d[~wca_flags] = 0
         else:
             raise ValueError("Unknown parameter")
         if s:

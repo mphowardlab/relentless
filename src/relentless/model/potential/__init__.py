@@ -36,10 +36,10 @@ Developer classes
     Potential
     Parameters
     BondedPotential
-    PairPotential
-    PairParameters
     BondPotential
     BondParameters
+    PairPotential
+    PairParameters
 
 """
 

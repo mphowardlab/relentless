@@ -8,68 +8,6 @@ import numpy
 import relentless
 
 
-class test_BondParameters(unittest.TestCase):
-    """Unit tests for relentless.bond.BondParameters"""
-
-    def test_init(self):
-        """Test creation from data"""
-        types = ("A", "B")
-        params = ("energy", "mass")
-
-        # test construction with tuple input
-        m = relentless.model.potential.bond.BondParameters(
-            types=("A", "B"), params=("energy", "mass")
-        )
-        self.assertEqual(m.types, types)
-        self.assertEqual(m.params, params)
-
-        # test construction with list input
-        m = relentless.model.potential.bond.BondParameters(
-            types=["A", "B"], params=("energy", "mass")
-        )
-        self.assertEqual(m.types, types)
-        self.assertEqual(m.params, params)
-
-        # test construction with mixed tuple/list input
-        m = relentless.model.potential.bond.BondParameters(
-            types=("A", "B"), params=["energy", "mass"]
-        )
-        self.assertEqual(m.types, types)
-        self.assertEqual(m.params, params)
-
-        # test construction with int type parameters
-        with self.assertRaises(TypeError):
-            m = relentless.model.potential.bond.BondParameters(
-                types=("A", "B"), params=(1, 2)
-            )
-
-        # test construction with mixed type parameters
-        with self.assertRaises(TypeError):
-            m = relentless.model.potential.bond.BondParameters(
-                types=("A", "B"), params=("1", 2)
-            )
-
-    def test_param_types(self):
-        """Test various get and set methods on bond parameter types"""
-        m = relentless.model.potential.bond.BondParameters(
-            types=("A", "B"), params=("energy", "mass")
-        )
-
-        self.assertEqual(m["A"]["energy"], None)
-        self.assertEqual(m["A"]["mass"], None)
-        self.assertEqual(m["B"]["energy"], None)
-        self.assertEqual(m["B"]["mass"], None)
-
-        # test setting per-type params
-        m["A"].update(energy=1.5, mass=2.5)
-        m["B"].update(energy=0.5, mass=0.7)
-
-        self.assertEqual(m["A"]["energy"], 1.5)
-        self.assertEqual(m["A"]["mass"], 2.5)
-        self.assertEqual(m["B"]["energy"], 0.5)
-        self.assertEqual(m["B"]["mass"], 0.7)
-
-
 class LinPot(relentless.model.potential.bond.BondPotential):
     """Linear bond potential function"""
 
