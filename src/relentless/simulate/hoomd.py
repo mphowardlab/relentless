@@ -69,6 +69,8 @@ class InitializationOperation(simulate.InitializationOperation):
         exclusion = sim.potentials.pair.exclusions
         if exclusion is None:
             exclusion = []
+        elif "1-2" in exclusion:
+            exclusion = ["bond" if ex == "1-2" else ex for ex in exclusion]
         neighbor_list = hoomd.md.nlist.Tree(
             buffer=sim.potentials.pair.neighbor_buffer,
             exclusions=exclusion,
@@ -87,7 +89,7 @@ class InitializationOperation(simulate.InitializationOperation):
         sim[self]["_potentials"] = [pair_potential]
 
         sim[self]["_bonds"] = self._get_bonds_from_snapshot(sim, snap)
-        if sim["engine"]["_hoomd"].state.N_bonds > 0:
+        if sim.potentials.bond is not None:
             sim.bond_types = sim["engine"]["_hoomd"].state.bond_types
             bond_potential = hoomd.md.bond.Table(width=sim.potentials.bond.num)
 

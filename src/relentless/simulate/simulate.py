@@ -379,6 +379,7 @@ class Potentials:
     def __init__(self, kB=1.0):
         self.kB = kB
         self.pair = None
+        self.bond = None
 
     @property
     def pair(self):
@@ -390,6 +391,17 @@ class Potentials:
         if val is not None and not isinstance(val, PairPotentialTabulator):
             raise TypeError("Pair potential must be tabulated")
         self._pair = val
+
+    @property
+    def bond(self):
+        """:class:`BondPotentialTabulator`: Bond potentials."""
+        return self._bond
+
+    @bond.setter
+    def bond(self, val):
+        if val is not None and not isinstance(val, BondPotentialTabulator):
+            raise TypeError("Bond potential must be tabulated")
+        self._bond = val
 
 
 class PotentialTabulator:
