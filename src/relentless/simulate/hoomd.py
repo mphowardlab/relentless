@@ -66,7 +66,15 @@ class InitializationOperation(simulate.InitializationOperation):
         sim.masses = self._get_masses_from_snapshot(sim, snap)
         self._assert_dimension_safe(sim, snap)
         # create the potentials, defer attaching until later
-        neighbor_list = hoomd.md.nlist.Tree(buffer=sim.potentials.pair.neighbor_buffer)
+        exclusion = sim.potentials.pair.exclusions
+        if exclusion is None:
+            exclusion = ()
+        elif "1-2" in exclusion:
+            exclusion = ["bond" if ex == "1-2" else ex for ex in exclusion]
+        neighbor_list = hoomd.md.nlist.Tree(
+            buffer=sim.potentials.pair.neighbor_buffer,
+            exclusions=exclusion,
+        )
         pair_potential = hoomd.md.pair.Table(nlist=neighbor_list)
         r, u, f = sim.potentials.pair.pairwise_energy_and_force(
             sim.types, tight=True, minimum_num=2
@@ -79,7 +87,22 @@ class InitializationOperation(simulate.InitializationOperation):
             )
             pair_potential.r_cut[(i, j)] = r[-1]
         sim[self]["_potentials"] = [pair_potential]
-        sim[self]["_potentials_rmax"] = r[-1]
+
+        sim[self]["_bonds"] = self._get_bonds_from_snapshot(sim, snap)
+        if sim.potentials.bond is not None:
+            sim.bond_types = sim["engine"]["_hoomd"].state.bond_types
+            bond_potential = hoomd.md.bond.Table(width=sim.potentials.bond.num)
+
+            for i in sim.bond_types:
+                r, u, f = (
+                    sim.potentials.bond.linear_space,
+                    sim.potentials.bond.energy(key=i),
+                    sim.potentials.bond.force(key=i),
+                )
+                if numpy.any(numpy.isinf(u)):
+                    raise ValueError("Bond potential/force is infinite at evaluated r")
+                bond_potential.params[i] = dict(r_min=r[0], r_max=r[-1], U=u[:], F=f[:])
+            sim[self]["_potentials"].append(bond_potential)
 
     def _call_v2(self, sim):
         # initialize
@@ -122,7 +145,6 @@ class InitializationOperation(simulate.InitializationOperation):
                     rmax=r[-1],
                     coeff=dict(r=r, u=u[i, j], f=f[i, j]),
                 )
-            sim[self]["_potentials_rmax"] = r[-1]
 
     def _initialize_v3(self, sim):
         raise NotImplementedError(
@@ -151,6 +173,12 @@ class InitializationOperation(simulate.InitializationOperation):
         masses_ = mpi.world.bcast(masses_, root=0)
         masses.update(masses_)
         return masses
+
+    def _get_bonds_from_snapshot(self, sim, snap):
+        if mpi.world.rank_is_root:
+            return snap.bonds.group
+        else:
+            return None
 
     def _assert_dimension_safe(self, sim, snap):
         if sim.dimension == 3:
@@ -987,6 +1015,8 @@ class EnsembleAverage(AnalysisOperation):
             system=sim["engine"]["_hoomd"].state,
             rdf_params=self._get_rdf_params(sim),
             constraints=self._get_constrained_quantities(sim, sim_op),
+            exclusions=sim.potentials.pair.exclusions,
+            bonds=sim[sim.initializer]["_bonds"],
         )
         sim[self]["_hoomd_thermo_callback"] = hoomd.write.CustomWriter(
             trigger=self.every,
@@ -1178,6 +1208,8 @@ class EnsembleAverage(AnalysisOperation):
             system,
             rdf_params=None,
             constraints=None,
+            exclusions=None,
+            bonds=None,
         ):
             if dimension not in (2, 3):
                 raise ValueError("Only 2 or 3 dimensions supported")
@@ -1188,6 +1220,8 @@ class EnsembleAverage(AnalysisOperation):
             self.system = system
             self.rdf_params = rdf_params
             self.constraints = constraints if constraints is not None else {}
+            self.exclusion = exclusions
+            self.bonds = bonds
 
             # this method handles all the initialization
             self.reset()
@@ -1281,6 +1315,24 @@ class EnsembleAverage(AnalysisOperation):
                                 exclude_ii=True,
                             ),
                         ).toNeighborList()
+
+                        # filter bonds from the neighbor list if they are present
+                        # bond exclusions apply regardless of order, so
+                        # consider both (i,j) and (j,i) permutations
+                        if (
+                            self.rdf_params["exclude"]
+                            and snap.bonds.N != 0
+                            and len(neighbors[:]) > 0
+                        ):
+                            bonds = numpy.vstack(
+                                [self.bonds, numpy.flip(self.bonds, axis=1)],
+                            )
+
+                            bond_exclusion_filter = EnsembleAverage._cantor_pairing(
+                                self, bonds, neighbors
+                            )
+
+                            neighbors.filter(bond_exclusion_filter)
 
                         for i in self.types:
                             for j in self.types:
