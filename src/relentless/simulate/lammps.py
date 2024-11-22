@@ -185,9 +185,12 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
         has_angles = None
         has_dihedrals = None
         has_impropers = None
+        bond_type_label = None
         if mpi.world.rank_is_root:
             snap = lammpsio.DataFile(sim[self]["_datafile"]).read()
             has_bonds = snap.has_bonds()
+            if has_bonds:
+                bond_type_label = sim[self]["bonds"].type_label
             has_angles = snap.has_angles()
             has_dihedrals = snap.has_dihedrals()
             has_impropers = snap.has_impropers()
@@ -210,6 +213,7 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
         masses = mpi.world.bcast(masses)
         sim.masses.update(masses)
         dim_safe = mpi.world.bcast(dim_safe)
+        bond_type_label = mpi.world.bcast(bond_type_label)
         has_bonds = mpi.world.bcast(has_bonds)
         has_angles = mpi.world.bcast(has_angles)
         has_dihedrals = mpi.world.bcast(has_dihedrals)
@@ -226,9 +230,9 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
         Nr = len(r)
 
         if has_bonds:
-            uB = collections.FixedKeyDict(sim[self]["bonds"].type_label.types)
-            fB = collections.FixedKeyDict(sim[self]["bonds"].type_label.types)
-            for i in sim[self]["bonds"].type_label.types:
+            uB = collections.FixedKeyDict(bond_type_label.types)
+            fB = collections.FixedKeyDict(bond_type_label.types)
+            for i in bond_type_label.types:
                 rB, uB[i], fB[i] = (
                     sim.potentials.bond.linear_space,
                     sim.potentials.bond.energy(key=i),
@@ -285,7 +289,7 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
                 # write bond potentials into the file
                 if has_bonds:
                     fw.write("# LAMMPS tabulated bond potentials\n")
-                    for i in sim[self]["bonds"].type_label.types:
+                    for i in bond_type_label.types:
                         fw.write("# bond BOND_TABLE_{}\n\n".format(i))
                         fw.write("BOND_TABLE_{}\n".format(i))
                         fw.write(
@@ -334,12 +338,12 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
             ]
 
         if has_bonds:
-            for id in sim[self]["bonds"].type_label.typeid:
+            for id in bond_type_label.typeid:
                 cmds += [
                     ("bond_coeff {typeid} {filename}" " BOND_TABLE_{id}").format(
                         typeid=id,
                         filename=file_,
-                        id=sim[self]["bonds"].type_label.__getitem__(id),
+                        id=bond_type_label.__getitem__(id),
                     )
                 ]
         return cmds
