@@ -217,7 +217,7 @@ class FENEWCA(BondPotential):
         fene_flag = numpy.less(r, r0)
 
         # evaluate FENE potential
-        f_fene[fene_flag] = (k * r0) / (1 - (r[fene_flag] / r0) ** 2)
+        f_fene[fene_flag] = -(k * r[fene_flag]) / (1 - (r[fene_flag] / r0) ** 2)
         f_fene[~fene_flag] = numpy.inf
 
         # evaluate WCA potential

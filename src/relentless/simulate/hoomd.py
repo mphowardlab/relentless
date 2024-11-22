@@ -68,7 +68,7 @@ class InitializationOperation(simulate.InitializationOperation):
         # create the potentials, defer attaching until later
         exclusion = sim.potentials.pair.exclusions
         if exclusion is None:
-            exclusion = []
+            exclusion = ()
         elif "1-2" in exclusion:
             exclusion = ["bond" if ex == "1-2" else ex for ex in exclusion]
         neighbor_list = hoomd.md.nlist.Tree(

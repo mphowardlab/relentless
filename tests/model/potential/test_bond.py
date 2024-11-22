@@ -8,7 +8,7 @@ import numpy
 import relentless
 
 
-class LinPot(relentless.model.potential.bond.BondPotential):
+class LinPotBond(relentless.model.potential.bond.BondPotential):
     """Linear bond potential function"""
 
     def __init__(self, types, params):
@@ -80,7 +80,7 @@ class test_BondPotential(unittest.TestCase):
     def test_init(self):
         """Test creation from data"""
         # test creation with only m
-        p = LinPot(types=("1",), params=("m",))
+        p = LinPotBond(types=("1",), params=("m",))
         p.coeff["1"]["m"] = 3.5
 
         coeff = relentless.model.potential.bond.BondParameters(
@@ -94,7 +94,7 @@ class test_BondPotential(unittest.TestCase):
 
     def test_energy(self):
         """Test energy method"""
-        p = LinPot(types=("1",), params=("m",))
+        p = LinPotBond(types=("1",), params=("m",))
         p.coeff["1"]["m"] = 2.0
 
         # test with no cutoffs
@@ -105,7 +105,7 @@ class test_BondPotential(unittest.TestCase):
 
     def test_force(self):
         """Test force method"""
-        p = LinPot(types=("1",), params=("m",))
+        p = LinPotBond(types=("1",), params=("m",))
         p.coeff["1"]["m"] = 2.0
 
         # test with no cutoffs
@@ -116,7 +116,7 @@ class test_BondPotential(unittest.TestCase):
 
     def test_derivative_values(self):
         """Test derivative method with different param values"""
-        p = LinPot(types=("1",), params=("m",))
+        p = LinPotBond(types=("1",), params=("m",))
         x = relentless.model.IndependentVariable(value=2.0)
         p.coeff["1"]["m"] = x
 
@@ -128,7 +128,7 @@ class test_BondPotential(unittest.TestCase):
 
     def test_derivative_types(self):
         """Test derivative method with different param types."""
-        q = LinPot(types=("1",), params=("m",))
+        q = LinPotBond(types=("1",), params=("m",))
         x = relentless.model.IndependentVariable(value=4.0)
         y = relentless.model.IndependentVariable(value=64.0)
         z = relentless.model.GeometricMean(x, y)
@@ -166,7 +166,7 @@ class test_BondPotential(unittest.TestCase):
 
     def test_iteration(self):
         """Test iteration on typesPotential object"""
-        p = LinPot(types=("1",), params=("m",))
+        p = LinPotBond(types=("1",), params=("m",))
         for types in p.coeff:
             p.coeff[types]["m"] = 2.0
 
@@ -174,24 +174,24 @@ class test_BondPotential(unittest.TestCase):
 
     def test_json(self):
         """Test saving to file"""
-        p = LinPot(types=("1",), params=("m"))
+        p = LinPotBond(types=("1",), params=("m"))
         p.coeff["1"]["m"] = 2.0
 
         data = p.to_json()
         self.assertEqual(data["id"], p.id)
         self.assertEqual(data["name"], p.name)
 
-        p2 = LinPot.from_json(data)
+        p2 = LinPotBond.from_json(data)
         self.assertEqual(p2.coeff["1"]["m"], 2.0)
 
     def test_save(self):
         """Test saving to file"""
         temp = tempfile.NamedTemporaryFile()
-        p = LinPot(types=("1",), params=("m"))
+        p = LinPotBond(types=("1",), params=("m"))
         p.coeff["1"]["m"] = 2.0
         p.save(temp.name)
 
-        p2 = LinPot.from_file(temp.name)
+        p2 = LinPotBond.from_file(temp.name)
         self.assertEqual(p2.coeff["1"]["m"], 2.0)
 
         temp.close()
@@ -323,13 +323,13 @@ class test_FENEWCA(unittest.TestCase):
 
         # test scalar r
         r_input = 0.95
-        f_actual = 134.276699505
+        f_actual = 11.549426778
         f = FENEWCA.force(type_=("1"), r=r_input)
         numpy.testing.assert_allclose(f, f_actual)
 
         # test array r
         r_input = numpy.array([0, 0.9, 1.2, 2])
-        f_actual = numpy.array([numpy.inf, 208.972123994, 125, numpy.inf])
+        f_actual = numpy.array([numpy.inf, 96.4721239943, -100, numpy.inf])
         f = FENEWCA.force(type_=("1"), r=r_input)
         numpy.testing.assert_allclose(f, f_actual)
 
