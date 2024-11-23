@@ -1620,7 +1620,7 @@ class WriteTrajectory(AnalysisOperation):
             if self.velocities is True:
                 dynamic.append("particles/velocity")
             if self.images is True:
-                dynamic.append("particles/images")
+                dynamic.append("particles/image")
         else:
             # momentum group makes particle velocities and particles images dynamic
             if self.velocities is True or self.images is True:

@@ -557,10 +557,45 @@ class test_HOOMD(unittest.TestCase):
 
     def test_writetrajectory(self):
         """Test write trajectory simulation operation."""
-        ens, pot = self.ens_pot()
-        init = relentless.simulate.InitializeRandomly(
-            seed=1, N=ens.N, V=ens.V, T=ens.T, diameters={"A": 1, "B": 1}
+        # setup potentials
+        pot = LinPot(("A", "B"), params=("m",))
+        for pair in pot.coeff:
+            pot.coeff[pair].update({"m": 0.0, "rmax": 1.0})
+        pots = relentless.simulate.Potentials()
+        pots.pair = relentless.simulate.PairPotentialTabulator(
+            pot, start=0.0, stop=2.0, num=3, neighbor_buffer=0.4
         )
+
+        # create gsd file
+        filename = self.directory.file("test.gsd")
+        if relentless.mpi.world.rank_is_root:
+            with gsd.hoomd.open(name=filename, mode=gsd_write_mode) as f:
+                s = HOOMDFrame()
+                s.particles.N = 5
+                s.particles.types = ["A", "B"]
+                s.particles.typeid = [0, 0, 1, 1, 1]
+                # 500 steps at 0.002 timestep = 0.5 and 20 box length
+                # Need v = 20 to ensure particles move 1 image
+                if self.dim == 3:
+                    s.particles.position = numpy.random.uniform(
+                        low=-10, high=10, size=(5, 3)
+                    )
+                    s.configuration.box = [20, 20, 20, 0, 0, 0]
+                    s.particles.velocity = numpy.tile([20, 20, 20], (5, 1))
+                elif self.dim == 2:
+                    s.particles.position = numpy.random.uniform(
+                        low=-10, high=10, size=(5, 3)
+                    )
+                    s.particles.position[:, 2] = 0
+                    s.configuration.box = [20, 20, 0, 0, 0, 0]
+                    s.particles.velocity = numpy.tile([20, 20, 0], (5, 1))
+                else:
+                    raise ValueError("HOOMD supports 2d and 3d simulations")
+                f.append(s)
+        relentless.mpi.world.barrier()
+
+        init = relentless.simulate.InitializeFromFile(filename=filename)
+
         lmpstrj = relentless.simulate.WriteTrajectory(
             filename="test_writetrajectory.lammpstrj",
             every=100,
@@ -577,16 +612,13 @@ class test_HOOMD(unittest.TestCase):
             types=True,
             masses=True,
         )
-        lgv = relentless.simulate.RunLangevinDynamics(
+        md = relentless.simulate.RunMolecularDynamics(
             steps=500,
-            timestep=0.001,
-            T=ens.T,
-            friction=1.0,
-            seed=1,
+            timestep=0.002,
             analyzers=[lmpstrj, gsdtrj],
         )
-        h = relentless.simulate.HOOMD(init, lgv)
-        sim = h.run(pot, self.directory)
+        h = relentless.simulate.HOOMD(init, md)
+        sim = h.run(pots, self.directory)
 
         # read lammps trajectory file
         file = sim.directory.file(lmpstrj.filename)
@@ -601,6 +633,17 @@ class test_HOOMD(unittest.TestCase):
         # read hoomd trajectory file
         file = sim.directory.file(gsdtrj.filename)
         with gsd.hoomd.open(file) as traj:
+            # ensure images are dynamic
+            images_start = traj[0].particles.image
+            images_end = traj[-1].particles.image
+            if self.dim == 3:
+                numpy.testing.assert_array_equal(images_start, numpy.zeros((5, 3)))
+                numpy.testing.assert_array_equal(images_end, numpy.ones((5, 3)))
+            elif self.dim == 2:
+                numpy.testing.assert_array_equal(
+                    images_start[:, :2], numpy.zeros((5, 2))
+                )
+                numpy.testing.assert_array_equal(images_end[:, :2], numpy.ones((5, 2)))
             for snap in traj:
                 self.assertEqual(snap.particles.N, 5)
                 self.assertIsNotNone(snap.particles.velocity)
