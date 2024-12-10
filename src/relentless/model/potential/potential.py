@@ -378,15 +378,22 @@ class Potential(abc.ABC):
 
 
 class BondedPotential(Potential):
+    r"""Abstract base class for bonded interaction potential.
 
-    def __init__(self, keys, params, container=None, name=None):
-        super().__init__(keys, params, container, name)
+    This class can be extended to evaluate the energy, force, and parameter
+    derivatives of a bonded potential with a given functional form.
+    :meth:`energy` specifies the potential energy :math:`u_0(r)`, :meth:`force`
+    specifies the force :math:`f_0(r) = -\partial u_0/\partial r`, and
+    :meth:`_derivative` specifies the derivative
+    :math:`u_{0,\lambda} = \partial u_0/\partial \lambda` with respect to
+    parameter :math:`\lambda`.
+    """
 
-    def derivative(self, types, var, r):
-        r"""Evaluate pair derivative with respect to a variable.
+    def derivative(self, type_, var, r):
+        r"""Evaluate bond derivative with respect to a variable.
 
         The derivative is evaluated using the :meth:`_derivative` function for all
-        :math:`u_{0,\lambda}(r)`. The truncation and shifting scheme is applied.
+        :math:`u_{0,\lambda}(r)`.
 
         The derivative will be carried out with respect to ``var`` for all
         :class:`~relentless.variable.Variable` parameters. The appropriate chain
@@ -395,17 +402,17 @@ class BondedPotential(Potential):
 
         Parameters
         ----------
-        pair : tuple[str]
-            The pair for which to calculate the derivative.
+        _type : tuple[str]
+            The type for which to calculate the derivative.
         var : :class:`~relentless.variable.Variable`
             The variable with respect to which the derivative is calculated.
         r : float or list
-            The pair distance(s) at which to evaluate the derivative.
+            The bond distance(s) at which to evaluate the derivative.
 
         Returns
         -------
         float or numpy.ndarray
-            The pair derivative evaluated at ``r``. The return type is consistent
+            The bond derivative evaluated at ``r``. The return type is consistent
             with ``r``.
 
         Raises
@@ -419,7 +426,7 @@ class BondedPotential(Potential):
             If the potential is shifted without setting ``rmax``.
 
         """
-        params = self.coeff.evaluate(types)
+        params = self.coeff.evaluate(type_)
         r, deriv, scalar_r = self._zeros(r)
         if any(r < 0):
             raise ValueError("r cannot be negative")
@@ -433,7 +440,7 @@ class BondedPotential(Potential):
 
         for p in self.coeff.params:
             # try to take chain rule w.r.t. variable first
-            p_obj = self.coeff[types][p]
+            p_obj = self.coeff[type_][p]
             if isinstance(p_obj, variable.DependentVariable):
                 dp_dvar = p_obj.derivative(var)
             elif isinstance(p_obj, variable.IndependentVariable) and var is p_obj:
@@ -462,7 +469,7 @@ class BondedPotential(Potential):
         """Implementation of the parameter derivative function.
 
         This abstract method defines the interface for computing the parameter
-        derivative of a pair interaction. ``**params`` will include all the
+        derivative of a bond interaction. ``**params`` will include all the
         parameters from :class:`PairParameters`. The derivative should be
         consistent with :meth:`_energy`.
 
@@ -471,14 +478,14 @@ class BondedPotential(Potential):
         param : str
             Name of the parameter.
         r : float or list
-            The pair distance(s) at which to evaluate the derivative.
+            The bond distance(s) at which to evaluate the derivative.
         **params : kwargs
             Named parameters of the potential.
 
         Returns
         -------
         float or numpy.ndarray
-            The pair derivative evaluated at ``r``. The return type is consistent
+            The bond derivative evaluated at ``r``. The return type is consistent
             with ``r``.
 
         """

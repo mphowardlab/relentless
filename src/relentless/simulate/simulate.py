@@ -86,9 +86,9 @@ class AnalysisOperation(abc.ABC):
 
         Parameters
         ----------
-        pi_connection : numpy.ndarray
+        connection : numpy.ndarray
             (N, 2) array of typeids to be filtered from neighborlist.
-        pi_neighbor : numpy.ndarray
+        neighbor : numpy.ndarray
             Neighborlist to be filtered.
 
         Returns
@@ -379,6 +379,7 @@ class Potentials:
     def __init__(self, kB=1.0):
         self.kB = kB
         self.pair = None
+        self.bond = None
 
     @property
     def pair(self):
@@ -390,6 +391,17 @@ class Potentials:
         if val is not None and not isinstance(val, PairPotentialTabulator):
             raise TypeError("Pair potential must be tabulated")
         self._pair = val
+
+    @property
+    def bond(self):
+        """:class:`BondPotentialTabulator`: Bond potentials."""
+        return self._bond
+
+    @bond.setter
+    def bond(self, val):
+        if val is not None and not isinstance(val, BondPotentialTabulator):
+            raise TypeError("Bond potential must be tabulated")
+        self._bond = val
 
 
 class PotentialTabulator:
@@ -598,8 +610,8 @@ class PairPotentialTabulator(PotentialTabulator):
     exclusions : list
         The neighborlist nominally includes all pairs within ``rmax`` of each other.
         This option allows for exclusions of pairs that should not be included in the
-        neighbor list. The string should be formatted as a tuple of strings, e.g.,
-        ``['bond', '1-3', 1-4]``.
+        neighbor list. The string should be formatted as a tuple of strings. Allowed
+        values are '1-2', '1-3', and '1-4'.
 
     """
 
@@ -620,11 +632,22 @@ class PairPotentialTabulator(PotentialTabulator):
 
     @property
     def exclusions(self):
-        """tuple: The pairs to exclude from the neighbor list."""
+        r"""tuple: The pairs to exclude from the neighbor list.
+
+        Exclusions are formatted as a tuple of strings. Allowed values are:
+
+        - ``'1-2'``: Exclude pairs separated by one bond.
+        - ``'1-3'``: Exclude pairs separated by two bonds.
+        - ``'1-4'``: Exclude pairs separated by three bonds.
+        """
         return self._exclusions
 
     @exclusions.setter
     def exclusions(self, val):
+        if val is not None:
+            allowed = ["1-2", "1-3", "1-4"]
+            if not all([ex in allowed for ex in val]):
+                raise ValueError("Exclusions must be 'bond', '1-3', or '1-4'")
         self._exclusions = val
 
     def energy(self, pair, x=None):

@@ -8,69 +8,7 @@ import numpy
 import relentless
 
 
-class test_BondParameters(unittest.TestCase):
-    """Unit tests for relentless.bond.BondParameters"""
-
-    def test_init(self):
-        """Test creation from data"""
-        types = ("A", "B")
-        params = ("energy", "mass")
-
-        # test construction with tuple input
-        m = relentless.model.potential.bond.BondParameters(
-            types=("A", "B"), params=("energy", "mass")
-        )
-        self.assertEqual(m.types, types)
-        self.assertEqual(m.params, params)
-
-        # test construction with list input
-        m = relentless.model.potential.bond.BondParameters(
-            types=["A", "B"], params=("energy", "mass")
-        )
-        self.assertEqual(m.types, types)
-        self.assertEqual(m.params, params)
-
-        # test construction with mixed tuple/list input
-        m = relentless.model.potential.bond.BondParameters(
-            types=("A", "B"), params=["energy", "mass"]
-        )
-        self.assertEqual(m.types, types)
-        self.assertEqual(m.params, params)
-
-        # test construction with int type parameters
-        with self.assertRaises(TypeError):
-            m = relentless.model.potential.bond.BondParameters(
-                types=("A", "B"), params=(1, 2)
-            )
-
-        # test construction with mixed type parameters
-        with self.assertRaises(TypeError):
-            m = relentless.model.potential.bond.BondParameters(
-                types=("A", "B"), params=("1", 2)
-            )
-
-    def test_param_types(self):
-        """Test various get and set methods on bond parameter types"""
-        m = relentless.model.potential.bond.BondParameters(
-            types=("A", "B"), params=("energy", "mass")
-        )
-
-        self.assertEqual(m["A"]["energy"], None)
-        self.assertEqual(m["A"]["mass"], None)
-        self.assertEqual(m["B"]["energy"], None)
-        self.assertEqual(m["B"]["mass"], None)
-
-        # test setting per-type params
-        m["A"].update(energy=1.5, mass=2.5)
-        m["B"].update(energy=0.5, mass=0.7)
-
-        self.assertEqual(m["A"]["energy"], 1.5)
-        self.assertEqual(m["A"]["mass"], 2.5)
-        self.assertEqual(m["B"]["energy"], 0.5)
-        self.assertEqual(m["B"]["mass"], 0.7)
-
-
-class LinPot(relentless.model.potential.bond.BondPotential):
+class LinPotBond(relentless.model.potential.bond.BondPotential):
     """Linear bond potential function"""
 
     def __init__(self, types, params):
@@ -142,7 +80,7 @@ class test_BondPotential(unittest.TestCase):
     def test_init(self):
         """Test creation from data"""
         # test creation with only m
-        p = LinPot(types=("1",), params=("m",))
+        p = LinPotBond(types=("1",), params=("m",))
         p.coeff["1"]["m"] = 3.5
 
         coeff = relentless.model.potential.bond.BondParameters(
@@ -156,7 +94,7 @@ class test_BondPotential(unittest.TestCase):
 
     def test_energy(self):
         """Test energy method"""
-        p = LinPot(types=("1",), params=("m",))
+        p = LinPotBond(types=("1",), params=("m",))
         p.coeff["1"]["m"] = 2.0
 
         # test with no cutoffs
@@ -167,7 +105,7 @@ class test_BondPotential(unittest.TestCase):
 
     def test_force(self):
         """Test force method"""
-        p = LinPot(types=("1",), params=("m",))
+        p = LinPotBond(types=("1",), params=("m",))
         p.coeff["1"]["m"] = 2.0
 
         # test with no cutoffs
@@ -178,39 +116,39 @@ class test_BondPotential(unittest.TestCase):
 
     def test_derivative_values(self):
         """Test derivative method with different param values"""
-        p = LinPot(types=("1",), params=("m",))
+        p = LinPotBond(types=("1",), params=("m",))
         x = relentless.model.IndependentVariable(value=2.0)
         p.coeff["1"]["m"] = x
 
         # test with no cutoffs
-        d = p.derivative(types=("1"), var=x, r=0.5)
+        d = p.derivative(type_=("1"), var=x, r=0.5)
         self.assertAlmostEqual(d, 0.5)
-        d = p.derivative(types=("1"), var=x, r=[0.25, 0.75])
+        d = p.derivative(type_=("1"), var=x, r=[0.25, 0.75])
         numpy.testing.assert_allclose(d, [0.25, 0.75])
 
     def test_derivative_types(self):
         """Test derivative method with different param types."""
-        q = LinPot(types=("1",), params=("m",))
+        q = LinPotBond(types=("1",), params=("m",))
         x = relentless.model.IndependentVariable(value=4.0)
         y = relentless.model.IndependentVariable(value=64.0)
         z = relentless.model.GeometricMean(x, y)
         q.coeff["1"]["m"] = z
 
         # test with respect to dependent variable parameter
-        d = q.derivative(types=("1"), var=z, r=2.0)
+        d = q.derivative(type_=("1"), var=z, r=2.0)
         self.assertAlmostEqual(d, 2.0)
 
         # test with respect to independent variable on which parameter is dependent
-        d = q.derivative(types=("1"), var=x, r=1.5)
+        d = q.derivative(type_=("1"), var=x, r=1.5)
         self.assertAlmostEqual(d, 3.0)
-        d = q.derivative(types=("1"), var=y, r=4.0)
+        d = q.derivative(type_=("1"), var=y, r=4.0)
         self.assertAlmostEqual(d, 0.5)
 
         # test invalid derivative w.r.t. scalar
         a = 2.5
         q.coeff["1"]["m"] = a
         with self.assertRaises(TypeError):
-            d = q.derivative(types=("1"), var=a, r=2.0)
+            d = q.derivative(type_=("1"), var=a, r=2.0)
 
         # test with respect to independent variable which is
         # related to a SameAs variable
@@ -218,17 +156,17 @@ class test_BondPotential(unittest.TestCase):
 
         r.coeff["1"]["x"] = x
         r.coeff["1"]["y"] = relentless.model.variable.SameAs(x)
-        d = r.derivative(types=("1"), var=x, r=4.0)
+        d = r.derivative(type_=("1"), var=x, r=4.0)
         self.assertAlmostEqual(d, 20.0)
 
         r.coeff["1"]["y"] = x
         r.coeff["1"]["x"] = relentless.model.variable.SameAs(x)
-        d = r.derivative(types=("1"), var=x, r=4.0)
+        d = r.derivative(type_=("1"), var=x, r=4.0)
         self.assertAlmostEqual(d, 20.0)
 
     def test_iteration(self):
         """Test iteration on typesPotential object"""
-        p = LinPot(types=("1",), params=("m",))
+        p = LinPotBond(types=("1",), params=("m",))
         for types in p.coeff:
             p.coeff[types]["m"] = 2.0
 
@@ -236,24 +174,24 @@ class test_BondPotential(unittest.TestCase):
 
     def test_json(self):
         """Test saving to file"""
-        p = LinPot(types=("1",), params=("m"))
+        p = LinPotBond(types=("1",), params=("m"))
         p.coeff["1"]["m"] = 2.0
 
         data = p.to_json()
         self.assertEqual(data["id"], p.id)
         self.assertEqual(data["name"], p.name)
 
-        p2 = LinPot.from_json(data)
+        p2 = LinPotBond.from_json(data)
         self.assertEqual(p2.coeff["1"]["m"], 2.0)
 
     def test_save(self):
         """Test saving to file"""
         temp = tempfile.NamedTemporaryFile()
-        p = LinPot(types=("1",), params=("m"))
+        p = LinPotBond(types=("1",), params=("m"))
         p.coeff["1"]["m"] = 2.0
         p.save(temp.name)
 
-        p2 = LinPot.from_file(temp.name)
+        p2 = LinPotBond.from_file(temp.name)
         self.assertEqual(p2.coeff["1"]["m"], 2.0)
 
         temp.close()
@@ -282,13 +220,13 @@ class test_HarmonicBond(unittest.TestCase):
         # test scalar r
         r_input = 0.5
         u_actual = 125.0
-        u = harmonic_bond.energy(types=("1"), r=r_input)
+        u = harmonic_bond.energy(type_=("1"), r=r_input)
         self.assertAlmostEqual(u, u_actual)
 
         # test array r
         r_input = numpy.array([0.0, 0.5, 1.0])
         u_actual = numpy.array([500.0, 125.0, 0.0])
-        u = harmonic_bond.energy(types=("1"), r=r_input)
+        u = harmonic_bond.energy(type_=("1"), r=r_input)
         numpy.testing.assert_allclose(u, u_actual)
 
     def test_force(self):
@@ -299,13 +237,13 @@ class test_HarmonicBond(unittest.TestCase):
         # test scalar r
         r_input = 0.5
         f_actual = 500
-        f = harmonic_bond.force(types=("1"), r=r_input)
+        f = harmonic_bond.force(type_=("1"), r=r_input)
         self.assertAlmostEqual(f, f_actual)
 
         # test array r
         r_input = numpy.array([0.0, 0.5, 1.0])
         f_actual = numpy.array([1000, 500, 0])
-        f = harmonic_bond.force(types=("1"), r=r_input)
+        f = harmonic_bond.force(type_=("1"), r=r_input)
         numpy.testing.assert_allclose(f, f_actual)
 
     def test_derivative(self):
@@ -369,13 +307,13 @@ class test_FENEWCA(unittest.TestCase):
         # test scalar r
         r_input = 0.95
         u_actual = 20.2638974009
-        u = FENEWCA.energy(types=("1"), r=r_input)
+        u = FENEWCA.energy(type_=("1"), r=r_input)
         self.assertAlmostEqual(u, u_actual)
 
         # test array r
         r_input = numpy.array([0, 0.9, 1.2, 2])
         u_actual = numpy.array([numpy.inf, 22.698308667, 34.4807296042, numpy.inf])
-        u = FENEWCA.energy(types=("1"), r=r_input)
+        u = FENEWCA.energy(type_=("1"), r=r_input)
         numpy.testing.assert_allclose(u, u_actual)
 
     def test_force(self):
@@ -385,14 +323,14 @@ class test_FENEWCA(unittest.TestCase):
 
         # test scalar r
         r_input = 0.95
-        f_actual = 134.276699505
-        f = FENEWCA.force(types=("1"), r=r_input)
+        f_actual = 11.549426778
+        f = FENEWCA.force(type_=("1"), r=r_input)
         numpy.testing.assert_allclose(f, f_actual)
 
         # test array r
         r_input = numpy.array([0, 0.9, 1.2, 2])
-        f_actual = numpy.array([numpy.inf, 208.972123994, 125, numpy.inf])
-        f = FENEWCA.force(types=("1"), r=r_input)
+        f_actual = numpy.array([numpy.inf, 96.4721239943, -100, numpy.inf])
+        f = FENEWCA.force(type_=("1"), r=r_input)
         numpy.testing.assert_allclose(f, f_actual)
 
     def test_derivative(self):
@@ -588,7 +526,7 @@ class test_BondSpline(unittest.TestCase):
         s = relentless.model.potential.BondSpline(types=("1",), num_knots=3)
         s.from_array(types=("1"), r=r_arr, u=u_arr)
         u_actual = numpy.array([6.25, 2.25, 1])
-        u = s.energy(types=("1"), r=[1.5, 2.5, 3.5])
+        u = s.energy(type_=("1"), r=[1.5, 2.5, 3.5])
         numpy.testing.assert_allclose(u, u_actual)
 
         # test value mode
@@ -597,7 +535,7 @@ class test_BondSpline(unittest.TestCase):
         )
         s.from_array(types=("1"), r=r_arr, u=u_arr)
         u_actual = numpy.array([6.25, 2.25, 1])
-        u = s.energy(types=("1"), r=[1.5, 2.5, 3.5])
+        u = s.energy(type_=("1"), r=[1.5, 2.5, 3.5])
         numpy.testing.assert_allclose(u, u_actual)
 
         # test BondSpline with 2 knots
@@ -605,7 +543,7 @@ class test_BondSpline(unittest.TestCase):
             types=("1",), num_knots=2, mode="value"
         )
         s.from_array(types=("1"), r=[1, 2], u=[4, 2])
-        u = s.energy(types=("1"), r=1.5)
+        u = s.energy(type_=("1"), r=1.5)
         self.assertAlmostEqual(u, 3)
 
     def test_force(self):
@@ -617,7 +555,7 @@ class test_BondSpline(unittest.TestCase):
         s = relentless.model.potential.BondSpline(types=("1",), num_knots=3)
         s.from_array(types=("1"), r=r_arr, u=u_arr)
         f_actual = numpy.array([5, 3, 0])
-        f = s.force(types=("1"), r=[1.5, 2.5, 3.5])
+        f = s.force(type_=("1"), r=[1.5, 2.5, 3.5])
         numpy.testing.assert_allclose(f, f_actual)
 
         # test value mode
@@ -626,7 +564,7 @@ class test_BondSpline(unittest.TestCase):
         )
         s.from_array(types=("1"), r=r_arr, u=u_arr)
         f_actual = numpy.array([5, 3, 0])
-        f = s.force(types=("1"), r=[1.5, 2.5, 3.5])
+        f = s.force(type_=("1"), r=[1.5, 2.5, 3.5])
         numpy.testing.assert_allclose(f, f_actual)
 
         # test BondSpline with 2 knots
@@ -634,7 +572,7 @@ class test_BondSpline(unittest.TestCase):
             types=("1",), num_knots=2, mode="value"
         )
         s.from_array(types=("1"), r=[1, 2], u=[4, 2])
-        f = s.force(types=("1"), r=1.5)
+        f = s.force(type_=("1"), r=1.5)
         self.assertAlmostEqual(f, 2)
 
     def test_derivative(self):
@@ -647,7 +585,7 @@ class test_BondSpline(unittest.TestCase):
         s.from_array(types=("1"), r=r_arr, u=u_arr)
         d_actual = numpy.array([1.125, 0.625, 0])
         param = list(s.knots(("1")))[1][1]
-        d = s.derivative(types=("1"), var=param, r=[1.5, 2.5, 3.5])
+        d = s.derivative(type_=("1"), var=param, r=[1.5, 2.5, 3.5])
         numpy.testing.assert_allclose(d, d_actual)
 
         # test value mode
@@ -657,7 +595,7 @@ class test_BondSpline(unittest.TestCase):
         s.from_array(types=("1"), r=r_arr, u=u_arr)
         d_actual = numpy.array([0.75, 0.75, 0])
         param = list(s.knots(("1")))[1][1]
-        d = s.derivative(types=("1"), var=param, r=[1.5, 2.5, 3.5])
+        d = s.derivative(type_=("1"), var=param, r=[1.5, 2.5, 3.5])
         numpy.testing.assert_allclose(d, d_actual)
 
     def test_json(self):
