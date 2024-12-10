@@ -16,6 +16,17 @@ Pair potentials
     PairSpline
     Yukawa
 
+Bond potentials
+===============
+
+.. autosummary::
+    :toctree: generated/
+
+    HarmonicBond
+    FENEWCA
+    BondSpline
+
+
 Developer classes
 =================
 
@@ -24,6 +35,9 @@ Developer classes
 
     Potential
     Parameters
+    BondedPotential
+    BondPotential
+    BondParameters
     PairPotential
     PairParameters
 
@@ -46,4 +60,4 @@ from .pair import (
     PairSpline,
     Yukawa,
 )
-from .potential import Parameters, Potential
+from .potential import BondedPotential, Parameters, Potential

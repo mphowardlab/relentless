@@ -122,6 +122,7 @@ Defining interactions
 
     Potentials
     PotentialTabulator
+    BondPotentialTabulator
     PairPotentialTabulator
 
 Developer classes
