@@ -122,6 +122,7 @@ Defining interactions
 
     Potentials
     PotentialTabulator
+    AnglePotentialTabulator
     BondPotentialTabulator
     PairPotentialTabulator
 
@@ -158,6 +159,7 @@ from .md import (
 )
 from .simulate import (
     AnalysisOperation,
+    AnglePotentialTabulator,
     BondPotentialTabulator,
     PairPotentialTabulator,
     Potentials,

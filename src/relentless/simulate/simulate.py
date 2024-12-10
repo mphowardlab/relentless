@@ -380,6 +380,7 @@ class Potentials:
         self.kB = kB
         self.pair = None
         self.bond = None
+        self.angle = None
 
     @property
     def pair(self):
@@ -402,6 +403,17 @@ class Potentials:
         if val is not None and not isinstance(val, BondPotentialTabulator):
             raise TypeError("Bond potential must be tabulated")
         self._bond = val
+
+    @property
+    def angle(self):
+        """:class:`AnglePotentialTabulator`: Angle potentials."""
+        return self._angle
+
+    @angle.setter
+    def angle(self, val):
+        if val is not None and not isinstance(val, AnglePotentialTabulator):
+            raise TypeError("Angle potential must be tabulated")
+        self._angle = val
 
 
 class PotentialTabulator:
@@ -833,6 +845,30 @@ class BondPotentialTabulator(PotentialTabulator):
     num : int
         The number of points (value of ``r``) at which to tabulate and evaluate the
         potential.
+
+    """
+
+    pass
+
+
+class AnglePotentialTabulator(PotentialTabulator):
+    r"""Tabulate one or more angle potentials.
+
+    Enables evaluation of energy, force, and derivative at different
+    angle values (i.e. :math:`\theta`).
+
+    Parameters
+    ----------
+    potentials : :class:`~relentless.potential.angle.AnglePotential` or array_like
+        The angle potential(s) to be tabulated. If array_like, all elements must
+        be :class:`~relentless.potential.angle.AnglePotential`\s.
+    start : float
+        The minimum value of :math:`\theta` at which to tabulate.
+    stop : float
+        The maximum value of :math:`\theta` at which to tabulate.
+    num : int
+        The number of points (value of :math:`\theta`) at which to tabulate and
+        evaluate the potential.
 
     """
 
