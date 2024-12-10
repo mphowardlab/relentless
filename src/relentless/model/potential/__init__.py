@@ -47,6 +47,7 @@ from .angle import (
     AngleParameters,
     AnglePotential,
     AngleSpline,
+    CosineAngle,
     CosineSquaredAngle,
     HarmonicAngle,
 )

@@ -32,7 +32,7 @@ class HarmonicAngle(AnglePotential):
     +=============+==================================================+
     | ``k``       | Spring constant :math:`k`.                       |
     +-------------+--------------------------------------------------+
-    | ``theta0``  | Minimum-energy angle :math:`\thata_0`.           |
+    | ``theta0``  | Minimum-energy angle :math:`\theta_0`.           |
     +-------------+--------------------------------------------------+
 
     Parameters
@@ -52,17 +52,17 @@ class HarmonicAngle(AnglePotential):
     --------
     Harmonic Angle::
 
-        >>> u = relentless.potential.angle.HarmonicAngle(("A"))
-        >>> u.coeff["A"].update({'k': 1000, 'theta0': 1})
+        >>> u = relentless.potential.angle.HarmonicAngle(("A",))
+        >>> u.coeff["A"].update({'k': 1000, 'theta0': 1.9})
 
     """
 
     def __init__(self, types, name=None):
         super().__init__(keys=types, params=("k", "theta0"), name=name)
 
-    def energy(self, types, theta):
+    def energy(self, type_, theta):
         """Evaluate angle energy."""
-        params = self.coeff.evaluate(types)
+        params = self.coeff.evaluate(type_)
         k = params["k"]
         theta0 = params["theta0"]
 
@@ -74,9 +74,9 @@ class HarmonicAngle(AnglePotential):
             u = u.item()
         return u
 
-    def force(self, types, theta):
+    def force(self, type_, theta):
         """Evaluate angle force."""
-        params = self.coeff.evaluate(types)
+        params = self.coeff.evaluate(type_)
         k = params["k"]
         theta0 = params["theta0"]
 
@@ -88,7 +88,7 @@ class HarmonicAngle(AnglePotential):
             f = f.item()
         return f
 
-    def _derivative(self, param, theta, k, theta0, **params):
+    def _derivative(self, param, theta, k, theta0):
         r"""Evaluate angle derivative with respect to a variable."""
         theta, d, s = self._zeros(theta)
 
@@ -109,7 +109,7 @@ class CosineSquaredAngle(AnglePotential):
 
     .. math::
 
-        u(\theta) = \frac{k}{2} (\theta - \theta_0)^2
+        u(\theta) = k * (cos(\theta) - cos(\theta_0))^2
 
     where :math:`\theta` is the angle between three bonded particles. The parameters
     for each type are:
@@ -119,7 +119,7 @@ class CosineSquaredAngle(AnglePotential):
     +=============+==================================================+
     | ``k``       | Spring constant :math:`k`.                       |
     +-------------+--------------------------------------------------+
-    | ``theta0``  | Minimum-energy angle :math:`\thata_0`.           |
+    | ``theta0``  | Minimum-energy angle :math:`\theta_0`.           |
     +-------------+--------------------------------------------------+
 
     Parameters
@@ -137,9 +137,9 @@ class CosineSquaredAngle(AnglePotential):
 
     Examples
     --------
-    Harmonic Angle::
+    Cosine Squared Angle::
 
-        >>> u = relentless.potential.angle.HarmonicAngle(("A"))
+        >>> u = relentless.potential.angle.CosineSquaredAngle(("A",))
         >>> u.coeff["A"].update({'k': 1000, 'theta0': 1})
 
     """
@@ -147,9 +147,9 @@ class CosineSquaredAngle(AnglePotential):
     def __init__(self, types, name=None):
         super().__init__(keys=types, params=("k", "theta0"), name=name)
 
-    def energy(self, types, theta):
+    def energy(self, type_, theta):
         """Evaluate angle energy."""
-        params = self.coeff.evaluate(types)
+        params = self.coeff.evaluate(type_)
         k = params["k"]
         theta0 = params["theta0"]
 
@@ -161,9 +161,9 @@ class CosineSquaredAngle(AnglePotential):
             u = u.item()
         return u
 
-    def force(self, types, theta):
+    def force(self, type_, theta):
         """Evaluate angle force."""
-        params = self.coeff.evaluate(types)
+        params = self.coeff.evaluate(type_)
         k = params["k"]
         theta0 = params["theta0"]
 
@@ -175,7 +175,7 @@ class CosineSquaredAngle(AnglePotential):
             f = f.item()
         return f
 
-    def _derivative(self, param, theta, k, theta0, **params):
+    def _derivative(self, param, theta, k, theta0):
         r"""Evaluate angle derivative with respect to a variable."""
         theta, d, s = self._zeros(theta)
 
@@ -183,6 +183,87 @@ class CosineSquaredAngle(AnglePotential):
             d = (numpy.cos(theta) - numpy.cos(theta0)) ** 2
         elif param == "theta0":
             d = 2 * k * (numpy.cos(theta) - numpy.cos(theta0)) * numpy.sin(theta0)
+        else:
+            raise ValueError("Unknown parameter")
+
+        if s:
+            d = d.item()
+        return d
+
+
+class CosineAngle(AnglePotential):
+    r"""Cosine angle potential.
+
+    .. math::
+
+        u(\theta) = k * (1 + cos(\theta))
+
+    where :math:`\theta` is the angle between three bonded particles. The parameters
+    for each type are:
+
+    +-------------+--------------------------------------------------+
+    | Parameter   | Description                                      |
+    +=============+==================================================+
+    | ``k``       | Spring constant :math:`k`.                       |
+    +-------------+--------------------------------------------------+
+
+    Parameters
+    ----------
+    types : tuple[str]
+        Types.
+    name : str
+        Unique name of the potential. Defaults to ``__u[id]``, where ``id`` is the
+        unique integer ID of the potential.
+
+    Attributes
+    ----------
+    coeff : :class:`AngleParameters`
+        Parameters of the potential for each type.
+
+    Examples
+    --------
+    Cosine Angle::
+
+        >>> u = relentless.potential.angle.CosineAngle(("A",))
+        >>> u.coeff["A"].update({'k': 1000})
+
+    """
+
+    def __init__(self, types, name=None):
+        super().__init__(keys=types, params=("k",), name=name)
+
+    def energy(self, type_, theta):
+        """Evaluate angle energy."""
+        params = self.coeff.evaluate(type_)
+        k = params["k"]
+
+        theta, u, s = self._zeros(theta)
+
+        u = k * (1 + numpy.cos(theta))
+
+        if s:
+            u = u.item()
+        return u
+
+    def force(self, type_, theta):
+        """Evaluate angle force."""
+        params = self.coeff.evaluate(type_)
+        k = params["k"]
+
+        theta, f, s = self._zeros(theta)
+
+        f = k * numpy.sin(theta)
+
+        if s:
+            f = f.item()
+        return f
+
+    def _derivative(self, param, theta, k):
+        r"""Evaluate angle derivative with respect to a variable."""
+        theta, d, s = self._zeros(theta)
+
+        if param == "k":
+            d = 1 + numpy.cos(theta)
         else:
             raise ValueError("Unknown parameter")
 
@@ -219,8 +300,8 @@ class AngleSpline(BondSpline):
     The spline potential is setup from a tabulated potential instead of
     specifying knot parameters directly::
 
-        spline = relentless.potential.angle.AngleSpline(types=[angleA], num_knots=3)
-        spline.from_array("angleA",[0,1,2],[4,2,0])
+        spline = relentless.potential.angle.AngleSpline(types=(angleA,), num_knots=3)
+        spline.from_array(("angleA",),[0,1,2],[4,2,0])
 
     However, the knot variables can be iterated over and manipulated directly::
 
