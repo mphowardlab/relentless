@@ -27,6 +27,18 @@ Bond potentials
     BondSpline
 
 
+Angle potentials
+===============
+
+.. autosummary::
+    :toctree: generated/
+
+    AngleSpline
+    CosineAngle
+    CosineSquaredAngle
+    HarmonicAngle
+
+
 Developer classes
 =================
 
@@ -36,6 +48,8 @@ Developer classes
     Potential
     Parameters
     BondedPotential
+    AnglePotential
+    AngleParameters
     BondPotential
     BondParameters
     PairPotential
