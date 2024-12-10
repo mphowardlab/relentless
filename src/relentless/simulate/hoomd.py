@@ -104,6 +104,21 @@ class InitializationOperation(simulate.InitializationOperation):
                 bond_potential.params[i] = dict(r_min=r[0], r_max=r[-1], U=u[:], F=f[:])
             sim[self]["_potentials"].append(bond_potential)
 
+        sim[self]["_angles"] = self._get_angles_from_snapshot(sim, snap)
+        if sim.potentials.angle is not None:
+            sim.angle_types = sim["engine"]["_hoomd"].state.angle_types
+            angle_potential = hoomd.md.angle.Table(width=sim.potentials.angle.num)
+
+            for i in sim.angle_types:
+                u, tau = (
+                    sim.potentials.angle.energy(key=i),
+                    sim.potentials.angle.force(key=i),
+                )
+                if numpy.any(numpy.isinf(u)):
+                    raise ValueError("Angle potential/force is infinite at evaluated r")
+                angle_potential.params[i] = dict(U=u[:], tau=tau[:])
+            sim[self]["_potentials"].append(angle_potential)
+
     def _call_v2(self, sim):
         # initialize
         sim[self]["_system"] = self._initialize_v2(sim)
@@ -177,6 +192,12 @@ class InitializationOperation(simulate.InitializationOperation):
     def _get_bonds_from_snapshot(self, sim, snap):
         if mpi.world.rank_is_root:
             return snap.bonds.group
+        else:
+            return None
+
+    def _get_angles_from_snapshot(self, sim, snap):
+        if mpi.world.rank_is_root:
+            return snap.angles.group
         else:
             return None
 
@@ -1017,6 +1038,7 @@ class EnsembleAverage(AnalysisOperation):
             constraints=self._get_constrained_quantities(sim, sim_op),
             exclusions=sim.potentials.pair.exclusions,
             bonds=sim[sim.initializer]["_bonds"],
+            angles=sim[sim.initializer]["_angles"],
         )
         sim[self]["_hoomd_thermo_callback"] = hoomd.write.CustomWriter(
             trigger=self.every,
@@ -1210,6 +1232,7 @@ class EnsembleAverage(AnalysisOperation):
             constraints=None,
             exclusions=None,
             bonds=None,
+            angles=None,
         ):
             if dimension not in (2, 3):
                 raise ValueError("Only 2 or 3 dimensions supported")
@@ -1222,6 +1245,7 @@ class EnsembleAverage(AnalysisOperation):
             self.constraints = constraints if constraints is not None else {}
             self.exclusion = exclusions
             self.bonds = bonds
+            self.angles = angles
 
             # this method handles all the initialization
             self.reset()
@@ -1333,6 +1357,21 @@ class EnsembleAverage(AnalysisOperation):
                             )
 
                             neighbors.filter(bond_exclusion_filter)
+                        # Similarly filter angles from the neighbor list
+                        if (
+                            self.rdf_params["exclude"]
+                            and snap.angles.N != 0
+                            and len(neighbors[:]) > 0
+                        ):
+                            angles = numpy.vstack(
+                                [self.angles, numpy.flip(self.angles, axis=1)],
+                            )
+
+                            angle_exclusion_filter = EnsembleAverage._cantor_pairing(
+                                self, angles, neighbors
+                            )
+
+                            neighbors.filter(angle_exclusion_filter)
 
                         for i in self.types:
                             for j in self.types:
