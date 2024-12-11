@@ -381,6 +381,7 @@ class Potentials:
         self.pair = None
         self.bond = None
         self.angle = None
+        self.dihedral = None
 
     @property
     def pair(self):
@@ -414,6 +415,17 @@ class Potentials:
         if val is not None and not isinstance(val, AnglePotentialTabulator):
             raise TypeError("Angle potential must be tabulated")
         self._angle = val
+
+    @property
+    def dihedral(self):
+        """:class:`DihedralPotentialTabulator`: Dihedral potentials."""
+        return self._dihedral
+
+    @dihedral.setter
+    def dihedral(self, val):
+        if val is not None and not isinstance(val, DihedralPotentialTabulator):
+            raise TypeError("Dihedral potential must be tabulated")
+        self._dihedral = val
 
 
 class PotentialTabulator:
@@ -874,3 +886,28 @@ class AnglePotentialTabulator(PotentialTabulator):
 
     def __init__(self, potentials, num):
         super().__init__(potentials, num, start=0, stop=numpy.pi)
+
+
+class DihedralPotentialTabulator(PotentialTabulator):
+    r"""Tabulate one or more dihedral potentials.
+
+    Enables evaluation of energy, force, and derivative at different
+    dihedral values (i.e. :math:`\theta`).
+
+    Parameters
+    ----------
+    potentials : :class:`~relentless.potential.dihedral.DihedralPotential` or array_like
+        The dihedral potential(s) to be tabulated. If array_like, all elements must
+        be :class:`~relentless.potential.dihedral.DihedralPotential`\s.
+    start : float
+        The minimum value of :math:`\theta` at which to tabulate.
+    stop : float
+        The maximum value of :math:`\theta` at which to tabulate.
+    num : int
+        The number of points (value of :math:`\theta`) at which to tabulate and
+        evaluate the potential.
+
+    """
+
+    def __init__(self, potentials, num):
+        super().__init__(potentials, num, start=0, stop=2 * numpy.pi)

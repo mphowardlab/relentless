@@ -33,10 +33,21 @@ Angle potentials
 .. autosummary::
     :toctree: generated/
 
-    AngleSpline
     CosineAngle
     CosineSquaredAngle
     HarmonicAngle
+    AngleSpline
+
+Dihedral potentials
+===================
+
+.. autosummary::
+    :toctree: generated/
+
+    OPLSDihedral
+    RyckaertBellemansDihedral
+    DihedralSpline
+
 
 
 Developer classes
@@ -52,6 +63,8 @@ Developer classes
     AngleParameters
     BondPotential
     BondParameters
+    DihedralPotential
+    DihedralParameters
     PairPotential
     PairParameters
 
@@ -66,6 +79,13 @@ from .angle import (
     HarmonicAngle,
 )
 from .bond import FENEWCA, BondParameters, BondPotential, BondSpline, HarmonicBond
+from .dihedral import (
+    DihedralParameters,
+    DihedralPotential,
+    DihedralSpline,
+    OPLSDihedral,
+    RyckaertBellemansDihedral,
+)
 from .pair import (
     Depletion,
     LennardJones,
