@@ -375,3 +375,118 @@ class Potential(abc.ABC):
         data = self.to_json()
         with open(filename, "w") as f:
             json.dump(data, f, sort_keys=True, indent=4)
+
+
+class BondedPotential(Potential):
+    r"""Abstract base class for bonded interaction potential.
+
+    This class can be extended to evaluate the energy, force, and parameter
+    derivatives of a bonded potential with a given functional form.
+    :meth:`energy` specifies the potential energy :math:`u_0(r)`, :meth:`force`
+    specifies the force :math:`f_0(r) = -\partial u_0/\partial r`, and
+    :meth:`_derivative` specifies the derivative
+    :math:`u_{0,\lambda} = \partial u_0/\partial \lambda` with respect to
+    parameter :math:`\lambda`.
+    """
+
+    def derivative(self, type_, var, r):
+        r"""Evaluate bond derivative with respect to a variable.
+
+        The derivative is evaluated using the :meth:`_derivative` function for all
+        :math:`u_{0,\lambda}(r)`.
+
+        The derivative will be carried out with respect to ``var`` for all
+        :class:`~relentless.variable.Variable` parameters. The appropriate chain
+        rules are handled automatically. If the potential does not depend on
+        ``var``, the derivative will be zero by definition.
+
+        Parameters
+        ----------
+        _type : tuple[str]
+            The type for which to calculate the derivative.
+        var : :class:`~relentless.variable.Variable`
+            The variable with respect to which the derivative is calculated.
+        r : float or list
+            The bond distance(s) at which to evaluate the derivative.
+
+        Returns
+        -------
+        float or numpy.ndarray
+            The bond derivative evaluated at ``r``. The return type is consistent
+            with ``r``.
+
+        Raises
+        ------
+        ValueError
+            If any value in ``r`` is negative.
+        TypeError
+            If the parameter with respect to which to take the derivative
+            is not a :class:`~relentless.variable.Variable`.
+        ValueError
+            If the potential is shifted without setting ``rmax``.
+
+        """
+        params = self.coeff.evaluate(type_)
+        r, deriv, scalar_r = self._zeros(r)
+        if any(r < 0):
+            raise ValueError("r cannot be negative")
+        if not isinstance(var, variable.Variable):
+            raise TypeError(
+                "Parameter with respect to which to take the derivative"
+                " must be a Variable."
+            )
+
+        flags = numpy.ones(r.shape[0], dtype=bool)
+
+        for p in self.coeff.params:
+            # try to take chain rule w.r.t. variable first
+            p_obj = self.coeff[type_][p]
+            if isinstance(p_obj, variable.DependentVariable):
+                dp_dvar = p_obj.derivative(var)
+            elif isinstance(p_obj, variable.IndependentVariable) and var is p_obj:
+                dp_dvar = 1.0
+            else:
+                dp_dvar = 0.0
+
+            # skip when dp_dvar is exactly zero, since this does not contribute
+            if dp_dvar == 0.0:
+                continue
+
+            # now take the parameter derivative
+            below = numpy.zeros(r.shape[0], dtype=bool)
+            above = numpy.zeros(r.shape[0], dtype=bool)
+
+            flags = numpy.logical_and(~below, ~above)
+            deriv[flags] += self._derivative(p, r[flags], **params) * dp_dvar
+
+        # coerce derivative back into shape of the input
+        if scalar_r:
+            deriv = deriv.item()
+        return deriv
+
+    @abc.abstractmethod
+    def _derivative(self, param, r, **params):
+        """Implementation of the parameter derivative function.
+
+        This abstract method defines the interface for computing the parameter
+        derivative of a bond interaction. ``**params`` will include all the
+        parameters from :class:`PairParameters`. The derivative should be
+        consistent with :meth:`_energy`.
+
+        Parameters
+        ----------
+        param : str
+            Name of the parameter.
+        r : float or list
+            The bond distance(s) at which to evaluate the derivative.
+        **params : kwargs
+            Named parameters of the potential.
+
+        Returns
+        -------
+        float or numpy.ndarray
+            The bond derivative evaluated at ``r``. The return type is consistent
+            with ``r``.
+
+        """
+        pass
