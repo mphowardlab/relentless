@@ -82,8 +82,8 @@ jobs:
       - name: Setup Python ${{ matrix.python-version }}
         uses: conda-incubator/setup-miniconda@v3
         with:
-          channels: conda-forge
-          channel-priority: flexible
+          channels: conda-forge,defaults
+          channel-priority: strict
           python-version: ${{ matrix.python-version }}
       - name: Force HOOMD 2 NumPy version
         if: ${{ matrix.hoomd-version == '2.9.7' || matrix.hoomd-version == '3.11.0' }}
@@ -122,8 +122,8 @@ jobs:
       - name: Setup Python ${{ matrix.python-version }}
         uses: conda-incubator/setup-miniconda@v3
         with:
-          channels: conda-forge
-          channel-priority: flexible
+          channels: conda-forge,defaults
+          channel-priority: strict
           python-version: ${{ matrix.python-version }}
       - name: Install LAMMPS
         run: |
@@ -164,8 +164,8 @@ jobs:
       - name: Setup Python 3.9
         uses: conda-incubator/setup-miniconda@v3
         with:
-          channels: conda-forge
-          channel-priority: flexible
+          channels: conda-forge,defaults
+          channel-priority: strict
           python-version: 3.9
       - name: Install test dependencies
         run: |
