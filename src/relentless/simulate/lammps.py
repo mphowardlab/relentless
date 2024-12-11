@@ -192,6 +192,8 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
             if has_bonds:
                 bond_type_label = sim[self]["bonds"].type_label
             has_angles = snap.has_angles()
+            if has_angles:
+                angle_type_label = sim[self]["angles"].type_label
             has_dihedrals = snap.has_dihedrals()
             if has_dihedrals:
                 dihedral_type_label = sim[self]["dihedrals"].type_label
@@ -216,6 +218,7 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
         sim.masses.update(masses)
         dim_safe = mpi.world.bcast(dim_safe)
         bond_type_label = mpi.world.bcast(bond_type_label)
+        angle_type_label = mpi.world.bcast(angle_type_label)
         dihedral_type_label = mpi.world.bcast(dihedral_type_label)
         has_bonds = mpi.world.bcast(has_bonds)
         has_angles = mpi.world.bcast(has_angles)
@@ -244,6 +247,19 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
                 if numpy.any(numpy.isinf(uB[i])):
                     raise ValueError("Bond potential/force is infinite at evaluated r")
             NrB = len(rB)
+
+        if has_angles:
+            uA = collections.FixedKeyDict(angle_type_label.types)
+            fA = collections.FixedKeyDict(angle_type_label.types)
+            for i in angle_type_label.types:
+                thetaA, uA[i], fA[i] = (
+                    sim.potentials.angle.linear_space,
+                    sim.potentials.angle.energy(key=i),
+                    sim.potentials.angle.force(key=i),
+                )
+                if numpy.any(numpy.isinf(uA[i])):
+                    raise ValueError("Angle potential/force is infinite at evaluated r")
+            NthetaA = len(thetaA)
 
         if has_dihedrals:
             uD = collections.FixedKeyDict(dihedral_type_label.types)
@@ -324,6 +340,25 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
                                 )
                             )
 
+                if has_angles:
+                    fw.write("# LAMMPS tabulated angle potentials\n")
+                    for i in angle_type_label.types:
+                        fw.write("# angle ANGLE_TABLE_{}\n\n".format(i))
+                        fw.write("ANGLE_TABLE_{}\n".format(i))
+                        fw.write(
+                            "N {N} FP {f_low} {f_high} \n\n".format(
+                                N=NthetaA, f_low=fA[i][0], f_high=fA[i][-1]
+                            )
+                        )
+                        for idx, (thetaA_, uA_, fA_) in enumerate(
+                            zip(thetaA, uA[i], fA[i]), start=1
+                        ):
+                            fw.write(
+                                "{id} {thetaA} {uA} {fA}\n".format(
+                                    id=idx, thetaA=thetaA_, uA=uA_, fA=fA_
+                                )
+                            )
+
                 # write dihedral potentials into the file
                 if has_dihedrals:
                     fw.write("# LAMMPS tabulated dihedral potentials\n")
@@ -357,6 +392,8 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
             if sim.potentials.pair.exclusions is not None:
                 if "1-2" in sim.potentials.pair.exclusions:
                     excl_12 = 0.0
+                if "1-3" in sim.potentials.pair.exclusions:
+                    excl_13 = 0.0
                 if "1-4" in sim.potentials.pair.exclusions:
                     excl_14 = 0.0
             cmds += [f"special_bonds lj/coul {excl_12} {excl_13} {excl_14}"]
