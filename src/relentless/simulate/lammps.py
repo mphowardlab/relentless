@@ -384,14 +384,11 @@ class InitializeFromFile(InitializationOperation):
 
                 # check atom style is compatible with topology data if present
                 if (
-                    numpy.logical_or(
-                        snap.has_bonds(),
-                        snap.has_angles(),
-                        snap.has_dihedrals(),
-                        snap.has_impropers(),
-                    )
-                    and sim["engine"]["atom_style"] == "atomic"
-                ):
+                    snap.has_bonds()
+                    or snap.has_angles()
+                    or snap.has_dihedrals()
+                    or snap.has_impropers()
+                ) and sim["engine"]["atom_style"] == "atomic":
                     raise ValueError(
                         "Atomic atom style is not compatible with topology data."
                     )
