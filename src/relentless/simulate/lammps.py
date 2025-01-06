@@ -190,7 +190,7 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
             snap = lammpsio.DataFile(sim[self]["_datafile"]).read()
             has_bonds = snap.has_bonds()
             if has_bonds:
-                bond_type_label = sim[self]["bonds"].type_label
+                bond_type_label = sim[self]["_bonds"].type_label
             has_angles = snap.has_angles()
             has_dihedrals = snap.has_dihedrals()
             has_impropers = snap.has_impropers()
@@ -213,13 +213,14 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
         masses = mpi.world.bcast(masses)
         sim.masses.update(masses)
         dim_safe = mpi.world.bcast(dim_safe)
-        bond_type_label = mpi.world.bcast(bond_type_label)
+        if not dim_safe:
+            raise ValueError("Simulation initialized inconsistent with dimension")
+
         has_bonds = mpi.world.bcast(has_bonds)
         has_angles = mpi.world.bcast(has_angles)
         has_dihedrals = mpi.world.bcast(has_dihedrals)
         has_impropers = mpi.world.bcast(has_impropers)
-        if not dim_safe:
-            raise ValueError("Simulation initialized inconsistent with dimension")
+        bond_type_label = mpi.world.bcast(bond_type_label)
 
         # attach the potentials
         if sim.potentials.pair.start == 0:
@@ -383,18 +384,20 @@ class InitializeFromFile(InitializationOperation):
 
                 # check atom style is compatible with topology data if present
                 if (
-                    snap.has_bonds()
-                    or snap.has_angles()
-                    or snap.has_dihedrals()
-                    or snap.has_impropers()
+                    numpy.logical_or(
+                        snap.has_bonds(),
+                        snap.has_angles(),
+                        snap.has_dihedrals(),
+                        snap.has_impropers(),
+                    )
+                    and sim["engine"]["atom_style"] == "atomic"
                 ):
-                    if sim["engine"]["atom_style"] == "atomic":
-                        raise ValueError(
-                            "Atomic atom style is not compatible with topology data."
-                        )
+                    raise ValueError(
+                        "Atomic atom style is not compatible with topology data."
+                    )
                 # store topology data
                 if snap.has_bonds():
-                    sim[self]["bonds"] = snap.bonds
+                    sim[self]["_bonds"] = snap.bonds
                 # figure out dimensions
                 dimension = self.dimension
                 if dimension is None:
@@ -413,6 +416,7 @@ class InitializeFromFile(InitializationOperation):
                     data_filename, snap, sim["engine"]["atom_style"]
                 )
             else:
+                sim[self]["_bonds"] = None
                 data_filename = None
                 dimension = None
                 type_map = None
@@ -433,16 +437,18 @@ class InitializeFromFile(InitializationOperation):
                     type_map = {str(typeid): typeid for typeid in typeids}
                     # store topology data
                     if snap.has_bonds():
-                        sim[self]["bonds"] = snap.bonds
-                        # get all bond potentials
-                        types = [
-                            sim.potentials.bond.potentials[i].coeff.types
-                            for (i, j) in enumerate(sim.potentials.bond.potentials)
-                        ]
-                        # get all types from all potentials
-                        types = [t for sublist in types for t in sublist]
-                        bond_type_map = {i: types[i - 1] for i in snap.bonds.typeid}
-                        sim[self]["bonds"].type_label = lammpsio.LabelMap(bond_type_map)
+                        sim[self]["_bonds"] = snap.bonds
+                        unique_bond_types = set()
+                        for pot in sim.potentials.bond.potentials:
+                            for i in pot.coeff.types:
+                                unique_bond_types.add(i)
+
+                        bond_type_map = {
+                            i + 1: t for i, t in enumerate(unique_bond_types)
+                        }
+                        sim[self]["_bonds"].type_label = lammpsio.LabelMap(
+                            bond_type_map
+                        )
                 else:
                     type_map = None
                 type_map = mpi.world.bcast(type_map)
@@ -1276,14 +1282,14 @@ class EnsembleAverage(AnalysisOperation):
                     # consider both (i,j) and (j,i) permutations
                     if (
                         sim[self]["_rdf_params"]["exclude"]
-                        and sim[sim.initializer]["bonds"].N != 0
+                        and sim[sim.initializer]["_bonds"].N != 0
                         and len(neighbors[:]) > 0
                     ):
                         bonds = numpy.vstack(
                             [
-                                sim[sim.initializer]["bonds"].members,
+                                sim[sim.initializer]["_bonds"].members,
                                 numpy.flip(
-                                    sim[sim.initializer]["bonds"].members, axis=1
+                                    sim[sim.initializer]["_bonds"].members, axis=1
                                 ),
                             ],
                         )
