@@ -122,6 +122,7 @@ Defining interactions
 
     Potentials
     PotentialTabulator
+    BondPotentialTabulator
     PairPotentialTabulator
 
 Developer classes
@@ -157,6 +158,7 @@ from .md import (
 )
 from .simulate import (
     AnalysisOperation,
+    BondPotentialTabulator,
     PairPotentialTabulator,
     Potentials,
     PotentialTabulator,
