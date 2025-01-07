@@ -384,6 +384,16 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
                         id=bond_type_label.__getitem__(id),
                     )
                 ]
+
+        if has_angles:
+            for id in angle_type_label.typeid:
+                cmds += [
+                    ("angle_coeff {typeid} {filename}" " ANGLE_TABLE_{id}").format(
+                        typeid=id,
+                        filename=file_,
+                        id=angle_type_label.__getitem__(id),
+                    )
+                ]
         return cmds
 
     @abc.abstractmethod
@@ -432,6 +442,8 @@ class InitializeFromFile(InitializationOperation):
                 # store topology data
                 if snap.has_bonds():
                     sim[self]["_bonds"] = snap.bonds
+                if snap.has_angles():
+                    sim[self]["_angles"] = snap.angles
                 # figure out dimensions
                 dimension = self.dimension
                 if dimension is None:
@@ -451,6 +463,7 @@ class InitializeFromFile(InitializationOperation):
                 )
             else:
                 sim[self]["_bonds"] = None
+                sim[self]["_angles"] = None
                 data_filename = None
                 dimension = None
                 type_map = None
@@ -482,6 +495,19 @@ class InitializeFromFile(InitializationOperation):
                         }
                         sim[self]["_bonds"].type_label = lammpsio.LabelMap(
                             bond_type_map
+                        )
+                    if snap.has_angles():
+                        sim[self]["_angles"] = snap.angles
+                        unique_angle_types = set()
+                        for pot in sim.potentials.angle.potentials:
+                            for i in pot.coeff.types:
+                                unique_angle_types.add(i)
+
+                        angle_type_map = {
+                            i + 1: t for i, t in enumerate(unique_angle_types)
+                        }
+                        sim[self]["_angles"].type_label = lammpsio.LabelMap(
+                            angle_type_map
                         )
                 else:
                     type_map = None
@@ -1335,6 +1361,29 @@ class EnsembleAverage(AnalysisOperation):
                         )
 
                         neighbors.filter(bond_exclusion_filter)
+
+                    # filter angles from the neighbor list if they are present
+                    if (
+                        sim[self]["_rdf_params"]["exclude"]
+                        and sim[sim.initializer]["_angles"].N != 0
+                        and len(neighbors[:]) > 0
+                    ):
+                        angles = numpy.vstack(
+                            [
+                                sim[sim.initializer]["_angles"].members,
+                                numpy.flip(
+                                    sim[sim.initializer]["_angles"].members, axis=1
+                                ),
+                            ],
+                        )
+                        # Zero index angles
+                        angles -= 1
+
+                        angle_exclusion_filter = EnsembleAverage._cantor_pairing(
+                            self, angles, neighbors
+                        )
+
+                        neighbors.filter(angle_exclusion_filter)
 
                     for i in sim.types:
                         _rdf_density[i] += N[i] / box.volume
