@@ -28,7 +28,7 @@ Bond potentials
 
 
 Angle potentials
-===============
+================
 
 .. autosummary::
     :toctree: generated/
