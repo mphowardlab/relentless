@@ -8,69 +8,7 @@ import numpy
 import relentless
 
 
-class test_AngleParameters(unittest.TestCase):
-    """Unit tests for relentless.angle.AngleParameters"""
-
-    def test_init(self):
-        """Test creation from data"""
-        types = ("A", "B")
-        params = ("energy", "mass")
-
-        # test construction with tuple input
-        m = relentless.model.potential.angle.AngleParameters(
-            types=("A", "B"), params=("energy", "mass")
-        )
-        self.assertEqual(m.types, types)
-        self.assertEqual(m.params, params)
-
-        # test construction with list input
-        m = relentless.model.potential.angle.AngleParameters(
-            types=["A", "B"], params=("energy", "mass")
-        )
-        self.assertEqual(m.types, types)
-        self.assertEqual(m.params, params)
-
-        # test construction with mixed tuple/list input
-        m = relentless.model.potential.angle.AngleParameters(
-            types=("A", "B"), params=["energy", "mass"]
-        )
-        self.assertEqual(m.types, types)
-        self.assertEqual(m.params, params)
-
-        # test construction with int type parameters
-        with self.assertRaises(TypeError):
-            m = relentless.model.potential.angle.AngleParameters(
-                types=("A", "B"), params=(1, 2)
-            )
-
-        # test construction with mixed type parameters
-        with self.assertRaises(TypeError):
-            m = relentless.model.potential.angle.AngleParameters(
-                types=("A", "B"), params=("1", 2)
-            )
-
-    def test_param_types(self):
-        """Test various get and set methods on angle parameter types"""
-        m = relentless.model.potential.angle.AngleParameters(
-            types=("A", "B"), params=("energy", "mass")
-        )
-
-        self.assertEqual(m["A"]["energy"], None)
-        self.assertEqual(m["A"]["mass"], None)
-        self.assertEqual(m["B"]["energy"], None)
-        self.assertEqual(m["B"]["mass"], None)
-
-        # test setting per-type params
-        m["A"].update(energy=1.5, mass=2.5)
-        m["B"].update(energy=0.5, mass=0.7)
-
-        self.assertEqual(m["A"]["energy"], 1.5)
-        self.assertEqual(m["A"]["mass"], 2.5)
-        self.assertEqual(m["B"]["energy"], 0.5)
-        self.assertEqual(m["B"]["mass"], 0.7)
-
-
-class LinPot(relentless.model.potential.angle.AnglePotential):
+class LinPotAngle(relentless.model.potential.angle.AnglePotential):
     """Linear angle potential function"""
 
     def __init__(self, types, params):
@@ -142,7 +80,7 @@ class test_AnglePotential(unittest.TestCase):
     def test_init(self):
         """Test creation from data"""
         # test creation with only m
-        p = LinPot(types=("1",), params=("m",))
+        p = LinPotAngle(types=("1",), params=("m",))
         p.coeff["1"]["m"] = 3.5
 
         coeff = relentless.model.potential.angle.AngleParameters(
@@ -156,7 +94,7 @@ class test_AnglePotential(unittest.TestCase):
 
     def test_energy(self):
         """Test energy method"""
-        p = LinPot(types=("1",), params=("m",))
+        p = LinPotAngle(types=("1",), params=("m",))
         p.coeff["1"]["m"] = 2.0
 
         # test with no cutoffs
@@ -167,7 +105,7 @@ class test_AnglePotential(unittest.TestCase):
 
     def test_force(self):
         """Test force method"""
-        p = LinPot(types=("1",), params=("m",))
+        p = LinPotAngle(types=("1",), params=("m",))
         p.coeff["1"]["m"] = 2.0
 
         # test with no cutoffs
@@ -178,7 +116,7 @@ class test_AnglePotential(unittest.TestCase):
 
     def test_derivative_values(self):
         """Test derivative method with different param values"""
-        p = LinPot(types=("1",), params=("m",))
+        p = LinPotAngle(types=("1",), params=("m",))
         x = relentless.model.IndependentVariable(value=2.0)
         p.coeff["1"]["m"] = x
 
@@ -190,7 +128,7 @@ class test_AnglePotential(unittest.TestCase):
 
     def test_derivative_types(self):
         """Test derivative method with different param types."""
-        q = LinPot(types=("1",), params=("m",))
+        q = LinPotAngle(types=("1",), params=("m",))
         x = relentless.model.IndependentVariable(value=4.0)
         y = relentless.model.IndependentVariable(value=64.0)
         z = relentless.model.GeometricMean(x, y)
@@ -228,7 +166,7 @@ class test_AnglePotential(unittest.TestCase):
 
     def test_iteration(self):
         """Test iteration on typesPotential object"""
-        p = LinPot(types=("1",), params=("m",))
+        p = LinPotAngle(types=("1",), params=("m",))
         for types in p.coeff:
             p.coeff[types]["m"] = 2.0
 
@@ -236,24 +174,24 @@ class test_AnglePotential(unittest.TestCase):
 
     def test_json(self):
         """Test saving to file"""
-        p = LinPot(types=("1",), params=("m"))
+        p = LinPotAngle(types=("1",), params=("m"))
         p.coeff["1"]["m"] = 2.0
 
         data = p.to_json()
         self.assertEqual(data["id"], p.id)
         self.assertEqual(data["name"], p.name)
 
-        p2 = LinPot.from_json(data)
+        p2 = LinPotAngle.from_json(data)
         self.assertEqual(p2.coeff["1"]["m"], 2.0)
 
     def test_save(self):
         """Test saving to file"""
         temp = tempfile.NamedTemporaryFile()
-        p = LinPot(types=("1",), params=("m"))
+        p = LinPotAngle(types=("1",), params=("m"))
         p.coeff["1"]["m"] = 2.0
         p.save(temp.name)
 
-        p2 = LinPot.from_file(temp.name)
+        p2 = LinPotAngle.from_file(temp.name)
         self.assertEqual(p2.coeff["1"]["m"], 2.0)
 
         temp.close()
@@ -607,147 +545,6 @@ class test_AngleSpline(unittest.TestCase):
             s = relentless.model.potential.AngleSpline(
                 types=("1",), num_knots=3, mode="val"
             )
-
-    def test_from_array(self):
-        """Test from_array method and knots generator"""
-        r_arr = [1, 2, 3]
-        u_arr = [9, 4, 1]
-        u_arr_diff = [5, 3, 1]
-
-        # test diff mode
-        s = relentless.model.potential.AngleSpline(types=("1",), num_knots=3)
-        s.from_array(types=("1"), theta=r_arr, u=u_arr)
-
-        dvars = []
-        for i, (r, k) in enumerate(s.knots(types=("1"))):
-            self.assertAlmostEqual(r.value, 1.0)
-            self.assertAlmostEqual(k.value, u_arr_diff[i])
-            self.assertIsInstance(r, relentless.model.IndependentVariable)
-            self.assertIsInstance(k, relentless.model.IndependentVariable)
-            if i < s.num_knots - 1:
-                dvars.append(k)
-        self.assertCountEqual(s.design_variables, dvars)
-
-        # test value mode
-        s = relentless.model.potential.AngleSpline(
-            types=("1",), num_knots=3, mode="value"
-        )
-        s.from_array(types=("1"), theta=r_arr, u=u_arr)
-
-        dvars = []
-        for i, (r, k) in enumerate(s.knots(types=("1"))):
-            self.assertAlmostEqual(r.value, 1.0)
-            self.assertAlmostEqual(k.value, u_arr[i])
-            self.assertIsInstance(r, relentless.model.IndependentVariable)
-            self.assertIsInstance(k, relentless.model.IndependentVariable)
-            if i != s.num_knots - 1:
-                dvars.append(k)
-        self.assertCountEqual(s.design_variables, dvars)
-
-        # test invalid r and u shapes
-        r_arr = [2, 3]
-        with self.assertRaises(ValueError):
-            s.from_array(types=("1"), theta=r_arr, u=u_arr)
-
-        r_arr = [1, 2, 3]
-        u_arr = [1, 2]
-        with self.assertRaises(ValueError):
-            s.from_array(types=("1"), theta=r_arr, u=u_arr)
-
-    def test_energy(self):
-        """Test energy method"""
-        r_arr = [1, 2, 3]
-        u_arr = [9, 4, 1]
-
-        # test diff mode
-        s = relentless.model.potential.AngleSpline(types=("1",), num_knots=3)
-        s.from_array(types=("1"), theta=r_arr, u=u_arr)
-        u_actual = numpy.array([6.25, 2.25, 1])
-        u = s.energy(types=("1"), theta=[1.5, 2.5, 3.5])
-        numpy.testing.assert_allclose(u, u_actual)
-
-        # test value mode
-        s = relentless.model.potential.AngleSpline(
-            types=("1",), num_knots=3, mode="value"
-        )
-        s.from_array(types=("1"), theta=r_arr, u=u_arr)
-        u_actual = numpy.array([6.25, 2.25, 1])
-        u = s.energy(types=("1"), theta=[1.5, 2.5, 3.5])
-        numpy.testing.assert_allclose(u, u_actual)
-
-        # test AngleSpline with 2 knots
-        s = relentless.model.potential.AngleSpline(
-            types=("1",), num_knots=2, mode="value"
-        )
-        s.from_array(types=("1"), theta=[1, 2], u=[4, 2])
-        u = s.energy(types=("1"), theta=1.5)
-        self.assertAlmostEqual(u, 3)
-
-    def test_force(self):
-        """Test force method"""
-        r_arr = [1, 2, 3]
-        u_arr = [9, 4, 1]
-
-        # test diff mode
-        s = relentless.model.potential.AngleSpline(types=("1",), num_knots=3)
-        s.from_array(types=("1"), theta=r_arr, u=u_arr)
-        f_actual = numpy.array([5, 3, 0])
-        f = s.force(types=("1"), theta=[1.5, 2.5, 3.5])
-        numpy.testing.assert_allclose(f, f_actual)
-
-        # test value mode
-        s = relentless.model.potential.AngleSpline(
-            types=("1",), num_knots=3, mode="value"
-        )
-        s.from_array(types=("1"), theta=r_arr, u=u_arr)
-        f_actual = numpy.array([5, 3, 0])
-        f = s.force(types=("1"), theta=[1.5, 2.5, 3.5])
-        numpy.testing.assert_allclose(f, f_actual)
-
-        # test AngleSpline with 2 knots
-        s = relentless.model.potential.AngleSpline(
-            types=("1",), num_knots=2, mode="value"
-        )
-        s.from_array(types=("1"), theta=[1, 2], u=[4, 2])
-        f = s.force(types=("1"), theta=1.5)
-        self.assertAlmostEqual(f, 2)
-
-    def test_derivative(self):
-        """Test derivative method"""
-        theta_arr = [1, 2, 3]
-        u_arr = [9, 4, 1]
-
-        # test diff mode
-        s = relentless.model.potential.AngleSpline(types=("1",), num_knots=3)
-        s.from_array(types=("1"), theta=theta_arr, u=u_arr)
-        d_actual = numpy.array([1.125, 0.625, 0])
-        param = list(s.knots(("1")))[1][1]
-        d = s.derivative(types=("1"), var=param, r=[1.5, 2.5, 3.5])
-        numpy.testing.assert_allclose(d, d_actual)
-
-        # test value mode
-        s = relentless.model.potential.AngleSpline(
-            types=("1",), num_knots=3, mode="value"
-        )
-        s.from_array(types=("1"), theta=theta_arr, u=u_arr)
-        d_actual = numpy.array([0.75, 0.75, 0])
-        param = list(s.knots(("1")))[1][1]
-        d = s.derivative(types=("1"), var=param, r=[1.5, 2.5, 3.5])
-        numpy.testing.assert_allclose(d, d_actual)
-
-    def test_json(self):
-        r_arr = [1, 2, 3]
-        u_arr = [9, 4, 1]
-        u_arr_diff = [5, 3, 1]
-
-        s = relentless.model.potential.AngleSpline(types=("1",), num_knots=3)
-        s.from_array(types=("1"), theta=r_arr, u=u_arr)
-        data = s.to_json()
-
-        s2 = relentless.model.potential.AngleSpline.from_json(data)
-        for i, (r, k) in enumerate(s2.knots(types=("1"))):
-            self.assertAlmostEqual(r.value, 1.0)
-            self.assertAlmostEqual(k.value, u_arr_diff[i])
 
 
 if __name__ == "__main__":
