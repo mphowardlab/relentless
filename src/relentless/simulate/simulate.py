@@ -873,4 +873,4 @@ class AnglePotentialTabulator(PotentialTabulator):
     """
 
     def __init__(self, potentials, num):
-        super().__init__(potentials, num, start=0, stop=numpy.pi)
+        super().__init__(potentials=potentials, start=0.0, stop=numpy.pi, num=num)

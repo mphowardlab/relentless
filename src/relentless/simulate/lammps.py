@@ -186,6 +186,7 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
         has_dihedrals = None
         has_impropers = None
         bond_type_label = None
+        angle_type_label = None
         if mpi.world.rank_is_root:
             snap = lammpsio.DataFile(sim[self]["_datafile"]).read()
             has_bonds = snap.has_bonds()
@@ -193,7 +194,7 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
                 bond_type_label = sim[self]["_bonds"].type_label
             has_angles = snap.has_angles()
             if has_angles:
-                angle_type_label = sim[self]["angles"].type_label
+                angle_type_label = sim[self]["_angles"].type_label
             has_dihedrals = snap.has_dihedrals()
             has_impropers = snap.has_impropers()
             for i in sim.types:
@@ -334,7 +335,7 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
                             )
                         )
                         for idx, (thetaA_, uA_, fA_) in enumerate(
-                            zip(thetaA, uA[i], fA[i]), start=1
+                            zip(thetaA * 180 / numpy.pi, uA[i], fA[i]), start=1
                         ):
                             fw.write(
                                 "{id} {thetaA} {uA} {fA}\n".format(
@@ -365,6 +366,9 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
 
         if has_bonds:
             cmds += ["bond_style table linear {Nb}".format(Nb=NrB)]
+
+        if has_angles:
+            cmds += ["angle_style table linear {Na}".format(Na=NthetaA)]
 
         for i, j in sim.pairs:
             # get lammps type indexes, lowest type first
