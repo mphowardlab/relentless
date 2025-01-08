@@ -498,6 +498,10 @@ class BondedSpline(BondedPotential):
     The bonded spline potential is defined by interpolation through a set of
     knot points. The interpolation scheme uses Akima splines.
 
+    This class should not be instantiated directly. Instead, use the appropriate
+    spline type, i.e., :class:`~relentless.model.potential.BondSpline` or
+    :class:`~relentless.model.potential.AngleSpline`.
+
     Parameters
     ----------
     types : tuple[str]
@@ -514,10 +518,6 @@ class BondedSpline(BondedPotential):
     name : str
         Unique name of the potential. Defaults to ``__u[id]``, where ``id`` is the
         unique integer ID of the potential.
-
-    This class should not be instantiated directly. Instead, use the appropriate
-    spline type, i.e., :class:`~relentless.model.potential.BondSpline` or
-    :class:`~relentless.model.potential.AngleSpline`.
 
     """
 
