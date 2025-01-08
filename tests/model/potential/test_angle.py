@@ -378,12 +378,12 @@ class test_CosineAngle(unittest.TestCase):
         self.assertEqual(cosine_angle2.coeff["1"]["k"], 1000)
 
 
-class test_CosineSquaredAngle(unittest.TestCase):
-    """Unit tests for relentless.model.potential.CosineSquaredAngle"""
+class test_HarmonicCosineAngle(unittest.TestCase):
+    """Unit tests for relentless.model.potential.HarmonicCosineAngle"""
 
     def test_init(self):
         """Test creation from data"""
-        cosine_squred_angle = relentless.model.potential.CosineSquaredAngle(
+        cosine_squred_angle = relentless.model.potential.HarmonicCosineAngle(
             types=("1",)
         )
         coeff = relentless.model.potential.AngleParameters(
@@ -398,7 +398,7 @@ class test_CosineSquaredAngle(unittest.TestCase):
 
     def test_energy(self):
         """Test _energy method"""
-        cosine_squred_angle = relentless.model.potential.CosineSquaredAngle(
+        cosine_squred_angle = relentless.model.potential.HarmonicCosineAngle(
             types=("1",)
         )
         cosine_squred_angle.coeff["1"].update(k=1000, theta0=numpy.pi / 2)
@@ -416,7 +416,7 @@ class test_CosineSquaredAngle(unittest.TestCase):
 
     def test_force(self):
         """Test _force method"""
-        cosine_squred_angle = relentless.model.potential.CosineSquaredAngle(
+        cosine_squred_angle = relentless.model.potential.HarmonicCosineAngle(
             types=("1",)
         )
         cosine_squred_angle.coeff["1"].update(k=1000, theta0=numpy.pi / 2)
@@ -435,7 +435,7 @@ class test_CosineSquaredAngle(unittest.TestCase):
 
     def test_derivative(self):
         """Test _derivative method"""
-        cosinesquared_angle = relentless.model.potential.CosineSquaredAngle(
+        harmonic_cosine_angle = relentless.model.potential.HarmonicCosineAngle(
             types=("1",)
         )
 
@@ -443,7 +443,7 @@ class test_CosineSquaredAngle(unittest.TestCase):
         # test scalar r
         theta_input = numpy.pi
         d_actual = 1
-        d = cosinesquared_angle._derivative(
+        d = harmonic_cosine_angle._derivative(
             param="k", theta=theta_input, k=1000, theta0=numpy.pi / 2
         )
         self.assertAlmostEqual(d, d_actual)
@@ -451,7 +451,7 @@ class test_CosineSquaredAngle(unittest.TestCase):
         # test array r
         theta_input = numpy.array([numpy.pi / 4, numpy.pi / 2, numpy.pi])
         d_actual = numpy.array([0.50, 0.0, 1])
-        d = cosinesquared_angle._derivative(
+        d = harmonic_cosine_angle._derivative(
             param="k", theta=theta_input, k=1000, theta0=numpy.pi / 2
         )
         numpy.testing.assert_allclose(d, d_actual)
@@ -460,7 +460,7 @@ class test_CosineSquaredAngle(unittest.TestCase):
         # test scalar r
         theta_input = numpy.pi
         d_actual = -2000
-        d = cosinesquared_angle._derivative(
+        d = harmonic_cosine_angle._derivative(
             param="theta0", theta=theta_input, k=1000.0, theta0=numpy.pi / 2
         )
         self.assertAlmostEqual(d, d_actual)
@@ -468,25 +468,25 @@ class test_CosineSquaredAngle(unittest.TestCase):
         # test array r
         theta_input = numpy.array([numpy.pi / 4, numpy.pi / 2, numpy.pi])
         d_actual = numpy.array([1414.21356237, 0, -2000])
-        d = cosinesquared_angle._derivative(
+        d = harmonic_cosine_angle._derivative(
             param="theta0", theta=theta_input, k=1000.0, theta0=numpy.pi / 2
         )
         numpy.testing.assert_allclose(d, d_actual)
 
         # test invalid param
         with self.assertRaises(ValueError):
-            cosinesquared_angle._derivative(
+            harmonic_cosine_angle._derivative(
                 param="thetao", theta=theta_input, k=1000.0, theta0=1.0
             )
 
     def test_json(self):
-        cosine_squred_angle = relentless.model.potential.CosineSquaredAngle(
+        cosine_squred_angle = relentless.model.potential.HarmonicCosineAngle(
             types=("1",)
         )
         cosine_squred_angle.coeff["1"].update(k=1000, theta0=1.0)
         data = cosine_squred_angle.to_json()
 
-        cosine_squred_angle2 = relentless.model.potential.CosineSquaredAngle.from_json(
+        cosine_squred_angle2 = relentless.model.potential.HarmonicCosineAngle.from_json(
             data
         )
         self.assertEqual(cosine_squred_angle2.coeff["1"]["k"], 1000)

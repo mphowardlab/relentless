@@ -35,8 +35,8 @@ Angle potentials
 
     AngleSpline
     CosineAngle
-    CosineSquaredAngle
     HarmonicAngle
+    HarmonicCosineAngle
 
 
 Developer classes
@@ -62,8 +62,8 @@ from .angle import (
     AnglePotential,
     AngleSpline,
     CosineAngle,
-    CosineSquaredAngle,
     HarmonicAngle,
+    HarmonicCosineAngle,
 )
 from .bond import FENEWCA, BondParameters, BondPotential, BondSpline, HarmonicBond
 from .pair import (

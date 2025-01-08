@@ -104,8 +104,8 @@ class HarmonicAngle(AnglePotential):
         return d
 
 
-class CosineSquaredAngle(AnglePotential):
-    r"""Cosine squared angle potential.
+class HarmonicCosineAngle(AnglePotential):
+    r"""Harmonic cosine angle potential.
 
     .. math::
 
@@ -139,7 +139,7 @@ class CosineSquaredAngle(AnglePotential):
     --------
     Cosine Squared Angle::
 
-        >>> u = relentless.potential.angle.CosineSquaredAngle(("A",))
+        >>> u = relentless.potential.angle.HarmonicCosineAngle(("A",))
         >>> u.coeff["A"].update({'k': 1000, 'theta0': 1})
 
     """
