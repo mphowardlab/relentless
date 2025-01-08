@@ -444,8 +444,10 @@ class InitializeFromFile(InitializationOperation):
                         "Atomic atom style is not compatible with topology data."
                     )
                 # store topology data
+                sim[self]["_bonds"] = None
                 if snap.has_bonds():
                     sim[self]["_bonds"] = snap.bonds
+                sim[self]["_angles"] = None
                 if snap.has_angles():
                     sim[self]["_angles"] = snap.angles
                 # figure out dimensions
@@ -487,6 +489,7 @@ class InitializeFromFile(InitializationOperation):
                     typeids = numpy.unique(snap.typeid)
                     type_map = {str(typeid): typeid for typeid in typeids}
                     # store topology data
+                    sim[self]["_bonds"] = None
                     if snap.has_bonds():
                         sim[self]["_bonds"] = snap.bonds
                         unique_bond_types = set()
@@ -500,6 +503,7 @@ class InitializeFromFile(InitializationOperation):
                         sim[self]["_bonds"].type_label = lammpsio.LabelMap(
                             bond_type_map
                         )
+                    sim[self]["_angles"] = None
                     if snap.has_angles():
                         sim[self]["_angles"] = snap.angles
                         unique_angle_types = set()
@@ -1346,7 +1350,7 @@ class EnsembleAverage(AnalysisOperation):
                     # consider both (i,j) and (j,i) permutations
                     if (
                         sim[self]["_rdf_params"]["exclude"]
-                        and sim[sim.initializer]["_bonds"].N != 0
+                        and sim[sim.initializer]["_bonds"] is not None
                         and len(neighbors[:]) > 0
                     ):
                         bonds = numpy.vstack(
@@ -1369,7 +1373,7 @@ class EnsembleAverage(AnalysisOperation):
                     # filter angles from the neighbor list if they are present
                     if (
                         sim[self]["_rdf_params"]["exclude"]
-                        and sim[sim.initializer]["_angles"].N != 0
+                        and sim[sim.initializer]["_angles"] is not None
                         and len(neighbors[:]) > 0
                     ):
                         angles = numpy.vstack(
