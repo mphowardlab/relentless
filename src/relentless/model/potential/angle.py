@@ -10,7 +10,21 @@ class AngleParameters(potential.Parameters):
 
 
 class AnglePotential(potential.BondedPotential):
-    r"""Abstract base class for an angle potential."""
+    r"""Abstract base class for an angle potential.
+
+    The angle potential is defined by the angle between three bonded particles.
+    The angle between particles :math:`i`, :math:`j`, and :math:`k` is defined as:
+
+    .. math::
+
+        \theta_{ijk} = \arccos\left(\frac{\mathbf{r}_{ij} \cdot
+        \mathbf{r}_{jk}}{|\mathbf{r}_{ij}||\mathbf{r}_{jk}|}\right)
+
+    where :math:`\mathbf{r}_{ij}` and :math:`\mathbf{r}_{jk}` are the vectors
+    between particles :math:`i` and :math:`j`, and particles :math:`j` and
+    :math:`k`, respectively.
+
+    """
 
     pass
 
