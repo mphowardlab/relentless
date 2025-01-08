@@ -268,6 +268,41 @@ class FENEWCA(BondPotential):
 
 
 class BondSpline(potential.BondedSpline, BondPotential):
-    """Spline bond potential."""
+    """Spline bond potentials.
+
+    The bonded spline potential is defined by interpolation through a set of
+    knot points. The interpolation scheme uses Akima splines.
+
+    Parameters
+    ----------
+    types : tuple[str]
+        Types.
+    num_knots : int
+        Number of knots.
+    mode : str
+        Mode for storing the values of the knots in
+        :class:`~relentless.variable.Variable` that can be optimized. If
+        ``mode='value'``, the knot amplitudes are manipulated directly.
+        If ``mode='diff'``, the amplitude of the *last* knot is fixed, and
+        differences between neighboring knots are manipulated for all other
+        knots. Defaults to ``'diff'``.
+    name : str
+        Unique name of the potential. Defaults to ``__u[id]``, where ``id`` is the
+        unique integer ID of the potential.
+
+    Examples
+    --------
+    The spline potential is setup from a tabulated potential instead of
+    specifying knot parameters directly::
+
+        spline = relentless.potential.bond.BondSpline(types=("bondA",), num_knots=3)
+        spline.from_array(("bondA"),[0,1,2],[4,2,0])
+
+    However, the knot variables can be iterated over and manipulated directly::
+
+        for r,k in spline.knots("bondA"):
+            k.value = 1.0
+
+    """
 
     pass

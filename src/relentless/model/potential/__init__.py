@@ -48,6 +48,7 @@ Developer classes
     Potential
     Parameters
     BondedPotential
+    BondedSpline
     AnglePotential
     AngleParameters
     BondPotential
@@ -74,4 +75,4 @@ from .pair import (
     PairSpline,
     Yukawa,
 )
-from .potential import BondedPotential, Parameters, Potential
+from .potential import BondedPotential, BondedSpline, Parameters, Potential

@@ -515,18 +515,9 @@ class BondedSpline(BondedPotential):
         Unique name of the potential. Defaults to ``__u[id]``, where ``id`` is the
         unique integer ID of the potential.
 
-    Examples
-    --------
-    The spline potential is setup from a tabulated potential instead of
-    specifying knot parameters directly::
-
-        spline = relentless.potential.bond.BondSpline(types=("bondA",), num_knots=3)
-        spline.from_array(("bondA"),[0,1,2],[4,2,0])
-
-    However, the knot variables can be iterated over and manipulated directly::
-
-        for r,k in spline.knots("bondA"):
-            k.value = 1.0
+    This class should not be instantiated directly. Instead, use the appropriate
+    spline type, i.e., :class:`~relentless.model.potential.BondSpline` or
+    :class:`~relentless.model.potential.AngleSpline`.
 
     """
 

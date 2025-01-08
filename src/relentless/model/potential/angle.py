@@ -285,22 +285,41 @@ class CosineAngle(AnglePotential):
 
 
 class AngleSpline(potential.BondedSpline, AnglePotential):
-    """Spline angle potential."""
+    """Spline angle potentials.
 
-    def __init__(self, types, num_knots, mode="diff", name=None):
-        super().__init__(types=types, num_knots=num_knots, mode=mode, name=name)
+    The angleed spline potential is defined by interpolation through a set of
+    knot points. The interpolation scheme uses Akima splines.
 
-    def from_array(self, types, theta, u):
-        return super().from_array(types=types, r=theta, u=u)
+    Parameters
+    ----------
+    types : tuple[str]
+        Types.
+    num_knots : int
+        Number of knots.
+    mode : str
+        Mode for storing the values of the knots in
+        :class:`~relentless.variable.Variable` that can be optimized. If
+        ``mode='value'``, the knot amplitudes are manipulated directly.
+        If ``mode='diff'``, the amplitude of the *last* knot is fixed, and
+        differences between neighboring knots are manipulated for all other
+        knots. Defaults to ``'diff'``.
+    name : str
+        Unique name of the potential. Defaults to ``__u[id]``, where ``id`` is the
+        unique integer ID of the potential.
 
-    def energy(self, types, theta):
-        """Evaluate angle energy."""
-        return super().energy(types=types, r=theta)
+    Examples
+    --------
+    The spline potential is setup from a tabulated potential instead of
+    specifying knot parameters directly::
 
-    def force(self, types, theta):
-        """Evaluate angle force."""
-        return super().force(types=types, r=theta)
+        spline = relentless.potential.angle.AngleSpline(types=("angleA",), num_knots=3)
+        spline.from_array(("angleA"),[0,1,2],[4,2,0])
 
-    def _derivative(self, param, theta, **params):
-        """Evaluate angle derivative with respect to a variable."""
-        return super()._derivative(param=param, r=theta, **params)
+    However, the knot variables can be iterated over and manipulated directly::
+
+        for r,k in spline.knots("angleA"):
+            k.value = 1.0
+
+    """
+
+    pass
