@@ -404,13 +404,13 @@ class test_HarmonicCosineAngle(unittest.TestCase):
         cosine_squred_angle.coeff["1"].update(k=1000, theta0=numpy.pi / 2)
         # test scalar r
         theta_input = numpy.pi
-        u_actual = 1000
+        u_actual = 500
         u = cosine_squred_angle.energy(type_=("1"), theta=theta_input)
         self.assertAlmostEqual(u, u_actual)
 
         # test array r
         theta_input = numpy.array([0.0, numpy.pi / 2, numpy.pi])
-        u_actual = numpy.array([1000.0, 0, 1000.0])
+        u_actual = numpy.array([500.0, 0, 500.0])
         u = cosine_squred_angle.energy(type_=("1"), theta=theta_input)
         numpy.testing.assert_allclose(u, u_actual)
 
@@ -429,7 +429,7 @@ class test_HarmonicCosineAngle(unittest.TestCase):
 
         # test array r
         theta_input = numpy.array([numpy.pi / 4, numpy.pi / 2, 3 * numpy.pi / 4])
-        f_actual = numpy.array([1000, 0, -1000])
+        f_actual = numpy.array([500, 0, -500])
         f = cosine_squred_angle.force(type_=("1"), theta=theta_input)
         numpy.testing.assert_allclose(f, f_actual)
 
@@ -442,7 +442,7 @@ class test_HarmonicCosineAngle(unittest.TestCase):
         # w.r.t. k
         # test scalar r
         theta_input = numpy.pi
-        d_actual = 1
+        d_actual = 0.5
         d = harmonic_cosine_angle._derivative(
             param="k", theta=theta_input, k=1000, theta0=numpy.pi / 2
         )
@@ -450,7 +450,7 @@ class test_HarmonicCosineAngle(unittest.TestCase):
 
         # test array r
         theta_input = numpy.array([numpy.pi / 4, numpy.pi / 2, numpy.pi])
-        d_actual = numpy.array([0.50, 0.0, 1])
+        d_actual = numpy.array([0.25, 0.0, 0.5])
         d = harmonic_cosine_angle._derivative(
             param="k", theta=theta_input, k=1000, theta0=numpy.pi / 2
         )
@@ -459,7 +459,7 @@ class test_HarmonicCosineAngle(unittest.TestCase):
         # w.r.t. theta0
         # test scalar r
         theta_input = numpy.pi
-        d_actual = -2000
+        d_actual = -1000
         d = harmonic_cosine_angle._derivative(
             param="theta0", theta=theta_input, k=1000.0, theta0=numpy.pi / 2
         )
@@ -467,7 +467,7 @@ class test_HarmonicCosineAngle(unittest.TestCase):
 
         # test array r
         theta_input = numpy.array([numpy.pi / 4, numpy.pi / 2, numpy.pi])
-        d_actual = numpy.array([1414.21356237, 0, -2000])
+        d_actual = numpy.array([707.106781185, 0, -1000])
         d = harmonic_cosine_angle._derivative(
             param="theta0", theta=theta_input, k=1000.0, theta0=numpy.pi / 2
         )

@@ -109,7 +109,7 @@ class HarmonicCosineAngle(AnglePotential):
 
     .. math::
 
-        u(\theta) = k * (cos(\theta) - cos(\theta_0))^2
+        u(\theta) = \frac{k}{2} (cos(\theta) - cos(\theta_0))^2
 
     where :math:`\theta` is the angle between three bonded particles. The parameters
     for each type are:
@@ -155,7 +155,7 @@ class HarmonicCosineAngle(AnglePotential):
 
         theta, u, s = self._zeros(theta)
 
-        u = k * (numpy.cos(theta) - numpy.cos(theta0)) ** 2
+        u = 0.5 * k * (numpy.cos(theta) - numpy.cos(theta0)) ** 2
 
         if s:
             u = u.item()
@@ -169,7 +169,7 @@ class HarmonicCosineAngle(AnglePotential):
 
         theta, f, s = self._zeros(theta)
 
-        f = 2 * k * (numpy.cos(theta) - numpy.cos(theta0)) * numpy.sin(theta)
+        f = k * (numpy.cos(theta) - numpy.cos(theta0)) * numpy.sin(theta)
 
         if s:
             f = f.item()
@@ -180,9 +180,9 @@ class HarmonicCosineAngle(AnglePotential):
         theta, d, s = self._zeros(theta)
 
         if param == "k":
-            d = (numpy.cos(theta) - numpy.cos(theta0)) ** 2
+            d = 0.5 * (numpy.cos(theta) - numpy.cos(theta0)) ** 2
         elif param == "theta0":
-            d = 2 * k * (numpy.cos(theta) - numpy.cos(theta0)) * numpy.sin(theta0)
+            d = k * (numpy.cos(theta) - numpy.cos(theta0)) * numpy.sin(theta0)
         else:
             raise ValueError("Unknown parameter")
 
@@ -196,7 +196,7 @@ class CosineAngle(AnglePotential):
 
     .. math::
 
-        u(\theta) = k * (1 + cos(\theta))
+        u(\theta) = k (1 + cos(\theta))
 
     where :math:`\theta` is the angle between three bonded particles. The parameters
     for each type are:
