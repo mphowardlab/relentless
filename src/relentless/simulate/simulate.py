@@ -855,17 +855,13 @@ class AnglePotentialTabulator(PotentialTabulator):
     r"""Tabulate one or more angle potentials.
 
     Enables evaluation of energy, force, and derivative at different
-    angle values (i.e. :math:`\theta`).
+    angle values (i.e. :math:`\theta`) on a range :math:`\left[ 0, \pi \right]`.
 
     Parameters
     ----------
     potentials : :class:`~relentless.potential.angle.AnglePotential` or array_like
         The angle potential(s) to be tabulated. If array_like, all elements must
         be :class:`~relentless.potential.angle.AnglePotential`\s.
-    start : float
-        The minimum value of :math:`\theta` at which to tabulate.
-    stop : float
-        The maximum value of :math:`\theta` at which to tabulate.
     num : int
         The number of points (value of :math:`\theta`) at which to tabulate and
         evaluate the potential.
