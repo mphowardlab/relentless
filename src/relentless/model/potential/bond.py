@@ -12,7 +12,43 @@ class BondParameters(potential.Parameters):
 class BondPotential(potential.BondedPotential):
     r"""Abstract base class for a bond potential."""
 
-    pass
+    def derivative(self, type_, var, r):
+        r"""Evaluate bond derivative with respect to a variable.
+
+        The derivative is evaluated using the :meth:`_derivative` function for all
+        :math:`u_{0,\lambda}(r)`.
+
+        The derivative will be carried out with respect to ``var`` for all
+        :class:`~relentless.variable.Variable` parameters. The appropriate chain
+        rules are handled automatically. If the potential does not depend on
+        ``var``, the derivative will be zero by definition.
+
+        Parameters
+        ----------
+        _type : tuple[str]
+            The type for which to calculate the derivative.
+        var : :class:`~relentless.variable.Variable`
+            The variable with respect to which the derivative is calculated.
+        r : float or list
+            The bond distance(s) at which to evaluate the derivative.
+
+        Returns
+        -------
+        float or numpy.ndarray
+            The bond derivative evaluated at ``r``. The return type is consistent
+            with ``r``.
+
+        Raises
+        ------
+        ValueError
+            If any value in ``r`` is negative.
+        TypeError
+            If the parameter with respect to which to take the derivative
+            is not a :class:`~relentless.variable.Variable`.
+
+        """
+
+        return super().derivative(type_=type_, var=var, x=r)
 
 
 class HarmonicBond(BondPotential):
@@ -372,7 +408,3 @@ class BondSpline(potential.BondedSpline, BondPotential):
 
         """
         return super().force(type_=type_, x=r)
-
-    def _derivative(self, param, r, **params):
-        """Evaluate angle derivative with respect to a variable."""
-        return super()._derivative(param=param, x=r, **params)

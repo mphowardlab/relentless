@@ -26,7 +26,43 @@ class AnglePotential(potential.BondedPotential):
 
     """
 
-    pass
+    def derivative(self, type_, var, theta):
+        r"""Evaluate bond derivative with respect to a variable.
+
+        The derivative is evaluated using the :meth:`_derivative` function for all
+        :math:`u_{0,\lambda}(theta)`.
+
+        The derivative will be carried out with respect to ``var`` for all
+        :class:`~relentless.variable.Variable` parameters. The appropriate chain
+        rules are handled automatically. If the potential does not depend on
+        ``var``, the derivative will be zero by definition.
+
+        Parameters
+        ----------
+        _type : tuple[str]
+            The type for which to calculate the derivative.
+        var : :class:`~relentless.variable.Variable`
+            The variable with respect to which the derivative is calculated.
+        theta : float or list
+            The bond distance(s) at which to evaluate the derivative.
+
+        Returns
+        -------
+        float or numpy.ndarray
+            The bond derivative evaluated at ``theta``. The return type is consistent
+            with ``theta``.
+
+        Raises
+        ------
+        ValueError
+            If any value in ``theta`` is negative.
+        TypeError
+            If the parameter with respect to which to take the derivative
+            is not a :class:`~relentless.variable.Variable`.
+
+        """
+
+        return super().derivative(type_=type_, var=var, x=theta)
 
 
 class HarmonicAngle(AnglePotential):
@@ -392,6 +428,44 @@ class AngleSpline(potential.BondedSpline, AnglePotential):
         """
         return super().force(type_=type_, x=theta)
 
-    def _derivative(self, param, r, **params):
+    def derivative(self, type_, var, theta):
+        r"""Evaluate bond derivative with respect to a variable.
+
+        The derivative is evaluated using the :meth:`_derivative` function for all
+        :math:`u_{0,\lambda}(theta)`.
+
+        The derivative will be carried out with respect to ``var`` for all
+        :class:`~relentless.variable.Variable` parameters. The appropriate chain
+        rules are handled automatically. If the potential does not depend on
+        ``var``, the derivative will be zero by definition.
+
+        Parameters
+        ----------
+        _type : tuple[str]
+            The type for which to calculate the derivative.
+        var : :class:`~relentless.variable.Variable`
+            The variable with respect to which the derivative is calculated.
+        theta : float or list
+            The bond distance(s) at which to evaluate the derivative.
+
+        Returns
+        -------
+        float or numpy.ndarray
+            The bond derivative evaluated at ``theta``. The return type is consistent
+            with ``theta``.
+
+        Raises
+        ------
+        ValueError
+            If any value in ``theta`` is negative.
+        TypeError
+            If the parameter with respect to which to take the derivative
+            is not a :class:`~relentless.variable.Variable`.
+
+        """
+
+        return super().derivative(type_=type_, var=var, x=theta)
+
+    def _derivative(self, param, theta, **params):
         """Evaluate angle derivative with respect to a variable."""
-        return super()._derivative(param=param, x=r, **params)
+        return super()._derivative(param=param, x=theta, **params)

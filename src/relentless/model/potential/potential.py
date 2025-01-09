@@ -389,11 +389,11 @@ class BondedPotential(Potential):
     parameter :math:`\lambda`.
     """
 
-    def derivative(self, type_, var, r):
+    def derivative(self, type_, var, x):
         r"""Evaluate bond derivative with respect to a variable.
 
         The derivative is evaluated using the :meth:`_derivative` function for all
-        :math:`u_{0,\lambda}(r)`.
+        :math:`u_{0,\lambda}(x)`.
 
         The derivative will be carried out with respect to ``var`` for all
         :class:`~relentless.variable.Variable` parameters. The appropriate chain
@@ -406,37 +406,35 @@ class BondedPotential(Potential):
             The type for which to calculate the derivative.
         var : :class:`~relentless.variable.Variable`
             The variable with respect to which the derivative is calculated.
-        r : float or list
+        x : float or list
             The bond distance(s) at which to evaluate the derivative.
 
         Returns
         -------
         float or numpy.ndarray
-            The bond derivative evaluated at ``r``. The return type is consistent
-            with ``r``.
+            The bond derivative evaluated at ``x``. The return type is consistent
+            with ``x``.
 
         Raises
         ------
         ValueError
-            If any value in ``r`` is negative.
+            If any value in ``x`` is negative.
         TypeError
             If the parameter with respect to which to take the derivative
             is not a :class:`~relentless.variable.Variable`.
-        ValueError
-            If the potential is shifted without setting ``rmax``.
 
         """
         params = self.coeff.evaluate(type_)
-        r, deriv, scalar_r = self._zeros(r)
-        if any(r < 0):
-            raise ValueError("r cannot be negative")
+        x, deriv, scalar_x = self._zeros(x)
+        if any(x < 0):
+            raise ValueError("x cannot be negative")
         if not isinstance(var, variable.Variable):
             raise TypeError(
                 "Parameter with respect to which to take the derivative"
                 " must be a Variable."
             )
 
-        flags = numpy.ones(r.shape[0], dtype=bool)
+        flags = numpy.ones(x.shape[0], dtype=bool)
 
         for p in self.coeff.params:
             # try to take chain rule w.r.t. variable first
@@ -453,19 +451,19 @@ class BondedPotential(Potential):
                 continue
 
             # now take the parameter derivative
-            below = numpy.zeros(r.shape[0], dtype=bool)
-            above = numpy.zeros(r.shape[0], dtype=bool)
+            below = numpy.zeros(x.shape[0], dtype=bool)
+            above = numpy.zeros(x.shape[0], dtype=bool)
 
             flags = numpy.logical_and(~below, ~above)
-            deriv[flags] += self._derivative(p, r[flags], **params) * dp_dvar
+            deriv[flags] += self._derivative(p, x[flags], **params) * dp_dvar
 
         # coerce derivative back into shape of the input
-        if scalar_r:
+        if scalar_x:
             deriv = deriv.item()
         return deriv
 
     @abc.abstractmethod
-    def _derivative(self, param, r, **params):
+    def _derivative(self, param, x, **params):
         """Implementation of the parameter derivative function.
 
         This abstract method defines the interface for computing the parameter
@@ -477,7 +475,7 @@ class BondedPotential(Potential):
         ----------
         param : str
             Name of the parameter.
-        r : float or list
+        x : float or list
             The bond distance(s) at which to evaluate the derivative.
         **params : kwargs
             Named parameters of the potential.
@@ -485,8 +483,8 @@ class BondedPotential(Potential):
         Returns
         -------
         float or numpy.ndarray
-            The bond derivative evaluated at ``r``. The return type is consistent
-            with ``r``.
+            The bond derivative evaluated at ``x``. The return type is consistent
+            with ``x``.
 
         """
         pass
