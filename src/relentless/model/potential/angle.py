@@ -21,8 +21,8 @@ class AnglePotential(potential.BondedPotential):
         \mathbf{r}_{jk}}{|\mathbf{r}_{ij}||\mathbf{r}_{jk}|}\right)
 
     where :math:`\mathbf{r}_{ij}` and :math:`\mathbf{r}_{jk}` are the vectors
-    between particles :math:`i` and :math:`j`, and particles :math:`j` and
-    :math:`k`, respectively.
+    from particle *i* to particle *j* and from particle *j* to particle *k*,
+    respectively.
 
     """
 
@@ -121,7 +121,7 @@ class HarmonicCosineAngle(AnglePotential):
 
     .. math::
 
-        u(\theta) = \frac{k}{2} (cos(\theta) - cos(\theta_0))^2
+        u(\theta) = \frac{k}{2} (\cos \theta - \cos \theta_0)^2
 
     where :math:`\theta` is the angle between three bonded particles. The parameters
     for each type are:
@@ -208,7 +208,7 @@ class CosineAngle(AnglePotential):
 
     .. math::
 
-        u(\theta) = k (1 + cos(\theta))
+        u(\theta) = k (1 + \cos \theta)
 
     where :math:`\theta` is the angle between three bonded particles. The parameters
     for each type are:
