@@ -340,14 +340,14 @@ class BondSpline(potential.BondedSpline, BondPotential):
         ----------
         type_
             Type parametrizing the potential in :attr:`coeff<container>`.
-        x : float or list
+        r : float or list
             Potential energy coordinate.
 
         Returns
         -------
         float or numpy.ndarray
-            The pair energy evaluated at ``x``. The return type is consistent
-            with ``x``.
+            The pair energy evaluated at ``r``. The return type is consistent
+            with ``r``.
 
         """
         return super().energy(type_=type_, x=r)
@@ -367,8 +367,8 @@ class BondSpline(potential.BondedSpline, BondPotential):
         Returns
         -------
         float or numpy.ndarray
-            The force evaluated at ``x``. The return type is consistent
-            with ``x``.
+            The force evaluated at ``r``. The return type is consistent
+            with ``r``.
 
         """
         return super().force(type_=type_, x=r)
