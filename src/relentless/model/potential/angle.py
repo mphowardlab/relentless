@@ -348,6 +348,8 @@ class AngleSpline(potential.BondedSpline, AnglePotential):
 
         """
 
+        if theta[0] != 0.0 and theta[-1] != numpy.pi:
+            raise ValueError("The first and last knot must be at 0 and pi.")
         return super().from_array(types=types, x=theta, u=u)
 
     def energy(self, type_, theta):

@@ -546,6 +546,16 @@ class test_AngleSpline(unittest.TestCase):
                 types=("1",), num_knots=3, mode="val"
             )
 
+    def test_from_array(self):
+        """Test from_array method and knots generator"""
+        theta_arr = [1, 2, 3]
+        u_arr = [1, 2, 3]
+
+        # test that bounds are enforced
+        s = relentless.model.potential.AngleSpline(types=("1",), num_knots=3)
+        with self.assertRaises(ValueError):
+            s.from_array(types=("1"), theta=theta_arr, u=u_arr)
+
 
 if __name__ == "__main__":
     unittest.main()
