@@ -522,6 +522,7 @@ class BondedSpline(BondedPotential):
     """
 
     valid_modes = ("value", "diff")
+    _space_coord_name = "x"
 
     def __init__(self, types, num_knots, mode="diff", name=None):
         if isinstance(num_knots, int) and num_knots >= 2:
@@ -536,8 +537,8 @@ class BondedSpline(BondedPotential):
 
         params = []
         for i in range(self.num_knots):
-            ri, ki = self.knot_params(i)
-            params.append(ri)
+            xi, ki = self.knot_params(i)
+            params.append(xi)
             params.append(ki)
         super().__init__(keys=types, params=params, name=name)
 
@@ -546,19 +547,19 @@ class BondedSpline(BondedPotential):
         u = super().from_json(data, name)
         # reset the knot values as variables since they were set as floats
         for type in u.coeff:
-            for i, (r, k) in enumerate(u.knots(type)):
-                u._set_knot(type, i, r, k)
+            for i, (x, k) in enumerate(u.knots(type)):
+                u._set_knot(type, i, x, k)
 
         return u
 
-    def from_array(self, types, r, u):
+    def from_array(self, types, x, u):
         r"""Set up the potential from knot points.
 
         Parameters
         ----------
         types : tuple[str]
             The type for which to set up the potential.
-        r : list
+        x : list
             Position of each knot.
         u : list
             Potential energy of each knot.
@@ -566,19 +567,19 @@ class BondedSpline(BondedPotential):
         Raises
         ------
         ValueError
-            If the number of ``r`` values is not the same as the number of knots.
+            If the number of ``x`` values is not the same as the number of knots.
         ValueError
             If the number of ``u`` values is not the same as the number of knots.
 
         """
         # check that r and u have the right shape
-        if len(r) != self.num_knots:
-            raise ValueError("r must have the same length as the number of knots")
+        if len(x) != self.num_knots:
+            raise ValueError("x must have the same length as the number of knots")
         if len(u) != self.num_knots:
             raise ValueError("u must have the same length as the number of knots")
 
         # convert to r,knot form given the mode
-        rs = numpy.asarray(r, dtype=float)
+        xs = numpy.asarray(x, dtype=float)
         ks = numpy.asarray(u, dtype=float)
         if self.mode == "diff":
             # difference is next knot minus m y knot,
@@ -586,12 +587,12 @@ class BondedSpline(BondedPotential):
             ks[:-1] -= ks[1:]
 
         # convert knot positions to differences
-        drs = numpy.zeros_like(rs)
-        drs[0] = rs[0]
-        drs[1:] = rs[1:] - rs[:-1]
+        dxs = numpy.zeros_like(xs)
+        dxs[0] = xs[0]
+        dxs[1:] = xs[1:] - xs[:-1]
 
         for i in range(self.num_knots):
-            self._set_knot(types, i, drs[i], ks[i])
+            self._set_knot(types, i, dxs[i], ks[i])
 
     def to_json(self):
         data = super().to_json()
@@ -610,7 +611,7 @@ class BondedSpline(BondedPotential):
         Returns
         -------
         str
-            The parameter name of the :math:`r` value.
+            The parameter name of the :math:`x` value.
         str
             The parameter name of the knot value.
 
@@ -622,9 +623,9 @@ class BondedSpline(BondedPotential):
         """
         if not isinstance(i, int):
             raise TypeError("Knots are keyed by integers")
-        return f"dr-{i}", f"{self.mode}-{i}"
+        return f"d{self._space_coord_name}-{i}", f"{self.mode}-{i}"
 
-    def _set_knot(self, types, i, dr, k):
+    def _set_knot(self, types, i, dx, k):
         """Set the value of knot variables.
 
         The meaning of the value of the knot variable is defined by the ``mode``.
@@ -636,60 +637,94 @@ class BondedSpline(BondedPotential):
             The type for which to set up the potential.
         i : int
             Index of the knot.
-        r : float
+        x : float
             Relative position of each knot from previous one.
         u : float
             Value of the knot variable.
 
         """
-        if i > 0 and dr <= 0:
+        if i > 0 and dx <= 0:
             raise ValueError("Knot spacings must be positive")
 
-        dri, ki = self.knot_params(i)
-        if isinstance(self.coeff[types][dri], variable.IndependentVariable):
-            self.coeff[types][dri].value = dr
+        dxi, ki = self.knot_params(i)
+        if isinstance(self.coeff[types][dxi], variable.IndependentVariable):
+            self.coeff[types][dxi].value = dx
         else:
-            self.coeff[types][dri] = variable.IndependentVariable(dr)
+            self.coeff[types][dxi] = variable.IndependentVariable(dx)
 
         if isinstance(self.coeff[types][ki], variable.IndependentVariable):
             self.coeff[types][ki].value = k
         else:
             self.coeff[types][ki] = variable.IndependentVariable(k)
 
-    def energy(self, type_, r):
+    def energy(self, type_, x):
+        """Evaluate potential energy.
+
+        Parameters
+        ----------
+        type_
+            Type parametrizing the potential in :attr:`coeff<container>`.
+        x : float or list
+            Potential energy coordinate.
+
+        Returns
+        -------
+        float or numpy.ndarray
+            The pair energy evaluated at ``x``. The return type is consistent
+            with ``x``.
+
+        """
         params = self.coeff.evaluate(type_)
-        r, u, s = self._zeros(r)
-        u = self._interpolate(params)(r)
+        x, u, s = self._zeros(x)
+        u = self._interpolate(params)(x)
         if s:
             u = u.item()
         return u
 
-    def force(self, type_, r):
+    def force(self, type_, x):
+        """Evaluate force magnitude.
+
+        The force is the (negative) magnitude of the ``x`` gradient.
+
+        Parameters
+        ----------
+        type_
+            Type parametrizing the potential in :attr:`coeff<container>`.
+        x : float or list
+            Potential energy coordinate.
+
+        Returns
+        -------
+        float or numpy.ndarray
+            The force evaluated at ``x``. The return type is consistent
+            with ``x``.
+
+        """
         params = self.coeff.evaluate(type_)
-        r, f, s = self._zeros(r)
-        f = -self._interpolate(params).derivative(r, 1)
+        x, f, s = self._zeros(x)
+        f = -self._interpolate(params).derivative(x, 1)
         if s:
             f = f.item()
         return f
 
-    def _derivative(self, param, r, **params):
-        r, d, s = self._zeros(r)
+    def _derivative(self, param, x, **params):
+        x, d, s = self._zeros(x)
         h = 0.001
 
-        if "dr-" in param:
-            f_low = self._interpolate(params)(r)
+        if f"d{self._space_coord_name}-" in param:
+            f_low = self._interpolate(params)(x)
             knot_p = params[param]
             params[param] = knot_p + h
-            f_high = self._interpolate(params)(r)
+            f_high = self._interpolate(params)(x)
             params[param] = knot_p
             d = (f_high - f_low) / h
         elif self.mode + "-" in param:
             # perturb knot param value
             knot_p = params[param]
             params[param] = knot_p + h
-            f_high = self._interpolate(params)(r)
+            f_high = self._interpolate(params)(x)
             params[param] = knot_p - h
-            f_low = self._interpolate(params)(r)
+            f_low = self._interpolate(params)(x)
             params[param] = knot_p
             d = (f_high - f_low) / (2 * h)
         else:
@@ -713,24 +748,24 @@ class BondedSpline(BondedPotential):
             The interpolated spline potential.
 
         """
-        dr = numpy.zeros(self.num_knots)
+        dx = numpy.zeros(self.num_knots)
         u = numpy.zeros(self.num_knots)
         for i in range(self.num_knots):
-            dri, ki = self.knot_params(i)
-            dr[i] = params[dri]
+            dxi, ki = self.knot_params(i)
+            dx[i] = params[dxi]
             u[i] = params[ki]
 
-        if numpy.any(dr[1:] <= 0):
+        if numpy.any(dx[1:] <= 0):
             raise ValueError("Knot differences must be positive")
 
         # reconstruct r from differences
-        r = numpy.cumsum(dr)
+        x = numpy.cumsum(dx)
 
         # reconstruct the energies from differences, starting from the end
         if self.mode == "diff":
             u = numpy.flip(numpy.cumsum(numpy.flip(u)))
 
-        return math.AkimaSpline(x=r, y=u)
+        return math.AkimaSpline(x=x, y=u)
 
     @property
     def num_knots(self):
@@ -759,15 +794,15 @@ class BondedSpline(BondedPotential):
 
         """
         for i in range(self.num_knots):
-            dri, ki = self.knot_params(i)
-            yield self.coeff[types][dri], self.coeff[types][ki]
+            dxi, ki = self.knot_params(i)
+            yield self.coeff[types][dxi], self.coeff[types][ki]
 
     @property
     def design_variables(self):
         """tuple: Designable variables of the spline."""
         dvars = []
         for types in self.coeff:
-            for i, (dr, k) in enumerate(self.knots(types)):
+            for i, (dx, k) in enumerate(self.knots(types)):
                 if i != self.num_knots - 1:
                     dvars.append(k)
         return tuple(dvars)

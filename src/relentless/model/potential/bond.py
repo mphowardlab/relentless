@@ -305,4 +305,74 @@ class BondSpline(potential.BondedSpline, BondPotential):
 
     """
 
-    pass
+    _space_coord_name = "r"
+
+    def __init__(self, types, num_knots, mode="diff", name=None):
+        super().__init__(types=types, num_knots=num_knots, mode=mode, name=name)
+
+    def from_array(self, types, r, u):
+        r"""Set up the potential from knot points.
+
+        Parameters
+        ----------
+        types : tuple[str]
+            The type for which to set up the potential.
+        r : list
+            Position of each knot.
+        u : list
+            Potential energy of each knot.
+
+        Raises
+        ------
+        ValueError
+            If the number of ``r`` values is not the same as the number of knots.
+        ValueError
+            If the number of ``u`` values is not the same as the number of knots.
+
+        """
+
+        return super().from_array(types=types, x=r, u=u)
+
+    def energy(self, type_, r):
+        """Evaluate potential energy.
+
+        Parameters
+        ----------
+        type_
+            Type parametrizing the potential in :attr:`coeff<container>`.
+        x : float or list
+            Potential energy coordinate.
+
+        Returns
+        -------
+        float or numpy.ndarray
+            The pair energy evaluated at ``x``. The return type is consistent
+            with ``x``.
+
+        """
+        return super().energy(type_=type_, x=r)
+
+    def force(self, type_, r):
+        """Evaluate force magnitude.
+
+        The force is the (negative) magnitude of the ``x`` gradient.
+
+        Parameters
+        ----------
+        type_
+            Type parametrizing the potential in :attr:`coeff<container>`.
+        x : float or list
+            Potential energy coordinate.
+
+        Returns
+        -------
+        float or numpy.ndarray
+            The force evaluated at ``x``. The return type is consistent
+            with ``x``.
+
+        """
+        return super().force(type_=type_, x=r)
+
+    def _derivative(self, param, r, **params):
+        """Evaluate angle derivative with respect to a variable."""
+        return super()._derivative(param=param, x=r, **params)

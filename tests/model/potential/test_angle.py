@@ -505,9 +505,9 @@ class test_AngleSpline(unittest.TestCase):
         coeff = relentless.model.potential.AngleParameters(
             types=("1",),
             params=(
-                "dr-0",
-                "dr-1",
-                "dr-2",
+                "dtheta-0",
+                "dtheta-1",
+                "dtheta-2",
                 "diff-0",
                 "diff-1",
                 "diff-2",
@@ -525,9 +525,9 @@ class test_AngleSpline(unittest.TestCase):
         coeff = relentless.model.potential.AngleParameters(
             types=("1",),
             params=(
-                "dr-0",
-                "dr-1",
-                "dr-2",
+                "dtheta-0",
+                "dtheta-1",
+                "dtheta-2",
                 "value-0",
                 "value-1",
                 "value-2",

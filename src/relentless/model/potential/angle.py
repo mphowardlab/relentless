@@ -322,4 +322,74 @@ class AngleSpline(potential.BondedSpline, AnglePotential):
 
     """
 
-    pass
+    _space_coord_name = "theta"
+
+    def __init__(self, types, num_knots, mode="diff", name=None):
+        super().__init__(types=types, num_knots=num_knots, mode=mode, name=name)
+
+    def from_array(self, types, theta, u):
+        r"""Set up the potential from knot points.
+
+        Parameters
+        ----------
+        types : tuple[str]
+            The type for which to set up the potential.
+        theta : list
+            Position of each knot.
+        u : list
+            Potential energy of each knot.
+
+        Raises
+        ------
+        ValueError
+            If the number of ``theta`` values is not the same as the number of knots.
+        ValueError
+            If the number of ``u`` values is not the same as the number of knots.
+
+        """
+
+        return super().from_array(types=types, x=theta, u=u)
+
+    def energy(self, type_, theta):
+        """Evaluate potential energy.
+
+        Parameters
+        ----------
+        type_
+            Type parametrizing the potential in :attr:`coeff<container>`.
+        theta : float or list
+            Potential energy coordinate.
+
+        Returns
+        -------
+        float or numpy.ndarray
+            The pair energy evaluated at ``theta``. The return type is consistent
+            with ``theta``.
+
+        """
+        return super().energy(type_=type_, x=theta)
+
+    def force(self, type_, theta):
+        """Evaluate force magnitude.
+
+        The force is the (negative) magnitude of the ``theta`` gradient.
+
+        Parameters
+        ----------
+        type_
+            Type parametrizing the potential in :attr:`coeff<container>`.
+        theta : float or list
+            Potential energy coordinate.
+
+        Returns
+        -------
+        float or numpy.ndarray
+            The force evaluated at ``theta``. The return type is consistent
+            with ``theta``.
+
+        """
+        return super().force(type_=type_, x=theta)
+
+    def _derivative(self, param, r, **params):
+        """Evaluate angle derivative with respect to a variable."""
+        return super()._derivative(param=param, x=r, **params)
