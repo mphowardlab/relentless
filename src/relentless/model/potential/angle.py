@@ -27,7 +27,7 @@ class AnglePotential(potential.BondedPotential):
     """
 
     def derivative(self, type_, var, theta):
-        r"""Evaluate bond derivative with respect to a variable.
+        r"""Evaluate derivative with respect to a variable.
 
         The derivative is evaluated using the :meth:`_derivative` function for all
         :math:`u_{0,\lambda}(theta)`.
@@ -323,7 +323,7 @@ class CosineAngle(AnglePotential):
 class AngleSpline(potential.BondedSpline, AnglePotential):
     """Spline angle potentials.
 
-    The angleed spline potential is defined by interpolation through a set of
+    The angle spline potential is defined by interpolation through a set of
     knot points. The interpolation scheme uses Akima splines.
 
     Parameters
@@ -429,7 +429,7 @@ class AngleSpline(potential.BondedSpline, AnglePotential):
         return super().force(type_=type_, x=theta)
 
     def derivative(self, type_, var, theta):
-        r"""Evaluate bond derivative with respect to a variable.
+        r"""Evaluate derivative with respect to a variable.
 
         The derivative is evaluated using the :meth:`_derivative` function for all
         :math:`u_{0,\lambda}(theta)`.
