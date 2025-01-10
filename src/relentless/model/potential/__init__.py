@@ -27,6 +27,18 @@ Bond potentials
     BondSpline
 
 
+Angle potentials
+================
+
+.. autosummary::
+    :toctree: generated/
+
+    AngleSpline
+    CosineAngle
+    HarmonicAngle
+    HarmonicCosineAngle
+
+
 Developer classes
 =================
 
@@ -36,6 +48,9 @@ Developer classes
     Potential
     Parameters
     BondedPotential
+    BondedSpline
+    AnglePotential
+    AngleParameters
     BondPotential
     BondParameters
     PairPotential
@@ -43,6 +58,14 @@ Developer classes
 
 """
 
+from .angle import (
+    AngleParameters,
+    AnglePotential,
+    AngleSpline,
+    CosineAngle,
+    HarmonicAngle,
+    HarmonicCosineAngle,
+)
 from .bond import FENEWCA, BondParameters, BondPotential, BondSpline, HarmonicBond
 from .pair import (
     Depletion,
@@ -52,4 +75,4 @@ from .pair import (
     PairSpline,
     Yukawa,
 )
-from .potential import BondedPotential, Parameters, Potential
+from .potential import BondedPotential, BondedSpline, Parameters, Potential

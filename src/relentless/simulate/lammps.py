@@ -186,12 +186,15 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
         has_dihedrals = None
         has_impropers = None
         bond_type_label = None
+        angle_type_label = None
         if mpi.world.rank_is_root:
             snap = lammpsio.DataFile(sim[self]["_datafile"]).read()
             has_bonds = snap.has_bonds()
             if has_bonds:
                 bond_type_label = sim[self]["_bonds"].type_label
             has_angles = snap.has_angles()
+            if has_angles:
+                angle_type_label = sim[self]["_angles"].type_label
             has_dihedrals = snap.has_dihedrals()
             has_impropers = snap.has_impropers()
             for i in sim.types:
@@ -221,6 +224,7 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
         has_dihedrals = mpi.world.bcast(has_dihedrals)
         has_impropers = mpi.world.bcast(has_impropers)
         bond_type_label = mpi.world.bcast(bond_type_label)
+        angle_type_label = mpi.world.bcast(angle_type_label)
 
         # attach the potentials
         if sim.potentials.pair.start == 0:
@@ -242,6 +246,19 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
                 if numpy.any(numpy.isinf(uB[i])):
                     raise ValueError("Bond potential/force is infinite at evaluated r")
             NrB = len(rB)
+
+        if has_angles:
+            uA = collections.FixedKeyDict(angle_type_label.types)
+            fA = collections.FixedKeyDict(angle_type_label.types)
+            for i in angle_type_label.types:
+                thetaA, uA[i], fA[i] = (
+                    sim.potentials.angle.linear_space,
+                    sim.potentials.angle.energy(key=i),
+                    sim.potentials.angle.force(key=i),
+                )
+                if numpy.any(numpy.isinf(uA[i])):
+                    raise ValueError("Angle potential/force is infinite at evaluated r")
+            NthetaA = len(thetaA)
 
         def pair_map(sim, pair):
             # Map lammps type indexes as a pair, lowest type first
@@ -307,6 +324,25 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
                                 )
                             )
 
+                if has_angles:
+                    fw.write("# LAMMPS tabulated angle potentials\n")
+                    for i in angle_type_label.types:
+                        fw.write("# angle ANGLE_TABLE_{}\n\n".format(i))
+                        fw.write("ANGLE_TABLE_{}\n".format(i))
+                        fw.write(
+                            "N {N} FP {f_low} {f_high} \n\n".format(
+                                N=NthetaA, f_low=fA[i][0], f_high=fA[i][-1]
+                            )
+                        )
+                        for idx, (thetaA_, uA_, fA_) in enumerate(
+                            zip(thetaA * 180 / numpy.pi, uA[i], fA[i]), start=1
+                        ):
+                            fw.write(
+                                "{id} {thetaA} {uA} {fA}\n".format(
+                                    id=idx, thetaA=thetaA_, uA=uA_, fA=fA_
+                                )
+                            )
+
         else:
             file_ = None
         file_ = mpi.world.bcast(file_)
@@ -324,10 +360,15 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
             if sim.potentials.pair.exclusions is not None:
                 if "1-2" in sim.potentials.pair.exclusions:
                     excl_12 = 0.0
+                if "1-3" in sim.potentials.pair.exclusions:
+                    excl_13 = 0.0
             cmds += [f"special_bonds lj/coul {excl_12} {excl_13} {excl_14}"]
 
         if has_bonds:
             cmds += ["bond_style table linear {Nb}".format(Nb=NrB)]
+
+        if has_angles:
+            cmds += ["angle_style table linear {Na}".format(Na=NthetaA)]
 
         for i, j in sim.pairs:
             # get lammps type indexes, lowest type first
@@ -345,6 +386,16 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
                         typeid=id,
                         filename=file_,
                         id=bond_type_label.__getitem__(id),
+                    )
+                ]
+
+        if has_angles:
+            for id in angle_type_label.typeid:
+                cmds += [
+                    ("angle_coeff {typeid} {filename}" " ANGLE_TABLE_{id}").format(
+                        typeid=id,
+                        filename=file_,
+                        id=angle_type_label.__getitem__(id),
                     )
                 ]
         return cmds
@@ -393,8 +444,12 @@ class InitializeFromFile(InitializationOperation):
                         "Atomic atom style is not compatible with topology data."
                     )
                 # store topology data
+                sim[self]["_bonds"] = None
                 if snap.has_bonds():
                     sim[self]["_bonds"] = snap.bonds
+                sim[self]["_angles"] = None
+                if snap.has_angles():
+                    sim[self]["_angles"] = snap.angles
                 # figure out dimensions
                 dimension = self.dimension
                 if dimension is None:
@@ -414,6 +469,7 @@ class InitializeFromFile(InitializationOperation):
                 )
             else:
                 sim[self]["_bonds"] = None
+                sim[self]["_angles"] = None
                 data_filename = None
                 dimension = None
                 type_map = None
@@ -433,6 +489,7 @@ class InitializeFromFile(InitializationOperation):
                     typeids = numpy.unique(snap.typeid)
                     type_map = {str(typeid): typeid for typeid in typeids}
                     # store topology data
+                    sim[self]["_bonds"] = None
                     if snap.has_bonds():
                         sim[self]["_bonds"] = snap.bonds
                         unique_bond_types = set()
@@ -445,6 +502,20 @@ class InitializeFromFile(InitializationOperation):
                         }
                         sim[self]["_bonds"].type_label = lammpsio.LabelMap(
                             bond_type_map
+                        )
+                    sim[self]["_angles"] = None
+                    if snap.has_angles():
+                        sim[self]["_angles"] = snap.angles
+                        unique_angle_types = set()
+                        for pot in sim.potentials.angle.potentials:
+                            for i in pot.coeff.types:
+                                unique_angle_types.add(i)
+
+                        angle_type_map = {
+                            i + 1: t for i, t in enumerate(unique_angle_types)
+                        }
+                        sim[self]["_angles"].type_label = lammpsio.LabelMap(
+                            angle_type_map
                         )
                 else:
                     type_map = None
@@ -1279,7 +1350,7 @@ class EnsembleAverage(AnalysisOperation):
                     # consider both (i,j) and (j,i) permutations
                     if (
                         sim[self]["_rdf_params"]["exclude"]
-                        and sim[sim.initializer]["_bonds"].N != 0
+                        and sim[sim.initializer]["_bonds"] is not None
                         and len(neighbors[:]) > 0
                     ):
                         bonds = numpy.vstack(
@@ -1298,6 +1369,29 @@ class EnsembleAverage(AnalysisOperation):
                         )
 
                         neighbors.filter(bond_exclusion_filter)
+
+                    # filter angles from the neighbor list if they are present
+                    if (
+                        sim[self]["_rdf_params"]["exclude"]
+                        and sim[sim.initializer]["_angles"] is not None
+                        and len(neighbors[:]) > 0
+                    ):
+                        angles = numpy.vstack(
+                            [
+                                sim[sim.initializer]["_angles"].members,
+                                numpy.flip(
+                                    sim[sim.initializer]["_angles"].members, axis=1
+                                ),
+                            ],
+                        )
+                        # Zero index angles
+                        angles -= 1
+
+                        angle_exclusion_filter = EnsembleAverage._cantor_pairing(
+                            self, angles, neighbors
+                        )
+
+                        neighbors.filter(angle_exclusion_filter)
 
                     for i in sim.types:
                         _rdf_density[i] += N[i] / box.volume

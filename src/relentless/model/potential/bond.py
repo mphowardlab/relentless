@@ -1,8 +1,5 @@
 import numpy
 
-from relentless import math
-from relentless.model import variable
-
 from . import potential
 
 
@@ -15,7 +12,43 @@ class BondParameters(potential.Parameters):
 class BondPotential(potential.BondedPotential):
     r"""Abstract base class for a bond potential."""
 
-    pass
+    def derivative(self, type_, var, r):
+        r"""Evaluate bond derivative with respect to a variable.
+
+        The derivative is evaluated using the :meth:`_derivative` function for all
+        :math:`u_{0,\lambda}(r)`.
+
+        The derivative will be carried out with respect to ``var`` for all
+        :class:`~relentless.variable.Variable` parameters. The appropriate chain
+        rules are handled automatically. If the potential does not depend on
+        ``var``, the derivative will be zero by definition.
+
+        Parameters
+        ----------
+        _type : tuple[str]
+            The type for which to calculate the derivative.
+        var : :class:`~relentless.variable.Variable`
+            The variable with respect to which the derivative is calculated.
+        r : float or list
+            The bond distance(s) at which to evaluate the derivative.
+
+        Returns
+        -------
+        float or numpy.ndarray
+            The bond derivative evaluated at ``r``. The return type is consistent
+            with ``r``.
+
+        Raises
+        ------
+        ValueError
+            If any value in ``r`` is negative.
+        TypeError
+            If the parameter with respect to which to take the derivative
+            is not a :class:`~relentless.variable.Variable`.
+
+        """
+
+        return super().derivative(type_=type_, var=var, x=r)
 
 
 class HarmonicBond(BondPotential):
@@ -270,11 +303,11 @@ class FENEWCA(BondPotential):
         return d
 
 
-class BondSpline(BondPotential):
-    """Spline bond potential.
+class BondSpline(potential.BondedSpline, BondPotential):
+    """Spline bond potentials.
 
-    The bond potential is defined by interpolation through a set of knot points.
-    The interpolation scheme uses Akima splines.
+    The bonded spline potential is defined by interpolation through a set of
+    knot points. The interpolation scheme uses Akima splines.
 
     Parameters
     ----------
@@ -308,35 +341,10 @@ class BondSpline(BondPotential):
 
     """
 
-    valid_modes = ("value", "diff")
+    _space_coord_name = "r"
 
     def __init__(self, types, num_knots, mode="diff", name=None):
-        if isinstance(num_knots, int) and num_knots >= 2:
-            self._num_knots = num_knots
-        else:
-            raise ValueError("Number of spline knots must be an integer >= 2.")
-
-        if mode in self.valid_modes:
-            self._mode = mode
-        else:
-            raise ValueError("Invalid mode, choose from: " + ",".join(self.valid_modes))
-
-        params = []
-        for i in range(self.num_knots):
-            ri, ki = self.knot_params(i)
-            params.append(ri)
-            params.append(ki)
-        super().__init__(keys=types, params=params, name=name)
-
-    @classmethod
-    def from_json(cls, data, name=None):
-        u = super().from_json(data, name)
-        # reset the knot values as variables since they were set as floats
-        for type in u.coeff:
-            for i, (r, k) in enumerate(u.knots(type)):
-                u._set_knot(type, i, r, k)
-
-        return u
+        super().__init__(types=types, num_knots=num_knots, mode=mode, name=name)
 
     def from_array(self, types, r, u):
         r"""Set up the potential from knot points.
@@ -358,203 +366,45 @@ class BondSpline(BondPotential):
             If the number of ``u`` values is not the same as the number of knots.
 
         """
-        # check that r and u have the right shape
-        if len(r) != self.num_knots:
-            raise ValueError("r must have the same length as the number of knots")
-        if len(u) != self.num_knots:
-            raise ValueError("u must have the same length as the number of knots")
 
-        # convert to r,knot form given the mode
-        rs = numpy.asarray(r, dtype=float)
-        ks = numpy.asarray(u, dtype=float)
-        if self.mode == "diff":
-            # difference is next knot minus m y knot,
-            # with last knot fixed at its current value
-            ks[:-1] -= ks[1:]
-
-        # convert knot positions to differences
-        drs = numpy.zeros_like(rs)
-        drs[0] = rs[0]
-        drs[1:] = rs[1:] - rs[:-1]
-
-        for i in range(self.num_knots):
-            self._set_knot(types, i, drs[i], ks[i])
-
-    def to_json(self):
-        data = super().to_json()
-        data["num_knots"] = self.num_knots
-        data["mode"] = self.mode
-        return data
-
-    def knot_params(self, i):
-        r"""Get the parameter names for a given knot.
-
-        Parameters
-        ----------
-        i : int
-            Key for the knot variable.
-
-        Returns
-        -------
-        str
-            The parameter name of the :math:`r` value.
-        str
-            The parameter name of the knot value.
-
-        Raises
-        ------
-        TypeError
-            If the knot key is not an integer.
-
-        """
-        if not isinstance(i, int):
-            raise TypeError("Knots are keyed by integers")
-        return f"dr-{i}", f"{self.mode}-{i}"
-
-    def _set_knot(self, types, i, dr, k):
-        """Set the value of knot variables.
-
-        The meaning of the value of the knot variable is defined by the ``mode``.
-        This method is mostly meant to coerce the knot variable types.
-
-        Parameters
-        ----------
-        types : tuple[str]
-            The type for which to set up the potential.
-        i : int
-            Index of the knot.
-        r : float
-            Relative position of each knot from previous one.
-        u : float
-            Value of the knot variable.
-
-        """
-        if i > 0 and dr <= 0:
-            raise ValueError("Knot spacings must be positive")
-
-        dri, ki = self.knot_params(i)
-        if isinstance(self.coeff[types][dri], variable.IndependentVariable):
-            self.coeff[types][dri].value = dr
-        else:
-            self.coeff[types][dri] = variable.IndependentVariable(dr)
-
-        if isinstance(self.coeff[types][ki], variable.IndependentVariable):
-            self.coeff[types][ki].value = k
-        else:
-            self.coeff[types][ki] = variable.IndependentVariable(k)
+        return super().from_array(types=types, x=r, u=u)
 
     def energy(self, type_, r):
-        params = self.coeff.evaluate(type_)
-        r, u, s = self._zeros(r)
-        u = self._interpolate(params)(r)
-        if s:
-            u = u.item()
-        return u
-
-    def force(self, type_, r):
-        params = self.coeff.evaluate(type_)
-        r, f, s = self._zeros(r)
-        f = -self._interpolate(params).derivative(r, 1)
-        if s:
-            f = f.item()
-        return f
-
-    def _derivative(self, param, r, **params):
-        r, d, s = self._zeros(r)
-        h = 0.001
-
-        if "dr-" in param:
-            f_low = self._interpolate(params)(r)
-            knot_p = params[param]
-            params[param] = knot_p + h
-            f_high = self._interpolate(params)(r)
-            params[param] = knot_p
-            d = (f_high - f_low) / h
-        elif self.mode + "-" in param:
-            # perturb knot param value
-            knot_p = params[param]
-            params[param] = knot_p + h
-            f_high = self._interpolate(params)(r)
-            params[param] = knot_p - h
-            f_low = self._interpolate(params)(r)
-            params[param] = knot_p
-            d = (f_high - f_low) / (2 * h)
-        else:
-            raise ValueError("Parameter cannot be differentiated")
-
-        if s:
-            d = d.item()
-        return d
-
-    def _interpolate(self, params):
-        """Interpolate the knot points into a spline potential.
+        """Evaluate potential energy.
 
         Parameters
         ----------
-        params : dict
-            The knot parameters
+        type_
+            Type parametrizing the potential in :attr:`coeff<container>`.
+        r : float or list
+            Potential energy coordinate.
 
         Returns
         -------
-        :class:`~relentless.math.Interpolator`
-            The interpolated spline potential.
+        float or numpy.ndarray
+            The pair energy evaluated at ``r``. The return type is consistent
+            with ``r``.
 
         """
-        dr = numpy.zeros(self.num_knots)
-        u = numpy.zeros(self.num_knots)
-        for i in range(self.num_knots):
-            dri, ki = self.knot_params(i)
-            dr[i] = params[dri]
-            u[i] = params[ki]
+        return super().energy(type_=type_, x=r)
 
-        if numpy.any(dr[1:] <= 0):
-            raise ValueError("Knot differences must be positive")
+    def force(self, type_, r):
+        """Evaluate force magnitude.
 
-        # reconstruct r from differences
-        r = numpy.cumsum(dr)
-
-        # reconstruct the energies from differences, starting from the end
-        if self.mode == "diff":
-            u = numpy.flip(numpy.cumsum(numpy.flip(u)))
-
-        return math.AkimaSpline(x=r, y=u)
-
-    @property
-    def num_knots(self):
-        """int: Number of knots."""
-        return self._num_knots
-
-    @property
-    def mode(self):
-        """str: Spline construction mode."""
-        return self._mode
-
-    def knots(self, types):
-        r"""Generator for knot points.
+        The force is the (negative) magnitude of the ``x`` gradient.
 
         Parameters
         ----------
-        types : tuple[str]
-            The types for which to retrieve the knot points.
+        type_
+            Type parametrizing the potential in :attr:`coeff<container>`.
+        x : float or list
+            Potential energy coordinate.
 
-        Yields
-        ------
-        :class:`~relentless.variable.Variable`
-            The next :math:`dr` variable in the parameters.
-        :class:`~relentless.variable.Variable`
-            The next knot variable in the parameters.
+        Returns
+        -------
+        float or numpy.ndarray
+            The force evaluated at ``r``. The return type is consistent
+            with ``r``.
 
         """
-        for i in range(self.num_knots):
-            dri, ki = self.knot_params(i)
-            yield self.coeff[types][dri], self.coeff[types][ki]
-
-    @property
-    def design_variables(self):
-        """tuple: Designable variables of the spline."""
-        dvars = []
-        for types in self.coeff:
-            for i, (dr, k) in enumerate(self.knots(types)):
-                if i != self.num_knots - 1:
-                    dvars.append(k)
-        return tuple(dvars)
+        return super().force(type_=type_, x=r)
