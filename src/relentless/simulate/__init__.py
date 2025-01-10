@@ -124,6 +124,7 @@ Defining interactions
     PotentialTabulator
     AnglePotentialTabulator
     BondPotentialTabulator
+    DihedralPotentialTabulator
     PairPotentialTabulator
 
 Developer classes
@@ -161,6 +162,7 @@ from .simulate import (
     AnalysisOperation,
     AnglePotentialTabulator,
     BondPotentialTabulator,
+    DihedralPotentialTabulator,
     PairPotentialTabulator,
     Potentials,
     PotentialTabulator,

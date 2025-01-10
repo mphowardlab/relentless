@@ -196,6 +196,8 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
             if has_angles:
                 angle_type_label = sim[self]["_angles"].type_label
             has_dihedrals = snap.has_dihedrals()
+            if has_dihedrals:
+                dihedral_type_label = sim[self]["dihedrals"].type_label
             has_impropers = snap.has_impropers()
             for i in sim.types:
                 mi = snap.mass[snap.typeid == sim["engine"]["types"][i]]
@@ -225,6 +227,7 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
         has_impropers = mpi.world.bcast(has_impropers)
         bond_type_label = mpi.world.bcast(bond_type_label)
         angle_type_label = mpi.world.bcast(angle_type_label)
+        dihedral_type_label = mpi.world.bcast(dihedral_type_label)
 
         # attach the potentials
         if sim.potentials.pair.start == 0:
@@ -259,6 +262,21 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
                 if numpy.any(numpy.isinf(uA[i])):
                     raise ValueError("Angle potential/force is infinite at evaluated r")
             NthetaA = len(thetaA)
+
+        if has_dihedrals:
+            uD = collections.FixedKeyDict(dihedral_type_label.types)
+            fD = collections.FixedKeyDict(dihedral_type_label.types)
+            for i in dihedral_type_label.types:
+                rD, uD[i], fD[i] = (
+                    sim.potentials.dihedral.linear_space,
+                    sim.potentials.dihedral.energy(key=i),
+                    sim.potentials.dihedral.force(key=i),
+                )
+                if numpy.any(numpy.isinf(uD[i])):
+                    raise ValueError(
+                        "Dihedral potential/force is infinite at evaluated r"
+                    )
+            NrD = len(rD)
 
         def pair_map(sim, pair):
             # Map lammps type indexes as a pair, lowest type first
@@ -343,6 +361,22 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
                                 )
                             )
 
+                # write dihedral potentials into the file
+                if has_dihedrals:
+                    fw.write("# LAMMPS tabulated dihedral potentials\n")
+                    for i in dihedral_type_label.types:
+                        fw.write("# dihedral DIHEDRAL_TABLE_{}\n\n".format(i))
+                        fw.write("DIHEDRAL_TABLE_{}\n".format(i))
+                        fw.write("N {N} RADIANS \n\n".format(N=NrD))
+                        for idx, (rD_, uD_, fD_) in enumerate(
+                            zip(rD, uD[i], fD[i]), start=1
+                        ):
+                            fw.write(
+                                "{id} {rD} {uD} {fD}\n".format(
+                                    id=idx, rD=rD_, uD=uD_, fD=fD_
+                                )
+                            )
+
         else:
             file_ = None
         file_ = mpi.world.bcast(file_)
@@ -362,6 +396,8 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
                     excl_12 = 0.0
                 if "1-3" in sim.potentials.pair.exclusions:
                     excl_13 = 0.0
+                if "1-4" in sim.potentials.pair.exclusions:
+                    excl_14 = 0.0
             cmds += [f"special_bonds lj/coul {excl_12} {excl_13} {excl_14}"]
 
         if has_bonds:
