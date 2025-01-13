@@ -98,12 +98,12 @@ class AnalysisOperation(abc.ABC):
             connection.
         """
 
-        pi_connection = (connection[:, 0] + connection[:, 1]) * (
-            connection[:, 0] + connection[:, 1] + 1
-        ) / 2 + connection[:, 1]
-        pi_neighbor = (neighbor[:, 0] + neighbor[:, 1]) * (
-            neighbor[:, 0] + neighbor[:, 1] + 1
-        ) / 2 + neighbor[:, 1]
+        pi_connection = (connection[:, 0] + connection[:, -1]) * (
+            connection[:, 0] + connection[:, -1] + 1
+        ) / 2 + connection[:, -1]
+        pi_neighbor = (neighbor[:, 0] + neighbor[:, -1]) * (
+            neighbor[:, 0] + neighbor[:, -1] + 1
+        ) / 2 + neighbor[:, -1]
 
         return ~numpy.isin(pi_neighbor, pi_connection)
 
@@ -426,6 +426,7 @@ class Potentials:
         if val is not None and not isinstance(val, DihedralPotentialTabulator):
             raise TypeError("Dihedral potential must be tabulated")
         self._dihedral = val
+
 
 class PotentialTabulator:
     r"""Tabulator for an interaction potential.
