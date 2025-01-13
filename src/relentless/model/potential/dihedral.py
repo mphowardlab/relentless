@@ -69,13 +69,13 @@ class OPLSDihedral(DihedralPotential):
     +-------------+--------------------------------------------------+
     | Parameter   | Description                                      |
     +=============+==================================================+
-    | ``k_1``     | First fitting coefficient :math:`k`.             |
+    | ``k_1``     | First fitting coefficient :math:`k_1`.           |
     +-------------+--------------------------------------------------+
-    | ``k_2``     | Second fitting coefficient :math:`k`.            |
+    | ``k_2``     | Second fitting coefficient :math:`k_2`.          |
     +-------------+--------------------------------------------------+
-    | ``k_3``     | Third fitting coefficient :math:`k`.             |
+    | ``k_3``     | Third fitting coefficient :math:`k`_3.           |
     +-------------+--------------------------------------------------+
-    | ``k_4``     | Fourth fitting coefficient :math:`k`.            |
+    | ``k_4``     | Fourth fitting coefficient :math:`k`_4.          |
     +-------------+--------------------------------------------------+
 
     Parameters
@@ -180,17 +180,17 @@ class RyckaertBellemansDihedral(DihedralPotential):
     +-------------+--------------------------------------------------+
     | Parameter   | Description                                      |
     +=============+==================================================+
-    | ``c_0``     | First fitting coefficient :math:`k`.             |
+    | ``c_0``     | First fitting coefficient :math:`c_0`.           |
     +-------------+--------------------------------------------------+
-    | ``c_1``     | Second fitting coefficient :math:`k`.            |
+    | ``c_1``     | Second fitting coefficient :math:`c_1`.          |
     +-------------+--------------------------------------------------+
-    | ``c_2``     | Third fitting coefficient :math:`k`.             |
+    | ``c_2``     | Third fitting coefficient :math:`c_2`.           |
     +-------------+--------------------------------------------------+
-    | ``c_3``     | Fourth fitting coefficient :math:`k`.            |
+    | ``c_3``     | Fourth fitting coefficient :math:`c_3`.          |
     +-------------+--------------------------------------------------+
-    | ``c_4``     | Fifth fitting coefficient :math:`k`.             |
+    | ``c_4``     | Fifth fitting coefficient :math:`c_4`.           |
     +-------------+--------------------------------------------------+
-    | ``c_5``     | Sixth fitting coefficient :math:`k`.             |
+    | ``c_5``     | Sixth fitting coefficient :math:`c_5`.           |
     +-------------+--------------------------------------------------+
 
     Parameters
