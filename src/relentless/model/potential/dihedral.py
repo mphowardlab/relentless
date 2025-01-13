@@ -34,7 +34,7 @@ class DihedralPotential(potential.BondedPotential):
 
         \mathbf{n}_{B} = \mathbf{r}_{jk} \times \mathbf{r}_{k\ell}
 
-    where :math:`\mathbf{r}_{ij}`,  :math:`\mathbf{r}_{jk}`, :math:`\mathbf{r}_{jk}
+    where :math:`\mathbf{r}_{ij}`,  :math:`\mathbf{r}_{jk}`, :math:`\mathbf{r}_{jk}`
     are the vectors from particle *i* to particle *j*, from particle *j* to
     particle *k*, and particle *k* to particle :math:`\ell`, respectively.
 
