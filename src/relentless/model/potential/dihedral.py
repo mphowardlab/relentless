@@ -10,7 +10,35 @@ class DihedralParameters(potential.Parameters):
 
 
 class DihedralPotential(potential.BondedPotential):
-    r"""Abstract base class for an dihedral potential."""
+    r"""Abstract base class for an dihedral potential.
+
+    The dihedral between four bonded particles :math:`i`, :math:`j`, :math:`k`,
+    :math:`\ell`,  is defined by the angle between two planes :math:`ijk` and
+    :math:`jk\ell`:
+
+    .. math::
+
+        \phi_{ijk\ell} = \arccos\left(\frac{\mathbf{n}_{A} \cdot
+        \mathbf{n}_{B}}{|\mathbf{n}_{A}||\mathbf{r}_{B}|}\right)
+
+    where :math:`\mathbf{n}_{A}` and :math:`\mathbf{n}_{B}` are the normal
+    vectors to the planes :math:`ijk` and :math:`jk\ell`:
+
+    .. math::
+
+        \mathbf{n}_{A} = \mathbf{r}_{ij} \times \mathbf{r}_{jk}
+
+    and
+
+    .. math::
+
+        \mathbf{n}_{B} = \mathbf{r}_{jk} \times \mathbf{r}_{k\ell}
+
+    where :math:`\mathbf{r}_{ij}`,  :math:`\mathbf{r}_{jk}`, :math:`\mathbf{r}_{jk}
+    are the vectors from particle *i* to particle *j*, from particle *j* to
+    particle *k*, and particle *k* to particle :math:`\ell`, respectively.
+
+    """
 
     def derivative(self, type_, var, phi):
         r"""Evaluate derivative with respect to a variable.
