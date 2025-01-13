@@ -71,9 +71,9 @@ class OPLSDihedral(DihedralPotential):
     +-------------+--------------------------------------------------+
     | ``k_2``     | Second fitting coefficient :math:`k_2`.          |
     +-------------+--------------------------------------------------+
-    | ``k_3``     | Third fitting coefficient :math:`k`_3.           |
+    | ``k_3``     | Third fitting coefficient :math:`k_3`.           |
     +-------------+--------------------------------------------------+
-    | ``k_4``     | Fourth fitting coefficient :math:`k`_4.          |
+    | ``k_4``     | Fourth fitting coefficient :math:`k_4`.          |
     +-------------+--------------------------------------------------+
 
     Parameters
