@@ -1064,7 +1064,7 @@ class EnsembleAverage(AnalysisOperation):
             exclusions=sim.potentials.pair.exclusions,
             bonds=sim[sim.initializer]["_bonds"],
             angles=sim[sim.initializer]["_angles"],
-            dihedrals=sim[sim.initializer]["_dihdedrals"],
+            dihedrals=sim[sim.initializer]["_dihedrals"],
         )
         sim[self]["_hoomd_thermo_callback"] = hoomd.write.CustomWriter(
             trigger=self.every,
