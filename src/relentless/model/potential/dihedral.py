@@ -14,6 +14,44 @@ class DihedralParameters(potential.Parameters):
 class DihedralPotential(potential.BondedPotential):
     r"""Abstract base class for an dihedral potential."""
 
+    def derivative(self, type_, var, phi):
+        r"""Evaluate derivative with respect to a variable.
+
+        The derivative is evaluated using the :meth:`_derivative` function for all
+        :math:`u_{0,\lambda}(phi)`.
+
+        The derivative will be carried out with respect to ``var`` for all
+        :class:`~relentless.variable.Variable` parameters. The appropriate chain
+        rules are handled automatically. If the potential does not depend on
+        ``var``, the derivative will be zero by definition.
+
+        Parameters
+        ----------
+        _type : tuple[str]
+            The type for which to calculate the derivative.
+        var : :class:`~relentless.variable.Variable`
+            The variable with respect to which the derivative is calculated.
+        phi : float or list
+            The bond distance(s) at which to evaluate the derivative.
+
+        Returns
+        -------
+        float or numpy.ndarray
+            The bond derivative evaluated at ``phi``. The return type is consistent
+            with ``phi``.
+
+        Raises
+        ------
+        ValueError
+            If any value in ``phi`` is negative.
+        TypeError
+            If the parameter with respect to which to take the derivative
+            is not a :class:`~relentless.variable.Variable`.
+
+        """
+
+        return super().derivative(type_=type_, var=var, x=phi)
+
     pass
 
 
@@ -22,17 +60,22 @@ class OPLSDihedral(DihedralPotential):
 
     .. math::
 
-        u(\theta) = \frac{k}{2} (\theta - \theta_0)^2
+        u(\phi) = \frac{1}{2} \left( k_1 (1+\cos \phi) + k_2 (1+\cos 2\phi)
+        + k_3 (1+ \cos 3\phi) + k_4 (1+ \cos 4\phi) \right)
 
-    where :math:`\theta` is the dihedral between three bonded particles. The parameters
+    where :math:`\phi` is the dihedral between four bonded particles. The parameters
     for each type are:
 
     +-------------+--------------------------------------------------+
     | Parameter   | Description                                      |
     +=============+==================================================+
-    | ``k``       | Spring constant :math:`k`.                       |
+    | ``k_1``     | First fitting coefficient :math:`k`.             |
     +-------------+--------------------------------------------------+
-    | ``theta0``  | Minimum-energy dihedral :math:`\thata_0`.           |
+    | ``k_2``     | Second fitting coefficient :math:`k`.            |
+    +-------------+--------------------------------------------------+
+    | ``k_3``     | Third fitting coefficient :math:`k`.             |
+    +-------------+--------------------------------------------------+
+    | ``k_4``     | Fourth fitting coefficient :math:`k`.            |
     +-------------+--------------------------------------------------+
 
     Parameters
@@ -53,7 +96,7 @@ class OPLSDihedral(DihedralPotential):
     OPLS Dihedral::
 
         >>> u = relentless.potential.dihedral.OPLSDihedral(("A",))
-        >>> u.coeff["A"].update({'k': 1000, 'theta0': 1})
+        >>> u.coeff["A"].update({'k1': 1.740, 'k2': -0.157, 'k3': 0.279, 'k4': 0.00})
 
     """
 
@@ -127,17 +170,27 @@ class RyckaertBellemansDihedral(DihedralPotential):
 
     .. math::
 
-        u(\phi) = \frac{k}{2} (\phi - \phi_0)^2
+        u(\phi) = c_0 + c_1 (\cos (\phi - \pi)) + c_2 (\cos (\phi - \pi))^2 +
+        c_3 (\cos (\phi - \pi))^3 + c_4 (\cos (\phi - \pi))^4 +
+        c_5 (\cos (\phi - \pi))^5
 
-    where :math:`\phi` is the dihedral between three bonded particles. The parameters
+    where :math:`\phi` is the dihedral between four bonded particles. The parameters
     for each type are:
 
     +-------------+--------------------------------------------------+
     | Parameter   | Description                                      |
     +=============+==================================================+
-    | ``k``       | Spring constant :math:`k`.                       |
+    | ``c_0``     | First fitting coefficient :math:`k`.             |
     +-------------+--------------------------------------------------+
-    | ``phi0``  | Minimum-energy dihedral :math:`\thata_0`.           |
+    | ``c_1``     | Second fitting coefficient :math:`k`.            |
+    +-------------+--------------------------------------------------+
+    | ``c_2``     | Third fitting coefficient :math:`k`.             |
+    +-------------+--------------------------------------------------+
+    | ``c_3``     | Fourth fitting coefficient :math:`k`.            |
+    +-------------+--------------------------------------------------+
+    | ``c_4``     | Fifth fitting coefficient :math:`k`.             |
+    +-------------+--------------------------------------------------+
+    | ``c_5``     | Sixth fitting coefficient :math:`k`.             |
     +-------------+--------------------------------------------------+
 
     Parameters
@@ -157,8 +210,15 @@ class RyckaertBellemansDihedral(DihedralPotential):
     --------
     Harmonic Dihedral::
 
-        >>> u = relentless.potential.dihedral.HarmonicDihedral(("A",))
-        >>> u.coeff["A"].update({'k': 1000, 'phi0': 1})
+        >>> u = relentless.potential.dihedral.RyckaertBellemansDihedral(("A",))
+        >>> u.coeff["A"].update({
+            'c0': 9.28,
+            'c1': 12.16,
+            'c2': -13.12,
+            'c3': -3.06,
+            'c4': 26.24,
+            'c5': -31.5
+            })
 
     """
 
@@ -243,10 +303,10 @@ class RyckaertBellemansDihedral(DihedralPotential):
 
 
 class DihedralSpline(BondSpline):
-    """Spline dihedral potential.
+    """Spline dihedral potentials.
 
-    The dihedral potential is defined by interpolation through a set of knot points.
-    The interpolation scheme uses Akima splines.
+    The dihedral spline potential is defined by interpolation through a set of
+    knot points. The interpolation scheme uses Akima splines.
 
     Parameters
     ----------
@@ -271,9 +331,10 @@ class DihedralSpline(BondSpline):
     specifying knot parameters directly::
 
         spline = relentless.potential.dihedral.DihedralSpline(
-            types=(dihedralA,), num_knots=3
+            types=("dihedralA",),
+            num_knots=3,
         )
-        spline.from_array("dihedralA",[0,1,2],[4,2,0])
+        spline.from_array(("dihedralA"),[0,1,2],[4,2,0])
 
     However, the knot variables can be iterated over and manipulated directly::
 
@@ -282,20 +343,114 @@ class DihedralSpline(BondSpline):
 
     """
 
+    _space_coord_name = "phi"
+
     def __init__(self, types, num_knots, mode="diff", name=None):
         super().__init__(types=types, num_knots=num_knots, mode=mode, name=name)
 
-    def from_array(self, type_, phi, u):
-        return super().from_array(types=type_, r=phi, u=u)
+    def from_array(self, types, phi, u):
+        r"""Set up the potential from knot points.
+
+        Parameters
+        ----------
+        types : tuple[str]
+            The type for which to set up the potential.
+        phi : list
+            Position of each knot.
+        u : list
+            Potential energy of each knot.
+
+        Raises
+        ------
+        ValueError
+            If the number of ``phi`` values is not the same as the number of knots.
+        ValueError
+            If the number of ``u`` values is not the same as the number of knots.
+
+        """
+
+        if phi[0] != 0.0 and phi[-1] != numpy.pi:
+            raise ValueError("The first and last knot must be at 0 and pi.")
+        return super().from_array(types=types, x=phi, u=u)
 
     def energy(self, type_, phi):
-        """Evaluate dihedral energy."""
-        return super().energy(types=type_, r=phi)
+        """Evaluate potential energy.
+
+        Parameters
+        ----------
+        type_
+            Type parametrizing the potential in :attr:`coeff<container>`.
+        phi : float or list
+            Potential energy coordinate.
+
+        Returns
+        -------
+        float or numpy.ndarray
+            The pair energy evaluated at ``phi``. The return type is consistent
+            with ``phi``.
+
+        """
+        return super().energy(type_=type_, x=phi)
 
     def force(self, type_, phi):
-        """Evaluate dihedral force."""
-        return super().force(types=type_, r=phi)
+        """Evaluate force magnitude.
+
+        The force is the (negative) magnitude of the ``phi`` gradient.
+
+        Parameters
+        ----------
+        type_
+            Type parametrizing the potential in :attr:`coeff<container>`.
+        phi : float or list
+            Potential energy coordinate.
+
+        Returns
+        -------
+        float or numpy.ndarray
+            The force evaluated at ``phi``. The return type is consistent
+            with ``phi``.
+
+        """
+        return super().force(type_=type_, x=phi)
+
+    def derivative(self, type_, var, phi):
+        r"""Evaluate derivative with respect to a variable.
+
+        The derivative is evaluated using the :meth:`_derivative` function for all
+        :math:`u_{0,\lambda}(phi)`.
+
+        The derivative will be carried out with respect to ``var`` for all
+        :class:`~relentless.variable.Variable` parameters. The appropriate chain
+        rules are handled automatically. If the potential does not depend on
+        ``var``, the derivative will be zero by definition.
+
+        Parameters
+        ----------
+        _type : tuple[str]
+            The type for which to calculate the derivative.
+        var : :class:`~relentless.variable.Variable`
+            The variable with respect to which the derivative is calculated.
+        phi : float or list
+            The bond distance(s) at which to evaluate the derivative.
+
+        Returns
+        -------
+        float or numpy.ndarray
+            The bond derivative evaluated at ``phi``. The return type is consistent
+            with ``phi``.
+
+        Raises
+        ------
+        ValueError
+            If any value in ``phi`` is negative.
+        TypeError
+            If the parameter with respect to which to take the derivative
+            is not a :class:`~relentless.variable.Variable`.
+
+        """
+
+        return super().derivative(type_=type_, var=var, x=phi)
 
     def _derivative(self, param, phi, **params):
         """Evaluate dihedral derivative with respect to a variable."""
-        return super()._derivative(param=param, r=phi, **params)
+        return super()._derivative(param=param, x=phi, **params)
