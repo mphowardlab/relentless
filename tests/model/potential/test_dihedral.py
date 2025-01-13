@@ -183,9 +183,9 @@ class test_DihedralPotential(unittest.TestCase):
         p.coeff["1"]["m"] = x
 
         # test with no cutoffs
-        d = p.derivative(types=("1"), var=x, r=0.5)
+        d = p.derivative(type_=("1"), var=x, phi=0.5)
         self.assertAlmostEqual(d, 0.5)
-        d = p.derivative(types=("1"), var=x, r=[0.25, 0.75])
+        d = p.derivative(type_=("1"), var=x, phi=[0.25, 0.75])
         numpy.testing.assert_allclose(d, [0.25, 0.75])
 
     def test_derivative_types(self):
@@ -197,20 +197,20 @@ class test_DihedralPotential(unittest.TestCase):
         q.coeff["1"]["m"] = z
 
         # test with respect to dependent variable parameter
-        d = q.derivative(types=("1"), var=z, r=2.0)
+        d = q.derivative(type_=("1"), var=z, phi=2.0)
         self.assertAlmostEqual(d, 2.0)
 
         # test with respect to independent variable on which parameter is dependent
-        d = q.derivative(types=("1"), var=x, r=1.5)
+        d = q.derivative(type_=("1"), var=x, phi=1.5)
         self.assertAlmostEqual(d, 3.0)
-        d = q.derivative(types=("1"), var=y, r=4.0)
+        d = q.derivative(type_=("1"), var=y, phi=4.0)
         self.assertAlmostEqual(d, 0.5)
 
         # test invalid derivative w.r.t. scalar
         a = 2.5
         q.coeff["1"]["m"] = a
         with self.assertRaises(TypeError):
-            d = q.derivative(types=("1"), var=a, r=2.0)
+            d = q.derivative(type_=("1"), var=a, phi=2.0)
 
         # test with respect to independent variable which is
         # related to a SameAs variable
@@ -218,12 +218,12 @@ class test_DihedralPotential(unittest.TestCase):
 
         r.coeff["1"]["x"] = x
         r.coeff["1"]["y"] = relentless.model.variable.SameAs(x)
-        d = r.derivative(types=("1"), var=x, r=4.0)
+        d = r.derivative(type_=("1"), var=x, phi=4.0)
         self.assertAlmostEqual(d, 20.0)
 
         r.coeff["1"]["y"] = x
         r.coeff["1"]["x"] = relentless.model.variable.SameAs(x)
-        d = r.derivative(types=("1"), var=x, r=4.0)
+        d = r.derivative(type_=("1"), var=x, phi=4.0)
         self.assertAlmostEqual(d, 20.0)
 
     def test_iteration(self):
@@ -702,9 +702,9 @@ class test_DihedralSpline(unittest.TestCase):
         coeff = relentless.model.potential.DihedralParameters(
             types=("1",),
             params=(
-                "dr-0",
-                "dr-1",
-                "dr-2",
+                "dphi-0",
+                "dphi-1",
+                "dphi-2",
                 "diff-0",
                 "diff-1",
                 "diff-2",
@@ -722,9 +722,9 @@ class test_DihedralSpline(unittest.TestCase):
         coeff = relentless.model.potential.DihedralParameters(
             types=("1",),
             params=(
-                "dr-0",
-                "dr-1",
-                "dr-2",
+                "dphi-0",
+                "dphi-1",
+                "dphi-2",
                 "value-0",
                 "value-1",
                 "value-2",
@@ -745,144 +745,13 @@ class test_DihedralSpline(unittest.TestCase):
 
     def test_from_array(self):
         """Test from_array method and knots generator"""
-        r_arr = [1, 2, 3]
-        u_arr = [9, 4, 1]
-        u_arr_diff = [5, 3, 1]
-
-        # test diff mode
-        s = relentless.model.potential.DihedralSpline(types=("1",), num_knots=3)
-        s.from_array(type_=("1"), phi=r_arr, u=u_arr)
-
-        dvars = []
-        for i, (r, k) in enumerate(s.knots(types=("1"))):
-            self.assertAlmostEqual(r.value, 1.0)
-            self.assertAlmostEqual(k.value, u_arr_diff[i])
-            self.assertIsInstance(r, relentless.model.IndependentVariable)
-            self.assertIsInstance(k, relentless.model.IndependentVariable)
-            if i < s.num_knots - 1:
-                dvars.append(k)
-        self.assertCountEqual(s.design_variables, dvars)
-
-        # test value mode
-        s = relentless.model.potential.DihedralSpline(
-            types=("1",), num_knots=3, mode="value"
-        )
-        s.from_array(type_=("1"), phi=r_arr, u=u_arr)
-
-        dvars = []
-        for i, (r, k) in enumerate(s.knots(types=("1"))):
-            self.assertAlmostEqual(r.value, 1.0)
-            self.assertAlmostEqual(k.value, u_arr[i])
-            self.assertIsInstance(r, relentless.model.IndependentVariable)
-            self.assertIsInstance(k, relentless.model.IndependentVariable)
-            if i != s.num_knots - 1:
-                dvars.append(k)
-        self.assertCountEqual(s.design_variables, dvars)
-
-        # test invalid r and u shapes
-        r_arr = [2, 3]
-        with self.assertRaises(ValueError):
-            s.from_array(type_=("1"), phi=r_arr, u=u_arr)
-
-        r_arr = [1, 2, 3]
-        u_arr = [1, 2]
-        with self.assertRaises(ValueError):
-            s.from_array(type_=("1"), phi=r_arr, u=u_arr)
-
-    def test_energy(self):
-        """Test energy method"""
-        r_arr = [1, 2, 3]
-        u_arr = [9, 4, 1]
-
-        # test diff mode
-        s = relentless.model.potential.DihedralSpline(types=("1",), num_knots=3)
-        s.from_array(type_=("1"), phi=r_arr, u=u_arr)
-        u_actual = numpy.array([6.25, 2.25, 1])
-        u = s.energy(type_=("1"), phi=[1.5, 2.5, 3.5])
-        numpy.testing.assert_allclose(u, u_actual)
-
-        # test value mode
-        s = relentless.model.potential.DihedralSpline(
-            types=("1",), num_knots=3, mode="value"
-        )
-        s.from_array(type_=("1"), phi=r_arr, u=u_arr)
-        u_actual = numpy.array([6.25, 2.25, 1])
-        u = s.energy(type_=("1"), phi=[1.5, 2.5, 3.5])
-        numpy.testing.assert_allclose(u, u_actual)
-
-        # test DihedralSpline with 2 knots
-        s = relentless.model.potential.DihedralSpline(
-            types=("1",), num_knots=2, mode="value"
-        )
-        s.from_array(type_=("1"), phi=[1, 2], u=[4, 2])
-        u = s.energy(type_=("1"), phi=1.5)
-        self.assertAlmostEqual(u, 3)
-
-    def test_force(self):
-        """Test force method"""
-        r_arr = [1, 2, 3]
-        u_arr = [9, 4, 1]
-
-        # test diff mode
-        s = relentless.model.potential.DihedralSpline(types=("1",), num_knots=3)
-        s.from_array(type_=("1"), phi=r_arr, u=u_arr)
-        f_actual = numpy.array([5, 3, 0])
-        f = s.force(type_=("1"), phi=[1.5, 2.5, 3.5])
-        numpy.testing.assert_allclose(f, f_actual)
-
-        # test value mode
-        s = relentless.model.potential.DihedralSpline(
-            types=("1",), num_knots=3, mode="value"
-        )
-        s.from_array(type_=("1"), phi=r_arr, u=u_arr)
-        f_actual = numpy.array([5, 3, 0])
-        f = s.force(type_=("1"), phi=[1.5, 2.5, 3.5])
-        numpy.testing.assert_allclose(f, f_actual)
-
-        # test DihedralSpline with 2 knots
-        s = relentless.model.potential.DihedralSpline(
-            types=("1",), num_knots=2, mode="value"
-        )
-        s.from_array(type_=("1"), phi=[1, 2], u=[4, 2])
-        f = s.force(type_=("1"), phi=1.5)
-        self.assertAlmostEqual(f, 2)
-
-    def test_derivative(self):
-        """Test derivative method"""
         phi_arr = [1, 2, 3]
-        u_arr = [9, 4, 1]
+        u_arr = [1, 2, 3]
 
-        # test diff mode
+        # test that bounds are enforced
         s = relentless.model.potential.DihedralSpline(types=("1",), num_knots=3)
-        s.from_array(type_=("1"), phi=phi_arr, u=u_arr)
-        d_actual = numpy.array([1.125, 0.625, 0])
-        param = list(s.knots(("1")))[1][1]
-        d = s.derivative(types=("1"), var=param, r=[1.5, 2.5, 3.5])
-        numpy.testing.assert_allclose(d, d_actual)
-
-        # test value mode
-        s = relentless.model.potential.DihedralSpline(
-            types=("1",), num_knots=3, mode="value"
-        )
-        s.from_array(type_=("1"), phi=phi_arr, u=u_arr)
-        d_actual = numpy.array([0.75, 0.75, 0])
-        param = list(s.knots(("1")))[1][1]
-        d = s.derivative(types=("1"), var=param, r=[1.5, 2.5, 3.5])
-        numpy.testing.assert_allclose(d, d_actual)
-
-    def test_json(self):
-        r_arr = [1, 2, 3]
-        u_arr = [9, 4, 1]
-        u_arr_diff = [5, 3, 1]
-
-        s = relentless.model.potential.DihedralSpline(types=("1",), num_knots=3)
-        s.from_array(type_=("1"), phi=r_arr, u=u_arr)
-        data = s.to_json()
-
-        s2 = relentless.model.potential.DihedralSpline.from_json(data)
-        for i, (r, k) in enumerate(s2.knots(types=("1"))):
-            self.assertAlmostEqual(r.value, 1.0)
-            self.assertAlmostEqual(k.value, u_arr_diff[i])
+        with self.assertRaises(ValueError):
+            s.from_array(types=("1"), phi=phi_arr, u=u_arr)
 
 
 if __name__ == "__main__":

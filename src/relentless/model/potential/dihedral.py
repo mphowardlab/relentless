@@ -369,8 +369,8 @@ class DihedralSpline(BondSpline):
 
         """
 
-        if phi[0] != 0.0 and phi[-1] != numpy.pi:
-            raise ValueError("The first and last knot must be at 0 and pi.")
+        if phi[0] != 0.0 and phi[-1] != 2 * numpy.pi:
+            raise ValueError("The first and last knot must be at 0 and 2*pi.")
         return super().from_array(types=types, x=phi, u=u)
 
     def energy(self, type_, phi):
