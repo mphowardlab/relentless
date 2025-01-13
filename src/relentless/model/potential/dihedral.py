@@ -1,7 +1,5 @@
 import numpy
 
-from relentless.model.potential.bond import BondSpline
-
 from . import potential
 
 
@@ -302,7 +300,7 @@ class RyckaertBellemansDihedral(DihedralPotential):
         return d
 
 
-class DihedralSpline(BondSpline):
+class DihedralSpline(potential.BondedSpline, DihedralPotential):
     """Spline dihedral potentials.
 
     The dihedral spline potential is defined by interpolation through a set of
@@ -369,8 +367,8 @@ class DihedralSpline(BondSpline):
 
         """
 
-        if phi[0] != 0.0 and phi[-1] != 2 * numpy.pi:
-            raise ValueError("The first and last knot must be at 0 and 2*pi.")
+        if phi[0] != -numpy.pi and phi[-1] != numpy.pi:
+            raise ValueError("The first and last knot must be at -pi and pi.")
         return super().from_array(types=types, x=phi, u=u)
 
     def energy(self, type_, phi):

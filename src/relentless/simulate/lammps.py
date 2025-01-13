@@ -198,7 +198,7 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
                 angle_type_label = sim[self]["_angles"].type_label
             has_dihedrals = snap.has_dihedrals()
             if has_dihedrals:
-                dihedral_type_label = sim[self]["dihedrals"].type_label
+                dihedral_type_label = sim[self]["_dihedrals"].type_label
             has_impropers = snap.has_impropers()
             for i in sim.types:
                 mi = snap.mass[snap.typeid == sim["engine"]["types"][i]]
@@ -368,20 +368,19 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
                     for i in dihedral_type_label.types:
                         fw.write("# dihedral DIHEDRAL_TABLE_{}\n\n".format(i))
                         fw.write("DIHEDRAL_TABLE_{}\n".format(i))
-                        fw.write("N {N} RADIANS \n\n".format(N=NphiD))
+                        # Discard the last point as it must be same as the first
+                        fw.write("N {N} RADIANS \n\n".format(N=NphiD - 1))
                         for idx, (rD_, uD_, fD_) in enumerate(
-                            zip(phiD, uD[i], fD[i]), start=1
+                            zip(phiD[:-1], uD[i][:-1], fD[i][:-1]), start=1
                         ):
                             fw.write(
                                 "{id} {rD} {uD} {fD}\n".format(
                                     id=idx, rD=rD_, uD=uD_, fD=fD_
                                 )
                             )
-
         else:
             file_ = None
         file_ = mpi.world.bcast(file_)
-
         # process all lammps commands
         cmds += [
             "neighbor {skin} multi".format(skin=sim.potentials.pair.neighbor_buffer),
@@ -503,8 +502,8 @@ class InitializeFromFile(InitializationOperation):
                 if snap.has_angles():
                     sim[self]["_angles"] = snap.angles
                 sim[self]["_dihedrals"] = None
-                if snap.has_angles():
-                    sim[self]["_dihedrals"] = snap.angles
+                if snap.has_dihedrals():
+                    sim[self]["_dihedrals"] = snap.dihedrals
                 # figure out dimensions
                 dimension = self.dimension
                 if dimension is None:

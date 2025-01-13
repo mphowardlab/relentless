@@ -70,7 +70,7 @@ class test_DihedralParameters(unittest.TestCase):
         self.assertEqual(m["B"]["mass"], 0.7)
 
 
-class LinPot(relentless.model.potential.dihedral.DihedralPotential):
+class LinPotDihedral(relentless.model.potential.dihedral.DihedralPotential):
     """Linear dihedral potential function"""
 
     def __init__(self, types, params):
@@ -142,7 +142,7 @@ class test_DihedralPotential(unittest.TestCase):
     def test_init(self):
         """Test creation from data"""
         # test creation with only m
-        p = LinPot(types=("1",), params=("m",))
+        p = LinPotDihedral(types=("1",), params=("m",))
         p.coeff["1"]["m"] = 3.5
 
         coeff = relentless.model.potential.dihedral.DihedralParameters(
@@ -156,7 +156,7 @@ class test_DihedralPotential(unittest.TestCase):
 
     def test_energy(self):
         """Test energy method"""
-        p = LinPot(types=("1",), params=("m",))
+        p = LinPotDihedral(types=("1",), params=("m",))
         p.coeff["1"]["m"] = 2.0
 
         # test with no cutoffs
@@ -167,7 +167,7 @@ class test_DihedralPotential(unittest.TestCase):
 
     def test_force(self):
         """Test force method"""
-        p = LinPot(types=("1",), params=("m",))
+        p = LinPotDihedral(types=("1",), params=("m",))
         p.coeff["1"]["m"] = 2.0
 
         # test with no cutoffs
@@ -178,7 +178,7 @@ class test_DihedralPotential(unittest.TestCase):
 
     def test_derivative_values(self):
         """Test derivative method with different param values"""
-        p = LinPot(types=("1",), params=("m",))
+        p = LinPotDihedral(types=("1",), params=("m",))
         x = relentless.model.IndependentVariable(value=2.0)
         p.coeff["1"]["m"] = x
 
@@ -190,7 +190,7 @@ class test_DihedralPotential(unittest.TestCase):
 
     def test_derivative_types(self):
         """Test derivative method with different param types."""
-        q = LinPot(types=("1",), params=("m",))
+        q = LinPotDihedral(types=("1",), params=("m",))
         x = relentless.model.IndependentVariable(value=4.0)
         y = relentless.model.IndependentVariable(value=64.0)
         z = relentless.model.GeometricMean(x, y)
@@ -228,7 +228,7 @@ class test_DihedralPotential(unittest.TestCase):
 
     def test_iteration(self):
         """Test iteration on typesPotential object"""
-        p = LinPot(types=("1",), params=("m",))
+        p = LinPotDihedral(types=("1",), params=("m",))
         for types in p.coeff:
             p.coeff[types]["m"] = 2.0
 
@@ -236,24 +236,24 @@ class test_DihedralPotential(unittest.TestCase):
 
     def test_json(self):
         """Test saving to file"""
-        p = LinPot(types=("1",), params=("m"))
+        p = LinPotDihedral(types=("1",), params=("m"))
         p.coeff["1"]["m"] = 2.0
 
         data = p.to_json()
         self.assertEqual(data["id"], p.id)
         self.assertEqual(data["name"], p.name)
 
-        p2 = LinPot.from_json(data)
+        p2 = LinPotDihedral.from_json(data)
         self.assertEqual(p2.coeff["1"]["m"], 2.0)
 
     def test_save(self):
         """Test saving to file"""
         temp = tempfile.NamedTemporaryFile()
-        p = LinPot(types=("1",), params=("m"))
+        p = LinPotDihedral(types=("1",), params=("m"))
         p.coeff["1"]["m"] = 2.0
         p.save(temp.name)
 
-        p2 = LinPot.from_file(temp.name)
+        p2 = LinPotDihedral.from_file(temp.name)
         self.assertEqual(p2.coeff["1"]["m"], 2.0)
 
         temp.close()
