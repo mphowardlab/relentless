@@ -427,6 +427,7 @@ class Potentials:
             raise TypeError("Dihedral potential must be tabulated")
         self._dihedral = val
 
+
 class PotentialTabulator:
     r"""Tabulator for an interaction potential.
 
