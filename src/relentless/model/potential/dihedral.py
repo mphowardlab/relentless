@@ -34,7 +34,7 @@ class DihedralPotential(potential.BondedPotential):
 
         \mathbf{n}_{B} = \mathbf{r}_{jk} \times \mathbf{r}_{k\ell}
 
-    where :math:`\mathbf{r}_{ij}`,  :math:`\mathbf{r}_{jk}`, :math:`\mathbf{r}_{jk}`
+    where :math:`\mathbf{r}_{ij}`,  :math:`\mathbf{r}_{jk}`, :math:`\mathbf{r}_{k\ell}`
     are the vectors from particle *i* to particle *j*, from particle *j* to
     particle *k*, and particle *k* to particle :math:`\ell`, respectively.
 
@@ -89,7 +89,8 @@ class OPLSDihedral(DihedralPotential):
         u(\phi) = \frac{1}{2} \left( k_1 (1+\cos \phi) + k_2 (1+\cos 2\phi)
         + k_3 (1+ \cos 3\phi) + k_4 (1+ \cos 4\phi) \right)
 
-    where :math:`\phi` is the dihedral between four bonded particles. The parameters
+    where :math:`\phi` is the dihedral between four bonded particles. The dihedral
+    is described in `Watkins <https://doi.org/10.1021/jp004071w>`  The parameters
     for each type are:
 
     +-------------+--------------------------------------------------+
@@ -119,7 +120,8 @@ class OPLSDihedral(DihedralPotential):
 
     Examples
     --------
-    OPLS Dihedral::
+    OPLS dihedral for the CT-CT-CT-CT dihedral (`Watkins
+    <https://doi.org/10.1021/jp004071w>`). ::
 
         >>> u = relentless.potential.dihedral.OPLSDihedral(("A",))
         >>> u.coeff["A"].update({'k1': 1.740, 'k2': -0.157, 'k3': 0.279, 'k4': 0.00})
@@ -192,7 +194,7 @@ class OPLSDihedral(DihedralPotential):
 
 
 class RyckaertBellemansDihedral(DihedralPotential):
-    r"""Cosine squared dihedral potential.
+    r"""Ryckaert-Bellemans dihedral potential.
 
     .. math::
 
@@ -200,7 +202,8 @@ class RyckaertBellemansDihedral(DihedralPotential):
         c_3 (\cos (\phi - \pi))^3 + c_4 (\cos (\phi - \pi))^4 +
         c_5 (\cos (\phi - \pi))^5
 
-    where :math:`\phi` is the dihedral between four bonded particles. The parameters
+    where :math:`\phi` is the dihedral between four bonded particles. The dihedral
+    is described in `Ryckaert <https://doi.org/10.1039/DC9786600095>`. The parameters
     for each type are:
 
     +-------------+--------------------------------------------------+
@@ -234,7 +237,9 @@ class RyckaertBellemansDihedral(DihedralPotential):
 
     Examples
     --------
-    Harmonic Dihedral::
+    Ryckaert-Bellemans Dihedral for :math: `\rm{CH}_2\rm{CH}_2\rm{CH}_2\rm{CH}_2`
+    and :math: `\rm{CH}_2\rm{CH}_2\rm{CH}_2\rm{CH}_3` (`van Buuren
+    <https://doi.org/10.1021/j100138a023>`)::
 
         >>> u = relentless.potential.dihedral.RyckaertBellemansDihedral(("A",))
         >>> u.coeff["A"].update({
@@ -266,14 +271,15 @@ class RyckaertBellemansDihedral(DihedralPotential):
         phi, u, s = self._zeros(phi)
 
         psi = phi - numpy.pi
+        cos_psi = numpy.cos(psi)
 
         u = (
             c0
-            + c1 * numpy.cos(psi)
-            + c2 * numpy.cos(psi) ** 2
-            + c3 * numpy.cos(psi) ** 3
-            + c4 * numpy.cos(psi) ** 4
-            + c5 * numpy.cos(psi) ** 5
+            + c1 * cos_psi
+            + c2 * cos_psi**2
+            + c3 * cos_psi**3
+            + c4 * cos_psi**4
+            + c5 * cos_psi**5
         )
 
         if s:
@@ -291,12 +297,14 @@ class RyckaertBellemansDihedral(DihedralPotential):
         phi, f, s = self._zeros(phi)
 
         psi = phi - numpy.pi
+        cos_psi = numpy.cos(psi)
+        sin_psi = numpy.sin(psi)
 
         f = (
-            c1 * numpy.sin(psi)
-            + 2 * c2 * numpy.cos(psi) * numpy.sin(psi)
-            + 3 * c3 * numpy.cos(psi) ** 2 * numpy.sin(psi)
-            + 4 * c4 * numpy.cos(psi) ** 3 * numpy.sin(psi)
+            c1 * sin_psi
+            + 2 * c2 * cos_psi * sin_psi
+            + 3 * c3 * cos_psi**2 * sin_psi
+            + 4 * c4 * cos_psi**3 * sin_psi
         )
         if s:
             f = f.item()
