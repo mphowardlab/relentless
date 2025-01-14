@@ -22,7 +22,7 @@ class AnglePotential(potential.BondedPotential):
 
     where :math:`\mathbf{r}_{ij}` and :math:`\mathbf{r}_{jk}` are the vectors
     from particle *i* to particle *j* and from particle *j* to particle *k*,
-    respectively.
+    respectively. :math:`\theta` is bound between :math:`0` and :math:`\pi`.
 
     """
 
