@@ -91,7 +91,7 @@ class OPLSDihedral(DihedralPotential):
         + k_3 (1+ \cos 3\phi) + k_4 (1+ \cos 4\phi) \right)
 
     where :math:`\phi` is the dihedral between four bonded particles. The dihedral
-    is described in `Watkins and Jorgensen`_  The parameters for each type are:
+    is described in `Watkins and Jorgensen`_.  The parameters for each type are:
 
     +-------------+--------------------------------------------------+
     | Parameter   | Description                                      |
