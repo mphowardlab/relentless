@@ -237,8 +237,8 @@ class RyckaertBellemansDihedral(DihedralPotential):
 
     Examples
     --------
-    Ryckaert-Bellemans Dihedral for :math: `\rm{CH}_2\rm{CH}_2\rm{CH}_2\rm{CH}_2`
-    and :math: `\rm{CH}_2\rm{CH}_2\rm{CH}_2\rm{CH}_3` (`van Buuren et al.`_)::
+    Ryckaert-Bellemans Dihedral for :math:`\rm{CH}_2\rm{CH}_2\rm{CH}_2\rm{CH}_2`
+    and :math:`\rm{CH}_2\rm{CH}_2\rm{CH}_2\rm{CH}_3` (`van Buuren et al.`_)::
 
         >>> u = relentless.potential.dihedral.RyckaertBellemansDihedral(("A",))
         >>> u.coeff["A"].update({
