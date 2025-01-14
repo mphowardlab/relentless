@@ -277,6 +277,10 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
                     raise ValueError(
                         "Dihedral potential/force is infinite at evaluated r"
                     )
+                if len(uD[i]) < 2:
+                    raise ValueError(
+                        "Dihedral potential must have at least 2 points for LAMMPS"
+                    )
             NphiD = len(phiD)
 
         def pair_map(sim, pair):
