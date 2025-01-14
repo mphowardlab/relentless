@@ -170,6 +170,39 @@ class test_LAMMPS(unittest.TestCase):
 
         return (ens, pots)
 
+    def ens_pot_dihedrals(self):
+        if self.dim == 3:
+            ens = relentless.model.Ensemble(
+                T=2.0, V=relentless.model.Cube(L=20.0), N={"1": 4, "2": 4}
+            )
+        elif self.dim == 2:
+            ens = relentless.model.Ensemble(
+                T=2.0, V=relentless.model.Square(L=20.0), N={"1": 4, "2": 4}
+            )
+        else:
+            raise ValueError("HOOMD supports 2d and 3d simulations")
+
+        # setup potentials
+        pot = LinPot(ens.types, params=("m",))
+        for pair in pot.coeff:
+            pot.coeff[pair].update({"m": -2.0, "rmax": 1.0})
+        pots = relentless.simulate.Potentials()
+        pots.pair = relentless.simulate.PairPotentialTabulator(
+            pot, start=1e-6, stop=2.0, num=3, neighbor_buffer=0.4
+        )
+        # using OPLSDihedral since LAMMPS requires cyclic so we can't use LinPotDihedral
+        dihedral = relentless.model.potential.OPLSDihedral(("dihedralA", "dihedralB"))
+        for type_ in dihedral.coeff:
+            dihedral.coeff[type_].update(
+                {"k1": 1.740, "k2": -0.157, "k3": 0.279, "k4": 0.00}
+            )
+        pots.dihedral = relentless.simulate.DihedralPotentialTabulator(
+            dihedral,
+            num=10,
+        )
+
+        return (ens, pots)
+
     def create_gsd_file(self):
         filename = self.directory.file("test.gsd")
         if relentless.mpi.world.rank_is_root:
@@ -268,6 +301,49 @@ class test_LAMMPS(unittest.TestCase):
         relentless.mpi.world.barrier()
         return filename
 
+    # mock gsd file with dihedrals for testing
+    def create_gsd_file_dihedrals(self):
+        filename = self.directory.file("test.gsd")
+        if relentless.mpi.world.rank_is_root:
+            with gsd.hoomd.open(name=filename, mode=gsd_write_mode) as f:
+                s = HOOMDFrame()
+                s.particles.N = 8
+                s.particles.types = ["A", "B"]
+                s.particles.typeid = [0, 0, 0, 0, 1, 1, 1, 1]
+                s.dihedrals.N = 2
+                s.dihedrals.types = ["dihedralA", "dihedralB"]
+                s.dihedrals.group = [(0, 1, 2, 3), (4, 5, 6, 7)]
+                s.dihedrals.typeid = [0, 1]
+                if self.dim == 3:
+                    s.particles.position = [
+                        [0, 0, 0],
+                        [1, 0, 0],
+                        [1, 1, 0],
+                        [0, 1, 0],
+                        [0, 2, 1],
+                        [1, 2, 1],
+                        [1, 3, 1],
+                        [0, 3, 1],
+                    ]
+                    s.configuration.box = [20, 20, 20, 0, 0, 0]
+                elif self.dim == 2:
+                    s.particles.position = [
+                        [0, 0, 0],
+                        [1, 0, 0],
+                        [1, 1, 0],
+                        [0, 1, 0],
+                        [0, 2, 0],
+                        [1, 2, 0],
+                        [1, 3, 0],
+                        [0, 3, 0],
+                    ]
+                    s.configuration.box = [20, 20, 0, 0, 0, 0]
+                else:
+                    raise ValueError("HOOMD supports 2d and 3d simulations")
+                f.append(s)
+        relentless.mpi.world.barrier()
+        return filename
+
     def create_lammps_file(self):
         file_ = self.directory.file("test.data")
 
@@ -346,6 +422,58 @@ class test_LAMMPS(unittest.TestCase):
             snap.angles.members = [(1, 2, 3), (4, 5, 6)]
             snap.angles.type_label = lammpsio.topology.LabelMap(
                 {1: "angleA", 2: "angleB"}
+            )
+
+            lammpsio.DataFile.create(file_, snap)
+        relentless.mpi.world.barrier()
+
+        return file_
+
+    def create_lammps_file_dihedrals(self):
+        file_ = self.directory.file("test.data")
+
+        if relentless.mpi.world.rank_is_root:
+            low = [-5, -5, -5 if self.dim == 3 else -0.1]
+            high = [5, 5, 5 if self.dim == 3 else 0.1]
+            snap = lammpsio.Snapshot(N=8, box=lammpsio.Box(low, high))
+            snap.position = [
+                [0, 0, 0],
+                [1, 0, 0],
+                [1, 1, 0],
+                [0, 1, 0],
+                [0, 2, 0],
+                [1, 2, 0],
+                [1, 3, 0],
+                [0, 3, 0],
+            ]
+            if self.dim == 3:
+                snap.position = [
+                    [0, 0, 0],
+                    [1, 0, 0],
+                    [1, 1, 0],
+                    [0, 1, 0],
+                    [0, 2, 1],
+                    [1, 2, 1],
+                    [1, 3, 1],
+                    [0, 3, 1],
+                ]
+            snap.typeid = [
+                1,
+                1,
+                1,
+                1,
+                2,
+                2,
+                2,
+                2,
+            ]
+            snap.mass = [0.3, 0.3, 0.3, 0.3, 0.1, 0.1, 0.1, 0.1]
+            snap.dihedrals = lammpsio.topology.Dihedrals(N=2, num_types=2)
+            snap.dihedrals.id = [1, 2]
+            snap.dihedrals.typeid = [1, 2]
+            snap.dihedrals.members = [(1, 2, 3, 4), (5, 6, 7, 8)]
+            snap.dihedrals.type_label = lammpsio.topology.LabelMap(
+                {1: "dihedralA", 2: "dihedralB"}
             )
 
             lammpsio.DataFile.create(file_, snap)
@@ -438,6 +566,33 @@ class test_LAMMPS(unittest.TestCase):
 
             lmp.run(potentials=pot, directory=d)
 
+    def test_initialize_from_lammps_file_dihedrals(self):
+        """Test running initialization simulation operations."""
+        # InitializeFromFile
+        ens, pot = self.ens_pot_dihedrals()
+        f = self.create_lammps_file_dihedrals()
+        op = relentless.simulate.InitializeFromFile(filename=f)
+        h = relentless.simulate.LAMMPS(op, atom_style="molecular")
+        h.run(pot, self.directory)
+
+        lmp = relentless.simulate.LAMMPS(
+            op,
+            executable=self.executable,
+            atom_style="molecular",
+        )
+        # Run in a different directory
+        with self.directory:
+            d = self.directory.directory(
+                "run", create=relentless.mpi.world.rank_is_root
+            )
+            relentless.mpi.world.barrier()
+            op.filename = pathlib.Path(f).name
+            lmp.initializer = relentless.simulate.InitializeFromFile(
+                pathlib.Path(f).name
+            )
+
+            lmp.run(potentials=pot, directory=d)
+
     def test_initialize_from_gsd_file(self):
         """Test running initialization simulation operations."""
         _, pot = self.ens_pot()
@@ -494,6 +649,31 @@ class test_LAMMPS(unittest.TestCase):
         )
 
         f = self.create_gsd_file_angles()
+        op = relentless.simulate.InitializeFromFile(filename=f)
+        h = relentless.simulate.LAMMPS(op, atom_style="molecular")
+        h.run(pots, self.directory)
+
+    def test_initialize_from_gsd_file_dihedrals(self):
+        """Test running initialization simulation operations."""
+        # setup potentials
+        pot = LinPot(("A", "B"), params=("m",))
+        for pair in pot.coeff:
+            pot.coeff[pair].update({"m": -2.0, "rmax": 1.0})
+        pots = relentless.simulate.Potentials()
+        pots.pair = relentless.simulate.PairPotentialTabulator(
+            pot, start=1e-6, stop=2.0, num=3, neighbor_buffer=0.4
+        )
+        dihedral = relentless.model.potential.OPLSDihedral(("dihedralA", "dihedralB"))
+        for type_ in dihedral.coeff:
+            dihedral.coeff[type_].update(
+                {"k1": 1.740, "k2": -0.157, "k3": 0.279, "k4": 0.00}
+            )
+        pots.dihedral = relentless.simulate.DihedralPotentialTabulator(
+            dihedral,
+            num=10,
+        )
+
+        f = self.create_gsd_file_dihedrals()
         op = relentless.simulate.InitializeFromFile(filename=f)
         h = relentless.simulate.LAMMPS(op, atom_style="molecular")
         h.run(pots, self.directory)
@@ -739,6 +919,17 @@ class test_LAMMPS(unittest.TestCase):
     def test_angle_run(self):
         ens, pot = self.ens_pot_angles()
         f = self.create_lammps_file_angles()
+        init = relentless.simulate.InitializeFromFile(filename=f)
+        lmp = relentless.simulate.LAMMPS(init, atom_style="molecular")
+
+        # VerletIntegrator
+        vrl = relentless.simulate.RunMolecularDynamics(steps=1, timestep=1e-4)
+        lmp.operations = vrl
+        lmp.run(pot, self.directory)
+
+    def test_dihedral_run(self):
+        ens, pot = self.ens_pot_dihedrals()
+        f = self.create_lammps_file_dihedrals()
         init = relentless.simulate.InitializeFromFile(filename=f)
         lmp = relentless.simulate.LAMMPS(init, atom_style="molecular")
 

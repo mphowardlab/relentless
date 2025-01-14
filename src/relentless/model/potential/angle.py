@@ -22,7 +22,7 @@ class AnglePotential(potential.BondedPotential):
 
     where :math:`\mathbf{r}_{ij}` and :math:`\mathbf{r}_{jk}` are the vectors
     from particle *i* to particle *j* and from particle *j* to particle *k*,
-    respectively.
+    respectively. :math:`\theta` is bound between :math:`0` and :math:`\pi`.
 
     """
 
@@ -359,9 +359,6 @@ class AngleSpline(potential.BondedSpline, AnglePotential):
     """
 
     _space_coord_name = "theta"
-
-    def __init__(self, types, num_knots, mode="diff", name=None):
-        super().__init__(types=types, num_knots=num_knots, mode=mode, name=name)
 
     def from_array(self, types, theta, u):
         r"""Set up the potential from knot points.

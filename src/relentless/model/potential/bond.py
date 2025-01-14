@@ -343,9 +343,6 @@ class BondSpline(potential.BondedSpline, BondPotential):
 
     _space_coord_name = "r"
 
-    def __init__(self, types, num_knots, mode="diff", name=None):
-        super().__init__(types=types, num_knots=num_knots, mode=mode, name=name)
-
     def from_array(self, types, r, u):
         r"""Set up the potential from knot points.
 

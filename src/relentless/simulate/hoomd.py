@@ -119,6 +119,25 @@ class InitializationOperation(simulate.InitializationOperation):
                 angle_potential.params[i] = dict(U=u[:], tau=tau[:])
             sim[self]["_potentials"].append(angle_potential)
 
+        sim[self]["_dihedrals"] = self._get_dihedrals_from_snapshot(sim, snap)
+        if sim.potentials.dihedral is not None:
+            sim.dihedral_types = sim["engine"]["_hoomd"].state.dihedral_types
+            dihedral_potential = hoomd.md.dihedral.Table(
+                width=sim.potentials.dihedral.num
+            )
+
+            for i in sim.dihedral_types:
+                u, tau = (
+                    sim.potentials.dihedral.energy(key=i),
+                    sim.potentials.dihedral.force(key=i),
+                )
+                if numpy.any(numpy.isinf(u)):
+                    raise ValueError(
+                        "Dihedral potential/force is infinite at evaluated r"
+                    )
+                dihedral_potential.params[i] = dict(U=u[:], tau=tau[:])
+            sim[self]["_potentials"].append(dihedral_potential)
+
     def _call_v2(self, sim):
         # initialize
         sim[self]["_system"] = self._initialize_v2(sim)
@@ -198,6 +217,12 @@ class InitializationOperation(simulate.InitializationOperation):
     def _get_angles_from_snapshot(self, sim, snap):
         if mpi.world.rank_is_root:
             return snap.angles.group
+        else:
+            return None
+
+    def _get_dihedrals_from_snapshot(self, sim, snap):
+        if mpi.world.rank_is_root:
+            return snap.dihedrals.group
         else:
             return None
 
@@ -1039,6 +1064,7 @@ class EnsembleAverage(AnalysisOperation):
             exclusions=sim.potentials.pair.exclusions,
             bonds=sim[sim.initializer]["_bonds"],
             angles=sim[sim.initializer]["_angles"],
+            dihedrals=sim[sim.initializer]["_dihedrals"],
         )
         sim[self]["_hoomd_thermo_callback"] = hoomd.write.CustomWriter(
             trigger=self.every,
@@ -1233,6 +1259,7 @@ class EnsembleAverage(AnalysisOperation):
             exclusions=None,
             bonds=None,
             angles=None,
+            dihedrals=None,
         ):
             if dimension not in (2, 3):
                 raise ValueError("Only 2 or 3 dimensions supported")
@@ -1246,6 +1273,7 @@ class EnsembleAverage(AnalysisOperation):
             self.exclusion = exclusions
             self.bonds = bonds
             self.angles = angles
+            self.dihedrals = dihedrals
 
             # this method handles all the initialization
             self.reset()
@@ -1368,10 +1396,25 @@ class EnsembleAverage(AnalysisOperation):
                             )
 
                             angle_exclusion_filter = EnsembleAverage._cantor_pairing(
-                                self, angles, neighbors
+                                self, angles[:, (0, -1)], neighbors
                             )
 
                             neighbors.filter(angle_exclusion_filter)
+                        # Similarly filter dihedrals from the neighbor list
+                        if (
+                            self.rdf_params["exclude"]
+                            and snap.dihedrals.N != 0
+                            and len(neighbors[:]) > 0
+                        ):
+                            dihedrals = numpy.vstack(
+                                [self.dihedrals, numpy.flip(self.dihedrals, axis=1)],
+                            )
+
+                            dihedral_exclusion_filter = EnsembleAverage._cantor_pairing(
+                                self, dihedrals[:, (0, -1)], neighbors
+                            )
+
+                            neighbors.filter(dihedral_exclusion_filter)
 
                         for i in self.types:
                             for j in self.types:

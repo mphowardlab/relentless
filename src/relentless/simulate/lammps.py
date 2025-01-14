@@ -187,6 +187,7 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
         has_impropers = None
         bond_type_label = None
         angle_type_label = None
+        dihedral_type_label = None
         if mpi.world.rank_is_root:
             snap = lammpsio.DataFile(sim[self]["_datafile"]).read()
             has_bonds = snap.has_bonds()
@@ -196,6 +197,8 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
             if has_angles:
                 angle_type_label = sim[self]["_angles"].type_label
             has_dihedrals = snap.has_dihedrals()
+            if has_dihedrals:
+                dihedral_type_label = sim[self]["_dihedrals"].type_label
             has_impropers = snap.has_impropers()
             for i in sim.types:
                 mi = snap.mass[snap.typeid == sim["engine"]["types"][i]]
@@ -225,6 +228,7 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
         has_impropers = mpi.world.bcast(has_impropers)
         bond_type_label = mpi.world.bcast(bond_type_label)
         angle_type_label = mpi.world.bcast(angle_type_label)
+        dihedral_type_label = mpi.world.bcast(dihedral_type_label)
 
         # attach the potentials
         if sim.potentials.pair.start == 0:
@@ -259,6 +263,25 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
                 if numpy.any(numpy.isinf(uA[i])):
                     raise ValueError("Angle potential/force is infinite at evaluated r")
             NthetaA = len(thetaA)
+
+        if has_dihedrals:
+            uD = collections.FixedKeyDict(dihedral_type_label.types)
+            fD = collections.FixedKeyDict(dihedral_type_label.types)
+            for i in dihedral_type_label.types:
+                phiD, uD[i], fD[i] = (
+                    sim.potentials.dihedral.linear_space,
+                    sim.potentials.dihedral.energy(key=i),
+                    sim.potentials.dihedral.force(key=i),
+                )
+                if numpy.any(numpy.isinf(uD[i])):
+                    raise ValueError(
+                        "Dihedral potential/force is infinite at evaluated r"
+                    )
+                if len(uD[i]) < 2:
+                    raise ValueError(
+                        "Dihedral potential must have at least 2 points for LAMMPS"
+                    )
+            NphiD = len(phiD)
 
         def pair_map(sim, pair):
             # Map lammps type indexes as a pair, lowest type first
@@ -343,10 +366,25 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
                                 )
                             )
 
+                # write dihedral potentials into the file
+                if has_dihedrals:
+                    fw.write("# LAMMPS tabulated dihedral potentials\n")
+                    for i in dihedral_type_label.types:
+                        fw.write("# dihedral DIHEDRAL_TABLE_{}\n\n".format(i))
+                        fw.write("DIHEDRAL_TABLE_{}\n".format(i))
+                        # Discard the last point as it must be same as the first
+                        fw.write("N {N} RADIANS \n\n".format(N=NphiD - 1))
+                        for idx, (rD_, uD_, fD_) in enumerate(
+                            zip(phiD[:-1], uD[i][:-1], fD[i][:-1]), start=1
+                        ):
+                            fw.write(
+                                "{id} {rD} {uD} {fD}\n".format(
+                                    id=idx, rD=rD_, uD=uD_, fD=fD_
+                                )
+                            )
         else:
             file_ = None
         file_ = mpi.world.bcast(file_)
-
         # process all lammps commands
         cmds += [
             "neighbor {skin} multi".format(skin=sim.potentials.pair.neighbor_buffer),
@@ -362,6 +400,8 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
                     excl_12 = 0.0
                 if "1-3" in sim.potentials.pair.exclusions:
                     excl_13 = 0.0
+                if "1-4" in sim.potentials.pair.exclusions:
+                    excl_14 = 0.0
             cmds += [f"special_bonds lj/coul {excl_12} {excl_13} {excl_14}"]
 
         if has_bonds:
@@ -369,6 +409,9 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
 
         if has_angles:
             cmds += ["angle_style table linear {Na}".format(Na=NthetaA)]
+
+        if has_dihedrals:
+            cmds += ["dihedral_style table linear {Na}".format(Na=NphiD)]
 
         for i, j in sim.pairs:
             # get lammps type indexes, lowest type first
@@ -396,6 +439,18 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
                         typeid=id,
                         filename=file_,
                         id=angle_type_label.__getitem__(id),
+                    )
+                ]
+
+        if has_dihedrals:
+            for id in dihedral_type_label.typeid:
+                cmds += [
+                    (
+                        "dihedral_coeff {typeid} {filename}" " DIHEDRAL_TABLE_{id}"
+                    ).format(
+                        typeid=id,
+                        filename=file_,
+                        id=dihedral_type_label.__getitem__(id),
                     )
                 ]
         return cmds
@@ -450,6 +505,9 @@ class InitializeFromFile(InitializationOperation):
                 sim[self]["_angles"] = None
                 if snap.has_angles():
                     sim[self]["_angles"] = snap.angles
+                sim[self]["_dihedrals"] = None
+                if snap.has_dihedrals():
+                    sim[self]["_dihedrals"] = snap.dihedrals
                 # figure out dimensions
                 dimension = self.dimension
                 if dimension is None:
@@ -470,6 +528,7 @@ class InitializeFromFile(InitializationOperation):
             else:
                 sim[self]["_bonds"] = None
                 sim[self]["_angles"] = None
+                sim[self]["_dihedrals"] = None
                 data_filename = None
                 dimension = None
                 type_map = None
@@ -516,6 +575,20 @@ class InitializeFromFile(InitializationOperation):
                         }
                         sim[self]["_angles"].type_label = lammpsio.LabelMap(
                             angle_type_map
+                        )
+                    sim[self]["_dihedrals"] = None
+                    if snap.has_dihedrals():
+                        sim[self]["_dihedrals"] = snap.dihedrals
+                        unique_dihedral_types = set()
+                        for pot in sim.potentials.dihedral.potentials:
+                            for i in pot.coeff.types:
+                                unique_dihedral_types.add(i)
+
+                        dihedral_type_map = {
+                            i + 1: t for i, t in enumerate(unique_dihedral_types)
+                        }
+                        sim[self]["_dihedrals"].type_label = lammpsio.LabelMap(
+                            dihedral_type_map
                         )
                 else:
                     type_map = None
@@ -1388,10 +1461,32 @@ class EnsembleAverage(AnalysisOperation):
                         angles -= 1
 
                         angle_exclusion_filter = EnsembleAverage._cantor_pairing(
-                            self, angles, neighbors
+                            self, angles[:, (0, -1)], neighbors
                         )
 
                         neighbors.filter(angle_exclusion_filter)
+                    # filter dihedral from the neighbor list if they are present
+                    if (
+                        sim[self]["_rdf_params"]["exclude"]
+                        and sim[sim.initializer]["_dihedrals"] is not None
+                        and len(neighbors[:]) > 0
+                    ):
+                        dihedrals = numpy.vstack(
+                            [
+                                sim[sim.initializer]["_dihedrals"].members,
+                                numpy.flip(
+                                    sim[sim.initializer]["_dihedrals"].members, axis=1
+                                ),
+                            ],
+                        )
+                        # Zero index dihedrals
+                        dihedrals -= 1
+
+                        dihedral_exclusion_filter = EnsembleAverage._cantor_pairing(
+                            self, dihedrals[:, (0, -1)], neighbors
+                        )
+
+                        neighbors.filter(dihedral_exclusion_filter)
 
                     for i in sim.types:
                         _rdf_density[i] += N[i] / box.volume
