@@ -22,9 +22,9 @@ Bond potentials
 .. autosummary::
     :toctree: generated/
 
-    HarmonicBond
-    FENEWCA
     BondSpline
+    FENEWCA
+    HarmonicBond
 
 
 Angle potentials
@@ -44,9 +44,9 @@ Dihedral potentials
 .. autosummary::
     :toctree: generated/
 
+    DihedralSpline
     OPLSDihedral
     RyckaertBellemansDihedral
-    DihedralSpline
 
 Developer classes
 =================
