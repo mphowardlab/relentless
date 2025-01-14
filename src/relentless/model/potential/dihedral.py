@@ -37,6 +37,7 @@ class DihedralPotential(potential.BondedPotential):
     where :math:`\mathbf{r}_{ij}`,  :math:`\mathbf{r}_{jk}`, :math:`\mathbf{r}_{k\ell}`
     are the vectors from particle *i* to particle *j*, from particle *j* to
     particle *k*, and particle *k* to particle :math:`\ell`, respectively.
+    :math:`\phi` is bound between :math:`-\pi` and :math:`\pi`.
 
     """
 
@@ -90,7 +91,7 @@ class OPLSDihedral(DihedralPotential):
         + k_3 (1+ \cos 3\phi) + k_4 (1+ \cos 4\phi) \right)
 
     where :math:`\phi` is the dihedral between four bonded particles. The dihedral
-    is described in `Watkins <https://doi.org/10.1021/jp004071w>`  The parameters
+    is described in `Watkins<https://doi.org/10.1021/jp004071w>`  The parameters
     for each type are:
 
     +-------------+--------------------------------------------------+
@@ -120,8 +121,8 @@ class OPLSDihedral(DihedralPotential):
 
     Examples
     --------
-    OPLS dihedral for the CT-CT-CT-CT dihedral (`Watkins
-    <https://doi.org/10.1021/jp004071w>`). ::
+    OPLS dihedral for the CT-CT-CT-CT dihedral
+    (`Watkins<https://doi.org/10.1021/jp004071w>`). ::
 
         >>> u = relentless.potential.dihedral.OPLSDihedral(("A",))
         >>> u.coeff["A"].update({'k1': 1.740, 'k2': -0.157, 'k3': 0.279, 'k4': 0.00})
@@ -203,7 +204,7 @@ class RyckaertBellemansDihedral(DihedralPotential):
         c_5 (\cos (\phi - \pi))^5
 
     where :math:`\phi` is the dihedral between four bonded particles. The dihedral
-    is described in `Ryckaert <https://doi.org/10.1039/DC9786600095>`. The parameters
+    is described in `Ryckaert<https://doi.org/10.1039/DC9786600095>`. The parameters
     for each type are:
 
     +-------------+--------------------------------------------------+
@@ -238,8 +239,8 @@ class RyckaertBellemansDihedral(DihedralPotential):
     Examples
     --------
     Ryckaert-Bellemans Dihedral for :math: `\rm{CH}_2\rm{CH}_2\rm{CH}_2\rm{CH}_2`
-    and :math: `\rm{CH}_2\rm{CH}_2\rm{CH}_2\rm{CH}_3` (`van Buuren
-    <https://doi.org/10.1021/j100138a023>`)::
+    and :math: `\rm{CH}_2\rm{CH}_2\rm{CH}_2\rm{CH}_3`
+    (`van Buuren<https://doi.org/10.1021/j100138a023>`)::
 
         >>> u = relentless.potential.dihedral.RyckaertBellemansDihedral(("A",))
         >>> u.coeff["A"].update({
