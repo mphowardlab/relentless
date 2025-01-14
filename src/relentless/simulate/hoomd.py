@@ -1396,7 +1396,7 @@ class EnsembleAverage(AnalysisOperation):
                             )
 
                             angle_exclusion_filter = EnsembleAverage._cantor_pairing(
-                                self, angles, neighbors
+                                self, angles[:, (0, -1)], neighbors
                             )
 
                             neighbors.filter(angle_exclusion_filter)
@@ -1411,7 +1411,7 @@ class EnsembleAverage(AnalysisOperation):
                             )
 
                             dihedral_exclusion_filter = EnsembleAverage._cantor_pairing(
-                                self, dihedrals, neighbors
+                                self, dihedrals[:, (0, -1)], neighbors
                             )
 
                             neighbors.filter(dihedral_exclusion_filter)
