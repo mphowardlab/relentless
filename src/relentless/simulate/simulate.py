@@ -888,19 +888,15 @@ class DihedralPotentialTabulator(PotentialTabulator):
     r"""Tabulate one or more dihedral potentials.
 
     Enables evaluation of energy, force, and derivative at different
-    dihedral values (i.e. :math:`\theta`).
+    dihedral values (i.e. :math:`\phi`).
 
     Parameters
     ----------
     potentials : :class:`~relentless.potential.dihedral.DihedralPotential` or array_like
         The dihedral potential(s) to be tabulated. If array_like, all elements must
         be :class:`~relentless.potential.dihedral.DihedralPotential`\s.
-    start : float
-        The minimum value of :math:`\theta` at which to tabulate.
-    stop : float
-        The maximum value of :math:`\theta` at which to tabulate.
     num : int
-        The number of points (value of :math:`\theta`) at which to tabulate and
+        The number of points (value of :math:`\phi`) at which to tabulate and
         evaluate the potential.
 
     """

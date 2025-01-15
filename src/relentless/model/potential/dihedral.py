@@ -79,8 +79,6 @@ class DihedralPotential(potential.BondedPotential):
 
         return super().derivative(type_=type_, var=var, x=phi)
 
-    pass
-
 
 class OPLSDihedral(DihedralPotential):
     r"""OPLS dihedral potential.
@@ -90,7 +88,7 @@ class OPLSDihedral(DihedralPotential):
         u(\phi) = \frac{1}{2} \left( k_1 (1+\cos \phi) + k_2 (1+\cos 2\phi)
         + k_3 (1+ \cos 3\phi) + k_4 (1+ \cos 4\phi) \right)
 
-    where :math:`\phi` is the dihedral between four bonded particles. The dihedral
+    where :math:`\phi` is the dihedral between four bonded particles. The potential
     is described in `Watkins and Jorgensen`_.  The parameters for each type are:
 
     +-------------+--------------------------------------------------+
@@ -181,11 +179,11 @@ class OPLSDihedral(DihedralPotential):
         if param == "k1":
             d = 0.5 * (1 + numpy.cos(phi))
         elif param == "k2":
-            d = 0.5 * (-1 - numpy.cos(2 * phi))
+            d = -0.5 * (1 + numpy.cos(2 * phi))
         elif param == "k3":
             d = 0.5 * (1 + numpy.cos(3 * phi))
         elif param == "k4":
-            d = 0.5 * (-1 - numpy.cos(4 * phi))
+            d = -0.5 * (1 + numpy.cos(4 * phi))
         else:
             raise ValueError("Unknown parameter")
 
@@ -203,7 +201,7 @@ class RyckaertBellemansDihedral(DihedralPotential):
         c_3 (\cos (\phi - \pi))^3 + c_4 (\cos (\phi - \pi))^4 +
         c_5 (\cos (\phi - \pi))^5
 
-    where :math:`\phi` is the dihedral between four bonded particles. The dihedral
+    where :math:`\phi` is the dihedral between four bonded particles. The potential
     is described in `Ryckaert and Bellemans`_. The parameters for each type are:
 
     +-------------+--------------------------------------------------+
