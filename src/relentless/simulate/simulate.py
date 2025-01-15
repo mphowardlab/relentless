@@ -888,7 +888,7 @@ class DihedralPotentialTabulator(PotentialTabulator):
     r"""Tabulate one or more dihedral potentials.
 
     Enables evaluation of energy, force, and derivative at different
-    dihedral values (i.e. :math:`\phi`).
+    dihedral values (i.e. :math:`\phi`) on a range :math:`\left[ -\pi, \pi \right]`.
 
     Parameters
     ----------
