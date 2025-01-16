@@ -28,12 +28,13 @@ if _hoomd_found:
         _hoomd_version = hoomd.__version__
     _hoomd_version = packaging.version.parse(_hoomd_version)
 
-    if _hoomd_version.major < 3:
-        raise ImportError("HOOMD 3.x or later is required.")
-
-    from hoomd.custom import Action
 else:
     _hoomd_version = None
+
+if _hoomd_found and _hoomd_version.major < 3:
+    raise ImportError("HOOMD version 3 or later is required")
+else:
+    from hoomd.custom import Action
 
 try:
     _gsd_version = gsd.version.version
