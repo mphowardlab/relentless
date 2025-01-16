@@ -143,11 +143,6 @@ class InitializationOperation(simulate.InitializationOperation):
             f"{self.__class__.__name__} not implemented in HOOMD {_hoomd_version}"
         )
 
-    def _initialize_v2(self, sim):
-        raise NotImplementedError(
-            f"{self.__class__.__name__} not implemented in HOOMD {_hoomd_version}"
-        )
-
     def _get_masses_from_snapshot(self, sim, snap):
         masses = collections.FixedKeyDict(sim.types)
         masses_ = {}
@@ -211,11 +206,6 @@ class InitializeFromFile(InitializationOperation):
     def _initialize_v3(self, sim):
         gsd_filename = self._convert_to_gsd_file(sim)
         sim["engine"]["_hoomd"].create_state_from_gsd(gsd_filename)
-
-    def _initialize_v2(self, sim):
-        gsd_filename = self._convert_to_gsd_file(sim)
-        with sim["engine"]["_hoomd"]:
-            return hoomd.init.read_gsd(gsd_filename)
 
     def _convert_to_gsd_file(self, sim):
         file_format = initialize.InitializeFromFile._detect_format(
@@ -305,11 +295,6 @@ class InitializeRandomly(InitializationOperation):
     def _initialize_v3(self, sim):
         snap = self._make_snapshot(sim)
         sim["engine"]["_hoomd"].create_state_from_snapshot(snap)
-
-    def _initialize_v2(self, sim):
-        with sim["engine"]["_hoomd"]:
-            snap = self._make_snapshot(sim)
-            return hoomd.init.read_snapshot(snap)
 
     def _make_snapshot(self, sim):
         # make the box and snapshot
@@ -813,17 +798,7 @@ class AnalysisOperation(simulate.AnalysisOperation):
             f"{self.__class__.__name__} not implemented in HOOMD {_hoomd_version}"
         )
 
-    def _pre_run_v2(self, sim, sim_op):
-        raise NotImplementedError(
-            f"{self.__class__.__name__} not implemented in HOOMD {_hoomd_version}"
-        )
-
     def _post_run_v3(self, sim, sim_op):
-        raise NotImplementedError(
-            f"{self.__class__.__name__} not implemented in HOOMD {_hoomd_version}"
-        )
-
-    def _post_run_v2(self, sim, sim_op):
         raise NotImplementedError(
             f"{self.__class__.__name__} not implemented in HOOMD {_hoomd_version}"
         )
@@ -862,54 +837,12 @@ class EnsembleAverage(AnalysisOperation):
             sim[self]["_hoomd_thermo_callback"]
         )
 
-    def _pre_run_v2(self, sim, sim_op):
-        constraints = self._get_constrained_quantities(sim, sim_op)
-
-        with sim["engine"]["_hoomd"]:
-            # thermodynamic properties
-            quantities_logged = []
-            if constraints is None or "T" not in constraints:
-                quantities_logged.append("temperature")
-            if constraints is None or "P" not in constraints:
-                quantities_logged.append("pressure")
-            if constraints is None or "V" not in constraints:
-                if sim.dimension == 3:
-                    quantities_logged += ["lx", "ly", "lz", "xy", "xz", "yz"]
-                elif sim.dimension == 2:
-                    quantities_logged += ["lx", "ly", "xy"]
-                else:
-                    raise ValueError("HOOMD only supports 2d or 3d simulations")
-
-            sim[self]["_thermo"] = hoomd.analyze.log(
-                filename=None,
-                quantities=quantities_logged,
-                period=self.every,
-            )
-            sim[self]["_thermo_callback"] = self.EnsembleAverageAction(
-                types=sim.types,
-                dimension=sim.dimension,
-                thermo=sim[self]["_thermo"],
-                system=sim[sim.initializer]["_system"],
-                rdf_params=self._get_rdf_params(sim),
-                constraints=constraints,
-            )
-            sim[self]["_hoomd_thermo_callback"] = hoomd.analyze.callback(
-                callback=sim[self]["_thermo_callback"].act,
-                period=self.every,
-            )
-
     def _post_run_v3(self, sim, sim_op):
         sim["engine"]["_hoomd"].operations.writers.remove(
             sim[self]["_hoomd_thermo_callback"]
         )
         sim["engine"]["_hoomd"].operations.computes.remove(sim[self]["_thermo"])
         del sim[self]["_hoomd_thermo_callback"], sim[self]["_thermo"]
-
-    def _post_run_v2(self, sim, sim_op):
-        with sim["engine"]["_hoomd"]:
-            sim[self]["_hoomd_thermo_callback"].disable()
-            sim[self]["_thermo"].disable()
-            del sim[self]["_hoomd_thermo_callback"], sim[self]["_thermo"]
 
     def process(self, sim, sim_op):
         thermo_recorder = sim[self]["_thermo_callback"]
@@ -1362,30 +1295,9 @@ class Record(AnalysisOperation):
         sim["engine"]["_hoomd"].operations.computes.append(sim[self]["_thermo"])
         sim["engine"]["_hoomd"].operations.writers.append(sim[self]["_hoomd_recorder"])
 
-    def _pre_run_v2(self, sim, sim_op):
-        with sim["engine"]["_hoomd"]:
-            sim[self]["_thermo"] = hoomd.analyze.log(
-                filename=None,
-                quantities=self.quantities,
-                period=self.every,
-            )
-            sim[self]["_recorder"] = self.RecorderCallback(
-                thermo=sim[self]["_thermo"],
-                quantities=self.quantities,
-            )
-            sim[self]["_hoomd_recorder"] = hoomd.analyze.callback(
-                callback=sim[self]["_recorder"].act, period=self.every
-            )
-
     def _post_run_v3(self, sim, sim_op):
         sim["engine"]["_hoomd"].operations.writers.remove(sim[self]["_hoomd_recorder"])
         sim["engine"]["_hoomd"].operations.computes.remove(sim[self]["_thermo"])
-        del sim[self]["_hoomd_recorder"], sim[self]["_thermo"]
-
-    def _post_run_v2(self, sim, sim_op):
-        with sim["engine"]["_hoomd"]:
-            sim[self]["_hoomd_recorder"].disable()
-            sim[self]["_thermo"].disable()
         del sim[self]["_hoomd_recorder"], sim[self]["_thermo"]
 
     def process(self, sim, sim_op):
@@ -1460,27 +1372,10 @@ class WriteTrajectory(AnalysisOperation):
         )
         sim["engine"]["_hoomd"].operations.writers.append(sim[self]["_gsd"])
 
-    def _pre_run_v2(self, sim, sim_op):
-        with sim["engine"]["_hoomd"]:
-            # dump the .gsd file into the directory
-            # Note: the .gsd file is overwritten for each call of the function
-            sim[self]["_gsd"] = hoomd.dump.gsd(
-                filename=sim.directory.file(self.filename),
-                period=self.every,
-                group=hoomd.group.all(),
-                overwrite=True,
-                dynamic=self._get_dynamic(),
-            )
-
     def _post_run_v3(self, sim, sim_op):
         if _hoomd_version.major >= 4:
             sim[self]["_gsd"].flush()
         sim["engine"]["_hoomd"].operations.writers.remove(sim[self]["_gsd"])
-        del sim[self]["_gsd"]
-
-    def _post_run_v2(self, sim, sim_op):
-        with sim["engine"]["_hoomd"]:
-            sim[self]["_gsd"].disable()
         del sim[self]["_gsd"]
 
     def process(self, sim, sim_op):
