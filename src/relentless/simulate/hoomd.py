@@ -31,10 +31,11 @@ if _hoomd_found:
 else:
     _hoomd_version = None
 
-if _hoomd_found and _hoomd_version.major < 3:
-    raise ImportError("HOOMD version 3 or later is required")
-else:
-    from hoomd.custom import Action
+if _hoomd_found:
+    if _hoomd_version.major < 3:
+        raise ImportError("HOOMD version 3 or later is required")
+    else:
+        from hoomd.custom import Action
 
 try:
     _gsd_version = gsd.version.version
