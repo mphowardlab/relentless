@@ -138,48 +138,6 @@ class InitializationOperation(simulate.InitializationOperation):
                 dihedral_potential.params[i] = dict(U=u[:], tau=tau[:])
             sim[self]["_potentials"].append(dihedral_potential)
 
-    def _call_v2(self, sim):
-        # initialize
-        sim[self]["_system"] = self._initialize_v2(sim)
-        sim.dimension = sim[self]["_system"].box.dimensions
-        sim.types = sim[self]["_system"].particles.types
-
-        # parse masses by type
-        with sim["engine"]["_hoomd"]:
-            snap = sim[self]["_system"].take_snapshot(particles=True)
-            sim.masses = self._get_masses_from_snapshot(sim, snap)
-            self._assert_dimension_safe(sim, snap)
-
-        # attach the potentials
-        def _table_eval(r_i, rmin, rmax, **coeff):
-            r = coeff["r"]
-            u = coeff["u"]
-            f = coeff["f"]
-            return (numpy.interp(r_i, r, u), numpy.interp(r_i, r, f))
-
-        with sim["engine"]["_hoomd"]:
-            neighbor_list = hoomd.md.nlist.tree(
-                r_buff=sim.potentials.pair.neighbor_buffer
-            )
-            pair_potential = hoomd.md.pair.table(
-                width=len(sim.potentials.pair.linear_space), nlist=neighbor_list
-            )
-
-            r, u, f = sim.potentials.pair.pairwise_energy_and_force(
-                sim.types, tight=True, minimum_num=2
-            )
-            for i, j in sim.pairs:
-                if numpy.any(numpy.isinf(u[i, j])) or numpy.any(numpy.isinf(f[i, j])):
-                    raise ValueError("Pair potential/force is infinite at evaluated r")
-                pair_potential.pair_coeff.set(
-                    i,
-                    j,
-                    func=_table_eval,
-                    rmin=r[0],
-                    rmax=r[-1],
-                    coeff=dict(r=r, u=u[i, j], f=f[i, j]),
-                )
-
     def _initialize_v3(self, sim):
         raise NotImplementedError(
             f"{self.__class__.__name__} not implemented in HOOMD {_hoomd_version}"
@@ -445,11 +403,6 @@ class SimulationOperation(simulate.SimulationOperation):
             f"{self.__class__.__name__} not implemented in HOOMD {_hoomd_version}"
         )
 
-    def _call_v2(self, sim):
-        raise NotImplementedError(
-            f"{self.__class__.__name__} not implemented in HOOMD {_hoomd_version}"
-        )
-
 
 class MinimizeEnergy(SimulationOperation):
     """Run energy minimization until convergence.
@@ -521,32 +474,6 @@ class MinimizeEnergy(SimulationOperation):
         # cleanup
         sim["engine"]["_hoomd"].operations.integrator = None
         del fire, nve
-
-    def _call_v2(self, sim):
-        with sim["engine"]["_hoomd"]:
-            # setup FIRE minimization
-            fire = hoomd.md.integrate.mode_minimize_fire(
-                dt=self.options["max_displacement"],
-                Etol=self.energy_tolerance,
-                ftol=self.force_tolerance,
-            )
-            all_ = hoomd.group.all()
-            nve = hoomd.md.integrate.nve(all_)
-
-            # run while not yet converged
-            steps_per_it = self.options.get("steps_per_iteration", 100)
-            it = 0
-            while not fire.has_converged() and it < self.max_iterations:
-                hoomd.run(steps_per_it)
-                it += 1
-            if not fire.has_converged():
-                raise RuntimeError("Energy minimization failed to converge.")
-
-            # try to cleanup these integrators from the system
-            # we want them to ideally be isolated to this method
-            nve.disable()
-            del nve
-            del fire
 
 
 class _Integrator(SimulationOperation):
@@ -651,32 +578,6 @@ class RunBrownianDynamics(_Integrator):
         sim["engine"]["_hoomd"].operations.integrator = None
         del ig, bd
 
-    def _call_v2(self, sim):
-        with sim["engine"]["_hoomd"]:
-            ig = hoomd.md.integrate.mode_standard(self.timestep)
-            kT = self._make_kT(sim, self.T, self.steps)
-            bd = hoomd.md.integrate.brownian(
-                group=hoomd.group.all(), kT=kT, seed=self.seed
-            )
-            for t in sim.types:
-                try:
-                    gamma = self.friction[t]
-                except TypeError:
-                    gamma = self.friction
-                bd.set_gamma(t, gamma)
-
-            # run + analysis
-            for analyzer in self.analyzers:
-                analyzer.pre_run(sim, self)
-
-            hoomd.run(self.steps)
-
-            for analyzer in self.analyzers:
-                analyzer.post_run(sim, self)
-
-            bd.disable()
-            del bd, ig
-
 
 class RunLangevinDynamics(_Integrator):
     """Perform a Langevin dynamics simulation.
@@ -734,32 +635,6 @@ class RunLangevinDynamics(_Integrator):
 
         sim["engine"]["_hoomd"].operations.integrator = None
         del ig, ld
-
-    def _call_v2(self, sim):
-        with sim["engine"]["_hoomd"]:
-            ig = hoomd.md.integrate.mode_standard(self.timestep)
-            kT = self._make_kT(sim, self.T, self.steps)
-            ld = hoomd.md.integrate.langevin(
-                group=hoomd.group.all(), kT=kT, seed=self.seed
-            )
-            for t in sim.types:
-                try:
-                    gamma = self.friction[t]
-                except TypeError:
-                    gamma = self.friction
-                ld.set_gamma(t, gamma)
-
-            # run + analysis
-            for analyzer in self.analyzers:
-                analyzer.pre_run(sim, self)
-
-            hoomd.run(self.steps)
-
-            for analyzer in self.analyzers:
-                analyzer.post_run(sim, self)
-
-            ld.disable()
-            del ld, ig
 
 
 class RunMolecularDynamics(_Integrator):
@@ -917,64 +792,6 @@ class RunMolecularDynamics(_Integrator):
 
         sim["engine"]["_hoomd"].operations.integrator = None
         del ig, ig_method
-
-    def _call_v2(self, sim):
-        with sim["engine"]["_hoomd"]:
-            ig = hoomd.md.integrate.mode_standard(self.timestep)
-            if self.thermostat is not None:
-                kT = self._make_kT(sim, self.thermostat, self.steps)
-            else:
-                kT = None
-            if self.thermostat is None and self.barostat is None:
-                ig_method = hoomd.md.integrate.nve(group=hoomd.group.all())
-            elif (
-                isinstance(self.thermostat, md.BerendsenThermostat)
-                and self.barostat is None
-            ):
-                ig_method = hoomd.md.integrate.berendsen(
-                    group=hoomd.group.all(),
-                    kT=kT,
-                    tau=self.thermostat.tau,
-                )
-            elif (
-                isinstance(self.thermostat, md.NoseHooverThermostat)
-                and self.barostat is None
-            ):
-                ig_method = hoomd.md.integrate.nvt(
-                    group=hoomd.group.all(),
-                    kT=kT,
-                    tau=self.thermostat.tau,
-                )
-            elif self.thermostat is None and isinstance(self.barostat, md.MTKBarostat):
-                ig_method = hoomd.md.integrate.nph(
-                    group=hoomd.group.all(), P=self.barostat.P, tauP=self.barostat.tau
-                )
-            elif isinstance(self.thermostat, md.NoseHooverThermostat) and isinstance(
-                self.barostat, md.MTKBarostat
-            ):
-                ig_method = hoomd.md.integrate.npt(
-                    group=hoomd.group.all(),
-                    kT=kT,
-                    tau=self.thermostat.tau,
-                    P=self.barostat.P,
-                    tauP=self.barostat.tau,
-                )
-            else:
-                raise TypeError(
-                    "An appropriate combination of thermostat and barostat must be set."
-                )
-
-            # run + analysis
-            for analyzer in self.analyzers:
-                analyzer.pre_run(sim, self)
-
-            hoomd.run(self.steps)
-
-            for analyzer in self.analyzers:
-                analyzer.post_run(sim, self)
-
-            ig_method.disable()
-            del ig_method, ig
 
 
 # analyzers
