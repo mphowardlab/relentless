@@ -1,4 +1,3 @@
-import enum
 import os
 import shutil
 import warnings
@@ -35,11 +34,7 @@ else:
 if _hoomd_found and _hoomd_version.major >= 3:
     from hoomd.custom import Action
 else:
-    # we need to spoof this Action class to use later in v2 callbacks
-    class Action:
-        class Flags(enum.IntEnum):
-            PRESSURE_TENSOR = 0
-
+    raise ImportError("HOOMD 3.x or later is required.")
 
 try:
     _gsd_version = gsd.version.version
@@ -962,8 +957,6 @@ class EnsembleAverage(AnalysisOperation):
     _get_rdf_params = analyze.EnsembleAverage._get_rdf_params
 
     class EnsembleAverageAction(Action):
-        flags = [Action.Flags.PRESSURE_TENSOR]
-
         def __init__(
             self,
             types,
@@ -1320,8 +1313,6 @@ class Record(AnalysisOperation):
             mpi.world.barrier()
 
     class RecorderCallback(Action):
-        flags = [Action.Flags.PRESSURE_TENSOR]
-
         def __init__(self, thermo, quantities):
             self.thermo = thermo
             self.quantities = quantities
