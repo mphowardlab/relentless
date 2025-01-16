@@ -1,3 +1,4 @@
+import enum
 import os
 import shutil
 import warnings
@@ -36,6 +37,12 @@ if _hoomd_found:
         raise ImportError("HOOMD version 3 or later is required")
     else:
         from hoomd.custom import Action
+else:
+
+    class Action:
+        class Flags(enum.IntEnum):
+            PRESSURE_TENSOR = 0
+
 
 try:
     _gsd_version = gsd.version.version
