@@ -293,15 +293,6 @@ class InitializeFromFile(InitializationOperation):
                             gsd_filename = sim.directory.temporary_file(".gsd")
                             with gsd.hoomd.open(gsd_filename, _gsd_write_mode) as f:
                                 f.append(frame)
-                        elif (
-                            _hoomd_version.major == 2
-                            and frame.configuration.box[2] == 0
-                        ):
-                            # fix for HOOMD 3 style used in HOOMD 2
-                            frame.configuration.box[2] = 1
-                            gsd_filename = sim.directory.temporary_file(".gsd")
-                            with gsd.hoomd.open(gsd_filename, _gsd_write_mode) as f:
-                                f.append(frame)
             else:
                 gsd_filename = None
             gsd_filename = mpi.world.bcast(gsd_filename)
@@ -368,18 +359,12 @@ class InitializeRandomly(InitializationOperation):
             box_array = self.V.as_array("HOOMD")
             if _hoomd_version.major >= 3:
                 box = hoomd.Box(*box_array)
-            elif _hoomd_version.major == 2:
-                box = hoomd.data.boxdim(*box_array, dimensions=3)
             else:
                 raise NotImplementedError(f"HOOMD {_hoomd_version} not supported")
         elif isinstance(self.V, extent.ObliqueArea):
             Lx, Ly, xy = self.V.as_array("HOOMD")
             if _hoomd_version.major >= 3:
                 box = hoomd.Box(Lx=Lx, Ly=Ly, xy=xy)
-            elif _hoomd_version.major == 2:
-                box = hoomd.data.boxdim(
-                    Lx=Lx, Ly=Ly, Lz=1, xy=xy, xz=0, yz=0, dimensions=2
-                )
             else:
                 raise NotImplementedError(f"HOOMD {_hoomd_version} not supported")
         else:
@@ -392,10 +377,6 @@ class InitializeRandomly(InitializationOperation):
             snap.configuration.box = box
             snap.particles.N = sum(self.N.values())
             snap.particles.types = list(types)
-        elif _hoomd_version.major == 2:
-            snap = hoomd.data.make_snapshot(
-                N=sum(self.N.values()), box=box, particle_types=list(types)
-            )
         else:
             raise NotImplementedError(f"HOOMD {_hoomd_version} not supported")
 
@@ -456,8 +437,6 @@ class SimulationOperation(simulate.SimulationOperation):
     def __call__(self, sim):
         if _hoomd_version.major >= 3:
             self._call_v3(sim)
-        elif _hoomd_version.major == 2:
-            self._call_v2(sim)
         else:
             raise NotImplementedError(f"HOOMD {_hoomd_version} not supported")
 
@@ -605,11 +584,6 @@ class _Integrator(SimulationOperation):
                         B=kB * thermostat.T[1],
                         t_start=sim["engine"]["_hoomd"].timestep,
                         t_ramp=steps - 1,
-                    )
-                elif _hoomd_version.major == 2:
-                    return hoomd.variant.linear_interp(
-                        ((0, kB * thermostat.T[0]), (steps - 1, kB * thermostat.T[1])),
-                        zero="now",
                     )
                 else:
                     raise NotImplementedError(f"HOOMD {_hoomd_version} not supported")
@@ -1008,16 +982,12 @@ class AnalysisOperation(simulate.AnalysisOperation):
     def pre_run(self, sim, sim_op):
         if _hoomd_version.major >= 3:
             self._pre_run_v3(sim, sim_op)
-        elif _hoomd_version.major == 2:
-            self._pre_run_v2(sim, sim_op)
         else:
             raise NotImplementedError(f"HOOMD {_hoomd_version} not supported")
 
     def post_run(self, sim, sim_op):
         if _hoomd_version.major >= 3:
             self._post_run_v3(sim, sim_op)
-        elif _hoomd_version.major == 2:
-            self._post_run_v2(sim, sim_op)
         else:
             raise NotImplementedError(f"HOOMD {_hoomd_version} not supported")
 
@@ -1223,10 +1193,6 @@ class EnsembleAverage(AnalysisOperation):
             if _hoomd_version.major >= 3:
                 snap = sim["engine"]["_hoomd"].state.get_snapshot()
                 N, V = _get_NV_from_snapshot(sim, snap)
-            elif _hoomd_version.major == 2:
-                with sim["engine"]["_hoomd"]:
-                    snap = sim[sim.initializer]["_system"].take_snapshot(particles=True)
-                    N, V = _get_NV_from_snapshot(sim, snap)
             else:
                 raise NotImplementedError(f"HOOMD {_hoomd_version} not supported")
 
@@ -1291,22 +1257,12 @@ class EnsembleAverage(AnalysisOperation):
                 if "V" not in self.constraints:
                     for key in self._V:
                         self._V[key] += getattr(self._state.box, key)
-            elif _hoomd_version.major == 2:
-                if "T" not in self.constraints:
-                    self._T += self.thermo.query("temperature")
-                if "P" not in self.constraints:
-                    self._P += self.thermo.query("pressure")
-                if "V" not in self.constraints:
-                    for key in self._V:
-                        self._V[key] += self.thermo.query(key.lower())
             else:
                 raise NotImplementedError(f"HOOMD {_hoomd_version} not supported")
 
             if "N" not in self.constraints or compute_rdf:
                 if _hoomd_version.major >= 3:
                     snap = self.system.get_snapshot()
-                elif _hoomd_version.major == 2:
-                    snap = self.system.take_snapshot()
                 else:
                     raise NotImplementedError(f"HOOMD {_hoomd_version} not supported")
 
@@ -1330,21 +1286,6 @@ class EnsembleAverage(AnalysisOperation):
                         if _hoomd_version.major >= 3:
                             dimensions = snap.configuration.dimensions
                             box_array = numpy.array(snap.configuration.box)
-                        elif _hoomd_version.major == 2:
-                            dimensions = snap.box.dimensions
-                            box_array = numpy.array(
-                                [
-                                    snap.box.Lx,
-                                    snap.box.Ly,
-                                    snap.box.Lz,
-                                    snap.box.xy,
-                                    snap.box.xz,
-                                    snap.box.yz,
-                                ]
-                            )
-                            if snap.box.dimensions == 2:
-                                box_array[2] = 0.0
-                                box_array[-2:] = 0.0
                         else:
                             raise NotImplementedError(
                                 f"HOOMD {_hoomd_version} not supported"
@@ -1665,8 +1606,6 @@ class Record(AnalysisOperation):
                         val = getattr(self.thermo, "kinetic_temperature")
                     else:
                         val = getattr(self.thermo, q)
-                elif _hoomd_version.major == 2:
-                    val = self.thermo.query(q)
                 else:
                     raise NotImplementedError(f"HOOMD {_hoomd_version} not supported")
                 self._data[q].append(val)
@@ -1832,23 +1771,6 @@ class HOOMD(simulate.Simulation):
                 )
             device = device_class(communicator=mpi.world.comm, notice_level=0)
             sim["engine"]["_hoomd"] = hoomd.Simulation(device)
-        elif _hoomd_version.major == 2:
-            # initialize hoomd exec conf once, then make a context
-            if hoomd.context.exec_conf is None:
-                cmd_args = "--notice-level=0"
-                if self.device == "CPU":
-                    cmd_args += " --mode=cpu"
-                elif self.device == "GPU":
-                    cmd_args += " --mode=gpu"
-                elif self.device != "auto":
-                    # auto-select is default, so only raise error if device is
-                    # not in recognized list
-                    raise ValueError(
-                        "Unrecognized device type, must be in (auto, cpu, gpu)"
-                    )
-                hoomd.context.initialize(cmd_args)
-                hoomd.util.quiet_status()
-            sim["engine"]["_hoomd"] = hoomd.context.SimulationContext()
         else:
             raise NotImplementedError(f"HOOMD {_hoomd_version} not supported")
 
