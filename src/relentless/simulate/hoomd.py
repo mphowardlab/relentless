@@ -51,10 +51,7 @@ else:
 # initializers
 class InitializationOperation(simulate.InitializationOperation):
     def __call__(self, sim):
-        SimulationOperation.__call__(self, sim)
-
-    def _call_v3(self, sim):
-        self._initialize_v3(sim)
+        self._initialize(sim)
         sim.dimension = sim["engine"]["_hoomd"].state.box.dimensions
         sim.types = sim["engine"]["_hoomd"].state.particle_types
 
@@ -135,7 +132,7 @@ class InitializationOperation(simulate.InitializationOperation):
                 dihedral_potential.params[i] = dict(U=u[:], tau=tau[:])
             sim[self]["_potentials"].append(dihedral_potential)
 
-    def _initialize_v3(self, sim):
+    def _initialize(self, sim):
         raise NotImplementedError(
             f"{self.__class__.__name__} not implemented in HOOMD {_hoomd_version}"
         )
@@ -200,7 +197,7 @@ class InitializeFromFile(InitializationOperation):
         self.format = format
         self.dimension = dimension
 
-    def _initialize_v3(self, sim):
+    def _initialize(self, sim):
         gsd_filename = self._convert_to_gsd_file(sim)
         sim["engine"]["_hoomd"].create_state_from_gsd(gsd_filename)
 
@@ -287,7 +284,7 @@ class InitializeRandomly(InitializationOperation):
         self.masses = masses
         self.diameters = diameters
 
-    def _initialize_v3(self, sim):
+    def _initialize(self, sim):
         snap = self._make_snapshot(sim)
         sim["engine"]["_hoomd"].create_state_from_snapshot(snap)
 
@@ -361,18 +358,7 @@ class InitializeRandomly(InitializationOperation):
         return snap
 
 
-# simulation operations
-class SimulationOperation(simulate.SimulationOperation):
-    def __call__(self, sim):
-        self._call_v3(sim)
-
-    def _call_v3(self, sim):
-        raise NotImplementedError(
-            f"{self.__class__.__name__} not implemented in HOOMD {_hoomd_version}"
-        )
-
-
-class MinimizeEnergy(SimulationOperation):
+class MinimizeEnergy(simulate.SimulationOperation):
     """Run energy minimization until convergence.
 
     Valid **options** include:
@@ -411,7 +397,7 @@ class MinimizeEnergy(SimulationOperation):
         if "max_displacement" not in self.options:
             raise KeyError("HOOMD energy minimizer requires max_displacement option.")
 
-    def _call_v3(self, sim):
+    def __call__(self, sim):
         # setup FIRE minimization
         if _hoomd_version.major >= 4:
             nve = hoomd.md.methods.ConstantVolume(filter=hoomd.filter.All())
@@ -444,7 +430,7 @@ class MinimizeEnergy(SimulationOperation):
         del fire, nve
 
 
-class _Integrator(SimulationOperation):
+class _Integrator(simulate.SimulationOperation):
     """Base HOOMD molecular dynamics integrator.
 
     Parameters
@@ -514,7 +500,7 @@ class RunBrownianDynamics(_Integrator):
         self.friction = friction
         self.seed = seed
 
-    def _call_v3(self, sim):
+    def __call__(self, sim):
         kT = self._make_kT(sim, self.T, self.steps)
         bd = hoomd.md.methods.Brownian(filter=hoomd.filter.All(), kT=kT)
         for t in sim.types:
@@ -572,7 +558,7 @@ class RunLangevinDynamics(_Integrator):
         self.friction = friction
         self.seed = seed
 
-    def _call_v3(self, sim):
+    def __call__(self, sim):
         kT = self._make_kT(sim, self.T, self.steps)
         ld = hoomd.md.methods.Langevin(filter=hoomd.filter.All(), kT=kT)
         for t in sim.types:
@@ -637,7 +623,7 @@ class RunMolecularDynamics(_Integrator):
         self.thermostat = thermostat
         self.barostat = barostat
 
-    def _call_v3(self, sim):
+    def __call__(self, sim):
         if self.thermostat is not None:
             kT = self._make_kT(sim, self.thermostat, self.steps)
         else:
@@ -759,34 +745,14 @@ class RunMolecularDynamics(_Integrator):
         del ig, ig_method
 
 
-# analyzers
-class AnalysisOperation(simulate.AnalysisOperation):
-    def pre_run(self, sim, sim_op):
-        self._pre_run_v3(sim, sim_op)
-
-    def post_run(self, sim, sim_op):
-
-        self._post_run_v3(sim, sim_op)
-
-    def _pre_run_v3(self, sim, sim_op):
-        raise NotImplementedError(
-            f"{self.__class__.__name__} not implemented in HOOMD {_hoomd_version}"
-        )
-
-    def _post_run_v3(self, sim, sim_op):
-        raise NotImplementedError(
-            f"{self.__class__.__name__} not implemented in HOOMD {_hoomd_version}"
-        )
-
-
-class EnsembleAverage(AnalysisOperation):
+class EnsembleAverage(simulate.AnalysisOperation):
     def __init__(self, filename, every, rdf, assume_constraints):
         self.filename = filename
         self.every = every
         self.rdf = rdf
         self.assume_constraints = assume_constraints
 
-    def _pre_run_v3(self, sim, sim_op):
+    def pre_run(self, sim, sim_op):
         # thermodynamic properties
         sim[self]["_thermo"] = hoomd.md.compute.ThermodynamicQuantities(
             hoomd.filter.All()
@@ -812,7 +778,7 @@ class EnsembleAverage(AnalysisOperation):
             sim[self]["_hoomd_thermo_callback"]
         )
 
-    def _post_run_v3(self, sim, sim_op):
+    def post_run(self, sim, sim_op):
         sim["engine"]["_hoomd"].operations.writers.remove(
             sim[self]["_hoomd_thermo_callback"]
         )
@@ -1231,13 +1197,13 @@ class EnsembleAverage(AnalysisOperation):
                 return None
 
 
-class Record(AnalysisOperation):
+class Record(simulate.AnalysisOperation):
     def __init__(self, filename, every, quantities):
         self.filename = filename
         self.every = every
         self.quantities = quantities
 
-    def _pre_run_v3(self, sim, sim_op):
+    def pre_run(self, sim, sim_op):
         sim[self]["_thermo"] = hoomd.md.compute.ThermodynamicQuantities(
             hoomd.filter.All()
         )
@@ -1252,7 +1218,7 @@ class Record(AnalysisOperation):
         sim["engine"]["_hoomd"].operations.computes.append(sim[self]["_thermo"])
         sim["engine"]["_hoomd"].operations.writers.append(sim[self]["_hoomd_recorder"])
 
-    def _post_run_v3(self, sim, sim_op):
+    def post_run(self, sim, sim_op):
         sim["engine"]["_hoomd"].operations.writers.remove(sim[self]["_hoomd_recorder"])
         sim["engine"]["_hoomd"].operations.computes.remove(sim[self]["_thermo"])
         del sim[self]["_hoomd_recorder"], sim[self]["_thermo"]
@@ -1306,7 +1272,7 @@ class Record(AnalysisOperation):
                 self._data[q] = []
 
 
-class WriteTrajectory(AnalysisOperation):
+class WriteTrajectory(simulate.AnalysisOperation):
     def __init__(self, filename, every, format, velocities, images, types, masses):
         self.filename = filename
         self.every = every
@@ -1316,7 +1282,7 @@ class WriteTrajectory(AnalysisOperation):
         self.types = types
         self.masses = masses
 
-    def _pre_run_v3(self, sim, sim_op):
+    def pre_run(self, sim, sim_op):
         sim[self]["_gsd"] = hoomd.write.GSD(
             trigger=self.every,
             filename=sim.directory.file(self.filename),
@@ -1326,7 +1292,7 @@ class WriteTrajectory(AnalysisOperation):
         )
         sim["engine"]["_hoomd"].operations.writers.append(sim[self]["_gsd"])
 
-    def _post_run_v3(self, sim, sim_op):
+    def post_run(self, sim, sim_op):
         if _hoomd_version.major >= 4:
             sim[self]["_gsd"].flush()
         sim["engine"]["_hoomd"].operations.writers.remove(sim[self]["_gsd"])
