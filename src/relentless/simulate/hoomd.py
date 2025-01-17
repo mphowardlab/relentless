@@ -28,16 +28,10 @@ if _hoomd_found:
     except AttributeError:
         _hoomd_version = hoomd.__version__
     _hoomd_version = packaging.version.parse(_hoomd_version)
+    from hoomd.custom import Action
 
 else:
     _hoomd_version = None
-
-if _hoomd_found:
-    if _hoomd_version.major < 3:
-        raise ImportError("HOOMD version 3 or later is required")
-    else:
-        from hoomd.custom import Action
-else:
 
     class Action:
         class Flags(enum.IntEnum):
@@ -233,16 +227,15 @@ class InitializeFromFile(InitializationOperation):
                 gsd_filename = self.filename
                 with gsd.hoomd.open(self.filename) as trajectory:
                     frame = trajectory[0]
-                    if frame.configuration.dimensions == 2:
-                        if (
-                            _hoomd_version.major >= 3
-                            and frame.configuration.box[2] != 0
-                        ):
-                            # fix for HOOMD 2 style used in HOOMD 3
-                            frame.configuration.box[2] = 0
-                            gsd_filename = sim.directory.temporary_file(".gsd")
-                            with gsd.hoomd.open(gsd_filename, _gsd_write_mode) as f:
-                                f.append(frame)
+                    if (
+                        frame.configuration.dimensions == 2
+                        and frame.configuration.box[2] != 0
+                    ):
+                        # fix for HOOMD 2 style used in HOOMD 3
+                        frame.configuration.box[2] = 0
+                        gsd_filename = sim.directory.temporary_file(".gsd")
+                        with gsd.hoomd.open(gsd_filename, _gsd_write_mode) as f:
+                            f.append(frame)
             else:
                 gsd_filename = None
             gsd_filename = mpi.world.bcast(gsd_filename)
@@ -1415,15 +1408,8 @@ class HOOMD(simulate.Simulation):
         if not _hoomd_found:
             raise ImportError("HOOMD not found.")
 
-        if (
-            _hoomd_version.major == 2
-            and packaging.version.Version(numpy.__version__).major >= 2
-        ):
-            warnings.warn(
-                "NumPy 2 is likely incompatible with HOOMD 2, "
-                "suggest to downgrade to numpy<2.",
-                RuntimeWarning,
-            )
+        if _hoomd_version.major < 3:
+            raise ImportError("HOOMD version 3 or later is required")
 
         super().__init__(initializer, operations)
         self.device = device
