@@ -28,6 +28,7 @@ if _hoomd_found:
     except AttributeError:
         _hoomd_version = hoomd.__version__
     _hoomd_version = packaging.version.parse(_hoomd_version)
+
     from hoomd.custom import Action
 
 else:
@@ -132,10 +133,9 @@ class InitializationOperation(simulate.InitializationOperation):
                 dihedral_potential.params[i] = dict(U=u[:], tau=tau[:])
             sim[self]["_potentials"].append(dihedral_potential)
 
+    @abc.abstractmethod
     def _initialize(self, sim):
-        raise NotImplementedError(
-            f"{self.__class__.__name__} not implemented in HOOMD {_hoomd_version}"
-        )
+        pass
 
     def _get_masses_from_snapshot(self, sim, snap):
         masses = collections.FixedKeyDict(sim.types)
