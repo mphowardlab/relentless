@@ -1341,7 +1341,7 @@ class HOOMD(simulate.Simulation):
     HOOMD-blue is a molecular dynamics program that can execute on both CPUs and
     GPUs, as a single process or with MPI parallelism. The launch configuration
     will be automatically selected for you when the simulation is run.
-    HOOMD 2.x, 3.x, and 4.x are supported.
+    HOOMD 3.x and 4.x are supported.
 
     .. warning::
 
