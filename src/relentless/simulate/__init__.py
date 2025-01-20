@@ -38,6 +38,9 @@ It also helps document workflows that can be shared and reproduced by others.
     sim = lmp.run(potentials)
     sim[avg].ensemble.save('ensemble.json')
 
+Major versions of simulation engines are officially supported for two years after
+their last patch or stable release.
+
 Engines
 =======
 
