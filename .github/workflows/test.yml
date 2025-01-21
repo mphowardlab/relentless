@@ -72,7 +72,7 @@ jobs:
         hoomd-version: ["3.11.0", "4.9.1"]
         include:
           - python-version: "3.12"
-            hoomd-version: "4.7.0"
+            hoomd-version: "4.9.1"
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
