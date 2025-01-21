@@ -1770,7 +1770,7 @@ class LAMMPS(simulate.Simulation):
     GPUs, as a single process or with MPI parallelism. The launch configuration
     will be automatically selected for you when the simulation is run.
 
-    The version of LAMMPS must be 29 Sep 2021 or newer. It is recommended to build
+    The version of LAMMPS must be 02 Aug 2023 or newer. It is recommended to build
     LAMMPS with its `Python interface <https://docs.lammps.org/Python_head.html>`_.
     However, it is possible to run LAMMPS as a binary by specifying ``executable``::
 
@@ -1880,8 +1880,8 @@ class LAMMPS(simulate.Simulation):
             self.version = lmp.version()
             self.packages = tuple(lmp.installed_packages)
             del lmp
-        if self.version < 20210929:
-            raise ImportError("Only LAMMPS 29 Sep 2021 or newer is supported.")
+        if self.version < 20230802:
+            raise ImportError("Only LAMMPS 02 Aug 2023 or newer is supported.")
 
         super().__init__(initializer, operations)
         self.quiet = quiet
