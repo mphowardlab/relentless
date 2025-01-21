@@ -113,6 +113,9 @@ jobs:
       matrix:
         python-version: ["3.9", "3.10", "3.11", "3.12"]
         lammps-version: ["2023.08.02"]
+        exclude:
+          - python-version: "3.12"
+            lammps-version: "2023.08.02"
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
