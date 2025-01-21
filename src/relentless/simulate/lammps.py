@@ -863,11 +863,6 @@ class RunBrownianDynamics(_Integrator):
     def _call_commands(self, sim):
         if "BROWNIAN" not in sim["engine"]["packages"]:
             raise NotImplementedError("LAMMPS BROWNIAN package is not installed.")
-        elif sim["engine"]["version"] < 20220623:
-            raise NotImplementedError(
-                "LAMMPS versions prior to 23Jun2022 stable release do not"
-                " properly support Brownian dynamics."
-            )
 
         T = self._make_T(self.T)
         if T[0] != T[1]:
