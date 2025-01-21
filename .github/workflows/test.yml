@@ -99,7 +99,7 @@ jobs:
           python -m unittest -v tests/simulate/test_hoomd.py
 
   test-lammps:
-    name: unit test [python-${{ matrix.python-version }}, lammps-${{ matrix.lammps-version }}, ${{ matrix.mpi }}]
+    name: unit test [python-${{ matrix.python-version }}, lammps-${{ matrix.lammps-version }}
     needs: test
     runs-on: ubuntu-latest
     env:
@@ -113,7 +113,6 @@ jobs:
       matrix:
         python-version: ["3.9", "3.10", "3.11"]
         lammps-version: ["2022.06.23", "2023.08.02"]
-        mpi: ["mpich", "openmpi"]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -125,7 +124,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install LAMMPS
         run: |
-          conda install "lammps=${{ matrix.lammps-version }}=*${{ matrix.mpi }}*" mpi4py
+          conda install "lammps=${{ matrix.lammps-version }}" mpi4py
       - name: Force libpnetcdf version
         if: ${{ matrix.lammps-version == '2023.08.02' }}
         run: |
