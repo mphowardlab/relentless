@@ -68,11 +68,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.10", "3.11"]
-        hoomd-version: ["3.11.0", "4.9.1"]
-        include:
+        python-version: ["3.9", "3.10", "3.11", "3.12"]
+        hoomd-version: ["3.11.0", "4.9.1", "5.0.1"]
+        exclude:
           - python-version: "3.12"
-            hoomd-version: "4.9.1"
+            hoomd-version: "3.11.0"
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -166,7 +167,7 @@ jobs:
           python-version: 3.9
       - name: Install test dependencies
         run: |
-          conda install hoomd=4
+          conda install hoomd=5
           pip install -r doc/requirements.txt
       - name: Install
         run: |
