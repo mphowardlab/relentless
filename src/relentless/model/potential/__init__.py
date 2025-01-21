@@ -16,6 +16,38 @@ Pair potentials
     PairSpline
     Yukawa
 
+Bond potentials
+===============
+
+.. autosummary::
+    :toctree: generated/
+
+    BondSpline
+    FENEWCA
+    HarmonicBond
+
+
+Angle potentials
+================
+
+.. autosummary::
+    :toctree: generated/
+
+    AngleSpline
+    CosineAngle
+    HarmonicAngle
+    HarmonicCosineAngle
+
+Dihedral potentials
+===================
+
+.. autosummary::
+    :toctree: generated/
+
+    DihedralSpline
+    OPLSDihedral
+    RyckaertBellemansDihedral
+
 Developer classes
 =================
 
@@ -24,11 +56,35 @@ Developer classes
 
     Potential
     Parameters
+    BondedPotential
+    BondedSpline
+    AnglePotential
+    AngleParameters
+    BondPotential
+    BondParameters
+    DihedralPotential
+    DihedralParameters
     PairPotential
     PairParameters
 
 """
 
+from .angle import (
+    AngleParameters,
+    AnglePotential,
+    AngleSpline,
+    CosineAngle,
+    HarmonicAngle,
+    HarmonicCosineAngle,
+)
+from .bond import FENEWCA, BondParameters, BondPotential, BondSpline, HarmonicBond
+from .dihedral import (
+    DihedralParameters,
+    DihedralPotential,
+    DihedralSpline,
+    OPLSDihedral,
+    RyckaertBellemansDihedral,
+)
 from .pair import (
     Depletion,
     LennardJones,
@@ -37,4 +93,4 @@ from .pair import (
     PairSpline,
     Yukawa,
 )
-from .potential import Parameters, Potential
+from .potential import BondedPotential, BondedSpline, Parameters, Potential
