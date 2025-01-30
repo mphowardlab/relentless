@@ -62,7 +62,8 @@ import tempfile
 import numpy
 
 from relentless import data, math, mpi
-from relentless.model import extent, variable
+from relentless.model import Ensemble, extent, variable
+from relentless.simulate.analyze import EnsembleAverage
 
 
 class ObjectiveFunction(abc.ABC):
@@ -375,6 +376,47 @@ class RelativeEntropy(ObjectiveFunction):
         return result
 
     def compute_gradient(self, ensemble, variables):
+        """Computes the relative entropy gradient for an ensemble.
+
+        Parameters
+        ----------
+        ensemble : :class:`~relentless.ensemble.Ensemble`
+            The ensemble for which to evaluate the gradient.
+        variables : :class:`~relentless.variable.Variable` or tuple
+            Variables with respect to which to compute gradient.
+
+        Returns
+        -------
+        :class:`~relentless.math.KeyedArray`
+            The gradient, keyed on the ``variables``.
+
+        """
+        if isinstance(self.target, Ensemble) and isinstance(
+            self.thermo, EnsembleAverage
+        ):
+            return self._compute_gradient_old(ensemble, variables)
+        else:
+            return self._compute_gradient_new(ensemble, variables)
+
+    def _compute_gradient_new(self, ensemble, variables):
+        r"""Computes the relative entropy gradient for an ensemble.
+
+        Parameters
+        ----------
+        ensemble : :class:`string`
+            Path to trajectory file.
+        variables : :class:`~relentless.variable.Variable` or tuple
+            Variables with respect to which to compute gradient.
+
+        Returns
+        -------
+        :class:`~relentless.math.KeyedArray`
+            The gradient, keyed on the ``variables``.
+
+        """
+        raise NotImplementedError("New method not implemented")
+
+    def _compute_gradient_old(self, ensemble, variables):
         r"""Computes the relative entropy gradient for an ensemble.
 
         Parameters
