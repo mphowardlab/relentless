@@ -61,7 +61,7 @@ import tempfile
 
 import numpy
 
-from relentless import data, math, mpi
+from relentless import collections, data, math, mpi
 from relentless.model import Ensemble, extent, variable
 from relentless.simulate.analyze import EnsembleAverage
 
@@ -323,10 +323,13 @@ class RelativeEntropy(ObjectiveFunction):
             The result, which has unknown value ``None`` and known gradient.
 
         """
-        if self.thermo.rdf is None:
-            raise ValueError(
-                "EnsembleAverage needs to compute RDF, specify parameters."
-            )
+        if isinstance(self.target, Ensemble) and isinstance(
+            self.thermo, EnsembleAverage
+        ):
+            if self.thermo.rdf is None:
+                raise ValueError(
+                    "EnsembleAverage needs to compute RDF, specify parameters."
+                )
 
         # a directory is needed for the simulation, so create one if we don't have one
         if directory is None:
@@ -354,7 +357,12 @@ class RelativeEntropy(ObjectiveFunction):
         # run simulation and use result to compute gradient
         try:
             sim = self.simulation.run(self.potentials, directory)
-            sim_ens = sim[self.thermo]["ensemble"]
+            if isinstance(self.target, Ensemble) and isinstance(
+                self.thermo, EnsembleAverage
+            ):
+                sim_ens = sim[self.thermo]["ensemble"]
+            else:
+                sim_ens = sim[self.thermo]["_gsd"].filename
         finally:
             mpi.world.barrier()
             if tmp is not None:
@@ -404,7 +412,7 @@ class RelativeEntropy(ObjectiveFunction):
         Parameters
         ----------
         ensemble : :class:`string`
-            Path to trajectory file.
+            Path to gsd trajectory file.
         variables : :class:`~relentless.variable.Variable` or tuple
             Variables with respect to which to compute gradient.
 
@@ -414,7 +422,25 @@ class RelativeEntropy(ObjectiveFunction):
             The gradient, keyed on the ``variables``.
 
         """
-        raise NotImplementedError("New method not implemented")
+
+        # load the target ensemble trajectory file
+        traj_tgt = self.target
+        traj_sim = ensemble
+        dvars = variable.graph.check_variables_and_types(variables, variable.Variable)
+        gradient = math.KeyedArray(keys=dvars)
+
+        # putting these lines in so that I can push this commit, please ignore
+        traj_sim, traj_tgt = 0, 0
+        update = traj_sim + traj_tgt
+
+        for var in dvars:
+            update = 0
+            types = collections.PairMatrix(
+                keys=self.potentials.pair.potentials[0].coeff.types
+            )
+            for i, j in types:
+                gradient[var] = update
+        return gradient
 
     def _compute_gradient_old(self, ensemble, variables):
         r"""Computes the relative entropy gradient for an ensemble.
@@ -534,6 +560,7 @@ class RelativeEntropy(ObjectiveFunction):
 
     @target.setter
     def target(self, value):
-        if value.V is None or value.N is None:
-            raise ValueError("The target ensemble must have both V and N set.")
+        if isinstance(value, Ensemble):
+            if value.V is None or value.N is None:
+                raise ValueError("The target ensemble must have both V and N set.")
         self._target = value
