@@ -63,7 +63,7 @@ import numpy
 
 from relentless import collections, data, math, mpi
 from relentless.model import Ensemble, extent, variable
-from relentless.simulate.analyze import EnsembleAverage
+from relentless.simulate.analyze import EnsembleAverage, WriteTrajectory
 
 
 class ObjectiveFunction(abc.ABC):
@@ -357,12 +357,12 @@ class RelativeEntropy(ObjectiveFunction):
         # run simulation and use result to compute gradient
         try:
             sim = self.simulation.run(self.potentials, directory)
-            if isinstance(self.target, Ensemble) and isinstance(
-                self.thermo, EnsembleAverage
+            if isinstance(self.target, str) and isinstance(
+                self.thermo, WriteTrajectory
             ):
-                sim_ens = sim[self.thermo]["ensemble"]
+                sim_ens = self.thermo.filename
             else:
-                sim_ens = sim[self.thermo]["_gsd"].filename
+                sim_ens = sim[self.thermo]["ensemble"]
         finally:
             mpi.world.barrier()
             if tmp is not None:
@@ -370,7 +370,17 @@ class RelativeEntropy(ObjectiveFunction):
 
         # compute gradient and result
         # relative entropy *value* is None
-        gradient = self.compute_gradient(sim_ens, variables)
+        if isinstance(self.target, str) and isinstance(self.thermo, WriteTrajectory):
+            gradient = self._compute_gradient_ensemble_average(sim_ens, variables)
+        elif isinstance(self.target, Ensemble) and isinstance(
+            self.thermo, EnsembleAverage
+        ):
+            gradient = self.compute_gradient(sim_ens, variables)
+        else:
+            raise TypeError(
+                "RelativeEntropy target and thermo must be either an Ensemble"
+                "and EnsembleAverage or a string and WriteTrajectory"
+            )
         result = ObjectiveFunctionResult(
             variables, None, gradient, directory if not directory_is_tmp else None
         )
@@ -383,35 +393,12 @@ class RelativeEntropy(ObjectiveFunction):
 
         return result
 
-    def compute_gradient(self, ensemble, variables):
-        """Computes the relative entropy gradient for an ensemble.
-
-        Parameters
-        ----------
-        ensemble : :class:`~relentless.ensemble.Ensemble`
-            The ensemble for which to evaluate the gradient.
-        variables : :class:`~relentless.variable.Variable` or tuple
-            Variables with respect to which to compute gradient.
-
-        Returns
-        -------
-        :class:`~relentless.math.KeyedArray`
-            The gradient, keyed on the ``variables``.
-
-        """
-        if isinstance(self.target, Ensemble) and isinstance(
-            self.thermo, EnsembleAverage
-        ):
-            return self._compute_gradient_old(ensemble, variables)
-        else:
-            return self._compute_gradient_new(ensemble, variables)
-
-    def _compute_gradient_new(self, ensemble, variables):
+    def _compute_gradient_ensemble_average(self, sim_traj, variables):
         r"""Computes the relative entropy gradient for an ensemble.
 
         Parameters
         ----------
-        ensemble : :class:`string`
+        sim_traj : :class:`string`
             Path to gsd trajectory file.
         variables : :class:`~relentless.variable.Variable` or tuple
             Variables with respect to which to compute gradient.
@@ -425,7 +412,7 @@ class RelativeEntropy(ObjectiveFunction):
 
         # load the target ensemble trajectory file
         traj_tgt = self.target
-        traj_sim = ensemble
+        traj_sim = sim_traj
         dvars = variable.graph.check_variables_and_types(variables, variable.Variable)
         gradient = math.KeyedArray(keys=dvars)
 
@@ -434,7 +421,7 @@ class RelativeEntropy(ObjectiveFunction):
         update = traj_sim + traj_tgt
 
         for var in dvars:
-            update = 0
+            update = 1
             types = collections.PairMatrix(
                 keys=self.potentials.pair.potentials[0].coeff.types
             )
@@ -442,7 +429,7 @@ class RelativeEntropy(ObjectiveFunction):
                 gradient[var] = update
         return gradient
 
-    def _compute_gradient_old(self, ensemble, variables):
+    def compute_gradient(self, ensemble, variables):
         r"""Computes the relative entropy gradient for an ensemble.
 
         Parameters
