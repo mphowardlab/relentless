@@ -323,14 +323,6 @@ class RelativeEntropy(ObjectiveFunction):
             The result, which has unknown value ``None`` and known gradient.
 
         """
-        if isinstance(self.target, Ensemble) and isinstance(
-            self.thermo, EnsembleAverage
-        ):
-            if self.thermo.rdf is None:
-                raise ValueError(
-                    "EnsembleAverage needs to compute RDF, specify parameters."
-                )
-
         # a directory is needed for the simulation, so create one if we don't have one
         if directory is None:
             # create directory and synchronize
@@ -357,11 +349,13 @@ class RelativeEntropy(ObjectiveFunction):
         # run simulation and use result to compute gradient
         try:
             sim = self.simulation.run(self.potentials, directory)
-            if isinstance(self.target, str) and isinstance(
-                self.thermo, WriteTrajectory
-            ):
+            if self._use_ensemble_average(self.target, self.thermo):
                 sim_ens = self.thermo.filename
             else:
+                if self.thermo.rdf is None:
+                    raise ValueError(
+                        "EnsembleAverage needs to compute RDF, specify parameters."
+                    )
                 sim_ens = sim[self.thermo]["ensemble"]
         finally:
             mpi.world.barrier()
@@ -370,17 +364,10 @@ class RelativeEntropy(ObjectiveFunction):
 
         # compute gradient and result
         # relative entropy *value* is None
-        if isinstance(self.target, str) and isinstance(self.thermo, WriteTrajectory):
+        if self._use_ensemble_average(self.target, self.thermo):
             gradient = self._compute_gradient_ensemble_average(sim_ens, variables)
-        elif isinstance(self.target, Ensemble) and isinstance(
-            self.thermo, EnsembleAverage
-        ):
-            gradient = self.compute_gradient(sim_ens, variables)
         else:
-            raise TypeError(
-                "RelativeEntropy target and thermo must be either an Ensemble"
-                "and EnsembleAverage or a string and WriteTrajectory"
-            )
+            gradient = self.compute_gradient(sim_ens, variables)
         result = ObjectiveFunctionResult(
             variables, None, gradient, directory if not directory_is_tmp else None
         )
@@ -551,3 +538,40 @@ class RelativeEntropy(ObjectiveFunction):
             if value.V is None or value.N is None:
                 raise ValueError("The target ensemble must have both V and N set.")
         self._target = value
+
+    def _use_ensemble_average(self, target, thermo):
+        r"""Check if the target and thermo are an ensemble and ensemble average
+        or string and WriteTrajectory.
+
+        Parameters
+        ----------
+        target : :class:`~relentless.ensemble.Ensemble` or `str`.
+            The target ensemble or trajectory file.
+
+        thermo : :class:`~relentless.simulate.analyze.EnsembleAverage` or
+            :class:`~relentless.simulate.analyze.WriteTrajectory`
+            The thermodynamic analyzer operation.
+
+        Returns
+        -------
+        bool
+            ``True`` if the target and thermo are string and WriteTrajectory,
+            ``False`` if the target and thermo are an ensemble and ensemble average,
+
+        Raises
+        ------
+        TypeError
+            If the target and thermo are not an ensemble and ensemble average or
+            string and WriteTrajectory.
+
+
+        """
+        if isinstance(target, str) and isinstance(thermo, WriteTrajectory):
+            return True
+        elif isinstance(target, Ensemble) and isinstance(thermo, EnsembleAverage):
+            return False
+        else:
+            raise TypeError(
+                "RelativeEntropy target and thermo must be either an Ensemble"
+                " and EnsembleAverage or a string and WriteTrajectory"
+            )
