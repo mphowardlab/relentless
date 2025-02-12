@@ -402,12 +402,78 @@ class RelativeEntropy(ObjectiveFunction):
         # load the target ensemble trajectory file
         traj_tgt = self.target
         dvars = variable.graph.check_variables_and_types(variables, variable.Variable)
+
+        with gsd.hoomd.open(traj_tgt, "r") as traj:
+            pair_types_tgt = traj[0].particles.types
+
+            bond_types_tgt = None
+            if traj[0].bonds.N != 0:
+                bond_types_tgt = traj[0].bonds.types
+
+            angle_types_tgt = None
+            if traj[0].angles.N != 0:
+                angle_types_tgt = traj[0].angles.types
+
+            dihedral_types_tgt = None
+            if traj[0].dihedrals.N != 0:
+                dihedral_types_tgt = traj[0].dihedrals.types
+
+            V_tgt = 0
+            for snap in traj:
+                Lx, Ly, Lz, xy, xz, yz = snap.configuration.box
+                V_tgt += extent.TriclinicBox(Lx, Ly, Lz, xy, xz, yz).extent / len(traj)
+
+        with gsd.hoomd.open(sim_traj, "r") as traj:
+            pair_types_sim = traj[0].particles.types
+
+            bond_types_sim = None
+            if traj[0].bonds.N != 0:
+                bond_types_sim = traj[0].bonds.types
+
+            angle_types_sim = None
+            if traj[0].angles.N != 0:
+                angle_types_sim = traj[0].angles.types
+
+            dihedral_types_sim = None
+            if traj[0].dihedrals.N != 0:
+                dihedral_types_sim = traj[0].dihedrals.types
+
+            V_sim = 0
+            for snap in traj:
+                Lx, Ly, Lz, xy, xz, yz = snap.configuration.box
+                V_sim += extent.TriclinicBox(Lx, Ly, Lz, xy, xz, yz).extent / len(traj)
+
+        if pair_types_tgt != pair_types_sim:
+            raise ValueError(
+                "Particle types in target and simulation trajectories do not match."
+            )
+        if bond_types_tgt != bond_types_sim:
+            raise ValueError(
+                "Bond types in target and simulation trajectories do not match."
+            )
+        if angle_types_tgt != angle_types_sim:
+            raise ValueError(
+                "Angle types in target and simulation trajectories do not match."
+            )
+        if dihedral_types_tgt != dihedral_types_sim:
+            raise ValueError(
+                "Dihedral types in target and simulation trajectories do not match."
+            )
+
+        if not numpy.isclose(V_tgt, V_sim):
+            raise ValueError(
+                "Volume of target and simulation trajectories do not match."
+            )
+
+        # normalization to extensive or intensive as specified
+        norm_factor = V_tgt if not self.extensive else 1.0
+
         gradient = math.KeyedArray(keys=dvars)
         for var in dvars:
             gradient[var] = (
                 self._calc_ensemble_average_dvar_dlambda(traj_tgt, dvars)[var]
                 - self._calc_ensemble_average_dvar_dlambda(sim_traj, dvars)[var]
-            )
+            ) / norm_factor
         return gradient
 
     def _calc_ensemble_average_dvar_dlambda(self, trajectory, variables):
@@ -487,12 +553,16 @@ class RelativeEntropy(ObjectiveFunction):
 
                 for i in snap.particles.types:
                     for j in snap.particles.types:
+                        filter_j_gt_i = neighbors[:, 1] > neighbors[:, 0]
+                        neighbors.filter(filter_j_gt_i)
+
                         filter_ij = numpy.logical_and(
                             type_masks[i][neighbors[:, 0]],
                             type_masks[j][neighbors[:, 1]],
                         )
 
                     neighbors.filter(filter_ij)
+
                     distances = neighbors.distances[filter_ij]
 
                     for var in variables:
