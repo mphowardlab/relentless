@@ -59,9 +59,11 @@ import abc
 import json
 import tempfile
 
+import freud
+import gsd.hoomd
 import numpy
 
-from relentless import collections, data, math, mpi
+from relentless import data, math, mpi
 from relentless.model import Ensemble, extent, variable
 from relentless.simulate.analyze import EnsembleAverage, WriteTrajectory
 
@@ -350,7 +352,7 @@ class RelativeEntropy(ObjectiveFunction):
         try:
             sim = self.simulation.run(self.potentials, directory)
             if self._use_ensemble_average(self.target, self.thermo):
-                sim_ens = self.thermo.filename
+                sim_ens = sim.directory.file(self.thermo.filename)
             else:
                 if self.thermo.rdf is None:
                     raise ValueError(
@@ -399,21 +401,106 @@ class RelativeEntropy(ObjectiveFunction):
 
         # load the target ensemble trajectory file
         traj_tgt = self.target
-        traj_sim = sim_traj
         dvars = variable.graph.check_variables_and_types(variables, variable.Variable)
         gradient = math.KeyedArray(keys=dvars)
-
-        # putting these lines in so that I can push this commit, please ignore
-        traj_sim, traj_tgt = 0, 0
-        update = traj_sim + traj_tgt
-
         for var in dvars:
-            update = 1
-            types = collections.PairMatrix(
-                keys=self.potentials.pair.potentials[0].coeff.types
+            gradient[var] = (
+                self._calc_ensemble_average_dvar_dlambda(traj_tgt, dvars)[var]
+                - self._calc_ensemble_average_dvar_dlambda(sim_traj, dvars)[var]
             )
-            for i, j in types:
-                gradient[var] = update
+        return gradient
+
+    def _calc_ensemble_average_dvar_dlambda(self, trajectory, variables):
+        gradient = math.KeyedArray(keys=variables)
+        for var in variables:
+            gradient[var] = 0
+
+        with gsd.hoomd.open(trajectory, "r") as traj:
+            # loop through the trajectory and calculate ensemble average
+            box = freud.box.Box.from_box(traj[0].configuration.box)
+            for snap in traj:
+                pos = box.unwrap(snap.particles.position, snap.particles.image)
+                aq = freud.locality.AABBQuery(box, pos)
+
+                neighbors = aq.query(
+                    pos,
+                    dict(
+                        mode="ball",
+                        r_max=self.potentials.pair.stop,
+                        exclude_ii=True,
+                    ),
+                ).toNeighborList()
+
+                type_masks = {}
+                for i in snap.particles.types:
+                    type_masks[i] = snap.particles.typeid == snap.particles.types.index(
+                        i
+                    )
+
+                bonded_exclusions = self.potentials.pair.exclusions
+                if bonded_exclusions is not None:
+                    if (
+                        "1-2" in bonded_exclusions
+                        and snap.bonds.N != 0
+                        and len(neighbors[:]) > 0
+                    ):
+                        bonds = numpy.vstack(
+                            [snap.bonds.group, numpy.flip(snap.bonds.group, axis=1)],
+                        )
+
+                        bond_exclusion_filter = EnsembleAverage._cantor_pairing(
+                            self, bonds, neighbors
+                        )
+
+                        neighbors.filter(bond_exclusion_filter)
+                    if (
+                        "1-3" in bonded_exclusions
+                        and snap.angles.N != 0
+                        and len(neighbors[:]) > 0
+                    ):
+                        angles = numpy.vstack(
+                            [snap.angles.group, numpy.flip(snap.angles.group, axis=1)],
+                        )
+
+                        angle_exclusion_filter = EnsembleAverage._cantor_pairing(
+                            self, angles[:, (0, -1)], neighbors
+                        )
+
+                        neighbors.filter(angle_exclusion_filter)
+                    if (
+                        "1-4" in bonded_exclusions
+                        and snap.dihedrals.N != 0
+                        and len(neighbors[:]) > 0
+                    ):
+                        dihedrals = numpy.vstack(
+                            [
+                                snap.dihedrals.group,
+                                numpy.flip(snap.dihedrals.group, axis=1),
+                            ],
+                        )
+
+                        dihedral_exclusion_filter = EnsembleAverage._cantor_pairing(
+                            self, dihedrals[:, (0, -1)], neighbors
+                        )
+
+                        neighbors.filter(dihedral_exclusion_filter)
+
+                for i in snap.particles.types:
+                    for j in snap.particles.types:
+                        filter_ij = numpy.logical_and(
+                            type_masks[i][neighbors[:, 0]],
+                            type_masks[j][neighbors[:, 1]],
+                        )
+
+                    neighbors.filter(filter_ij)
+                    distances = neighbors.distances[filter_ij]
+
+                    for var in variables:
+                        rs = self.potentials.pair.linear_space
+                        dus = self.potentials.pair.derivative((i, j), var)
+                        dudvar = math.AkimaSpline(rs, dus)
+                        gradient[var] += numpy.sum(dudvar(distances)) / len(traj)
+
         return gradient
 
     def compute_gradient(self, ensemble, variables):
