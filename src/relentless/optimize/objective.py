@@ -585,13 +585,13 @@ class RelativeEntropy(ObjectiveFunction):
                         pos_2 = pos[bonds[:, 1]]
 
                         # Calculate distances
-                        distances = numpy.linalg.norm(pos_2 - pos_1, axis=1)
+                        dr = numpy.linalg.norm(pos_2 - pos_1, axis=1)
 
                         for var in variables:
                             rs = self.potentials.bond.linear_space
                             dus = self.potentials.bond.derivative(i, var)
                             dudvar = math.AkimaSpline(rs, dus)
-                            gradient[var] += numpy.sum(dudvar(distances)) / len(traj)
+                            gradient[var] += numpy.sum(dudvar(dr)) / len(traj)
 
                 # angle contributions to the gradient
                 if snap.angles.N != 0:
@@ -609,7 +609,7 @@ class RelativeEntropy(ObjectiveFunction):
                         r_12 = pos_2 - pos_1
                         r_23 = pos_3 - pos_2
 
-                        angles = numpy.arccos(
+                        dtheta = numpy.arccos(
                             numpy.dot(r_12, r_23)
                             / (numpy.linalg.norm(r_12) * numpy.linalg.norm(r_23))
                         )
@@ -618,7 +618,7 @@ class RelativeEntropy(ObjectiveFunction):
                             rs = self.potentials.angle.linear_space
                             dus = self.potentials.angle.derivative(i, var)
                             dudvar = math.AkimaSpline(rs, dus)
-                            gradient[var] += numpy.sum(dudvar(angles)) / len(traj)
+                            gradient[var] += numpy.sum(dudvar(dtheta)) / len(traj)
 
                 # dihedral contributions to the gradient
                 if snap.dihedrals.N != 0:
@@ -641,7 +641,7 @@ class RelativeEntropy(ObjectiveFunction):
                         cross_12_23 = numpy.cross(r_12, r_23)
                         cross_23_34 = numpy.cross(r_23, r_34)
 
-                        dihedrals = numpy.arccos(
+                        dphi = numpy.arccos(
                             numpy.dot(cross_12_23, cross_23_34)
                             / (
                                 numpy.linalg.norm(cross_12_23)
@@ -653,7 +653,7 @@ class RelativeEntropy(ObjectiveFunction):
                             rs = self.potentials.dihedral.linear_space
                             dus = self.potentials.dihedral.derivative(i, var)
                             dudvar = math.AkimaSpline(rs, dus)
-                            gradient[var] += numpy.sum(dudvar(dihedrals)) / len(traj)
+                            gradient[var] += numpy.sum(dudvar(dphi)) / len(traj)
         return gradient
 
     def compute_gradient(self, ensemble, variables):
