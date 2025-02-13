@@ -551,6 +551,7 @@ class RelativeEntropy(ObjectiveFunction):
 
                         neighbors.filter(dihedral_exclusion_filter)
 
+                # pair contributions to the gradient
                 for i in snap.particles.types:
                     for j in snap.particles.types:
                         filter_j_gt_i = neighbors[:, 1] > neighbors[:, 0]
@@ -571,6 +572,88 @@ class RelativeEntropy(ObjectiveFunction):
                         dudvar = math.AkimaSpline(rs, dus)
                         gradient[var] += numpy.sum(dudvar(distances)) / len(traj)
 
+                type_map = {type: i for i, type in enumerate(snap.particles.types)}
+                # bond contributions to the gradient
+                if snap.bonds.N != 0:
+                    for i in snap.bonds.types:
+                        bond_type_filter = type_map[i] == snap.bonds.typeid
+
+                        bonds = snap.bonds.group[bond_type_filter]
+
+                        # Get positions for all pairs of bonded particles
+                        pos_1 = pos[bonds[:, 0]]
+                        pos_2 = pos[bonds[:, 1]]
+
+                        # Calculate distances
+                        distances = numpy.linalg.norm(pos_2 - pos_1, axis=1)
+
+                        for var in variables:
+                            rs = self.potentials.bond.linear_space
+                            dus = self.potentials.bond.derivative(i, var)
+                            dudvar = math.AkimaSpline(rs, dus)
+                            gradient[var] += numpy.sum(dudvar(distances)) / len(traj)
+
+                # angle contributions to the gradient
+                if snap.angles.N != 0:
+                    for i in snap.angles.types:
+                        angle_type_filter = type_map[i] == snap.angles.typeid
+
+                        angles = snap.angles.group[angle_type_filter]
+
+                        # get positions for all triplets of bonded particles
+                        pos_1 = pos[angles[:, 0]]
+                        pos_2 = pos[angles[:, 1]]
+                        pos_3 = pos[angles[:, 2]]
+
+                        # calculate angles
+                        r_12 = pos_2 - pos_1
+                        r_23 = pos_3 - pos_2
+
+                        angles = numpy.arccos(
+                            numpy.dot(r_12, r_23)
+                            / (numpy.linalg.norm(r_12) * numpy.linalg.norm(r_23))
+                        )
+
+                        for var in variables:
+                            rs = self.potentials.angle.linear_space
+                            dus = self.potentials.angle.derivative(i, var)
+                            dudvar = math.AkimaSpline(rs, dus)
+                            gradient[var] += numpy.sum(dudvar(angles)) / len(traj)
+
+                # dihedral contributions to the gradient
+                if snap.dihedrals.N != 0:
+                    for i in snap.dihedrals.types:
+                        dihedral_type_filter = type_map[i] == snap.dihedrals.typeid
+
+                        dihedrals = snap.dihedrals.group[dihedral_type_filter]
+
+                        # get positions for all quadruplets of bonded particles
+                        pos_1 = pos[dihedrals[:, 0]]
+                        pos_2 = pos[dihedrals[:, 1]]
+                        pos_3 = pos[dihedrals[:, 2]]
+                        pos_4 = pos[dihedrals[:, 3]]
+
+                        # calculate dihedrals
+                        r_12 = pos_2 - pos_1
+                        r_23 = pos_3 - pos_2
+                        r_34 = pos_4 - pos_3
+
+                        cross_12_23 = numpy.cross(r_12, r_23)
+                        cross_23_34 = numpy.cross(r_23, r_34)
+
+                        dihedrals = numpy.arccos(
+                            numpy.dot(cross_12_23, cross_23_34)
+                            / (
+                                numpy.linalg.norm(cross_12_23)
+                                * numpy.linalg.norm(cross_23_34)
+                            )
+                        )
+
+                        for var in variables:
+                            rs = self.potentials.dihedral.linear_space
+                            dus = self.potentials.dihedral.derivative(i, var)
+                            dudvar = math.AkimaSpline(rs, dus)
+                            gradient[var] += numpy.sum(dudvar(dihedrals)) / len(traj)
         return gradient
 
     def compute_gradient(self, ensemble, variables):
