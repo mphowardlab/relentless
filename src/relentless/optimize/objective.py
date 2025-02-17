@@ -291,12 +291,13 @@ class RelativeEntropy(ObjectiveFunction):
 
     """
 
-    def __init__(self, target, simulation, potentials, thermo, extensive=False):
+    def __init__(self, target, simulation, potentials, thermo, extensive=False, T=None):
         self.target = target
         self.simulation = simulation
         self.potentials = potentials
         self.thermo = thermo
         self.extensive = extensive
+        self.T = T
 
     def compute(self, variables, directory=None):
         r"""Evaluate the value and gradient of the relative entropy function.
@@ -438,10 +439,20 @@ class RelativeEntropy(ObjectiveFunction):
             if traj[0].dihedrals.N != 0:
                 dihedral_types_sim = traj[0].dihedrals.types
 
-            V_sim = 0
-            for snap in traj:
-                Lx, Ly, Lz, xy, xz, yz = snap.configuration.box
-                V_sim += extent.TriclinicBox(Lx, Ly, Lz, xy, xz, yz).extent / len(traj)
+            # calculate T if not provided
+            if self.T is None:
+                if snap.particles.mass is None or snap.particles.velocity is None:
+                    raise ValueError(
+                        "Temperature not provided and cannot be calculated "
+                        "from trajectory."
+                    )
+                T_avg = 0
+                for snap in traj:
+                    T_avg += numpy.sum(
+                        numpy.linalg.norm(snap.particles.velocity, axis=1) ** 2
+                        / (3 * snap.particles.mass * snap.particles.N)
+                    ) / len(traj)
+                self.T = T_avg
 
         if pair_types_tgt != pair_types_sim:
             raise ValueError(
@@ -460,20 +471,16 @@ class RelativeEntropy(ObjectiveFunction):
                 "Dihedral types in target and simulation trajectories do not match."
             )
 
-        if not numpy.isclose(V_tgt, V_sim):
-            raise ValueError(
-                "Volume of target and simulation trajectories do not match."
-            )
-
         # normalization to extensive or intensive as specified
         norm_factor = V_tgt if not self.extensive else 1.0
-
         gradient = math.KeyedArray(keys=dvars)
         for var in dvars:
             gradient[var] = (
-                self._calc_ensemble_average_dvar_dlambda(traj_tgt, dvars)[var]
-                - self._calc_ensemble_average_dvar_dlambda(sim_traj, dvars)[var]
-            ) / norm_factor
+                (
+                    self._calc_ensemble_average_dvar_dlambda(traj_tgt, dvars)[var]
+                    - self._calc_ensemble_average_dvar_dlambda(sim_traj, dvars)[var]
+                )
+            ) / (norm_factor * self.potentials.kB * self.T)
         return gradient
 
     def _calc_ensemble_average_dvar_dlambda(self, trajectory, variables):
