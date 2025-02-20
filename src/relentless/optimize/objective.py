@@ -376,7 +376,8 @@ class RelativeEntropy(ObjectiveFunction):
             result = ObjectiveFunctionResult(
                 variables, None, gradient, directory if not directory_is_tmp else None
             )
-        mpi.world.barrier()
+        else:
+            result = None
         result = mpi.world.bcast(result)
 
         # optionally write ensemble and result *after* the simulation
