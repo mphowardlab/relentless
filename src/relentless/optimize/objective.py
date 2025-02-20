@@ -353,7 +353,7 @@ class RelativeEntropy(ObjectiveFunction):
         # run simulation and use result to compute gradient
         try:
             sim = self.simulation.run(self.potentials, directory)
-            if self._use_ensemble_average(self.target, self.thermo):
+            if self._use_trajectory(self.target, self.thermo):
                 sim_ens = sim.directory.file(self.thermo.filename)
             else:
                 if self.thermo.rdf is None:
@@ -368,7 +368,7 @@ class RelativeEntropy(ObjectiveFunction):
 
         # compute gradient and result
         # relative entropy *value* is None
-        if self._use_ensemble_average(self.target, self.thermo):
+        if self._use_trajectory(self.target, self.thermo):
             gradient = self._compute_gradient_ensemble_average(sim_ens, variables)
         else:
             gradient = self.compute_gradient(sim_ens, variables)
@@ -788,7 +788,7 @@ class RelativeEntropy(ObjectiveFunction):
                 raise ValueError("Target must be a gsd trajectory file.")
         self._target = value
 
-    def _use_ensemble_average(self, target, thermo):
+    def _use_trajectory(self, target, thermo):
         r"""Check if the target and thermo are an ensemble and ensemble average
         or string and WriteTrajectory.
 
