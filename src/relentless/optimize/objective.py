@@ -474,9 +474,10 @@ class RelativeEntropy(ObjectiveFunction):
 
         # normalization to extensive or intensive as specified
         norm_factor = V_tgt if not self.extensive else 1.0
-        gradient = ((self._calc_ensemble_average_dvar_dlambda(traj_tgt, dvars)
-            - self._calc_ensemble_average_dvar_dlambda(sim_traj, dvars))
-            / (norm_factor * self.potentials.kB * self.T))
+        gradient = (
+            self._calc_ensemble_average_dvar_dlambda(traj_tgt, dvars)
+            - self._calc_ensemble_average_dvar_dlambda(sim_traj, dvars)
+        ) / (norm_factor * self.potentials.kB * self.T)
         return gradient
 
     def _calc_ensemble_average_dvar_dlambda(self, trajectory, variables):
@@ -570,7 +571,9 @@ class RelativeEntropy(ObjectiveFunction):
                     distances = neighbors.distances[filter_ij]
 
                     for var in variables:
-                        gradient[var] += numpy.sum(self.potentials.pair.derivative((i, j), var, x=distances))
+                        gradient[var] += numpy.sum(
+                            self.potentials.pair.derivative((i, j), var, x=distances)
+                        )
 
                 type_map = {type: i for i, type in enumerate(snap.particles.types)}
                 # bond contributions to the gradient
