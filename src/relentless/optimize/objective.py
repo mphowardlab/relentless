@@ -57,6 +57,7 @@ To implement your own objective function, create a class that derives from
 
 import abc
 import json
+import pathlib
 import tempfile
 
 import freud
@@ -780,6 +781,11 @@ class RelativeEntropy(ObjectiveFunction):
         if isinstance(value, Ensemble):
             if value.V is None or value.N is None:
                 raise ValueError("The target ensemble must have both V and N set.")
+        elif isinstance(value, str):
+            file_suffix = pathlib.Path(value).suffix
+
+            if not file_suffix == ".gsd":
+                raise ValueError("Target must be a gsd trajectory file.")
         self._target = value
 
     def _use_ensemble_average(self, target, thermo):
