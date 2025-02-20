@@ -449,8 +449,9 @@ class RelativeEntropy(ObjectiveFunction):
                 T_avg = 0
                 for snap in traj:
                     T_avg += numpy.sum(
-                        numpy.linalg.norm(snap.particles.velocity, axis=1) ** 2
-                        / (3 * snap.particles.mass * snap.particles.N)
+                        snap.particles.mass
+                        * numpy.linalg.norm(snap.particles.velocity, axis=1) ** 2
+                        / (3 * snap.particles.N * self.potentials.kB)
                     ) / len(traj)
                 self.T = T_avg
 
