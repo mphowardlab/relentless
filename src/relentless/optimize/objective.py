@@ -369,7 +369,7 @@ class RelativeEntropy(ObjectiveFunction):
         # compute gradient and result
         # relative entropy *value* is None
         if self._use_trajectory(self.target, self.thermo):
-            gradient = self._compute_gradient_ensemble_average(sim_ens, variables)
+            gradient = self._compute_gradient_direct_average(sim_ens, variables)
         else:
             gradient = self.compute_gradient(sim_ens, variables)
         result = ObjectiveFunctionResult(
@@ -384,7 +384,7 @@ class RelativeEntropy(ObjectiveFunction):
 
         return result
 
-    def _compute_gradient_ensemble_average(self, sim_traj, variables):
+    def _compute_gradient_direct_average(self, sim_traj, variables):
         r"""Computes the relative entropy gradient for an ensemble.
 
         Parameters
