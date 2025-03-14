@@ -312,19 +312,15 @@ class test_RelativeEntropyDirectAverage(unittest.TestCase):
         self.bond_pot = relentless.model.potential.HarmonicBond(("bondA", "bondB"))
         self.r0_bondA = relentless.model.IndependentVariable(value=1.0)
         self.r0_bondB = relentless.model.IndependentVariable(value=1.5)
-        self.bond_pot.coeff["bondA"].update({"k": 1000.0, "r0": self.r0_bondA})
-        self.bond_pot.coeff["bondB"].update({"k": 1000.0, "r0": self.r0_bondB})
+        self.bond_pot.coeff["bondA"].update({"k": 1.0, "r0": self.r0_bondA})
+        self.bond_pot.coeff["bondB"].update({"k": 1.0, "r0": self.r0_bondB})
 
         # angle potentials
         self.angle_pot = relentless.model.potential.HarmonicAngle(("angleA", "angleB"))
         self.theta0_angleA = relentless.model.IndependentVariable(value=1.0)
         self.theta0_angleB = relentless.model.IndependentVariable(value=1.5)
-        self.angle_pot.coeff["angleA"].update(
-            {"k": 1000.0, "theta0": self.theta0_angleA}
-        )
-        self.angle_pot.coeff["angleB"].update(
-            {"k": 1000.0, "theta0": self.theta0_angleB}
-        )
+        self.angle_pot.coeff["angleA"].update({"k": 1.0, "theta0": self.theta0_angleA})
+        self.angle_pot.coeff["angleB"].update({"k": 1.0, "theta0": self.theta0_angleB})
 
         # dihedral potentials
         self.dihedral_pot = relentless.model.potential.OPLSDihedral(("dihedralA",))
@@ -447,7 +443,7 @@ class test_RelativeEntropyDirectAverage(unittest.TestCase):
                 s1 = s
                 position_1 = [
                     [1, 0, 0],
-                    [1, 1, 1],
+                    [0, 1, 1],
                     [2, 1, 1],
                     [1, 2, 3 + numpy.sqrt(3)],
                 ]
@@ -495,7 +491,7 @@ class test_RelativeEntropyDirectAverage(unittest.TestCase):
                 self.pair_pot.derivative(("A", "A"), self.sigma_AA, sim_distances_AA)
             )
         ) / frames
-        self.assertAlmostEqual(res[self.sigma_AA], s_rel_pair_sigma_AA, delta=1e-3)
+        self.assertAlmostEqual(res[self.sigma_AA], s_rel_pair_sigma_AA, delta=1e-4)
 
         tgt_distances_BB = [1.414213562, 3.991015313]
         sim_distances_BB = [2.449489743, 3.507720287]
@@ -507,7 +503,7 @@ class test_RelativeEntropyDirectAverage(unittest.TestCase):
                 self.pair_pot.derivative(("B", "B"), self.sigma_BB, sim_distances_BB)
             )
         ) / frames
-        self.assertAlmostEqual(res[self.sigma_BB], s_rel_pair_sigma_BB, delta=1e-3)
+        self.assertAlmostEqual(res[self.sigma_BB], s_rel_pair_sigma_BB, delta=1e-4)
 
         # test bond contributions
         tgt_distances_bondA = [1, 1, 1.732050808, 3.991015313]
@@ -520,7 +516,7 @@ class test_RelativeEntropyDirectAverage(unittest.TestCase):
                 self.bond_pot.derivative("bondA", self.r0_bondA, sim_distances_bondA)
             )
         ) / frames
-        self.assertAlmostEqual(res[self.r0_bondA], s_rel_bond_r0_bondA, places=3)
+        self.assertAlmostEqual(res[self.r0_bondA], s_rel_bond_r0_bondA, delta=1e-4)
 
         tgt_distances_bondB = [1.0, 2.0]
         sim_distances_bondB = [1.1, 1.0]
@@ -532,11 +528,11 @@ class test_RelativeEntropyDirectAverage(unittest.TestCase):
                 self.bond_pot.derivative("bondB", self.r0_bondB, sim_distances_bondB)
             )
         ) / frames
-        self.assertAlmostEqual(res[self.r0_bondB], s_rel_bond_r0_bondB, delta=1e-3)
+        self.assertAlmostEqual(res[self.r0_bondB], s_rel_bond_r0_bondB, delta=1e-4)
 
         # test angle contributions
-        tgt_angle_angleA = [1.570796327, 2.186276035]
-        sim_angle_angleA = [2.35619449, 0.565818813]
+        tgt_angle_angleA = [1.570796327, 0.955316618]
+        sim_angle_angleA = [2.35619449, 2.57577384]
         s_rel_angle_theta0_angleA = (
             numpy.sum(
                 self.angle_pot.derivative(
@@ -550,11 +546,11 @@ class test_RelativeEntropyDirectAverage(unittest.TestCase):
             )
         ) / frames
         self.assertAlmostEqual(
-            res[self.theta0_angleA], s_rel_angle_theta0_angleA, delta=1e-3
+            res[self.theta0_angleA], s_rel_angle_theta0_angleA, delta=1e-4
         )
 
-        tgt_angle_angleB = [1.570796327, 1.82405789]
-        sim_angle_angleB = [2.137548653, 0.903822375]
+        tgt_angle_angleB = [1.570796327, 1.317534763]
+        sim_angle_angleB = [2.137548653, 2.237742671]
         s_rel_angle_theta0_angleB = (
             numpy.sum(
                 self.angle_pot.derivative(
@@ -568,12 +564,12 @@ class test_RelativeEntropyDirectAverage(unittest.TestCase):
             )
         ) / frames
         self.assertAlmostEqual(
-            res[self.theta0_angleB], s_rel_angle_theta0_angleB, delta=1e-3
+            res[self.theta0_angleB], s_rel_angle_theta0_angleB, delta=1e-4
         )
 
         # test dihedral contributions
-        tgt_dihedral = [0, 2.617993878]
-        sim_dihedral = [0.785398, 1.570796]
+        tgt_dihedral = [0, 0.523598776]
+        sim_dihedral = [0.785398, 1.570796327]
         s_rel_dihedral_phi0 = (
             numpy.sum(
                 self.dihedral_pot.derivative(
@@ -586,7 +582,7 @@ class test_RelativeEntropyDirectAverage(unittest.TestCase):
                 )
             )
         ) / frames
-        self.assertAlmostEqual(res[self.k4_dihedral], s_rel_dihedral_phi0, delta=1e-3)
+        self.assertAlmostEqual(res[self.k4_dihedral], s_rel_dihedral_phi0, delta=1e-4)
 
     def test_intensive(self):
         """Test compute and compute_gradient methods"""
@@ -627,7 +623,7 @@ class test_RelativeEntropyDirectAverage(unittest.TestCase):
 
         for var in vars:
             self.assertAlmostEqual(
-                res_extensive[var], res_intensive[var] * 20**3, delta=1e-3
+                res_extensive[var], res_intensive[var] * 20**3, delta=1e-4
             )
 
     def tearDown(self):
