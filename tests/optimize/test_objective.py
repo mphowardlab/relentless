@@ -3,9 +3,24 @@
 import tempfile
 import unittest
 
+import gsd
+import gsd.hoomd
 import numpy
+from packaging import version
 
 import relentless
+
+# silence warnings about Snapshot being deprecated
+try:
+    gsd_version = gsd.version.version
+except AttributeError:
+    gsd_version = gsd.__version__
+if version.Version(gsd_version) >= version.Version("2.8.0"):
+    HOOMDFrame = gsd.hoomd.Frame
+    gsd_write_mode = "w"
+else:
+    HOOMDFrame = gsd.hoomd.Snapshot
+    gsd_write_mode = "wb"
 
 
 class QuadraticObjective(relentless.optimize.ObjectiveFunction):
@@ -265,6 +280,355 @@ class test_RelativeEntropy(unittest.TestCase):
         numpy.testing.assert_allclose(
             y["rdf"]["('1', '1')"], sim_ens.rdf["1", "1"].table.tolist()
         )
+
+
+class test_RelativeEntropyDirectAverage(unittest.TestCase):
+    """Unit tests for relentless.optimize.RelativeEntropy"""
+
+    def setUp(self):
+        if relentless.mpi.world.rank_is_root:
+            self._tmp = tempfile.TemporaryDirectory()
+            directory = self._tmp.name
+        else:
+            directory = None
+        directory = relentless.mpi.world.bcast(directory)
+        self.directory = relentless.data.Directory(directory)
+
+        # pair potentials
+        self.pair_pot = relentless.model.potential.LennardJones(("A", "B"))
+        self.sigma_AA = relentless.model.IndependentVariable(value=1.1)
+        self.sigma_BB = relentless.model.IndependentVariable(value=0.9)
+        self.pair_pot.coeff["A", "A"].update(
+            {"sigma": self.sigma_AA, "epsilon": 1.0, "rmax": 6.0}
+        )
+        self.pair_pot.coeff["A", "B"].update(
+            {"sigma": 1.0, "epsilon": 1.0, "rmax": 6.0}
+        )
+        self.pair_pot.coeff["B", "B"].update(
+            {"sigma": self.sigma_BB, "epsilon": 1.0, "rmax": 6.0}
+        )
+
+        # bond potentials
+        self.bond_pot = relentless.model.potential.HarmonicBond(("bondA", "bondB"))
+        self.r0_bondA = relentless.model.IndependentVariable(value=1.0)
+        self.r0_bondB = relentless.model.IndependentVariable(value=1.5)
+        self.bond_pot.coeff["bondA"].update({"k": 1000.0, "r0": self.r0_bondA})
+        self.bond_pot.coeff["bondB"].update({"k": 1000.0, "r0": self.r0_bondB})
+
+        # angle potentials
+        self.angle_pot = relentless.model.potential.HarmonicAngle(("angleA", "angleB"))
+        self.theta0_angleA = relentless.model.IndependentVariable(value=1.0)
+        self.theta0_angleB = relentless.model.IndependentVariable(value=1.5)
+        self.angle_pot.coeff["angleA"].update(
+            {"k": 1000.0, "theta0": self.theta0_angleA}
+        )
+        self.angle_pot.coeff["angleB"].update(
+            {"k": 1000.0, "theta0": self.theta0_angleB}
+        )
+
+        # dihedral potentials
+        self.dihedral_pot = relentless.model.potential.OPLSDihedral(("dihedralA",))
+        self.k4_dihedral = relentless.model.IndependentVariable(value=0.0)
+        self.dihedral_pot.coeff["dihedralA"].update(
+            {"k1": 1.740, "k2": -0.157, "k3": 0.279, "k4": self.k4_dihedral}
+        )
+
+        self.potentials = relentless.simulate.Potentials()
+        self.potentials.pair = relentless.simulate.PairPotentialTabulator(
+            self.pair_pot, start=1e-6, stop=6.0, num=1000, neighbor_buffer=0.4
+        )
+        self.potentials.bond = relentless.simulate.BondPotentialTabulator(
+            self.bond_pot, start=1e-6, stop=6.0, num=1000
+        )
+        self.potentials.angle = relentless.simulate.AnglePotentialTabulator(
+            self.angle_pot, num=1000
+        )
+        self.potentials.dihedral = relentless.simulate.DihedralPotentialTabulator(
+            self.dihedral_pot, num=1000
+        )
+
+        # target ensemble
+        self.thermo = relentless.simulate.WriteTrajectory(
+            filename=self.directory.file("sim.gsd"), every=1
+        )
+
+        self.simulation = None
+
+    def create_gsd_two_4mers_sim(self):
+        filename = self.directory.file("sim.gsd")
+        if relentless.mpi.world.rank_is_root:
+            with gsd.hoomd.open(name=filename, mode="w") as f:
+                s = gsd.hoomd.Frame()
+                s.particles.N = 4
+                s.particles.types = ["A", "B"]
+                s.particles.typeid = [
+                    0,
+                    1,
+                    0,
+                    1,
+                ]
+                # bonds
+                s.bonds.N = 3
+                s.bonds.types = ["bondA", "bondB"]
+                s.bonds.group = [(0, 1), (1, 2), (2, 3)]
+                s.bonds.typeid = [0, 1, 0]
+                # angles
+                s.angles.N = 2
+                s.angles.types = ["angleA", "angleB"]
+                s.angles.group = [(0, 1, 2), (1, 2, 3)]
+                s.angles.typeid = [0, 1]
+                # dihedrals
+                s.dihedrals.N = 1
+                s.dihedrals.types = ["dihedralA"]
+                s.dihedrals.group = [(0, 1, 2, 3)]
+                s.dihedrals.typeid = [0]
+                # box
+                s.configuration.box = [20, 20, 20, 0, 0, 0]
+                position_0 = [
+                    [0, 0, 0],
+                    [1, 1, 0],
+                    [2.1, 1, 0],
+                    [3.0, 0, 1],
+                ]
+                s.particles.position = position_0
+                f.append(s)
+
+                s1 = s
+                position_1 = [
+                    [0, 0, 0],
+                    [numpy.sqrt(3), 1.1, 0],
+                    [numpy.sqrt(3) + 1, 1.1, 0],
+                    [2 * numpy.sqrt(3) + 1, 1.1, 2.2],
+                ]
+                s1.particles.position = position_1
+                f.append(s1)
+        relentless.mpi.world.barrier()
+        return filename
+
+    def create_gsd_mers_tgt(self):
+        filename = self.directory.file("tgt.gsd")
+        if relentless.mpi.world.rank_is_root:
+            with gsd.hoomd.open(name=filename, mode="w") as f:
+                s = gsd.hoomd.Frame()
+                s.particles.N = 4
+                s.particles.types = ["A", "B"]
+                s.particles.typeid = [
+                    0,
+                    1,
+                    0,
+                    1,
+                ]
+                # bonds
+                s.bonds.N = 3
+                s.bonds.types = ["bondA", "bondB"]
+                s.bonds.group = [(0, 1), (1, 2), (2, 3)]
+                s.bonds.typeid = [0, 1, 0]
+                # angles
+                s.angles.N = 2
+                s.angles.types = ["angleA", "angleB"]
+                s.angles.group = [(0, 1, 2), (1, 2, 3)]
+                s.angles.typeid = [0, 1]
+                # dihedrals
+                s.dihedrals.N = 1
+                s.dihedrals.types = ["dihedralA"]
+                s.dihedrals.group = [(0, 1, 2, 3)]
+                s.dihedrals.typeid = [0]
+                # box
+                s.configuration.box = [20, 20, 20, 0, 0, 0]
+                position_0 = [
+                    [0, 0, 0],
+                    [0, 1, 0],
+                    [1, 1, 0],
+                    [1, 0, 0],
+                ]
+                s.particles.position = position_0
+                f.append(s)
+
+                s1 = s
+                position_1 = [
+                    [1, 0, 0],
+                    [1, 1, 1],
+                    [2, 1, 1],
+                    [1, 2, 3 + numpy.sqrt(3)],
+                ]
+                s1.particles.position = position_1
+                f.append(s1)
+        relentless.mpi.world.barrier()
+        return filename
+
+    def test_compute_no_exclusions(self):
+        """Test compute and compute_gradient methods"""
+        self.target = self.create_gsd_mers_tgt()
+
+        relent = relentless.optimize.RelativeEntropy(
+            self.target,
+            self.simulation,
+            self.potentials,
+            self.thermo,
+            T=1.0,
+            extensive=True,
+        )
+        sim_traj = self.create_gsd_two_4mers_sim()
+
+        vars = (
+            self.sigma_AA,
+            self.sigma_BB,
+            self.r0_bondA,
+            self.r0_bondB,
+            self.theta0_angleA,
+            self.theta0_angleB,
+            self.k4_dihedral,
+        )
+        res = relent._compute_gradient_direct_average(sim_traj, vars)
+
+        # number of frames
+        frames = 2
+
+        # test pair contributions
+        tgt_distances_AA = [1.414213562, 1.732050808]
+        sim_distances_AA = [2.32594067, 2.945182781]
+        s_rel_pair_sigma_AA = (
+            numpy.sum(
+                self.pair_pot.derivative(("A", "A"), self.sigma_AA, tgt_distances_AA)
+            )
+            - numpy.sum(
+                self.pair_pot.derivative(("A", "A"), self.sigma_AA, sim_distances_AA)
+            )
+        ) / frames
+        self.assertAlmostEqual(res[self.sigma_AA], s_rel_pair_sigma_AA, delta=1e-3)
+
+        tgt_distances_BB = [1.414213562, 3.991015313]
+        sim_distances_BB = [2.449489743, 3.507720287]
+        s_rel_pair_sigma_BB = (
+            numpy.sum(
+                self.pair_pot.derivative(("B", "B"), self.sigma_BB, tgt_distances_BB)
+            )
+            - numpy.sum(
+                self.pair_pot.derivative(("B", "B"), self.sigma_BB, sim_distances_BB)
+            )
+        ) / frames
+        self.assertAlmostEqual(res[self.sigma_BB], s_rel_pair_sigma_BB, delta=1e-3)
+
+        # test bond contributions
+        tgt_distances_bondA = [1, 1, 1.732050808, 3.991015313]
+        sim_distances_bondA = [1.414213562, 1.676305461, 2.051828453, 2.800060861]
+        s_rel_bond_r0_bondA = (
+            numpy.sum(
+                self.bond_pot.derivative("bondA", self.r0_bondA, tgt_distances_bondA)
+            )
+            - numpy.sum(
+                self.bond_pot.derivative("bondA", self.r0_bondA, sim_distances_bondA)
+            )
+        ) / frames
+        self.assertAlmostEqual(res[self.r0_bondA], s_rel_bond_r0_bondA, places=3)
+
+        tgt_distances_bondB = [1.0, 2.0]
+        sim_distances_bondB = [1.1, 1.0]
+        s_rel_bond_r0_bondB = (
+            numpy.sum(
+                self.bond_pot.derivative("bondB", self.r0_bondB, tgt_distances_bondB)
+            )
+            - numpy.sum(
+                self.bond_pot.derivative("bondB", self.r0_bondB, sim_distances_bondB)
+            )
+        ) / frames
+        self.assertAlmostEqual(res[self.r0_bondB], s_rel_bond_r0_bondB, delta=1e-3)
+
+        # test angle contributions
+        tgt_angle_angleA = [1.570796327, 2.186276035]
+        sim_angle_angleA = [2.35619449, 0.565818813]
+        s_rel_angle_theta0_angleA = (
+            numpy.sum(
+                self.angle_pot.derivative(
+                    "angleA", self.theta0_angleA, tgt_angle_angleA
+                )
+            )
+            - numpy.sum(
+                self.angle_pot.derivative(
+                    "angleA", self.theta0_angleA, sim_angle_angleA
+                )
+            )
+        ) / frames
+        self.assertAlmostEqual(
+            res[self.theta0_angleA], s_rel_angle_theta0_angleA, delta=1e-3
+        )
+
+        tgt_angle_angleB = [1.570796327, 1.82405789]
+        sim_angle_angleB = [2.137548653, 0.903822375]
+        s_rel_angle_theta0_angleB = (
+            numpy.sum(
+                self.angle_pot.derivative(
+                    "angleB", self.theta0_angleB, tgt_angle_angleB
+                )
+            )
+            - numpy.sum(
+                self.angle_pot.derivative(
+                    "angleB", self.theta0_angleB, sim_angle_angleB
+                )
+            )
+        ) / frames
+        self.assertAlmostEqual(
+            res[self.theta0_angleB], s_rel_angle_theta0_angleB, delta=1e-3
+        )
+
+        # test dihedral contributions
+        tgt_dihedral = [0, 2.617993878]
+        sim_dihedral = [0.785398, 1.570796]
+        s_rel_dihedral_phi0 = (
+            numpy.sum(
+                self.dihedral_pot.derivative(
+                    "dihedralA", self.k4_dihedral, tgt_dihedral
+                )
+            )
+            - numpy.sum(
+                self.dihedral_pot.derivative(
+                    "dihedralA", self.k4_dihedral, sim_dihedral
+                )
+            )
+        ) / frames
+        self.assertAlmostEqual(res[self.k4_dihedral], s_rel_dihedral_phi0, delta=1e-3)
+
+    def test_intensive(self):
+        """Test compute and compute_gradient methods"""
+        self.target = self.create_gsd_mers_tgt()
+
+        relent = relentless.optimize.RelativeEntropy(
+            self.target,
+            self.simulation,
+            self.potentials,
+            self.thermo,
+            T=1.0,
+            extensive=True,
+        )
+        sim_traj = self.create_gsd_two_4mers_sim()
+
+        vars = (
+            self.sigma_AA,
+            self.sigma_BB,
+            self.r0_bondA,
+            self.r0_bondB,
+            self.theta0_angleA,
+            self.theta0_angleB,
+            self.k4_dihedral,
+        )
+        res_extensive = relent._compute_gradient_direct_average(sim_traj, vars)
+
+        relentl_intensive = relentless.optimize.RelativeEntropy(
+            self.target,
+            self.simulation,
+            self.potentials,
+            self.thermo,
+            T=1.0,
+            extensive=False,
+        )
+        res_intensive = relentl_intensive._compute_gradient_direct_average(
+            sim_traj, vars
+        )
+
+        for var in vars:
+            self.assertAlmostEqual(
+                res_extensive[var], res_intensive[var] * 20**3, delta=1e-3
+            )
 
     def tearDown(self):
         relentless.mpi.world.barrier()

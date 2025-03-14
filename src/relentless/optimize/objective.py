@@ -501,7 +501,6 @@ class RelativeEntropy(ObjectiveFunction):
                         exclude_ii=True,
                     ),
                 ).toNeighborList()
-
                 type_masks = {}
                 for i in snap.particles.types:
                     type_masks[i] = snap.particles.typeid == snap.particles.types.index(
@@ -556,31 +555,27 @@ class RelativeEntropy(ObjectiveFunction):
 
                         neighbors.filter(dihedral_exclusion_filter)
 
+                filter_j_gt_i = neighbors[:, 1] > neighbors[:, 0]
+                neighbors.filter(filter_j_gt_i)
                 # pair contributions to the gradient
                 for i in snap.particles.types:
                     for j in snap.particles.types:
-                        filter_j_gt_i = neighbors[:, 1] > neighbors[:, 0]
-                        neighbors.filter(filter_j_gt_i)
-
                         filter_ij = numpy.logical_and(
                             type_masks[i][neighbors[:, 0]],
                             type_masks[j][neighbors[:, 1]],
                         )
+                        for var in variables:
+                            gradient[var] += numpy.sum(
+                                self.potentials.pair.derivative(
+                                    (i, j), var, x=neighbors.distances[filter_ij]
+                                )
+                            ) / len(traj)
 
-                    neighbors.filter(filter_ij)
-
-                    distances = neighbors.distances[filter_ij]
-
-                    for var in variables:
-                        gradient[var] += numpy.sum(
-                            self.potentials.pair.derivative((i, j), var, x=distances)
-                        )
-
-                type_map = {type: i for i, type in enumerate(snap.particles.types)}
                 # bond contributions to the gradient
                 if snap.bonds.N != 0:
+                    bond_type_map = {type: i for i, type in enumerate(snap.bonds.types)}
                     for i in snap.bonds.types:
-                        bond_type_filter = type_map[i] == snap.bonds.typeid
+                        bond_type_filter = bond_type_map[i] == snap.bonds.typeid
 
                         bonds = snap.bonds.group[bond_type_filter]
 
@@ -599,8 +594,11 @@ class RelativeEntropy(ObjectiveFunction):
 
                 # angle contributions to the gradient
                 if snap.angles.N != 0:
+                    angle_type_map = {
+                        type: i for i, type in enumerate(snap.angles.types)
+                    }
                     for i in snap.angles.types:
-                        angle_type_filter = type_map[i] == snap.angles.typeid
+                        angle_type_filter = angle_type_map[i] == snap.angles.typeid
 
                         angles = snap.angles.group[angle_type_filter]
 
@@ -613,8 +611,9 @@ class RelativeEntropy(ObjectiveFunction):
                         r_12 = pos_2 - pos_1
                         r_23 = pos_3 - pos_2
 
+                        # use einsum for row-wise dot product
                         dtheta = numpy.arccos(
-                            numpy.dot(r_12, r_23)
+                            -numpy.einsum("ij,ij->i", r_12, r_23)
                             / (numpy.linalg.norm(r_12) * numpy.linalg.norm(r_23))
                         )
 
@@ -626,8 +625,13 @@ class RelativeEntropy(ObjectiveFunction):
 
                 # dihedral contributions to the gradient
                 if snap.dihedrals.N != 0:
+                    dihedral_type_map = {
+                        type: i for i, type in enumerate(snap.dihedrals.types)
+                    }
                     for i in snap.dihedrals.types:
-                        dihedral_type_filter = type_map[i] == snap.dihedrals.typeid
+                        dihedral_type_filter = (
+                            dihedral_type_map[i] == snap.dihedrals.typeid
+                        )
 
                         dihedrals = snap.dihedrals.group[dihedral_type_filter]
 
@@ -644,15 +648,13 @@ class RelativeEntropy(ObjectiveFunction):
 
                         cross_12_23 = numpy.cross(r_12, r_23)
                         cross_23_34 = numpy.cross(r_23, r_34)
-
                         dphi = numpy.arccos(
-                            numpy.dot(cross_12_23, cross_23_34)
+                            numpy.einsum("ij,ij->i", cross_12_23, cross_23_34)
                             / (
                                 numpy.linalg.norm(cross_12_23)
                                 * numpy.linalg.norm(cross_23_34)
                             )
                         )
-
                         for var in variables:
                             rs = self.potentials.dihedral.linear_space
                             dus = self.potentials.dihedral.derivative(i, var)
