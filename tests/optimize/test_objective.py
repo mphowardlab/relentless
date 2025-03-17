@@ -297,12 +297,13 @@ class test_RelativeEntropyDirectAverage(unittest.TestCase):
         # pair potentials
         self.pair_pot = relentless.model.potential.LennardJones(("A", "B"))
         self.sigma_AA = relentless.model.IndependentVariable(value=1.1)
+        self.sigma_AB = relentless.model.IndependentVariable(value=1.0)
         self.sigma_BB = relentless.model.IndependentVariable(value=0.9)
         self.pair_pot.coeff["A", "A"].update(
             {"sigma": self.sigma_AA, "epsilon": 1.0, "rmax": 6.0}
         )
         self.pair_pot.coeff["A", "B"].update(
-            {"sigma": 1.0, "epsilon": 1.0, "rmax": 6.0}
+            {"sigma": self.sigma_AB, "epsilon": 1.0, "rmax": 6.0}
         )
         self.pair_pot.coeff["B", "B"].update(
             {"sigma": self.sigma_BB, "epsilon": 1.0, "rmax": 6.0}
@@ -453,7 +454,7 @@ class test_RelativeEntropyDirectAverage(unittest.TestCase):
         return filename
 
     def test_compute_no_exclusions(self):
-        """Test compute and compute_gradient methods"""
+        """Test compute and compute_gradient methods with no exclusions"""
         self.target = self.create_gsd_mers_tgt()
 
         relent = relentless.optimize.RelativeEntropy(
@@ -583,6 +584,235 @@ class test_RelativeEntropyDirectAverage(unittest.TestCase):
             )
         ) / frames
         self.assertAlmostEqual(res[self.k4_dihedral], s_rel_dihedral_phi0, delta=1e-4)
+
+    def test_compute_1_2_exclusions(self):
+        """Test compute and compute_gradient methods with 1-2 exclusions"""
+        self.target = self.create_gsd_mers_tgt()
+
+        # add 1-2 exclusions to the pair potential
+        self.potentials.pair.exclusions = ["1-2"]
+
+        relent = relentless.optimize.RelativeEntropy(
+            self.target,
+            self.simulation,
+            self.potentials,
+            self.thermo,
+            T=1.0,
+            extensive=True,
+        )
+        sim_traj = self.create_gsd_two_4mers_sim()
+
+        vars = (
+            self.sigma_AA,
+            self.sigma_AB,
+            self.sigma_BB,
+        )
+        res = relent._compute_gradient_direct_average(sim_traj, vars)
+
+        # number of frames
+        frames = 2
+
+        # test A-A pair contributions
+        tgt_distances_AA = [1.414213562, 1.732050808]
+        sim_distances_AA = [2.32594067, 2.945182781]
+        s_rel_pair_sigma_AA = (
+            numpy.sum(
+                self.pair_pot.derivative(("A", "A"), self.sigma_AA, tgt_distances_AA)
+            )
+            - numpy.sum(
+                self.pair_pot.derivative(("A", "A"), self.sigma_AA, sim_distances_AA)
+            )
+        ) / frames
+        self.assertAlmostEqual(res[self.sigma_AA], s_rel_pair_sigma_AA, delta=1e-4)
+
+        # test A-B pair contributions
+        tgt_distances_AB = [1.0, 5.137344143]
+        sim_distances_AB = [3.16227766, 5.096881716]
+        s_rel_pair_sigma_AB = (
+            numpy.sum(
+                self.pair_pot.derivative(("A", "B"), self.sigma_AB, tgt_distances_AB)
+            )
+            - numpy.sum(
+                self.pair_pot.derivative(("A", "B"), self.sigma_AB, sim_distances_AB)
+            )
+        ) / frames
+        self.assertAlmostEqual(res[self.sigma_AB], s_rel_pair_sigma_AB, delta=1e-4)
+
+        # test B-B pair contributions
+        tgt_distances_BB = [1.414213562, 3.991015313]
+        sim_distances_BB = [2.449489743, 3.507720287]
+        s_rel_pair_sigma_BB = (
+            numpy.sum(
+                self.pair_pot.derivative(("B", "B"), self.sigma_BB, tgt_distances_BB)
+            )
+            - numpy.sum(
+                self.pair_pot.derivative(("B", "B"), self.sigma_BB, sim_distances_BB)
+            )
+        ) / frames
+        self.assertAlmostEqual(res[self.sigma_BB], s_rel_pair_sigma_BB, delta=1e-4)
+
+    def test_compute_1_3_exclusions(self):
+        """Test compute and compute_gradient methods with 1-3 exclusions"""
+        self.target = self.create_gsd_mers_tgt()
+
+        # add 1-3 exclusions to the pair potential
+        self.potentials.pair.exclusions = ["1-3"]
+
+        relent = relentless.optimize.RelativeEntropy(
+            self.target,
+            self.simulation,
+            self.potentials,
+            self.thermo,
+            T=1.0,
+            extensive=True,
+        )
+        sim_traj = self.create_gsd_two_4mers_sim()
+
+        vars = (
+            self.sigma_AA,
+            self.sigma_AB,
+            self.sigma_BB,
+        )
+        res = relent._compute_gradient_direct_average(sim_traj, vars)
+
+        # number of frames
+        frames = 2
+
+        # test A-A pair contributions
+        self.assertAlmostEqual(res[self.sigma_AA], 0.0, delta=1e-4)
+
+        # test A-B pair contributions
+        tgt_distances_AB = [
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.732050808,
+            5.137344143,
+            2.0,
+            3.991015313,
+        ]
+        sim_distances_AB = [
+            1.414213562,
+            3.16227766,
+            1.1,
+            1.676305461,
+            2.051828453,
+            5.096881716,
+            1.0,
+            2.8,
+        ]
+        s_rel_pair_sigma_AB = (
+            numpy.sum(
+                self.pair_pot.derivative(("A", "B"), self.sigma_AB, tgt_distances_AB)
+            )
+            - numpy.sum(
+                self.pair_pot.derivative(("A", "B"), self.sigma_AB, sim_distances_AB)
+            )
+        ) / frames
+        self.assertAlmostEqual(res[self.sigma_AB], s_rel_pair_sigma_AB, delta=1e-4)
+
+        # test B-B pair contributions
+        self.assertAlmostEqual(res[self.sigma_BB], 0.0, delta=1e-4)
+
+    def test_compute_1_4_exclusions(self):
+        """Test compute and compute_gradient methods with 1-4 exclusions"""
+        self.target = self.create_gsd_mers_tgt()
+
+        # add 1-4 exclusions to the pair potential
+        self.potentials.pair.exclusions = ["1-4"]
+
+        relent = relentless.optimize.RelativeEntropy(
+            self.target,
+            self.simulation,
+            self.potentials,
+            self.thermo,
+            T=1.0,
+            extensive=True,
+        )
+        sim_traj = self.create_gsd_two_4mers_sim()
+
+        vars = (
+            self.sigma_AA,
+            self.sigma_AB,
+            self.sigma_BB,
+        )
+        res = relent._compute_gradient_direct_average(sim_traj, vars)
+
+        # number of frames
+        frames = 2
+
+        # test A-A pair contributions
+        tgt_distances_AA = [1.414213562, 1.732050808]
+        sim_distances_AA = [2.32594067, 2.945182781]
+        s_rel_pair_sigma_AA = (
+            numpy.sum(
+                self.pair_pot.derivative(("A", "A"), self.sigma_AA, tgt_distances_AA)
+            )
+            - numpy.sum(
+                self.pair_pot.derivative(("A", "A"), self.sigma_AA, sim_distances_AA)
+            )
+        ) / frames
+        self.assertAlmostEqual(res[self.sigma_AA], s_rel_pair_sigma_AA, delta=1e-4)
+
+        # test A-B pair contributions
+        tgt_distances_AB = [1.0, 1.0, 1.0, 1.732050808, 2.0, 3.991015313]
+        sim_distances_AB = [1.414213562, 1.1, 1.676305461, 2.051828453, 1.0, 2.8]
+        s_rel_pair_sigma_AB = (
+            numpy.sum(
+                self.pair_pot.derivative(("A", "B"), self.sigma_AB, tgt_distances_AB)
+            )
+            - numpy.sum(
+                self.pair_pot.derivative(("A", "B"), self.sigma_AB, sim_distances_AB)
+            )
+        ) / frames
+        self.assertAlmostEqual(res[self.sigma_AB], s_rel_pair_sigma_AB, delta=1e-4)
+
+        # test B-B pair contributions
+        tgt_distances_BB = [1.414213562, 3.991015313]
+        sim_distances_BB = [2.449489743, 3.507720287]
+        s_rel_pair_sigma_BB = (
+            numpy.sum(
+                self.pair_pot.derivative(("B", "B"), self.sigma_BB, tgt_distances_BB)
+            )
+            - numpy.sum(
+                self.pair_pot.derivative(("B", "B"), self.sigma_BB, sim_distances_BB)
+            )
+        ) / frames
+        self.assertAlmostEqual(res[self.sigma_BB], s_rel_pair_sigma_BB, delta=1e-4)
+
+    def test_compute_all_exclusions(self):
+        """Test compute and compute_gradient methods with all exclusions"""
+        self.target = self.create_gsd_mers_tgt()
+
+        # add 1-2, 1-3, and 1-4 exclusions to the pair potential
+        self.potentials.pair.exclusions = ["1-2", "1-3", "1-4"]
+
+        relent = relentless.optimize.RelativeEntropy(
+            self.target,
+            self.simulation,
+            self.potentials,
+            self.thermo,
+            T=1.0,
+            extensive=True,
+        )
+        sim_traj = self.create_gsd_two_4mers_sim()
+
+        vars = (
+            self.sigma_AA,
+            self.sigma_AB,
+            self.sigma_BB,
+        )
+        res = relent._compute_gradient_direct_average(sim_traj, vars)
+
+        # test A-A pair contributions
+        self.assertAlmostEqual(res[self.sigma_AA], 0.0, delta=1e-4)
+
+        # test A-B pair contributions
+        self.assertAlmostEqual(res[self.sigma_AB], 0.0, delta=1e-4)
+
+        # test B-B pair contributions
+        self.assertAlmostEqual(res[self.sigma_BB], 0.0, delta=1e-4)
 
     def test_intensive(self):
         """Test compute and compute_gradient methods"""
