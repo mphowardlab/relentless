@@ -490,7 +490,7 @@ class RelativeEntropy(ObjectiveFunction):
             # loop through the trajectory and calculate ensemble average
             box = freud.box.Box.from_box(traj[0].configuration.box)
             for snap in traj:
-                pos = box.unwrap(snap.particles.position, snap.particles.image)
+                pos = snap.particles.position
                 aq = freud.locality.AABBQuery(box, pos)
 
                 neighbors = aq.query(
