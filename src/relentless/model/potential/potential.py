@@ -462,6 +462,10 @@ class BondedPotential(Potential):
             deriv = deriv.item()
         return deriv
 
+    def _validate_coordinate(self, x):
+        """Validate the coordinate ``x`` is within the valid range."""
+        pass
+
     @abc.abstractmethod
     def _derivative(self, param, x, **params):
         """Implementation of the parameter derivative function.
@@ -485,6 +489,11 @@ class BondedPotential(Potential):
         float or numpy.ndarray
             The bond derivative evaluated at ``x``. The return type is consistent
             with ``x``.
+
+        Raises
+        ------
+        ValueError
+            If any value in ``x`` is negative.
 
         """
         pass
@@ -655,6 +664,12 @@ class BondedSpline(BondedPotential):
         else:
             self.coeff[types][ki] = variable.IndependentVariable(k)
 
+    def _validate_coordinate(self, x):
+        """Validate the coordinate ``x`` is within the valid range."""
+        if numpy.any(numpy.less(x, 0)):
+            raise ValueError("Potential coordinate must be non-negative")
+        return x
+
     def energy(self, type_, x):
         """Evaluate potential energy.
 
@@ -674,6 +689,10 @@ class BondedSpline(BondedPotential):
         """
         params = self.coeff.evaluate(type_)
         x, u, s = self._zeros(x)
+
+        # validate the coordinate
+        x = self._validate_coordinate(x)
+
         u = self._interpolate(params)(x)
         if s:
             u = u.item()
@@ -700,6 +719,10 @@ class BondedSpline(BondedPotential):
         """
         params = self.coeff.evaluate(type_)
         x, f, s = self._zeros(x)
+
+        # validate the coordinate
+        x = self._validate_coordinate(x)
+
         f = -self._interpolate(params).derivative(x, 1)
         if s:
             f = f.item()
@@ -707,6 +730,10 @@ class BondedSpline(BondedPotential):
 
     def _derivative(self, param, x, **params):
         x, d, s = self._zeros(x)
+
+        # validate the coordinate
+        x = self._validate_coordinate(x)
+
         h = 0.001
 
         if f"d{self._space_coord_name}-" in param:
