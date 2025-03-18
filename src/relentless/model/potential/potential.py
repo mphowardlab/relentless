@@ -683,7 +683,6 @@ class BondedSpline(BondedPotential):
         """
         params = self.coeff.evaluate(type_)
         x, u, s = self._zeros(x)
-
         u = self._interpolate(params)(x)
         if s:
             u = u.item()
