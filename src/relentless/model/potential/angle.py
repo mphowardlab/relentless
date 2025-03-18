@@ -66,9 +66,7 @@ class AnglePotential(potential.BondedPotential):
 
     def _validate_coordinate(self, theta):
         """Validate the angle ``theta`` is between 0 and pi."""
-        if numpy.any(numpy.less(theta, 0)) and numpy.any(
-            numpy.greater(theta, numpy.pi)
-        ):
+        if numpy.any(numpy.less(theta, 0)) or numpy.any(numpy.greater(theta, numpy.pi)):
             raise ValueError("Angle must be between 0 and pi.")
         return theta
 
