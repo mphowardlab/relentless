@@ -387,7 +387,8 @@ class BondSpline(potential.BondedSpline, BondPotential):
             If the number of ``u`` values is not the same as the number of knots.
 
         """
-
+        # validate r
+        r = self._validate_coordinate(r)
         return super().from_array(types=types, x=r, u=u)
 
     def energy(self, type_, r):
@@ -411,6 +412,8 @@ class BondSpline(potential.BondedSpline, BondPotential):
         ValueError
             If any value in ``r`` is negative.
         """
+        # validate r
+        r = self._validate_coordinate(r)
         return super().energy(type_=type_, x=r)
 
     def force(self, type_, r):
@@ -436,4 +439,7 @@ class BondSpline(potential.BondedSpline, BondPotential):
         ValueError
             If any value in ``r`` is negative.
         """
+        # validate r
+        r = self._validate_coordinate(r)
+
         return super().force(type_=type_, x=r)
