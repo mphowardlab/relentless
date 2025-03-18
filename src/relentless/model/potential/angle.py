@@ -61,6 +61,8 @@ class AnglePotential(potential.BondedPotential):
             is not a :class:`~relentless.variable.Variable`.
 
         """
+        # Validate theta
+        theta = self._validate_coordinate(theta)
 
         return super().derivative(type_=type_, var=var, x=theta)
 
@@ -151,9 +153,6 @@ class HarmonicAngle(AnglePotential):
     def _derivative(self, param, theta, k, theta0):
         r"""Evaluate angle derivative with respect to a variable."""
         theta, d, s = self._zeros(theta)
-
-        # Validate theta
-        theta = self._validate_coordinate(theta)
 
         if param == "k":
             d = (theta - theta0) ** 2 / 2
@@ -248,9 +247,6 @@ class HarmonicCosineAngle(AnglePotential):
         r"""Evaluate angle derivative with respect to a variable."""
         theta, d, s = self._zeros(theta)
 
-        # Validate theta
-        theta = self._validate_coordinate(theta)
-
         if param == "k":
             d = 0.5 * (numpy.cos(theta) - numpy.cos(theta0)) ** 2
         elif param == "theta0":
@@ -339,9 +335,6 @@ class CosineAngle(AnglePotential):
     def _derivative(self, param, theta, k):
         r"""Evaluate angle derivative with respect to a variable."""
         theta, d, s = self._zeros(theta)
-
-        # Validate theta
-        theta = self._validate_coordinate(theta)
 
         if param == "k":
             d = 1 + numpy.cos(theta)

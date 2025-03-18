@@ -141,8 +141,8 @@ class test_AnglePotential(unittest.TestCase):
         # test with respect to independent variable on which parameter is dependent
         d = q.derivative(type_=("1"), var=x, theta=1.5)
         self.assertAlmostEqual(d, 3.0)
-        d = q.derivative(type_=("1"), var=y, theta=4.0)
-        self.assertAlmostEqual(d, 0.5)
+        d = q.derivative(type_=("1"), var=y, theta=3.0)
+        self.assertAlmostEqual(d, 0.375)
 
         # test invalid derivative w.r.t. scalar
         a = 2.5
@@ -156,13 +156,13 @@ class test_AnglePotential(unittest.TestCase):
 
         r.coeff["1"]["x"] = x
         r.coeff["1"]["y"] = relentless.model.variable.SameAs(x)
-        d = r.derivative(type_=("1"), var=x, theta=4.0)
-        self.assertAlmostEqual(d, 20.0)
+        d = r.derivative(type_=("1"), var=x, theta=3.0)
+        self.assertAlmostEqual(d, 15.0)
 
         r.coeff["1"]["y"] = x
         r.coeff["1"]["x"] = relentless.model.variable.SameAs(x)
-        d = r.derivative(type_=("1"), var=x, theta=4.0)
-        self.assertAlmostEqual(d, 20.0)
+        d = r.derivative(type_=("1"), var=x, theta=3.0)
+        self.assertAlmostEqual(d, 15.0)
 
     def test_iteration(self):
         """Test iteration on typesPotential object"""
@@ -300,20 +300,6 @@ class test_HarmonicAngle(unittest.TestCase):
         )
         numpy.testing.assert_allclose(d, d_actual)
 
-        # test invalid theta less than zero
-        theta_input = -1.0
-        with self.assertRaises(ValueError):
-            harmonic_angle._derivative(
-                param="theta0", theta=theta_input, k=1000.0, theta0=1.0
-            )
-
-        # test invalid theta greater than pi
-        theta_input = 4.0
-        with self.assertRaises(ValueError):
-            harmonic_angle._derivative(
-                param="theta0", theta=theta_input, k=1000.0, theta0=1.0
-            )
-
         # test invalid param
         with self.assertRaises(ValueError):
             harmonic_angle._derivative(
@@ -414,16 +400,6 @@ class test_CosineAngle(unittest.TestCase):
         d_actual = numpy.array([2.0, 1.70710678119, 0])
         d = cosine_angle._derivative(param="k", theta=theta_input, k=1000)
         numpy.testing.assert_allclose(d, d_actual)
-
-        # test invalid theta less than zero
-        theta_input = -1.0
-        with self.assertRaises(ValueError):
-            cosine_angle._derivative(param="k", theta=theta_input, k=1000)
-
-        # test invalid theta greater than pi
-        theta_input = 4.0
-        with self.assertRaises(ValueError):
-            cosine_angle._derivative(param="k", theta=theta_input, k=1000)
 
         # test invalid param
         with self.assertRaises(ValueError):
@@ -556,20 +532,6 @@ class test_HarmonicCosineAngle(unittest.TestCase):
             param="theta0", theta=theta_input, k=1000.0, theta0=numpy.pi / 2
         )
         numpy.testing.assert_allclose(d, d_actual)
-
-        # test invalid theta less than zero
-        theta_input = -1.0
-        with self.assertRaises(ValueError):
-            harmonic_cosine_angle._derivative(
-                param="theta0", theta=theta_input, k=1000.0, theta0=numpy.pi / 2
-            )
-
-        # test invalid theta greater than pi
-        theta_input = 4.0
-        with self.assertRaises(ValueError):
-            harmonic_cosine_angle._derivative(
-                param="theta0", theta=theta_input, k=1000.0, theta0=numpy.pi / 2
-            )
 
         # test invalid param
         with self.assertRaises(ValueError):

@@ -126,6 +126,13 @@ class test_BondPotential(unittest.TestCase):
         d = p.derivative(type_=("1"), var=x, r=[0.25, 0.75])
         numpy.testing.assert_allclose(d, [0.25, 0.75])
 
+        # derivative with invalid bond length
+        r = -0.5
+        with self.assertRaises(ValueError):
+            p.derivative(type_=("1"), var=x, r=r)
+        with self.assertRaises(ValueError):
+            p.derivative(type_=("1"), var=x, r=[-0.5, 0.5])
+
     def test_derivative_types(self):
         """Test derivative method with different param types."""
         q = LinPotBond(types=("1",), params=("m",))
@@ -280,17 +287,6 @@ class test_HarmonicBond(unittest.TestCase):
         d = harmonic_bond._derivative(param="r0", r=r_input, k=1000.0, r0=1.0)
         self.assertAlmostEqual(d, d_actual)
 
-        # test array r
-        r_input = numpy.array([0, 1, 1.5])
-        d_actual = numpy.array([1000, 0, -500])
-        d = harmonic_bond._derivative(param="r0", r=r_input, k=1000.0, r0=1.0)
-        numpy.testing.assert_allclose(d, d_actual)
-
-        # test invalid r
-        r_input = -0.5
-        with self.assertRaises(ValueError):
-            harmonic_bond._derivative(param="r0", r=r_input, k=1000.0, r0=1.0)
-
         # test invalid param
         with self.assertRaises(ValueError):
             harmonic_bond._derivative(param="ro", r=r_input, k=1000.0, r0=1.0)
@@ -426,11 +422,6 @@ class test_FENEWCA(unittest.TestCase):
             param="sigma", r=r_input, k=30, r0=1.5, epsilon=1, sigma=1
         )
         numpy.testing.assert_allclose(d, d_actual)
-
-        # test invalid r
-        r_input = -0.5
-        with self.assertRaises(ValueError):
-            FENEWCA._derivative(param="k", r=r_input, k=30, r0=1.5, epsilon=1, sigma=1)
 
         # test invalid param
         with self.assertRaises(ValueError):

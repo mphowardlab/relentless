@@ -47,6 +47,8 @@ class BondPotential(potential.BondedPotential):
             is not a :class:`~relentless.variable.Variable`.
 
         """
+        # validate r
+        r = self._validate_coordinate(r)
 
         return super().derivative(type_=type_, var=var, x=r)
 
@@ -137,9 +139,6 @@ class HarmonicBond(BondPotential):
     def _derivative(self, param, r, k, r0):
         r"""Evaluate bond derivative with respect to a variable."""
         r, d, s = self._zeros(r)
-
-        # validate r
-        r = self._validate_coordinate(r)
 
         if param == "k":
             d = (r - r0) ** 2 / 2
@@ -292,10 +291,6 @@ class FENEWCA(BondPotential):
         r"""Evaluate bond derivative with respect to a variable."""
         # initialize arrays
         r, d, s = self._zeros(r)
-
-        # validate r
-        r = self._validate_coordinate(r)
-
         # set flags for FENE potential
         fene_flag = numpy.less(r, r0)
 

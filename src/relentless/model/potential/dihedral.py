@@ -76,6 +76,8 @@ class DihedralPotential(potential.BondedPotential):
             is not a :class:`~relentless.variable.Variable`.
 
         """
+        # Validate phi
+        phi = self._validate_coordinate(phi)
 
         return super().derivative(type_=type_, var=var, x=phi)
 
@@ -189,9 +191,6 @@ class OPLSDihedral(DihedralPotential):
     def _derivative(self, param, phi, k1, k2, k3, k4):
         r"""Evaluate dihedral derivative with respect to a variable."""
         phi, d, s = self._zeros(phi)
-
-        # validate phi
-        phi = self._validate_coordinate(phi)
 
         if param == "k1":
             d = 0.5 * (1 + numpy.cos(phi))
@@ -337,9 +336,6 @@ class RyckaertBellemansDihedral(DihedralPotential):
         phi, d, s = self._zeros(phi)
 
         psi = phi - numpy.pi
-
-        # validate phi
-        phi = self._validate_coordinate(phi)
 
         if param == "c0":
             d = numpy.ones_like(psi)
@@ -525,7 +521,4 @@ class DihedralSpline(potential.BondedSpline, DihedralPotential):
 
     def _derivative(self, param, phi, **params):
         """Evaluate dihedral derivative with respect to a variable."""
-        # Validate phi
-        phi = self._validate_coordinate(phi)
-
         return super()._derivative(param=param, x=phi, **params)

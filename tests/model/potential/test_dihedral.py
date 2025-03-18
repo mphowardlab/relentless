@@ -203,8 +203,8 @@ class test_DihedralPotential(unittest.TestCase):
         # test with respect to independent variable on which parameter is dependent
         d = q.derivative(type_=("1"), var=x, phi=1.5)
         self.assertAlmostEqual(d, 3.0)
-        d = q.derivative(type_=("1"), var=y, phi=4.0)
-        self.assertAlmostEqual(d, 0.5)
+        d = q.derivative(type_=("1"), var=y, phi=3.0)
+        self.assertAlmostEqual(d, 0.375)
 
         # test invalid derivative w.r.t. scalar
         a = 2.5
@@ -218,13 +218,13 @@ class test_DihedralPotential(unittest.TestCase):
 
         r.coeff["1"]["x"] = x
         r.coeff["1"]["y"] = relentless.model.variable.SameAs(x)
-        d = r.derivative(type_=("1"), var=x, phi=4.0)
-        self.assertAlmostEqual(d, 20.0)
+        d = r.derivative(type_=("1"), var=x, phi=3.0)
+        self.assertAlmostEqual(d, 15.0)
 
         r.coeff["1"]["y"] = x
         r.coeff["1"]["x"] = relentless.model.variable.SameAs(x)
-        d = r.derivative(type_=("1"), var=x, phi=4.0)
-        self.assertAlmostEqual(d, 20.0)
+        d = r.derivative(type_=("1"), var=x, phi=3.0)
+        self.assertAlmostEqual(d, 15.0)
 
     def test_iteration(self):
         """Test iteration on typesPotential object"""
@@ -399,18 +399,6 @@ class test_OPLSDihedral(unittest.TestCase):
             param="k4", phi=phi_input, k1=6.622, k2=0.948, k3=-1.388, k4=-2.118
         )
         numpy.testing.assert_allclose(d, d_actual)
-
-        # test with invalid phi less than -pi
-        with self.assertRaises(ValueError):
-            opls_dihedral._derivative(
-                param="k1", phi=-3.5, k1=6.622, k2=0.948, k3=-1.388, k4=-2.118
-            )
-
-        # test with invalid phi greater than pi
-        with self.assertRaises(ValueError):
-            opls_dihedral._derivative(
-                param="k1", phi=3.5, k1=6.622, k2=0.948, k3=-1.388, k4=-2.118
-            )
 
         # test invalid param
         with self.assertRaises(ValueError):
@@ -700,32 +688,6 @@ class test_RyckaertBellemansDihedral(unittest.TestCase):
             c5=-31.5,
         )
         numpy.testing.assert_allclose(d, d_actual, atol=1e-14)
-
-        # test with invalid phi less than -pi
-        with self.assertRaises(ValueError):
-            cosinesquared_dihedral._derivative(
-                param="c0",
-                phi=-3.5,
-                c0=9.28,
-                c1=12.16,
-                c2=-13.12,
-                c3=-3.06,
-                c4=26.24,
-                c5=-31.5,
-            )
-
-        # test with invalid phi greater than pi
-        with self.assertRaises(ValueError):
-            cosinesquared_dihedral._derivative(
-                param="c0",
-                phi=3.5,
-                c0=9.28,
-                c1=12.16,
-                c2=-13.12,
-                c3=-3.06,
-                c4=26.24,
-                c5=-31.5,
-            )
 
         # test invalid param
         with self.assertRaises(ValueError):
