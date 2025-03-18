@@ -223,14 +223,19 @@ class test_HarmonicAngle(unittest.TestCase):
         u = harmonic_angle.energy(type_=("1"), theta=theta_input)
         self.assertAlmostEqual(u, u_actual)
 
-        # test array r
+        # test invalid theta less than zero
         theta_input = numpy.array([0.0, 0.5, 1.0])
         u_actual = numpy.array([500.0, 125.0, 0.0])
         u = harmonic_angle.energy(type_=("1"), theta=theta_input)
         numpy.testing.assert_allclose(u, u_actual)
 
-        # test invalid theta
+        # test invalid theta less than zero
         theta_input = -1.0
+        with self.assertRaises(ValueError):
+            harmonic_angle.energy(type_=("1"), theta=theta_input)
+
+        # test invalid theta greater than pi
+        theta_input = 4.0
         with self.assertRaises(ValueError):
             harmonic_angle.energy(type_=("1"), theta=theta_input)
 
@@ -251,8 +256,13 @@ class test_HarmonicAngle(unittest.TestCase):
         f = harmonic_angle.force(type_=("1"), theta=theta_input)
         numpy.testing.assert_allclose(f, f_actual)
 
-        # test invalid theta
+        # test invalid theta less than zero
         theta_input = -1.0
+        with self.assertRaises(ValueError):
+            harmonic_angle.force(type_=("1"), theta=theta_input)
+
+        # test invalid theta greater than pi
+        theta_input = 4.0
         with self.assertRaises(ValueError):
             harmonic_angle.force(type_=("1"), theta=theta_input)
 
@@ -290,8 +300,15 @@ class test_HarmonicAngle(unittest.TestCase):
         )
         numpy.testing.assert_allclose(d, d_actual)
 
-        # test invalid theta
+        # test invalid theta less than zero
         theta_input = -1.0
+        with self.assertRaises(ValueError):
+            harmonic_angle._derivative(
+                param="theta0", theta=theta_input, k=1000.0, theta0=1.0
+            )
+
+        # test invalid theta greater than pi
+        theta_input = 4.0
         with self.assertRaises(ValueError):
             harmonic_angle._derivative(
                 param="theta0", theta=theta_input, k=1000.0, theta0=1.0
@@ -344,8 +361,13 @@ class test_CosineAngle(unittest.TestCase):
         u = cosine_angle.energy(type_=("1"), theta=theta_input)
         numpy.testing.assert_allclose(u, u_actual)
 
-        # test invalid theta
+        # test invalid theta less than zero
         theta_input = -1.0
+        with self.assertRaises(ValueError):
+            cosine_angle.energy(type_=("1"), theta=theta_input)
+
+        # test invalid theta greater than pi
+        theta_input = 4.0
         with self.assertRaises(ValueError):
             cosine_angle.energy(type_=("1"), theta=theta_input)
 
@@ -366,8 +388,13 @@ class test_CosineAngle(unittest.TestCase):
         f = cosine_angle.force(type_=("1"), theta=theta_input)
         numpy.testing.assert_allclose(f, f_actual, atol=1e-10)
 
-        # test invalid theta
+        # test invalid theta less than zero
         theta_input = -1.0
+        with self.assertRaises(ValueError):
+            cosine_angle.force(type_=("1"), theta=theta_input)
+
+        # test invalid theta greater than pi
+        theta_input = 4.0
         with self.assertRaises(ValueError):
             cosine_angle.force(type_=("1"), theta=theta_input)
 
@@ -388,8 +415,13 @@ class test_CosineAngle(unittest.TestCase):
         d = cosine_angle._derivative(param="k", theta=theta_input, k=1000)
         numpy.testing.assert_allclose(d, d_actual)
 
-        # test invalid theta
+        # test invalid theta less than zero
         theta_input = -1.0
+        with self.assertRaises(ValueError):
+            cosine_angle._derivative(param="k", theta=theta_input, k=1000)
+
+        # test invalid theta greater than pi
+        theta_input = 4.0
         with self.assertRaises(ValueError):
             cosine_angle._derivative(param="k", theta=theta_input, k=1000)
 
@@ -446,8 +478,13 @@ class test_HarmonicCosineAngle(unittest.TestCase):
         u = cosine_squred_angle.energy(type_=("1"), theta=theta_input)
         numpy.testing.assert_allclose(u, u_actual)
 
-        # test invalid theta
+        # test invalid theta less than zero
         theta_input = -1.0
+        with self.assertRaises(ValueError):
+            cosine_squred_angle.energy(type_=("1"), theta=theta_input)
+
+        # test invalid theta greater than pi
+        theta_input = 4.0
         with self.assertRaises(ValueError):
             cosine_squred_angle.energy(type_=("1"), theta=theta_input)
 
@@ -470,8 +507,13 @@ class test_HarmonicCosineAngle(unittest.TestCase):
         f = cosine_squred_angle.force(type_=("1"), theta=theta_input)
         numpy.testing.assert_allclose(f, f_actual)
 
-        # test invalid theta
+        # test invalid theta less than zero
         theta_input = -1.0
+        with self.assertRaises(ValueError):
+            cosine_squred_angle.force(type_=("1"), theta=theta_input)
+
+        # test invalid theta greater than pi
+        theta_input = 4.0
         with self.assertRaises(ValueError):
             cosine_squred_angle.force(type_=("1"), theta=theta_input)
 
@@ -515,8 +557,15 @@ class test_HarmonicCosineAngle(unittest.TestCase):
         )
         numpy.testing.assert_allclose(d, d_actual)
 
-        # test invalid theta
+        # test invalid theta less than zero
         theta_input = -1.0
+        with self.assertRaises(ValueError):
+            harmonic_cosine_angle._derivative(
+                param="theta0", theta=theta_input, k=1000.0, theta0=numpy.pi / 2
+            )
+
+        # test invalid theta greater than pi
+        theta_input = 4.0
         with self.assertRaises(ValueError):
             harmonic_cosine_angle._derivative(
                 param="theta0", theta=theta_input, k=1000.0, theta0=numpy.pi / 2
@@ -605,8 +654,14 @@ class test_AngleSpline(unittest.TestCase):
         with self.assertRaises(ValueError):
             s.from_array(types=("1"), theta=theta_arr, u=u_arr)
 
-        # test invalid theta and u arrays
-        theta_arr = [-1, 2, 3, 4]
+        # test invalid theta less than zero
+        theta_arr = [-1, 0, 2, 3]
+        u_arr = [1, 2, 3, 4]
+        with self.assertRaises(ValueError):
+            s.from_array(types=("1"), theta=theta_arr, u=u_arr)
+
+        # test invalid theta greater than pi
+        theta_arr = [1, 2, 3, 4]
         u_arr = [1, 2, 3, 4]
         with self.assertRaises(ValueError):
             s.from_array(types=("1"), theta=theta_arr, u=u_arr)
