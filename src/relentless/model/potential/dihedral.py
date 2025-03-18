@@ -79,6 +79,14 @@ class DihedralPotential(potential.BondedPotential):
 
         return super().derivative(type_=type_, var=var, x=phi)
 
+    def _validate_coordinate(self, phi):
+        """Validate the angle ``phi`` is between -pi and pi."""
+        if numpy.any(numpy.less(phi, -numpy.pi)) or numpy.any(
+            numpy.greater(phi, numpy.pi)
+        ):
+            raise ValueError("Angle must be between -pi and pi.")
+        return phi
+
 
 class OPLSDihedral(DihedralPotential):
     r"""OPLS dihedral potential.
@@ -140,6 +148,9 @@ class OPLSDihedral(DihedralPotential):
 
         phi, u, s = self._zeros(phi)
 
+        # validate phi
+        phi = self._validate_coordinate(phi)
+
         u = 0.5 * (
             k1 * (1 + numpy.cos(phi))
             + k2 * (1 - numpy.cos(2 * phi))
@@ -161,6 +172,9 @@ class OPLSDihedral(DihedralPotential):
 
         phi, f, s = self._zeros(phi)
 
+        # validate phi
+        phi = self._validate_coordinate(phi)
+
         f = -0.5 * (
             -k1 * numpy.sin(phi)
             + 2 * k2 * numpy.sin(2 * phi)
@@ -175,6 +189,9 @@ class OPLSDihedral(DihedralPotential):
     def _derivative(self, param, phi, k1, k2, k3, k4):
         r"""Evaluate dihedral derivative with respect to a variable."""
         phi, d, s = self._zeros(phi)
+
+        # validate phi
+        phi = self._validate_coordinate(phi)
 
         if param == "k1":
             d = 0.5 * (1 + numpy.cos(phi))
@@ -269,6 +286,9 @@ class RyckaertBellemansDihedral(DihedralPotential):
 
         phi, u, s = self._zeros(phi)
 
+        # validate phi
+        phi = self._validate_coordinate(phi)
+
         psi = phi - numpy.pi
         cos_psi = numpy.cos(psi)
 
@@ -295,6 +315,9 @@ class RyckaertBellemansDihedral(DihedralPotential):
 
         phi, f, s = self._zeros(phi)
 
+        # validate phi
+        phi = self._validate_coordinate(phi)
+
         psi = phi - numpy.pi
         cos_psi = numpy.cos(psi)
         sin_psi = numpy.sin(psi)
@@ -314,6 +337,9 @@ class RyckaertBellemansDihedral(DihedralPotential):
         phi, d, s = self._zeros(phi)
 
         psi = phi - numpy.pi
+
+        # validate phi
+        phi = self._validate_coordinate(phi)
 
         if param == "c0":
             d = numpy.ones_like(psi)

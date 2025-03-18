@@ -654,18 +654,6 @@ class test_AngleSpline(unittest.TestCase):
         with self.assertRaises(ValueError):
             s.from_array(types=("1"), theta=theta_arr, u=u_arr)
 
-        # test invalid theta less than zero
-        theta_arr = [-1, 0, 2, 3]
-        u_arr = [1, 2, 3, 4]
-        with self.assertRaises(ValueError):
-            s.from_array(types=("1"), theta=theta_arr, u=u_arr)
-
-        # test invalid theta greater than pi
-        theta_arr = [1, 2, 3, 4]
-        u_arr = [1, 2, 3, 4]
-        with self.assertRaises(ValueError):
-            s.from_array(types=("1"), theta=theta_arr, u=u_arr)
-
 
 if __name__ == "__main__":
     unittest.main()

@@ -294,6 +294,14 @@ class test_OPLSDihedral(unittest.TestCase):
         u = opls_dihedral.energy(type_=("1"), phi=phi_input)
         numpy.testing.assert_allclose(u, u_actual)
 
+        # test with invalid phi less than -pi
+        with self.assertRaises(ValueError):
+            opls_dihedral.energy(type_=("1"), phi=-3.5)
+
+        # test with invalid phi greater than pi
+        with self.assertRaises(ValueError):
+            opls_dihedral.energy(type_=("1"), phi=3.5)
+
     def test_force(self):
         """Test _force method"""
         opls_dihedral = relentless.model.potential.OPLSDihedral(types=("1",))
@@ -311,6 +319,14 @@ class test_OPLSDihedral(unittest.TestCase):
         f_actual = numpy.array([0.0, 5.393, 0.0])
         f = opls_dihedral.force(type_=("1"), phi=phi_input)
         numpy.testing.assert_allclose(f, f_actual, atol=1e-14)
+
+        # test with invalid phi less than -pi
+        with self.assertRaises(ValueError):
+            opls_dihedral.force(type_=("1"), phi=-3.5)
+
+        # test with invalid phi greater than pi
+        with self.assertRaises(ValueError):
+            opls_dihedral.force(type_=("1"), phi=3.5)
 
     def test_derivative(self):
         """Test _derivative method"""
@@ -384,6 +400,18 @@ class test_OPLSDihedral(unittest.TestCase):
         )
         numpy.testing.assert_allclose(d, d_actual)
 
+        # test with invalid phi less than -pi
+        with self.assertRaises(ValueError):
+            opls_dihedral._derivative(
+                param="k1", phi=-3.5, k1=6.622, k2=0.948, k3=-1.388, k4=-2.118
+            )
+
+        # test with invalid phi greater than pi
+        with self.assertRaises(ValueError):
+            opls_dihedral._derivative(
+                param="k1", phi=3.5, k1=6.622, k2=0.948, k3=-1.388, k4=-2.118
+            )
+
         # test invalid param
         with self.assertRaises(ValueError):
             opls_dihedral._derivative(
@@ -445,6 +473,14 @@ class test_RyckaertBellemansDihedral(unittest.TestCase):
         u = ryckaert_bellemans_dihedral.energy(type_=("1"), phi=phi_input)
         numpy.testing.assert_allclose(u, u_actual, atol=1e-14)
 
+        # test with invalid phi less than -pi
+        with self.assertRaises(ValueError):
+            ryckaert_bellemans_dihedral.energy(type_=("1"), phi=-3.5)
+
+        # test with invalid phi greater than pi
+        with self.assertRaises(ValueError):
+            ryckaert_bellemans_dihedral.energy(type_=("1"), phi=3.5)
+
     def test_force(self):
         """Test _force method"""
         ryckaert_bellemans_dihedral = (
@@ -465,6 +501,14 @@ class test_RyckaertBellemansDihedral(unittest.TestCase):
         f_actual = numpy.array([0.0, -12.16, 0.0])
         f = ryckaert_bellemans_dihedral.force(type_=("1"), phi=phi_input)
         numpy.testing.assert_allclose(f, f_actual, atol=1e-14)
+
+        # test with invalid phi less than -pi
+        with self.assertRaises(ValueError):
+            ryckaert_bellemans_dihedral.force(type_=("1"), phi=-3.5)
+
+        # test with invalid phi greater than pi
+        with self.assertRaises(ValueError):
+            ryckaert_bellemans_dihedral.force(type_=("1"), phi=3.5)
 
     def test_derivative(self):
         """Test _derivative method"""
@@ -656,6 +700,32 @@ class test_RyckaertBellemansDihedral(unittest.TestCase):
             c5=-31.5,
         )
         numpy.testing.assert_allclose(d, d_actual, atol=1e-14)
+
+        # test with invalid phi less than -pi
+        with self.assertRaises(ValueError):
+            cosinesquared_dihedral._derivative(
+                param="c0",
+                phi=-3.5,
+                c0=9.28,
+                c1=12.16,
+                c2=-13.12,
+                c3=-3.06,
+                c4=26.24,
+                c5=-31.5,
+            )
+
+        # test with invalid phi greater than pi
+        with self.assertRaises(ValueError):
+            cosinesquared_dihedral._derivative(
+                param="c0",
+                phi=3.5,
+                c0=9.28,
+                c1=12.16,
+                c2=-13.12,
+                c3=-3.06,
+                c4=26.24,
+                c5=-31.5,
+            )
 
         # test invalid param
         with self.assertRaises(ValueError):
