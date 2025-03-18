@@ -108,7 +108,7 @@ class HarmonicBond(BondPotential):
 
         r, u, s = self._zeros(r)
 
-        # validate coordinate
+        # validate r
         r = self._validate_coordinate(r)
 
         u = 0.5 * k * (r - r0) ** 2
@@ -125,7 +125,7 @@ class HarmonicBond(BondPotential):
 
         r, f, s = self._zeros(r)
 
-        # validate coordinate
+        # validate r
         r = self._validate_coordinate(r)
 
         f = -k * (r - r0)
@@ -138,7 +138,7 @@ class HarmonicBond(BondPotential):
         r"""Evaluate bond derivative with respect to a variable."""
         r, d, s = self._zeros(r)
 
-        # validate coordinate
+        # validate r
         r = self._validate_coordinate(r)
 
         if param == "k":
@@ -228,7 +228,7 @@ class FENEWCA(BondPotential):
         # initialize arrays
         r, u_fene, s = self._zeros(r)
 
-        # validate coordinate
+        # validate r
         r = self._validate_coordinate(r)
 
         u_wca = u_fene.copy()
@@ -263,7 +263,7 @@ class FENEWCA(BondPotential):
 
         # initialize arrays
         r, f_fene, s = self._zeros(r)
-        # validate coordinate
+        # validate r
         r = self._validate_coordinate(r)
         f_wca = f_fene.copy()
 
@@ -293,7 +293,7 @@ class FENEWCA(BondPotential):
         # initialize arrays
         r, d, s = self._zeros(r)
 
-        # validate coordinate
+        # validate r
         r = self._validate_coordinate(r)
 
         # set flags for FENE potential
