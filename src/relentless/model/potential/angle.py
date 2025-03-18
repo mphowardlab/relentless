@@ -437,7 +437,7 @@ class AngleSpline(potential.BondedSpline, AnglePotential):
         Raises
         ------
         ValueError
-            If any value in ``theta`` is negative.
+            If any value in ``theta`` is outside of 0 to pi.
         """
         # Validate theta
         theta = self._validate_coordinate(theta)
@@ -465,7 +465,7 @@ class AngleSpline(potential.BondedSpline, AnglePotential):
         Raises
         ------
         ValueError
-            If any value in ``theta`` is negative.
+            If any value in ``theta`` is outside of 0 to pi.
         """
         # Validate theta
         theta = self._validate_coordinate(theta)
@@ -501,7 +501,7 @@ class AngleSpline(potential.BondedSpline, AnglePotential):
         Raises
         ------
         ValueError
-            If any value in ``theta`` is negative.
+            If any value in ``theta`` is outside of 0 to pi.
         TypeError
             If the parameter with respect to which to take the derivative
             is not a :class:`~relentless.variable.Variable`.

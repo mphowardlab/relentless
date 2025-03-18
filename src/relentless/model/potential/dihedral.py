@@ -445,6 +445,10 @@ class DihedralSpline(potential.BondedSpline, DihedralPotential):
             The pair energy evaluated at ``phi``. The return type is consistent
             with ``phi``.
 
+        Raises
+        ------
+        ValueError
+            If any value in ``phi`` is outside of -pi to pi.
         """
         # Validate phi
         phi = self._validate_coordinate(phi)
@@ -469,6 +473,10 @@ class DihedralSpline(potential.BondedSpline, DihedralPotential):
             The force evaluated at ``phi``. The return type is consistent
             with ``phi``.
 
+        Raises
+        ------
+        ValueError
+            If any value in ``phi`` is outside of -pi to pi.
         """
         # Validate phi
         phi = self._validate_coordinate(phi)
@@ -504,7 +512,7 @@ class DihedralSpline(potential.BondedSpline, DihedralPotential):
         Raises
         ------
         ValueError
-            If any value in ``phi`` is negative.
+            If any value in ``phi`` is outside of -pi to pi.
         TypeError
             If the parameter with respect to which to take the derivative
             is not a :class:`~relentless.variable.Variable`.
