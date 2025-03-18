@@ -446,6 +446,9 @@ class DihedralSpline(potential.BondedSpline, DihedralPotential):
             with ``phi``.
 
         """
+        # Validate phi
+        phi = self._validate_coordinate(phi)
+
         return super().energy(type_=type_, x=phi)
 
     def force(self, type_, phi):
@@ -467,6 +470,9 @@ class DihedralSpline(potential.BondedSpline, DihedralPotential):
             with ``phi``.
 
         """
+        # Validate phi
+        phi = self._validate_coordinate(phi)
+
         return super().force(type_=type_, x=phi)
 
     def derivative(self, type_, var, phi):
@@ -504,9 +510,14 @@ class DihedralSpline(potential.BondedSpline, DihedralPotential):
             is not a :class:`~relentless.variable.Variable`.
 
         """
+        # Validate phi
+        phi = self._validate_coordinate(phi)
 
         return super().derivative(type_=type_, var=var, x=phi)
 
     def _derivative(self, param, phi, **params):
         """Evaluate dihedral derivative with respect to a variable."""
+        # Validate phi
+        phi = self._validate_coordinate(phi)
+
         return super()._derivative(param=param, x=phi, **params)

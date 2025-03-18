@@ -439,6 +439,9 @@ class AngleSpline(potential.BondedSpline, AnglePotential):
         ValueError
             If any value in ``theta`` is negative.
         """
+        # Validate theta
+        theta = self._validate_coordinate(theta)
+
         return super().energy(type_=type_, x=theta)
 
     def force(self, type_, theta):
@@ -464,6 +467,9 @@ class AngleSpline(potential.BondedSpline, AnglePotential):
         ValueError
             If any value in ``theta`` is negative.
         """
+        # Validate theta
+        theta = self._validate_coordinate(theta)
+
         return super().force(type_=type_, x=theta)
 
     def derivative(self, type_, var, theta):
@@ -501,6 +507,8 @@ class AngleSpline(potential.BondedSpline, AnglePotential):
             is not a :class:`~relentless.variable.Variable`.
 
         """
+        # Validate theta
+        theta = self._validate_coordinate(theta)
 
         return super().derivative(type_=type_, var=var, x=theta)
 
