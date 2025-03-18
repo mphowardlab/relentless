@@ -64,6 +64,12 @@ class AnglePotential(potential.BondedPotential):
 
         return super().derivative(type_=type_, var=var, x=theta)
 
+    def _validate_coordinate(self, theta):
+        """Validate the angle ``theta`` is between 0 and pi."""
+        if numpy.any(numpy.less(theta, 0)):
+            raise ValueError("Angle must be between 0 and pi.")
+        return theta
+
 
 class HarmonicAngle(AnglePotential):
     r"""Harmonic angle potential.
@@ -116,6 +122,9 @@ class HarmonicAngle(AnglePotential):
 
         theta, u, s = self._zeros(theta)
 
+        # Validate theta
+        theta = self._validate_coordinate(theta)
+
         u = 0.5 * k * (theta - theta0) ** 2
 
         if s:
@@ -130,6 +139,9 @@ class HarmonicAngle(AnglePotential):
 
         theta, f, s = self._zeros(theta)
 
+        # Validate theta
+        theta = self._validate_coordinate(theta)
+
         f = -k * (theta - theta0)
 
         if s:
@@ -139,6 +151,9 @@ class HarmonicAngle(AnglePotential):
     def _derivative(self, param, theta, k, theta0):
         r"""Evaluate angle derivative with respect to a variable."""
         theta, d, s = self._zeros(theta)
+
+        # Validate theta
+        theta = self._validate_coordinate(theta)
 
         if param == "k":
             d = (theta - theta0) ** 2 / 2
@@ -203,6 +218,9 @@ class HarmonicCosineAngle(AnglePotential):
 
         theta, u, s = self._zeros(theta)
 
+        # Validate theta
+        theta = self._validate_coordinate(theta)
+
         u = 0.5 * k * (numpy.cos(theta) - numpy.cos(theta0)) ** 2
 
         if s:
@@ -217,6 +235,9 @@ class HarmonicCosineAngle(AnglePotential):
 
         theta, f, s = self._zeros(theta)
 
+        # Validate theta
+        theta = self._validate_coordinate(theta)
+
         f = k * (numpy.cos(theta) - numpy.cos(theta0)) * numpy.sin(theta)
 
         if s:
@@ -226,6 +247,9 @@ class HarmonicCosineAngle(AnglePotential):
     def _derivative(self, param, theta, k, theta0):
         r"""Evaluate angle derivative with respect to a variable."""
         theta, d, s = self._zeros(theta)
+
+        # Validate theta
+        theta = self._validate_coordinate(theta)
 
         if param == "k":
             d = 0.5 * (numpy.cos(theta) - numpy.cos(theta0)) ** 2
@@ -287,6 +311,9 @@ class CosineAngle(AnglePotential):
 
         theta, u, s = self._zeros(theta)
 
+        # Validate theta
+        theta = self._validate_coordinate(theta)
+
         u = k * (1 + numpy.cos(theta))
 
         if s:
@@ -300,6 +327,9 @@ class CosineAngle(AnglePotential):
 
         theta, f, s = self._zeros(theta)
 
+        # Validate theta
+        theta = self._validate_coordinate(theta)
+
         f = k * numpy.sin(theta)
 
         if s:
@@ -309,6 +339,9 @@ class CosineAngle(AnglePotential):
     def _derivative(self, param, theta, k):
         r"""Evaluate angle derivative with respect to a variable."""
         theta, d, s = self._zeros(theta)
+
+        # Validate theta
+        theta = self._validate_coordinate(theta)
 
         if param == "k":
             d = 1 + numpy.cos(theta)
@@ -401,6 +434,10 @@ class AngleSpline(potential.BondedSpline, AnglePotential):
             The pair energy evaluated at ``theta``. The return type is consistent
             with ``theta``.
 
+        Raises
+        ------
+        ValueError
+            If any value in ``theta`` is negative.
         """
         return super().energy(type_=type_, x=theta)
 
@@ -422,6 +459,10 @@ class AngleSpline(potential.BondedSpline, AnglePotential):
             The force evaluated at ``theta``. The return type is consistent
             with ``theta``.
 
+        Raises
+        ------
+        ValueError
+            If any value in ``theta`` is negative.
         """
         return super().force(type_=type_, x=theta)
 

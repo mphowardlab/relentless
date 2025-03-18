@@ -229,6 +229,11 @@ class test_HarmonicAngle(unittest.TestCase):
         u = harmonic_angle.energy(type_=("1"), theta=theta_input)
         numpy.testing.assert_allclose(u, u_actual)
 
+        # test invalid theta
+        theta_input = -1.0
+        with self.assertRaises(ValueError):
+            harmonic_angle.energy(type_=("1"), theta=theta_input)
+
     def test_force(self):
         """Test _force method"""
         harmonic_angle = relentless.model.potential.HarmonicAngle(types=("1",))
@@ -245,6 +250,11 @@ class test_HarmonicAngle(unittest.TestCase):
         f_actual = numpy.array([1000, 500, 0])
         f = harmonic_angle.force(type_=("1"), theta=theta_input)
         numpy.testing.assert_allclose(f, f_actual)
+
+        # test invalid theta
+        theta_input = -1.0
+        with self.assertRaises(ValueError):
+            harmonic_angle.force(type_=("1"), theta=theta_input)
 
     def test_derivative(self):
         """Test _derivative method"""
@@ -279,6 +289,13 @@ class test_HarmonicAngle(unittest.TestCase):
             param="theta0", theta=theta_input, k=1000.0, theta0=1.0
         )
         numpy.testing.assert_allclose(d, d_actual)
+
+        # test invalid theta
+        theta_input = -1.0
+        with self.assertRaises(ValueError):
+            harmonic_angle._derivative(
+                param="theta0", theta=theta_input, k=1000.0, theta0=1.0
+            )
 
         # test invalid param
         with self.assertRaises(ValueError):
@@ -327,6 +344,11 @@ class test_CosineAngle(unittest.TestCase):
         u = cosine_angle.energy(type_=("1"), theta=theta_input)
         numpy.testing.assert_allclose(u, u_actual)
 
+        # test invalid theta
+        theta_input = -1.0
+        with self.assertRaises(ValueError):
+            cosine_angle.energy(type_=("1"), theta=theta_input)
+
     def test_force(self):
         """Test _force method"""
         cosine_angle = relentless.model.potential.CosineAngle(types=("1",))
@@ -344,6 +366,11 @@ class test_CosineAngle(unittest.TestCase):
         f = cosine_angle.force(type_=("1"), theta=theta_input)
         numpy.testing.assert_allclose(f, f_actual, atol=1e-10)
 
+        # test invalid theta
+        theta_input = -1.0
+        with self.assertRaises(ValueError):
+            cosine_angle.force(type_=("1"), theta=theta_input)
+
     def test_derivative(self):
         """Test _derivative method"""
         cosine_angle = relentless.model.potential.CosineAngle(types=("1",))
@@ -360,6 +387,11 @@ class test_CosineAngle(unittest.TestCase):
         d_actual = numpy.array([2.0, 1.70710678119, 0])
         d = cosine_angle._derivative(param="k", theta=theta_input, k=1000)
         numpy.testing.assert_allclose(d, d_actual)
+
+        # test invalid theta
+        theta_input = -1.0
+        with self.assertRaises(ValueError):
+            cosine_angle._derivative(param="k", theta=theta_input, k=1000)
 
         # test invalid param
         with self.assertRaises(ValueError):
@@ -414,6 +446,11 @@ class test_HarmonicCosineAngle(unittest.TestCase):
         u = cosine_squred_angle.energy(type_=("1"), theta=theta_input)
         numpy.testing.assert_allclose(u, u_actual)
 
+        # test invalid theta
+        theta_input = -1.0
+        with self.assertRaises(ValueError):
+            cosine_squred_angle.energy(type_=("1"), theta=theta_input)
+
     def test_force(self):
         """Test _force method"""
         cosine_squred_angle = relentless.model.potential.HarmonicCosineAngle(
@@ -432,6 +469,11 @@ class test_HarmonicCosineAngle(unittest.TestCase):
         f_actual = numpy.array([500, 0, -500])
         f = cosine_squred_angle.force(type_=("1"), theta=theta_input)
         numpy.testing.assert_allclose(f, f_actual)
+
+        # test invalid theta
+        theta_input = -1.0
+        with self.assertRaises(ValueError):
+            cosine_squred_angle.force(type_=("1"), theta=theta_input)
 
     def test_derivative(self):
         """Test _derivative method"""
@@ -472,6 +514,13 @@ class test_HarmonicCosineAngle(unittest.TestCase):
             param="theta0", theta=theta_input, k=1000.0, theta0=numpy.pi / 2
         )
         numpy.testing.assert_allclose(d, d_actual)
+
+        # test invalid theta
+        theta_input = -1.0
+        with self.assertRaises(ValueError):
+            harmonic_cosine_angle._derivative(
+                param="theta0", theta=theta_input, k=1000.0, theta0=numpy.pi / 2
+            )
 
         # test invalid param
         with self.assertRaises(ValueError):
@@ -553,6 +602,12 @@ class test_AngleSpline(unittest.TestCase):
 
         # test that bounds are enforced
         s = relentless.model.potential.AngleSpline(types=("1",), num_knots=3)
+        with self.assertRaises(ValueError):
+            s.from_array(types=("1"), theta=theta_arr, u=u_arr)
+
+        # test invalid theta and u arrays
+        theta_arr = [-1, 2, 3, 4]
+        u_arr = [1, 2, 3, 4]
         with self.assertRaises(ValueError):
             s.from_array(types=("1"), theta=theta_arr, u=u_arr)
 
