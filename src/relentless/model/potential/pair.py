@@ -220,8 +220,7 @@ class PairPotential(potential.Potential):
         """
         params = self.coeff.evaluate(pair)
         r, u, scalar_r = self._zeros(r)
-        if any(r < 0):
-            raise ValueError("r cannot be negative")
+        r = self._validate_coordinate(r)
 
         # evaluate at points below rmax (if set) first, including rmin cutoff (if set)
         flags = numpy.ones(r.shape[0], dtype=bool)
@@ -276,8 +275,7 @@ class PairPotential(potential.Potential):
         """
         params = self.coeff.evaluate(pair)
         r, f, scalar_r = self._zeros(r)
-        if any(r < 0):
-            raise ValueError("r cannot be negative")
+        r = self._validate_coordinate(r)
 
         # only evaluate at points inside [rmin,rmax], if specified
         flags = numpy.ones(r.shape[0], dtype=bool)
@@ -331,8 +329,7 @@ class PairPotential(potential.Potential):
         """
         params = self.coeff.evaluate(pair)
         r, deriv, scalar_r = self._zeros(r)
-        if any(r < 0):
-            raise ValueError("r cannot be negative")
+        r = self._validate_coordinate(r)
         if not isinstance(var, variable.Variable):
             raise TypeError(
                 "Parameter with respect to which to take the derivative"
@@ -473,6 +470,12 @@ class PairPotential(potential.Potential):
 
         """
         pass
+
+    def _validate_coordinate(self, r):
+        """Validate the coordinate for pair potentials."""
+        if numpy.any(r < 0):
+            raise ValueError("Pair distance must be non-negative")
+        return r
 
 
 class Depletion(PairPotential):
