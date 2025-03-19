@@ -344,6 +344,11 @@ class Potential(abc.ABC):
             raise TypeError("Potential coordinate must be 1D array.")
         return x, numpy.zeros_like(x), s
 
+    @abc.abstractmethod
+    def _validate_coordinate(self, x):
+        """Validate the coordinate ``x`` is within the valid range."""
+        pass
+
     def to_json(self):
         """Export potential to a JSON-compatible dictionary.
 
