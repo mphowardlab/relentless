@@ -44,18 +44,18 @@ class AnglePotential(potential.BondedPotential):
         var : :class:`~relentless.variable.Variable`
             The variable with respect to which the derivative is calculated.
         theta : float or list
-            The bond distance(s) at which to evaluate the derivative.
+            The angle(s) at which to evaluate the derivative.
 
         Returns
         -------
         float or numpy.ndarray
-            The bond derivative evaluated at ``theta``. The return type is consistent
+            The angle derivative evaluated at ``theta``. The return type is consistent
             with ``theta``.
 
         Raises
         ------
         ValueError
-            If any value in ``theta`` is negative.
+            If any value in ``theta`` is not between 0 and pi.
         TypeError
             If the parameter with respect to which to take the derivative
             is not a :class:`~relentless.variable.Variable`.
@@ -64,7 +64,18 @@ class AnglePotential(potential.BondedPotential):
         return super().derivative(type_=type_, var=var, x=theta)
 
     def _validate_coordinate(self, theta):
-        """Validate the angle ``theta`` is between 0 and pi."""
+        """Validate the angle ``theta`` is between 0 and pi.
+
+         Parameters
+        ----------
+        theta : float or list
+            The angle(s) to validate.
+
+        Raises
+        ------
+        ValueError
+            If any value in ``theta`` is not between 0 and pi.
+        """
         if numpy.any(numpy.less(theta, 0)) or numpy.any(numpy.greater(theta, numpy.pi)):
             raise ValueError("Angle must be between 0 and pi.")
 

@@ -50,7 +50,18 @@ class BondPotential(potential.BondedPotential):
         return super().derivative(type_=type_, var=var, x=r)
 
     def _validate_coordinate(self, r):
-        """Validate the bond length ``r`` is positive."""
+        """Validate the bond length ``r`` is positive.
+
+         Parameters
+        ----------
+        r : float or list
+            The bond distance(s) to validate.
+
+        Raises
+        ------
+        ValueError
+            If any value in ``r`` is not positive.
+        """
         if numpy.any(numpy.less(r, 0)):
             raise ValueError("Bond distance must be non-negative")
 

@@ -59,18 +59,18 @@ class DihedralPotential(potential.BondedPotential):
         var : :class:`~relentless.variable.Variable`
             The variable with respect to which the derivative is calculated.
         phi : float or list
-            The bond distance(s) at which to evaluate the derivative.
+            The dihedral angles(s) at which to evaluate the derivative.
 
         Returns
         -------
         float or numpy.ndarray
-            The bond derivative evaluated at ``phi``. The return type is consistent
-            with ``phi``.
+            The dihedral derivative evaluated at ``phi``. The return type is
+            consistent with ``phi``.
 
         Raises
         ------
         ValueError
-            If any value in ``phi`` is negative.
+            If any value in ``phi`` is not between -pi and pi.
         TypeError
             If the parameter with respect to which to take the derivative
             is not a :class:`~relentless.variable.Variable`.
@@ -81,7 +81,18 @@ class DihedralPotential(potential.BondedPotential):
         return super().derivative(type_=type_, var=var, x=phi)
 
     def _validate_coordinate(self, phi):
-        """Validate the angle ``phi`` is between -pi and pi."""
+        """Validate the angle ``phi`` is between -pi and pi.
+
+         Parameters
+        ----------
+        phi : float or list
+            The dihedral(s) to validate.
+
+        Raises
+        ------
+        ValueError
+            If any value in ``phi`` is not between -pi and pi.
+        """
         if numpy.any(numpy.less(phi, -numpy.pi)) or numpy.any(
             numpy.greater(phi, numpy.pi)
         ):
