@@ -43,6 +43,9 @@ class QuadPot(relentless.model.potential.Potential):
             d = d.item()
         return d
 
+    def _validate_coordinate(self, x):
+        pass
+
 
 class test_PotentialTabulator(unittest.TestCase):
     """Unit tests for relentless.simulate.PotentialTabulator"""
