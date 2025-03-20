@@ -126,6 +126,12 @@ class test_BondPotential(unittest.TestCase):
         d = p.derivative(type_=("1"), var=x, r=[0.25, 0.75])
         numpy.testing.assert_allclose(d, [0.25, 0.75])
 
+        # derivative with invalid bond length
+        with self.assertRaises(ValueError):
+            p.derivative(type_=("1"), var=x, r=-0.5)
+        with self.assertRaises(ValueError):
+            p.derivative(type_=("1"), var=x, r=[-0.5, 0.5])
+
     def test_derivative_types(self):
         """Test derivative method with different param types."""
         q = LinPotBond(types=("1",), params=("m",))
@@ -229,6 +235,10 @@ class test_HarmonicBond(unittest.TestCase):
         u = harmonic_bond.energy(type_=("1"), r=r_input)
         numpy.testing.assert_allclose(u, u_actual)
 
+        # test invalid r
+        with self.assertRaises(ValueError):
+            harmonic_bond.energy(type_=("1"), r=-0.5)
+
     def test_force(self):
         """Test _force method"""
         harmonic_bond = relentless.model.potential.HarmonicBond(types=("1",))
@@ -245,6 +255,10 @@ class test_HarmonicBond(unittest.TestCase):
         f_actual = numpy.array([1000, 500, 0])
         f = harmonic_bond.force(type_=("1"), r=r_input)
         numpy.testing.assert_allclose(f, f_actual)
+
+        # test invalid r
+        with self.assertRaises(ValueError):
+            harmonic_bond.force(type_=("1"), r=-0.5)
 
     def test_derivative(self):
         """Test _derivative method"""
@@ -269,12 +283,6 @@ class test_HarmonicBond(unittest.TestCase):
         d_actual = 500
         d = harmonic_bond._derivative(param="r0", r=r_input, k=1000.0, r0=1.0)
         self.assertAlmostEqual(d, d_actual)
-
-        # test array r
-        r_input = numpy.array([0, 1, 1.5])
-        d_actual = numpy.array([1000, 0, -500])
-        d = harmonic_bond._derivative(param="r0", r=r_input, k=1000.0, r0=1.0)
-        numpy.testing.assert_allclose(d, d_actual)
 
         # test invalid param
         with self.assertRaises(ValueError):
@@ -316,6 +324,10 @@ class test_FENEWCA(unittest.TestCase):
         u = FENEWCA.energy(type_=("1"), r=r_input)
         numpy.testing.assert_allclose(u, u_actual)
 
+        # test invalid r
+        with self.assertRaises(ValueError):
+            FENEWCA.energy(type_=("1"), r=-0.5)
+
     def test_force(self):
         """Test _force method"""
         FENEWCA = relentless.model.potential.FENEWCA(types=("1",))
@@ -332,6 +344,10 @@ class test_FENEWCA(unittest.TestCase):
         f_actual = numpy.array([numpy.inf, 96.4721239943, -100, numpy.inf])
         f = FENEWCA.force(type_=("1"), r=r_input)
         numpy.testing.assert_allclose(f, f_actual)
+
+        # test invalid r
+        with self.assertRaises(ValueError):
+            FENEWCA.force(type_=("1"), r=-0.5)
 
     def test_derivative(self):
         """Test _derivative method"""
@@ -517,6 +533,11 @@ class test_BondSpline(unittest.TestCase):
         with self.assertRaises(ValueError):
             s.from_array(types=("1"), r=r_arr, u=u_arr)
 
+        # test invalid r and u values
+        r_arr = [-1, 0, 1]
+        with self.assertRaises(ValueError):
+            s.from_array(types=("1"), r=r_arr, u=u_arr)
+
     def test_energy(self):
         """Test energy method"""
         r_arr = [1, 2, 3]
@@ -545,6 +566,10 @@ class test_BondSpline(unittest.TestCase):
         s.from_array(types=("1"), r=[1, 2], u=[4, 2])
         u = s.energy(type_=("1"), r=1.5)
         self.assertAlmostEqual(u, 3)
+
+        # test invalid r
+        with self.assertRaises(ValueError):
+            s.energy(type_=("1"), r=-0.5)
 
     def test_force(self):
         """Test force method"""
@@ -575,6 +600,10 @@ class test_BondSpline(unittest.TestCase):
         f = s.force(type_=("1"), r=1.5)
         self.assertAlmostEqual(f, 2)
 
+        # test invalid r
+        with self.assertRaises(ValueError):
+            s.force(type_=("1"), r=-0.5)
+
     def test_derivative(self):
         """Test derivative method"""
         r_arr = [1, 2, 3]
@@ -597,6 +626,10 @@ class test_BondSpline(unittest.TestCase):
         param = list(s.knots(("1")))[1][1]
         d = s.derivative(type_=("1"), var=param, r=[1.5, 2.5, 3.5])
         numpy.testing.assert_allclose(d, d_actual)
+
+        # test invalid r
+        with self.assertRaises(ValueError):
+            s.derivative(type_=("1"), var=param, r=-0.5)
 
     def test_json(self):
         r_arr = [1, 2, 3]

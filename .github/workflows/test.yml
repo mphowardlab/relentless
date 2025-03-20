@@ -26,7 +26,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12"]
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
         mpi: ["nompi", "mpich", "openmpi"]
     steps:
       - name: Checkout code
@@ -68,10 +68,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12"]
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
         hoomd-version: ["3.11.0", "4.9.1", "5.0.1"]
         exclude:
           - python-version: "3.12"
+            hoomd-version: "3.11.0"
+          - python-version: "3.13"
             hoomd-version: "3.11.0"
 
     steps:
@@ -111,11 +113,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12"]
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
         lammps-version: ["2023.08.02", "2024.08.29"]
         exclude:
           - python-version: "3.12"
             lammps-version: "2023.08.02"
+          - python-version: "3.13"
+            lammps-version: "2023.08.02"
+          - python-version: "3.13"
+            lammps-version: "2024.08.29"
     steps:
       - name: Checkout code
         uses: actions/checkout@v4

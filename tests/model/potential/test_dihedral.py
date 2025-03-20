@@ -203,8 +203,8 @@ class test_DihedralPotential(unittest.TestCase):
         # test with respect to independent variable on which parameter is dependent
         d = q.derivative(type_=("1"), var=x, phi=1.5)
         self.assertAlmostEqual(d, 3.0)
-        d = q.derivative(type_=("1"), var=y, phi=4.0)
-        self.assertAlmostEqual(d, 0.5)
+        d = q.derivative(type_=("1"), var=y, phi=3.0)
+        self.assertAlmostEqual(d, 0.375)
 
         # test invalid derivative w.r.t. scalar
         a = 2.5
@@ -218,13 +218,13 @@ class test_DihedralPotential(unittest.TestCase):
 
         r.coeff["1"]["x"] = x
         r.coeff["1"]["y"] = relentless.model.variable.SameAs(x)
-        d = r.derivative(type_=("1"), var=x, phi=4.0)
-        self.assertAlmostEqual(d, 20.0)
+        d = r.derivative(type_=("1"), var=x, phi=3.0)
+        self.assertAlmostEqual(d, 15.0)
 
         r.coeff["1"]["y"] = x
         r.coeff["1"]["x"] = relentless.model.variable.SameAs(x)
-        d = r.derivative(type_=("1"), var=x, phi=4.0)
-        self.assertAlmostEqual(d, 20.0)
+        d = r.derivative(type_=("1"), var=x, phi=3.0)
+        self.assertAlmostEqual(d, 15.0)
 
     def test_iteration(self):
         """Test iteration on typesPotential object"""
@@ -294,6 +294,14 @@ class test_OPLSDihedral(unittest.TestCase):
         u = opls_dihedral.energy(type_=("1"), phi=phi_input)
         numpy.testing.assert_allclose(u, u_actual)
 
+        # test with invalid phi less than -pi
+        with self.assertRaises(ValueError):
+            opls_dihedral.energy(type_=("1"), phi=-3.5)
+
+        # test with invalid phi greater than pi
+        with self.assertRaises(ValueError):
+            opls_dihedral.energy(type_=("1"), phi=3.5)
+
     def test_force(self):
         """Test _force method"""
         opls_dihedral = relentless.model.potential.OPLSDihedral(types=("1",))
@@ -311,6 +319,14 @@ class test_OPLSDihedral(unittest.TestCase):
         f_actual = numpy.array([0.0, 5.393, 0.0])
         f = opls_dihedral.force(type_=("1"), phi=phi_input)
         numpy.testing.assert_allclose(f, f_actual, atol=1e-14)
+
+        # test with invalid phi less than -pi
+        with self.assertRaises(ValueError):
+            opls_dihedral.force(type_=("1"), phi=-3.5)
+
+        # test with invalid phi greater than pi
+        with self.assertRaises(ValueError):
+            opls_dihedral.force(type_=("1"), phi=3.5)
 
     def test_derivative(self):
         """Test _derivative method"""
@@ -445,6 +461,14 @@ class test_RyckaertBellemansDihedral(unittest.TestCase):
         u = ryckaert_bellemans_dihedral.energy(type_=("1"), phi=phi_input)
         numpy.testing.assert_allclose(u, u_actual, atol=1e-14)
 
+        # test with invalid phi less than -pi
+        with self.assertRaises(ValueError):
+            ryckaert_bellemans_dihedral.energy(type_=("1"), phi=-3.5)
+
+        # test with invalid phi greater than pi
+        with self.assertRaises(ValueError):
+            ryckaert_bellemans_dihedral.energy(type_=("1"), phi=3.5)
+
     def test_force(self):
         """Test _force method"""
         ryckaert_bellemans_dihedral = (
@@ -465,6 +489,14 @@ class test_RyckaertBellemansDihedral(unittest.TestCase):
         f_actual = numpy.array([0.0, -12.16, 0.0])
         f = ryckaert_bellemans_dihedral.force(type_=("1"), phi=phi_input)
         numpy.testing.assert_allclose(f, f_actual, atol=1e-14)
+
+        # test with invalid phi less than -pi
+        with self.assertRaises(ValueError):
+            ryckaert_bellemans_dihedral.force(type_=("1"), phi=-3.5)
+
+        # test with invalid phi greater than pi
+        with self.assertRaises(ValueError):
+            ryckaert_bellemans_dihedral.force(type_=("1"), phi=3.5)
 
     def test_derivative(self):
         """Test _derivative method"""

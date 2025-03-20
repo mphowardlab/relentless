@@ -44,25 +44,40 @@ class AnglePotential(potential.BondedPotential):
         var : :class:`~relentless.variable.Variable`
             The variable with respect to which the derivative is calculated.
         theta : float or list
-            The bond distance(s) at which to evaluate the derivative.
+            The angle(s) at which to evaluate the derivative.
 
         Returns
         -------
         float or numpy.ndarray
-            The bond derivative evaluated at ``theta``. The return type is consistent
+            The angle derivative evaluated at ``theta``. The return type is consistent
             with ``theta``.
 
         Raises
         ------
         ValueError
-            If any value in ``theta`` is negative.
+            If any value in ``theta`` is not between 0 and pi.
         TypeError
             If the parameter with respect to which to take the derivative
             is not a :class:`~relentless.variable.Variable`.
 
         """
-
         return super().derivative(type_=type_, var=var, x=theta)
+
+    def _validate_coordinate(self, theta):
+        """Validate the angle ``theta`` is between 0 and pi.
+
+        Parameters
+        ----------
+        theta : float or list
+            The angle(s) to validate.
+
+        Raises
+        ------
+        ValueError
+            If any value in ``theta`` is not between 0 and pi.
+        """
+        if numpy.any(numpy.less(theta, 0)) or numpy.any(numpy.greater(theta, numpy.pi)):
+            raise ValueError("Angle must be between 0 and pi.")
 
 
 class HarmonicAngle(AnglePotential):
@@ -116,6 +131,8 @@ class HarmonicAngle(AnglePotential):
 
         theta, u, s = self._zeros(theta)
 
+        self._validate_coordinate(theta)
+
         u = 0.5 * k * (theta - theta0) ** 2
 
         if s:
@@ -129,6 +146,8 @@ class HarmonicAngle(AnglePotential):
         theta0 = params["theta0"]
 
         theta, f, s = self._zeros(theta)
+
+        self._validate_coordinate(theta)
 
         f = -k * (theta - theta0)
 
@@ -203,6 +222,8 @@ class HarmonicCosineAngle(AnglePotential):
 
         theta, u, s = self._zeros(theta)
 
+        self._validate_coordinate(theta)
+
         u = 0.5 * k * (numpy.cos(theta) - numpy.cos(theta0)) ** 2
 
         if s:
@@ -216,6 +237,8 @@ class HarmonicCosineAngle(AnglePotential):
         theta0 = params["theta0"]
 
         theta, f, s = self._zeros(theta)
+
+        self._validate_coordinate(theta)
 
         f = k * (numpy.cos(theta) - numpy.cos(theta0)) * numpy.sin(theta)
 
@@ -287,6 +310,8 @@ class CosineAngle(AnglePotential):
 
         theta, u, s = self._zeros(theta)
 
+        self._validate_coordinate(theta)
+
         u = k * (1 + numpy.cos(theta))
 
         if s:
@@ -299,6 +324,8 @@ class CosineAngle(AnglePotential):
         k = params["k"]
 
         theta, f, s = self._zeros(theta)
+
+        self._validate_coordinate(theta)
 
         f = k * numpy.sin(theta)
 
@@ -401,7 +428,13 @@ class AngleSpline(potential.BondedSpline, AnglePotential):
             The pair energy evaluated at ``theta``. The return type is consistent
             with ``theta``.
 
+        Raises
+        ------
+        ValueError
+            If any value in ``theta`` is outside of 0 to pi.
         """
+        self._validate_coordinate(theta)
+
         return super().energy(type_=type_, x=theta)
 
     def force(self, type_, theta):
@@ -422,47 +455,11 @@ class AngleSpline(potential.BondedSpline, AnglePotential):
             The force evaluated at ``theta``. The return type is consistent
             with ``theta``.
 
-        """
-        return super().force(type_=type_, x=theta)
-
-    def derivative(self, type_, var, theta):
-        r"""Evaluate derivative with respect to a variable.
-
-        The derivative is evaluated using the :meth:`_derivative` function for all
-        :math:`u_{0,\lambda}(theta)`.
-
-        The derivative will be carried out with respect to ``var`` for all
-        :class:`~relentless.variable.Variable` parameters. The appropriate chain
-        rules are handled automatically. If the potential does not depend on
-        ``var``, the derivative will be zero by definition.
-
-        Parameters
-        ----------
-        _type : tuple[str]
-            The type for which to calculate the derivative.
-        var : :class:`~relentless.variable.Variable`
-            The variable with respect to which the derivative is calculated.
-        theta : float or list
-            The bond distance(s) at which to evaluate the derivative.
-
-        Returns
-        -------
-        float or numpy.ndarray
-            The bond derivative evaluated at ``theta``. The return type is consistent
-            with ``theta``.
-
         Raises
         ------
         ValueError
-            If any value in ``theta`` is negative.
-        TypeError
-            If the parameter with respect to which to take the derivative
-            is not a :class:`~relentless.variable.Variable`.
-
+            If any value in ``theta`` is outside of 0 to pi.
         """
+        self._validate_coordinate(theta)
 
-        return super().derivative(type_=type_, var=var, x=theta)
-
-    def _derivative(self, param, theta, **params):
-        """Evaluate angle derivative with respect to a variable."""
-        return super()._derivative(param=param, x=theta, **params)
+        return super().force(type_=type_, x=theta)

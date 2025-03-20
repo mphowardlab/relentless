@@ -47,8 +47,23 @@ class BondPotential(potential.BondedPotential):
             is not a :class:`~relentless.variable.Variable`.
 
         """
-
         return super().derivative(type_=type_, var=var, x=r)
+
+    def _validate_coordinate(self, r):
+        """Validate the bond length ``r`` is positive.
+
+        Parameters
+        ----------
+        r : float or list
+            The bond distance(s) to validate.
+
+        Raises
+        ------
+        ValueError
+            If any value in ``r`` is not positive.
+        """
+        if numpy.any(numpy.less(r, 0)):
+            raise ValueError("Bond distance must be non-negative")
 
 
 class HarmonicBond(BondPotential):
@@ -102,6 +117,8 @@ class HarmonicBond(BondPotential):
 
         r, u, s = self._zeros(r)
 
+        self._validate_coordinate(r)
+
         u = 0.5 * k * (r - r0) ** 2
 
         if s:
@@ -115,6 +132,8 @@ class HarmonicBond(BondPotential):
         r0 = params["r0"]
 
         r, f, s = self._zeros(r)
+
+        self._validate_coordinate(r)
 
         f = -k * (r - r0)
 
@@ -212,6 +231,9 @@ class FENEWCA(BondPotential):
 
         # initialize arrays
         r, u_fene, s = self._zeros(r)
+
+        self._validate_coordinate(r)
+
         u_wca = u_fene.copy()
 
         # set flags for FENE potential
@@ -244,6 +266,8 @@ class FENEWCA(BondPotential):
 
         # initialize arrays
         r, f_fene, s = self._zeros(r)
+
+        self._validate_coordinate(r)
         f_wca = f_fene.copy()
 
         # set flags for FENE potential
@@ -271,7 +295,6 @@ class FENEWCA(BondPotential):
         r"""Evaluate bond derivative with respect to a variable."""
         # initialize arrays
         r, d, s = self._zeros(r)
-
         # set flags for FENE potential
         fene_flag = numpy.less(r, r0)
 
@@ -363,7 +386,7 @@ class BondSpline(potential.BondedSpline, BondPotential):
             If the number of ``u`` values is not the same as the number of knots.
 
         """
-
+        self._validate_coordinate(r)
         return super().from_array(types=types, x=r, u=u)
 
     def energy(self, type_, r):
@@ -382,7 +405,12 @@ class BondSpline(potential.BondedSpline, BondPotential):
             The pair energy evaluated at ``r``. The return type is consistent
             with ``r``.
 
+        Raises
+        ------
+        ValueError
+            If any value in ``r`` is negative.
         """
+        self._validate_coordinate(r)
         return super().energy(type_=type_, x=r)
 
     def force(self, type_, r):
@@ -403,5 +431,11 @@ class BondSpline(potential.BondedSpline, BondPotential):
             The force evaluated at ``r``. The return type is consistent
             with ``r``.
 
+        Raises
+        ------
+        ValueError
+            If any value in ``r`` is negative.
         """
+        self._validate_coordinate(r)
+
         return super().force(type_=type_, x=r)
