@@ -61,16 +61,12 @@ class AnglePotential(potential.BondedPotential):
             is not a :class:`~relentless.variable.Variable`.
 
         """
-        # Validate theta
-        theta = self._validate_coordinate(theta)
-
         return super().derivative(type_=type_, var=var, x=theta)
 
     def _validate_coordinate(self, theta):
         """Validate the angle ``theta`` is between 0 and pi."""
         if numpy.any(numpy.less(theta, 0)) or numpy.any(numpy.greater(theta, numpy.pi)):
             raise ValueError("Angle must be between 0 and pi.")
-        return theta
 
 
 class HarmonicAngle(AnglePotential):
@@ -124,8 +120,7 @@ class HarmonicAngle(AnglePotential):
 
         theta, u, s = self._zeros(theta)
 
-        # Validate theta
-        theta = self._validate_coordinate(theta)
+        self._validate_coordinate(theta)
 
         u = 0.5 * k * (theta - theta0) ** 2
 
@@ -141,8 +136,7 @@ class HarmonicAngle(AnglePotential):
 
         theta, f, s = self._zeros(theta)
 
-        # Validate theta
-        theta = self._validate_coordinate(theta)
+        self._validate_coordinate(theta)
 
         f = -k * (theta - theta0)
 
@@ -217,8 +211,7 @@ class HarmonicCosineAngle(AnglePotential):
 
         theta, u, s = self._zeros(theta)
 
-        # Validate theta
-        theta = self._validate_coordinate(theta)
+        self._validate_coordinate(theta)
 
         u = 0.5 * k * (numpy.cos(theta) - numpy.cos(theta0)) ** 2
 
@@ -234,8 +227,7 @@ class HarmonicCosineAngle(AnglePotential):
 
         theta, f, s = self._zeros(theta)
 
-        # Validate theta
-        theta = self._validate_coordinate(theta)
+        self._validate_coordinate(theta)
 
         f = k * (numpy.cos(theta) - numpy.cos(theta0)) * numpy.sin(theta)
 
@@ -307,8 +299,7 @@ class CosineAngle(AnglePotential):
 
         theta, u, s = self._zeros(theta)
 
-        # Validate theta
-        theta = self._validate_coordinate(theta)
+        self._validate_coordinate(theta)
 
         u = k * (1 + numpy.cos(theta))
 
@@ -323,8 +314,7 @@ class CosineAngle(AnglePotential):
 
         theta, f, s = self._zeros(theta)
 
-        # Validate theta
-        theta = self._validate_coordinate(theta)
+        self._validate_coordinate(theta)
 
         f = k * numpy.sin(theta)
 
@@ -432,8 +422,7 @@ class AngleSpline(potential.BondedSpline, AnglePotential):
         ValueError
             If any value in ``theta`` is outside of 0 to pi.
         """
-        # Validate theta
-        theta = self._validate_coordinate(theta)
+        self._validate_coordinate(theta)
 
         return super().energy(type_=type_, x=theta)
 
@@ -460,7 +449,6 @@ class AngleSpline(potential.BondedSpline, AnglePotential):
         ValueError
             If any value in ``theta`` is outside of 0 to pi.
         """
-        # Validate theta
-        theta = self._validate_coordinate(theta)
+        self._validate_coordinate(theta)
 
         return super().force(type_=type_, x=theta)

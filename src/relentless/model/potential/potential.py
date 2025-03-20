@@ -431,8 +431,7 @@ class BondedPotential(Potential):
         """
         params = self.coeff.evaluate(type_)
         x, deriv, scalar_x = self._zeros(x)
-        if any(x < 0):
-            raise ValueError("x cannot be negative")
+        self._validate_coordinate(x)
         if not isinstance(var, variable.Variable):
             raise TypeError(
                 "Parameter with respect to which to take the derivative"
@@ -466,10 +465,6 @@ class BondedPotential(Potential):
         if scalar_x:
             deriv = deriv.item()
         return deriv
-
-    def _validate_coordinate(self, x):
-        """Validate the coordinate ``x`` is within the valid range."""
-        pass
 
     @abc.abstractmethod
     def _derivative(self, param, x, **params):

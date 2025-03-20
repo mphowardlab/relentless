@@ -76,8 +76,7 @@ class DihedralPotential(potential.BondedPotential):
             is not a :class:`~relentless.variable.Variable`.
 
         """
-        # Validate phi
-        phi = self._validate_coordinate(phi)
+        self._validate_coordinate(phi)
 
         return super().derivative(type_=type_, var=var, x=phi)
 
@@ -87,7 +86,6 @@ class DihedralPotential(potential.BondedPotential):
             numpy.greater(phi, numpy.pi)
         ):
             raise ValueError("Angle must be between -pi and pi.")
-        return phi
 
 
 class OPLSDihedral(DihedralPotential):
@@ -150,8 +148,7 @@ class OPLSDihedral(DihedralPotential):
 
         phi, u, s = self._zeros(phi)
 
-        # validate phi
-        phi = self._validate_coordinate(phi)
+        self._validate_coordinate(phi)
 
         u = 0.5 * (
             k1 * (1 + numpy.cos(phi))
@@ -174,8 +171,7 @@ class OPLSDihedral(DihedralPotential):
 
         phi, f, s = self._zeros(phi)
 
-        # validate phi
-        phi = self._validate_coordinate(phi)
+        self._validate_coordinate(phi)
 
         f = -0.5 * (
             -k1 * numpy.sin(phi)
@@ -285,8 +281,7 @@ class RyckaertBellemansDihedral(DihedralPotential):
 
         phi, u, s = self._zeros(phi)
 
-        # validate phi
-        phi = self._validate_coordinate(phi)
+        self._validate_coordinate(phi)
 
         psi = phi - numpy.pi
         cos_psi = numpy.cos(psi)
@@ -314,8 +309,7 @@ class RyckaertBellemansDihedral(DihedralPotential):
 
         phi, f, s = self._zeros(phi)
 
-        # validate phi
-        phi = self._validate_coordinate(phi)
+        self._validate_coordinate(phi)
 
         psi = phi - numpy.pi
         cos_psi = numpy.cos(psi)
@@ -446,9 +440,7 @@ class DihedralSpline(potential.BondedSpline, DihedralPotential):
         ValueError
             If any value in ``phi`` is outside of -pi to pi.
         """
-        # Validate phi
-        phi = self._validate_coordinate(phi)
-
+        self._validate_coordinate(phi)
         return super().energy(type_=type_, x=phi)
 
     def force(self, type_, phi):
@@ -474,7 +466,5 @@ class DihedralSpline(potential.BondedSpline, DihedralPotential):
         ValueError
             If any value in ``phi`` is outside of -pi to pi.
         """
-        # Validate phi
-        phi = self._validate_coordinate(phi)
-
+        self._validate_coordinate(phi)
         return super().force(type_=type_, x=phi)

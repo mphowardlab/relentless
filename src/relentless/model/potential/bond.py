@@ -47,16 +47,12 @@ class BondPotential(potential.BondedPotential):
             is not a :class:`~relentless.variable.Variable`.
 
         """
-        # validate r
-        r = self._validate_coordinate(r)
-
         return super().derivative(type_=type_, var=var, x=r)
 
     def _validate_coordinate(self, r):
         """Validate the bond length ``r`` is positive."""
         if numpy.any(numpy.less(r, 0)):
             raise ValueError("Bond distance must be non-negative")
-        return r
 
 
 class HarmonicBond(BondPotential):
@@ -110,8 +106,7 @@ class HarmonicBond(BondPotential):
 
         r, u, s = self._zeros(r)
 
-        # validate r
-        r = self._validate_coordinate(r)
+        self._validate_coordinate(r)
 
         u = 0.5 * k * (r - r0) ** 2
 
@@ -127,8 +122,7 @@ class HarmonicBond(BondPotential):
 
         r, f, s = self._zeros(r)
 
-        # validate r
-        r = self._validate_coordinate(r)
+        self._validate_coordinate(r)
 
         f = -k * (r - r0)
 
@@ -227,8 +221,7 @@ class FENEWCA(BondPotential):
         # initialize arrays
         r, u_fene, s = self._zeros(r)
 
-        # validate r
-        r = self._validate_coordinate(r)
+        self._validate_coordinate(r)
 
         u_wca = u_fene.copy()
 
@@ -262,8 +255,8 @@ class FENEWCA(BondPotential):
 
         # initialize arrays
         r, f_fene, s = self._zeros(r)
-        # validate r
-        r = self._validate_coordinate(r)
+
+        self._validate_coordinate(r)
         f_wca = f_fene.copy()
 
         # set flags for FENE potential
@@ -382,8 +375,7 @@ class BondSpline(potential.BondedSpline, BondPotential):
             If the number of ``u`` values is not the same as the number of knots.
 
         """
-        # validate r
-        r = self._validate_coordinate(r)
+        self._validate_coordinate(r)
         return super().from_array(types=types, x=r, u=u)
 
     def energy(self, type_, r):
@@ -407,8 +399,7 @@ class BondSpline(potential.BondedSpline, BondPotential):
         ValueError
             If any value in ``r`` is negative.
         """
-        # validate r
-        r = self._validate_coordinate(r)
+        self._validate_coordinate(r)
         return super().energy(type_=type_, x=r)
 
     def force(self, type_, r):
@@ -434,7 +425,6 @@ class BondSpline(potential.BondedSpline, BondPotential):
         ValueError
             If any value in ``r`` is negative.
         """
-        # validate r
-        r = self._validate_coordinate(r)
+        self._validate_coordinate(r)
 
         return super().force(type_=type_, x=r)
