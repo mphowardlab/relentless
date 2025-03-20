@@ -230,14 +230,12 @@ class test_HarmonicAngle(unittest.TestCase):
         numpy.testing.assert_allclose(u, u_actual)
 
         # test invalid theta less than zero
-        theta_input = -1.0
         with self.assertRaises(ValueError):
-            harmonic_angle.energy(type_=("1"), theta=theta_input)
+            harmonic_angle.energy(type_=("1"), theta=-1.0)
 
         # test invalid theta greater than pi
-        theta_input = 4.0
         with self.assertRaises(ValueError):
-            harmonic_angle.energy(type_=("1"), theta=theta_input)
+            harmonic_angle.energy(type_=("1"), theta=4.0)
 
     def test_force(self):
         """Test _force method"""
@@ -257,14 +255,12 @@ class test_HarmonicAngle(unittest.TestCase):
         numpy.testing.assert_allclose(f, f_actual)
 
         # test invalid theta less than zero
-        theta_input = -1.0
         with self.assertRaises(ValueError):
-            harmonic_angle.force(type_=("1"), theta=theta_input)
+            harmonic_angle.force(type_=("1"), theta=-1.0)
 
         # test invalid theta greater than pi
-        theta_input = 4.0
         with self.assertRaises(ValueError):
-            harmonic_angle.force(type_=("1"), theta=theta_input)
+            harmonic_angle.force(type_=("1"), theta=4.0)
 
     def test_derivative(self):
         """Test _derivative method"""
@@ -348,14 +344,12 @@ class test_CosineAngle(unittest.TestCase):
         numpy.testing.assert_allclose(u, u_actual)
 
         # test invalid theta less than zero
-        theta_input = -1.0
         with self.assertRaises(ValueError):
-            cosine_angle.energy(type_=("1"), theta=theta_input)
+            cosine_angle.energy(type_=("1"), theta=-1.0)
 
         # test invalid theta greater than pi
-        theta_input = 4.0
         with self.assertRaises(ValueError):
-            cosine_angle.energy(type_=("1"), theta=theta_input)
+            cosine_angle.energy(type_=("1"), theta=4.0)
 
     def test_force(self):
         """Test _force method"""
@@ -375,14 +369,12 @@ class test_CosineAngle(unittest.TestCase):
         numpy.testing.assert_allclose(f, f_actual, atol=1e-10)
 
         # test invalid theta less than zero
-        theta_input = -1.0
         with self.assertRaises(ValueError):
-            cosine_angle.force(type_=("1"), theta=theta_input)
+            cosine_angle.force(type_=("1"), theta=-1.0)
 
         # test invalid theta greater than pi
-        theta_input = 4.0
         with self.assertRaises(ValueError):
-            cosine_angle.force(type_=("1"), theta=theta_input)
+            cosine_angle.force(type_=("1"), theta=4.0)
 
     def test_derivative(self):
         """Test _derivative method"""
@@ -455,14 +447,12 @@ class test_HarmonicCosineAngle(unittest.TestCase):
         numpy.testing.assert_allclose(u, u_actual)
 
         # test invalid theta less than zero
-        theta_input = -1.0
         with self.assertRaises(ValueError):
-            cosine_squred_angle.energy(type_=("1"), theta=theta_input)
+            cosine_squred_angle.energy(type_=("1"), theta=-1.0)
 
         # test invalid theta greater than pi
-        theta_input = 4.0
         with self.assertRaises(ValueError):
-            cosine_squred_angle.energy(type_=("1"), theta=theta_input)
+            cosine_squred_angle.energy(type_=("1"), theta=4.0)
 
     def test_force(self):
         """Test _force method"""
@@ -484,14 +474,12 @@ class test_HarmonicCosineAngle(unittest.TestCase):
         numpy.testing.assert_allclose(f, f_actual)
 
         # test invalid theta less than zero
-        theta_input = -1.0
         with self.assertRaises(ValueError):
-            cosine_squred_angle.force(type_=("1"), theta=theta_input)
+            cosine_squred_angle.force(type_=("1"), theta=-1.0)
 
         # test invalid theta greater than pi
-        theta_input = 4.0
         with self.assertRaises(ValueError):
-            cosine_squred_angle.force(type_=("1"), theta=theta_input)
+            cosine_squred_angle.force(type_=("1"), theta=4.0)
 
     def test_derivative(self):
         """Test _derivative method"""

@@ -127,9 +127,8 @@ class test_BondPotential(unittest.TestCase):
         numpy.testing.assert_allclose(d, [0.25, 0.75])
 
         # derivative with invalid bond length
-        r = -0.5
         with self.assertRaises(ValueError):
-            p.derivative(type_=("1"), var=x, r=r)
+            p.derivative(type_=("1"), var=x, r=-0.5)
         with self.assertRaises(ValueError):
             p.derivative(type_=("1"), var=x, r=[-0.5, 0.5])
 
@@ -237,9 +236,8 @@ class test_HarmonicBond(unittest.TestCase):
         numpy.testing.assert_allclose(u, u_actual)
 
         # test invalid r
-        r = -0.5
         with self.assertRaises(ValueError):
-            harmonic_bond.energy(type_=("1"), r=r)
+            harmonic_bond.energy(type_=("1"), r=-0.5)
 
     def test_force(self):
         """Test _force method"""
@@ -259,9 +257,8 @@ class test_HarmonicBond(unittest.TestCase):
         numpy.testing.assert_allclose(f, f_actual)
 
         # test invalid r
-        r = -0.5
         with self.assertRaises(ValueError):
-            harmonic_bond.force(type_=("1"), r=r)
+            harmonic_bond.force(type_=("1"), r=-0.5)
 
     def test_derivative(self):
         """Test _derivative method"""
@@ -328,9 +325,8 @@ class test_FENEWCA(unittest.TestCase):
         numpy.testing.assert_allclose(u, u_actual)
 
         # test invalid r
-        r = -0.5
         with self.assertRaises(ValueError):
-            FENEWCA.energy(type_=("1"), r=r)
+            FENEWCA.energy(type_=("1"), r=-0.5)
 
     def test_force(self):
         """Test _force method"""
@@ -350,9 +346,8 @@ class test_FENEWCA(unittest.TestCase):
         numpy.testing.assert_allclose(f, f_actual)
 
         # test invalid r
-        r = -0.5
         with self.assertRaises(ValueError):
-            FENEWCA.force(type_=("1"), r=r)
+            FENEWCA.force(type_=("1"), r=-0.5)
 
     def test_derivative(self):
         """Test _derivative method"""
@@ -573,9 +568,8 @@ class test_BondSpline(unittest.TestCase):
         self.assertAlmostEqual(u, 3)
 
         # test invalid r
-        r = -0.5
         with self.assertRaises(ValueError):
-            s.energy(type_=("1"), r=r)
+            s.energy(type_=("1"), r=-0.5)
 
     def test_force(self):
         """Test force method"""
@@ -607,9 +601,8 @@ class test_BondSpline(unittest.TestCase):
         self.assertAlmostEqual(f, 2)
 
         # test invalid r
-        r = -0.5
         with self.assertRaises(ValueError):
-            s.force(type_=("1"), r=r)
+            s.force(type_=("1"), r=-0.5)
 
     def test_derivative(self):
         """Test derivative method"""
@@ -635,9 +628,8 @@ class test_BondSpline(unittest.TestCase):
         numpy.testing.assert_allclose(d, d_actual)
 
         # test invalid r
-        r = -0.5
         with self.assertRaises(ValueError):
-            s.derivative(type_=("1"), var=param, r=r)
+            s.derivative(type_=("1"), var=param, r=-0.5)
 
     def test_json(self):
         r_arr = [1, 2, 3]
