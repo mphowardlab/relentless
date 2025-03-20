@@ -344,6 +344,17 @@ class Potential(abc.ABC):
             raise TypeError("Potential coordinate must be 1D array.")
         return x, numpy.zeros_like(x), s
 
+    @abc.abstractmethod
+    def _validate_coordinate(self, x):
+        """Validate the coordinate ``x`` is within the valid range.
+
+        Parameters
+        ----------
+        x : float or list
+            The coordinate(s) to validate.
+        """
+        pass
+
     def to_json(self):
         """Export potential to a JSON-compatible dictionary.
 
@@ -426,8 +437,7 @@ class BondedPotential(Potential):
         """
         params = self.coeff.evaluate(type_)
         x, deriv, scalar_x = self._zeros(x)
-        if any(x < 0):
-            raise ValueError("x cannot be negative")
+        self._validate_coordinate(x)
         if not isinstance(var, variable.Variable):
             raise TypeError(
                 "Parameter with respect to which to take the derivative"
@@ -485,6 +495,11 @@ class BondedPotential(Potential):
         float or numpy.ndarray
             The bond derivative evaluated at ``x``. The return type is consistent
             with ``x``.
+
+        Raises
+        ------
+        ValueError
+            If any value in ``x`` is negative.
 
         """
         pass
@@ -700,6 +715,7 @@ class BondedSpline(BondedPotential):
         """
         params = self.coeff.evaluate(type_)
         x, f, s = self._zeros(x)
+
         f = -self._interpolate(params).derivative(x, 1)
         if s:
             f = f.item()
@@ -707,6 +723,7 @@ class BondedSpline(BondedPotential):
 
     def _derivative(self, param, x, **params):
         x, d, s = self._zeros(x)
+
         h = 0.001
 
         if f"d{self._space_coord_name}-" in param:

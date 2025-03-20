@@ -59,25 +59,44 @@ class DihedralPotential(potential.BondedPotential):
         var : :class:`~relentless.variable.Variable`
             The variable with respect to which the derivative is calculated.
         phi : float or list
-            The bond distance(s) at which to evaluate the derivative.
+            The dihedral angles(s) at which to evaluate the derivative.
 
         Returns
         -------
         float or numpy.ndarray
-            The bond derivative evaluated at ``phi``. The return type is consistent
-            with ``phi``.
+            The dihedral derivative evaluated at ``phi``. The return type is
+            consistent with ``phi``.
 
         Raises
         ------
         ValueError
-            If any value in ``phi`` is negative.
+            If any value in ``phi`` is not between -pi and pi.
         TypeError
             If the parameter with respect to which to take the derivative
             is not a :class:`~relentless.variable.Variable`.
 
         """
+        self._validate_coordinate(phi)
 
         return super().derivative(type_=type_, var=var, x=phi)
+
+    def _validate_coordinate(self, phi):
+        """Validate the angle ``phi`` is between -pi and pi.
+
+        Parameters
+        ----------
+        phi : float or list
+            The dihedral(s) to validate.
+
+        Raises
+        ------
+        ValueError
+            If any value in ``phi`` is not between -pi and pi.
+        """
+        if numpy.any(numpy.less(phi, -numpy.pi)) or numpy.any(
+            numpy.greater(phi, numpy.pi)
+        ):
+            raise ValueError("Angle must be between -pi and pi.")
 
 
 class OPLSDihedral(DihedralPotential):
@@ -140,6 +159,8 @@ class OPLSDihedral(DihedralPotential):
 
         phi, u, s = self._zeros(phi)
 
+        self._validate_coordinate(phi)
+
         u = 0.5 * (
             k1 * (1 + numpy.cos(phi))
             + k2 * (1 - numpy.cos(2 * phi))
@@ -160,6 +181,8 @@ class OPLSDihedral(DihedralPotential):
         k4 = params["k4"]
 
         phi, f, s = self._zeros(phi)
+
+        self._validate_coordinate(phi)
 
         f = -0.5 * (
             -k1 * numpy.sin(phi)
@@ -269,6 +292,8 @@ class RyckaertBellemansDihedral(DihedralPotential):
 
         phi, u, s = self._zeros(phi)
 
+        self._validate_coordinate(phi)
+
         psi = phi - numpy.pi
         cos_psi = numpy.cos(psi)
 
@@ -294,6 +319,8 @@ class RyckaertBellemansDihedral(DihedralPotential):
         c4 = params["c4"]
 
         phi, f, s = self._zeros(phi)
+
+        self._validate_coordinate(phi)
 
         psi = phi - numpy.pi
         cos_psi = numpy.cos(psi)
@@ -419,7 +446,12 @@ class DihedralSpline(potential.BondedSpline, DihedralPotential):
             The pair energy evaluated at ``phi``. The return type is consistent
             with ``phi``.
 
+        Raises
+        ------
+        ValueError
+            If any value in ``phi`` is outside of -pi to pi.
         """
+        self._validate_coordinate(phi)
         return super().energy(type_=type_, x=phi)
 
     def force(self, type_, phi):
@@ -440,47 +472,10 @@ class DihedralSpline(potential.BondedSpline, DihedralPotential):
             The force evaluated at ``phi``. The return type is consistent
             with ``phi``.
 
-        """
-        return super().force(type_=type_, x=phi)
-
-    def derivative(self, type_, var, phi):
-        r"""Evaluate derivative with respect to a variable.
-
-        The derivative is evaluated using the :meth:`_derivative` function for all
-        :math:`u_{0,\lambda}(phi)`.
-
-        The derivative will be carried out with respect to ``var`` for all
-        :class:`~relentless.variable.Variable` parameters. The appropriate chain
-        rules are handled automatically. If the potential does not depend on
-        ``var``, the derivative will be zero by definition.
-
-        Parameters
-        ----------
-        _type : tuple[str]
-            The type for which to calculate the derivative.
-        var : :class:`~relentless.variable.Variable`
-            The variable with respect to which the derivative is calculated.
-        phi : float or list
-            The bond distance(s) at which to evaluate the derivative.
-
-        Returns
-        -------
-        float or numpy.ndarray
-            The bond derivative evaluated at ``phi``. The return type is consistent
-            with ``phi``.
-
         Raises
         ------
         ValueError
-            If any value in ``phi`` is negative.
-        TypeError
-            If the parameter with respect to which to take the derivative
-            is not a :class:`~relentless.variable.Variable`.
-
+            If any value in ``phi`` is outside of -pi to pi.
         """
-
-        return super().derivative(type_=type_, var=var, x=phi)
-
-    def _derivative(self, param, phi, **params):
-        """Evaluate dihedral derivative with respect to a variable."""
-        return super()._derivative(param=param, x=phi, **params)
+        self._validate_coordinate(phi)
+        return super().force(type_=type_, x=phi)
