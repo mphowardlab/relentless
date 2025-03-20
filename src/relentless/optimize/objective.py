@@ -374,7 +374,7 @@ class RelativeEntropy(ObjectiveFunction):
                 gradient = self._compute_gradient_direct_average(sim_ens, variables)
             else:
                 gradient = self.compute_gradient(sim_ens, variables)
-        mpi.world.bcast(gradient)
+        gradient = mpi.world.bcast(gradient)
         result = ObjectiveFunctionResult(
             variables, None, gradient, directory if not directory_is_tmp else None
         )
