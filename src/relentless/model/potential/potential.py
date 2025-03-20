@@ -346,7 +346,13 @@ class Potential(abc.ABC):
 
     @abc.abstractmethod
     def _validate_coordinate(self, x):
-        """Validate the coordinate ``x`` is within the valid range."""
+        """Validate the coordinate ``x`` is within the valid range.
+
+        Parameters
+        ----------
+        x : float or list
+            The coordinate(s) to validate.
+        """
         pass
 
     def to_json(self):

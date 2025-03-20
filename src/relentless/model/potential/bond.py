@@ -52,7 +52,7 @@ class BondPotential(potential.BondedPotential):
     def _validate_coordinate(self, r):
         """Validate the bond length ``r`` is positive.
 
-         Parameters
+        Parameters
         ----------
         r : float or list
             The bond distance(s) to validate.

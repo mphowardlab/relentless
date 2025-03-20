@@ -83,7 +83,7 @@ class DihedralPotential(potential.BondedPotential):
     def _validate_coordinate(self, phi):
         """Validate the angle ``phi`` is between -pi and pi.
 
-         Parameters
+        Parameters
         ----------
         phi : float or list
             The dihedral(s) to validate.

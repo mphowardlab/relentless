@@ -66,7 +66,7 @@ class AnglePotential(potential.BondedPotential):
     def _validate_coordinate(self, theta):
         """Validate the angle ``theta`` is between 0 and pi.
 
-         Parameters
+        Parameters
         ----------
         theta : float or list
             The angle(s) to validate.

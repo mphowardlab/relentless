@@ -472,7 +472,18 @@ class PairPotential(potential.Potential):
         pass
 
     def _validate_coordinate(self, r):
-        """Validate the coordinate for pair potentials."""
+        """Validate the pair distance ``r`` is positive.
+
+        Parameters
+        ----------
+        r : float or list
+            The pair distance(s) to validate.
+
+        Raises
+        ------
+        ValueError
+            If any value in ``r`` is not positive.
+        """
         if numpy.any(r < 0):
             raise ValueError("Pair distance must be non-negative")
 
