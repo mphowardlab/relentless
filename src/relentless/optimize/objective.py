@@ -368,7 +368,6 @@ class RelativeEntropy(ObjectiveFunction):
 
         # compute gradient and result
         # relative entropy *value* is None
-        gradient = None
         if mpi.world.rank_is_root:
             if self._use_trajectory(self.target, self.thermo):
                 gradient = self._compute_gradient_direct_average(sim_ens, variables)
