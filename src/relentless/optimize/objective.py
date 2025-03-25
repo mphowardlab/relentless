@@ -368,18 +368,17 @@ class RelativeEntropy(ObjectiveFunction):
 
         # compute gradient and result
         # relative entropy *value* is None
-        result = None
+        gradient = None
         if mpi.world.rank_is_root:
             if self._use_trajectory(self.target, self.thermo):
                 gradient = self._compute_gradient_direct_average(sim_ens, variables)
             else:
                 gradient = self.compute_gradient(sim_ens, variables)
-            gradient = mpi.world.bcast(gradient)
-            result = ObjectiveFunctionResult(
-                variables, None, gradient, directory if not directory_is_tmp else None
-            )
         mpi.world.barrier()
-        result = mpi.world.bcast(result)
+        gradient = mpi.world.bcast(gradient)
+        result = ObjectiveFunctionResult(
+            variables, None, gradient, directory if not directory_is_tmp else None
+        )
 
         # optionally write ensemble and result *after* the simulation
         if not directory_is_tmp:
