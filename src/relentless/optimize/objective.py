@@ -146,7 +146,8 @@ class ObjectiveFunctionResult:
             variables_.update({x: x.value for x in value})
         else:
             variables_ = None
-        self._assert_keys_match(variables_, self.gradient)
+        if mpi.world.rank_is_root:
+            self._assert_keys_match(variables_, self.gradient)
         self._variables = variables_
 
     @property
@@ -171,7 +172,8 @@ class ObjectiveFunctionResult:
             gradient_.update(value)
         else:
             gradient_ = None
-        self._assert_keys_match(self.variables, gradient_)
+        if mpi.world.rank_is_root:
+            self._assert_keys_match(self.variables, gradient_)
         self._gradient = gradient_
 
     @property
@@ -368,6 +370,7 @@ class RelativeEntropy(ObjectiveFunction):
 
         # compute gradient and result
         # relative entropy *value* is None
+        gradient = None
         if mpi.world.rank_is_root:
             if self._use_trajectory(self.target, self.thermo):
                 gradient = self._compute_gradient_direct_average(sim_ens, variables)
