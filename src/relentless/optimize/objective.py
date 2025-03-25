@@ -146,8 +146,7 @@ class ObjectiveFunctionResult:
             variables_.update({x: x.value for x in value})
         else:
             variables_ = None
-        if mpi.world.rank_is_root:
-            self._assert_keys_match(variables_, self.gradient)
+        self._assert_keys_match(variables_, self.gradient)
         self._variables = variables_
 
     @property
@@ -172,8 +171,7 @@ class ObjectiveFunctionResult:
             gradient_.update(value)
         else:
             gradient_ = None
-        if mpi.world.rank_is_root:
-            self._assert_keys_match(self.variables, gradient_)
+        self._assert_keys_match(self.variables, gradient_)
         self._gradient = gradient_
 
     @property
