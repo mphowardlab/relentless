@@ -618,6 +618,7 @@ class RelativeEntropy(ObjectiveFunction):
                                 * numpy.linalg.norm(cross_23_34)
                             )
                         )
+                        print(dphi)
                         for var in variables:
                             gradient[var] += numpy.sum(
                                 self.potentials.dihedral.derivative(i, var, x=dphi)
