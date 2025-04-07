@@ -414,40 +414,12 @@ class RelativeEntropy(ObjectiveFunction):
         dvars = variable.graph.check_variables_and_types(variables, variable.Variable)
 
         with gsd.hoomd.open(traj_tgt, "r") as traj:
-            pair_types_tgt = traj[0].particles.types
-
-            bond_types_tgt = None
-            if traj[0].bonds.N != 0:
-                bond_types_tgt = traj[0].bonds.types
-
-            angle_types_tgt = None
-            if traj[0].angles.N != 0:
-                angle_types_tgt = traj[0].angles.types
-
-            dihedral_types_tgt = None
-            if traj[0].dihedrals.N != 0:
-                dihedral_types_tgt = traj[0].dihedrals.types
-
             V_tgt = 0
             for snap in traj:
                 Lx, Ly, Lz, xy, xz, yz = snap.configuration.box
                 V_tgt += extent.TriclinicBox(Lx, Ly, Lz, xy, xz, yz).extent / len(traj)
 
         with gsd.hoomd.open(sim_traj, "r") as traj:
-            pair_types_sim = traj[0].particles.types
-
-            bond_types_sim = None
-            if traj[0].bonds.N != 0:
-                bond_types_sim = traj[0].bonds.types
-
-            angle_types_sim = None
-            if traj[0].angles.N != 0:
-                angle_types_sim = traj[0].angles.types
-
-            dihedral_types_sim = None
-            if traj[0].dihedrals.N != 0:
-                dihedral_types_sim = traj[0].dihedrals.types
-
             # calculate T if not provided
             if self.T is None:
                 if snap.particles.mass is None or snap.particles.velocity is None:
@@ -464,23 +436,6 @@ class RelativeEntropy(ObjectiveFunction):
                     ) / len(traj)
             else:
                 T_avg = self.T
-
-        if pair_types_tgt != pair_types_sim:
-            raise ValueError(
-                "Particle types in target and simulation trajectories do not match."
-            )
-        if bond_types_tgt != bond_types_sim:
-            raise ValueError(
-                "Bond types in target and simulation trajectories do not match."
-            )
-        if angle_types_tgt != angle_types_sim:
-            raise ValueError(
-                "Angle types in target and simulation trajectories do not match."
-            )
-        if dihedral_types_tgt != dihedral_types_sim:
-            raise ValueError(
-                "Dihedral types in target and simulation trajectories do not match."
-            )
 
         # normalization to extensive or intensive as specified
         norm_factor = V_tgt if not self.extensive else 1.0
