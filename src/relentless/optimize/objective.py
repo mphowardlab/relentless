@@ -368,13 +368,14 @@ class RelativeEntropy(ObjectiveFunction):
 
         # compute gradient and result
         # relative entropy *value* is None
-        gradient_list = None
         if mpi.world.rank_is_root:
             if self._use_trajectory(self.target, self.thermo):
-                gradient = self._compute_gradient_direct_average(sim_ens, variables)
+                gradient = self._compute_gradient_direct_average(sim.directory.file(self.thermo.filename), variables)
             else:
-                gradient = self.compute_gradient(sim_ens, variables)
+                gradient = self.compute_gradient(sim[self.thermo]["ensemble"], variables)
             gradient_list = [gradient[var] for var in variables]
+        else:
+            gradient_list = None
         gradient_list = mpi.world.bcast(gradient_list)
         gradient = {var: gradient_list[i] for i, var in enumerate(variables)}
         result = ObjectiveFunctionResult(
