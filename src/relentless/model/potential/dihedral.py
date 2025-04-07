@@ -76,6 +76,7 @@ class DihedralPotential(potential.BondedPotential):
             is not a :class:`~relentless.variable.Variable`.
 
         """
+        phi = ((numpy.asarray(phi) + numpy.pi) % (2 * numpy.pi)) - numpy.pi
         self._validate_coordinate(phi)
 
         return super().derivative(type_=type_, var=var, x=phi)
