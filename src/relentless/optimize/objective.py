@@ -327,6 +327,12 @@ class RelativeEntropy(ObjectiveFunction):
             The result, which has unknown value ``None`` and known gradient.
 
         """
+        if self.thermo.rdf is None and not self._use_trajectory(
+            self.target, self.thermo
+        ):
+            raise ValueError(
+                "EnsembleAverage needs to compute RDF, specify parameters."
+            )
         # a directory is needed for the simulation, so create one if we don't have one
         if directory is None:
             # create directory and synchronize
@@ -353,14 +359,6 @@ class RelativeEntropy(ObjectiveFunction):
         # run simulation and use result to compute gradient
         try:
             sim = self.simulation.run(self.potentials, directory)
-            if self._use_trajectory(self.target, self.thermo):
-                sim_ens = sim.directory.file(self.thermo.filename)
-            else:
-                if self.thermo.rdf is None:
-                    raise ValueError(
-                        "EnsembleAverage needs to compute RDF, specify parameters."
-                    )
-                sim_ens = sim[self.thermo]["ensemble"]
         finally:
             mpi.world.barrier()
             if tmp is not None:
@@ -370,9 +368,13 @@ class RelativeEntropy(ObjectiveFunction):
         # relative entropy *value* is None
         if mpi.world.rank_is_root:
             if self._use_trajectory(self.target, self.thermo):
-                gradient = self._compute_gradient_direct_average(sim.directory.file(self.thermo.filename), variables)
+                gradient = self._compute_gradient_direct_average(
+                    sim.directory.file(self.thermo.filename), variables
+                )
             else:
-                gradient = self.compute_gradient(sim[self.thermo]["ensemble"], variables)
+                gradient = self.compute_gradient(
+                    sim[self.thermo]["ensemble"], variables
+                )
             gradient_list = [gradient[var] for var in variables]
         else:
             gradient_list = None
@@ -460,7 +462,8 @@ class RelativeEntropy(ObjectiveFunction):
                         * numpy.linalg.norm(snap.particles.velocity, axis=1) ** 2
                         / (3 * snap.particles.N * self.potentials.kB)
                     ) / len(traj)
-                self.T = T_avg
+            else:
+                T_avg = self.T
 
         if pair_types_tgt != pair_types_sim:
             raise ValueError(
@@ -482,20 +485,21 @@ class RelativeEntropy(ObjectiveFunction):
         # normalization to extensive or intensive as specified
         norm_factor = V_tgt if not self.extensive else 1.0
         gradient = (
-            self._calc_ensemble_average_dvar_dlambda(traj_tgt, dvars)
-            - self._calc_ensemble_average_dvar_dlambda(sim_traj, dvars)
-        ) / (norm_factor * self.potentials.kB * self.T)
+            self._calc_ensemble_average_dvar_gradient(traj_tgt, dvars)
+            - self._calc_ensemble_average_dvar_gradient(sim_traj, dvars)
+        ) / (norm_factor * self.potentials.kB * T_avg)
         return gradient
 
-    def _calc_ensemble_average_dvar_dlambda(self, trajectory, variables):
+    def _calc_ensemble_average_dvar_gradient(self, trajectory, variables):
         gradient = math.KeyedArray(keys=variables)
         for var in variables:
             gradient[var] = 0
 
         with gsd.hoomd.open(trajectory, "r") as traj:
             # loop through the trajectory and calculate ensemble average
-            box = freud.box.Box.from_box(traj[0].configuration.box)
+            frames = len(traj)
             for snap in traj:
+                box = freud.box.Box.from_box(snap.configuration.box)
                 pos = snap.particles.position
                 aq = freud.locality.AABBQuery(box, pos)
 
@@ -575,7 +579,7 @@ class RelativeEntropy(ObjectiveFunction):
                                 self.potentials.pair.derivative(
                                     (i, j), var, x=neighbors.distances[filter_ij]
                                 )
-                            ) / len(traj)
+                            )
 
                 # bond contributions to the gradient
                 if snap.bonds.N != 0:
@@ -586,17 +590,16 @@ class RelativeEntropy(ObjectiveFunction):
                         bonds = snap.bonds.group[bond_type_filter]
 
                         # Get positions for all pairs of bonded particles
-                        pos_1 = pos[bonds[:, 0]]
-                        pos_2 = pos[bonds[:, 1]]
+                        pos_1 = box.wrap(pos[bonds[:, 0]])
+                        pos_2 = box.wrap(pos[bonds[:, 1]])
 
                         # Calculate distances
                         dr = numpy.linalg.norm(pos_2 - pos_1, axis=1)
 
                         for var in variables:
-                            rs = self.potentials.bond.linear_space
-                            dus = self.potentials.bond.derivative(i, var)
-                            dudvar = math.AkimaSpline(rs, dus)
-                            gradient[var] += numpy.sum(dudvar(dr)) / len(traj)
+                            gradient[var] += numpy.sum(
+                                self.potentials.bond.derivative(i, var, x=dr)
+                            )
 
                 # angle contributions to the gradient
                 if snap.angles.N != 0:
@@ -609,9 +612,9 @@ class RelativeEntropy(ObjectiveFunction):
                         angles = snap.angles.group[angle_type_filter]
 
                         # get positions for all triplets of bonded particles
-                        pos_1 = pos[angles[:, 0]]
-                        pos_2 = pos[angles[:, 1]]
-                        pos_3 = pos[angles[:, 2]]
+                        pos_1 = box.wrap(pos[angles[:, 0]])
+                        pos_2 = box.wrap(pos[angles[:, 1]])
+                        pos_3 = box.wrap(pos[angles[:, 2]])
 
                         # calculate angles
                         r_12 = pos_2 - pos_1
@@ -619,15 +622,14 @@ class RelativeEntropy(ObjectiveFunction):
 
                         # use einsum for row-wise dot product
                         dtheta = numpy.arccos(
-                            -numpy.einsum("ij,ij->i", r_12, r_23)
+                            -numpy.sum(r_12 * r_23, axis=1)
                             / (numpy.linalg.norm(r_12) * numpy.linalg.norm(r_23))
                         )
 
                         for var in variables:
-                            rs = self.potentials.angle.linear_space
-                            dus = self.potentials.angle.derivative(i, var)
-                            dudvar = math.AkimaSpline(rs, dus)
-                            gradient[var] += numpy.sum(dudvar(dtheta)) / len(traj)
+                            gradient[var] += numpy.sum(
+                                self.potentials.angle.derivative(i, var, x=dtheta)
+                            )
 
                 # dihedral contributions to the gradient
                 if snap.dihedrals.N != 0:
@@ -642,10 +644,10 @@ class RelativeEntropy(ObjectiveFunction):
                         dihedrals = snap.dihedrals.group[dihedral_type_filter]
 
                         # get positions for all quadruplets of bonded particles
-                        pos_1 = pos[dihedrals[:, 0]]
-                        pos_2 = pos[dihedrals[:, 1]]
-                        pos_3 = pos[dihedrals[:, 2]]
-                        pos_4 = pos[dihedrals[:, 3]]
+                        pos_1 = box.wrap(pos[dihedrals[:, 0]])
+                        pos_2 = box.wrap(pos[dihedrals[:, 1]])
+                        pos_3 = box.wrap(pos[dihedrals[:, 2]])
+                        pos_4 = box.wrap(pos[dihedrals[:, 3]])
 
                         # calculate dihedrals
                         r_12 = pos_2 - pos_1
@@ -655,17 +657,18 @@ class RelativeEntropy(ObjectiveFunction):
                         cross_12_23 = numpy.cross(r_12, r_23)
                         cross_23_34 = numpy.cross(r_23, r_34)
                         dphi = numpy.arccos(
-                            numpy.einsum("ij,ij->i", cross_12_23, cross_23_34)
+                            -numpy.sum(cross_12_23 * cross_23_34, axis=1)
                             / (
                                 numpy.linalg.norm(cross_12_23)
                                 * numpy.linalg.norm(cross_23_34)
                             )
                         )
                         for var in variables:
-                            rs = self.potentials.dihedral.linear_space
-                            dus = self.potentials.dihedral.derivative(i, var)
-                            dudvar = math.AkimaSpline(rs, dus)
-                            gradient[var] += numpy.sum(dudvar(dphi)) / len(traj)
+                            gradient[var] += numpy.sum(
+                                self.potentials.dihedral.derivative(i, var, x=dphi)
+                            )
+        for var in variables:
+            gradient[var] /= frames
         return gradient
 
     def compute_gradient(self, ensemble, variables):
