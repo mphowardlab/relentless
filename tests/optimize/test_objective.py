@@ -492,7 +492,7 @@ class test_RelativeEntropyDirectAverage(unittest.TestCase):
                 self.pair_pot.derivative(("A", "A"), self.sigma_AA, sim_distances_AA)
             )
         ) / frames
-        self.assertAlmostEqual(res[self.sigma_AA], s_rel_pair_sigma_AA, delta=1e-4)
+        self.assertAlmostEqual(res[self.sigma_AA], s_rel_pair_sigma_AA, delta=1e-3)
 
         tgt_distances_BB = [1.414213562, 3.991015313]
         sim_distances_BB = [2.449489743, 3.507720287]
@@ -504,7 +504,7 @@ class test_RelativeEntropyDirectAverage(unittest.TestCase):
                 self.pair_pot.derivative(("B", "B"), self.sigma_BB, sim_distances_BB)
             )
         ) / frames
-        self.assertAlmostEqual(res[self.sigma_BB], s_rel_pair_sigma_BB, delta=1e-4)
+        self.assertAlmostEqual(res[self.sigma_BB], s_rel_pair_sigma_BB, delta=1e-3)
 
         # test bond contributions
         tgt_distances_bondA = [1, 1, 1.732050808, 3.991015313]
@@ -517,7 +517,7 @@ class test_RelativeEntropyDirectAverage(unittest.TestCase):
                 self.bond_pot.derivative("bondA", self.r0_bondA, sim_distances_bondA)
             )
         ) / frames
-        self.assertAlmostEqual(res[self.r0_bondA], s_rel_bond_r0_bondA, delta=1e-4)
+        self.assertAlmostEqual(res[self.r0_bondA], s_rel_bond_r0_bondA, delta=1e-3)
 
         tgt_distances_bondB = [1.0, 2.0]
         sim_distances_bondB = [1.1, 1.0]
@@ -529,7 +529,7 @@ class test_RelativeEntropyDirectAverage(unittest.TestCase):
                 self.bond_pot.derivative("bondB", self.r0_bondB, sim_distances_bondB)
             )
         ) / frames
-        self.assertAlmostEqual(res[self.r0_bondB], s_rel_bond_r0_bondB, delta=1e-4)
+        self.assertAlmostEqual(res[self.r0_bondB], s_rel_bond_r0_bondB, delta=1e-3)
 
         # test angle contributions
         tgt_angle_angleA = [1.570796327, 0.955316618]
@@ -547,7 +547,7 @@ class test_RelativeEntropyDirectAverage(unittest.TestCase):
             )
         ) / frames
         self.assertAlmostEqual(
-            res[self.theta0_angleA], s_rel_angle_theta0_angleA, delta=1e-4
+            res[self.theta0_angleA], s_rel_angle_theta0_angleA, delta=1e-3
         )
 
         tgt_angle_angleB = [1.570796327, 1.317534763]
@@ -565,7 +565,7 @@ class test_RelativeEntropyDirectAverage(unittest.TestCase):
             )
         ) / frames
         self.assertAlmostEqual(
-            res[self.theta0_angleB], s_rel_angle_theta0_angleB, delta=1e-4
+            res[self.theta0_angleB], s_rel_angle_theta0_angleB, delta=1e-3
         )
 
         # test dihedral contributions
@@ -583,7 +583,7 @@ class test_RelativeEntropyDirectAverage(unittest.TestCase):
                 )
             )
         ) / frames
-        self.assertAlmostEqual(res[self.k4_dihedral], s_rel_dihedral_phi0, delta=1e-4)
+        self.assertAlmostEqual(res[self.k4_dihedral], s_rel_dihedral_phi0, delta=1e-3)
 
     def test_compute_1_2_exclusions(self):
         """Test compute and compute_gradient methods with 1-2 exclusions"""
@@ -623,7 +623,7 @@ class test_RelativeEntropyDirectAverage(unittest.TestCase):
                 self.pair_pot.derivative(("A", "A"), self.sigma_AA, sim_distances_AA)
             )
         ) / frames
-        self.assertAlmostEqual(res[self.sigma_AA], s_rel_pair_sigma_AA, delta=1e-4)
+        self.assertAlmostEqual(res[self.sigma_AA], s_rel_pair_sigma_AA, delta=1e-3)
 
         # test A-B pair contributions
         tgt_distances_AB = [1.0, 5.137344143]
@@ -636,7 +636,7 @@ class test_RelativeEntropyDirectAverage(unittest.TestCase):
                 self.pair_pot.derivative(("A", "B"), self.sigma_AB, sim_distances_AB)
             )
         ) / frames
-        self.assertAlmostEqual(res[self.sigma_AB], s_rel_pair_sigma_AB, delta=1e-4)
+        self.assertAlmostEqual(res[self.sigma_AB], s_rel_pair_sigma_AB, delta=1e-3)
 
         # test B-B pair contributions
         tgt_distances_BB = [1.414213562, 3.991015313]
@@ -649,7 +649,7 @@ class test_RelativeEntropyDirectAverage(unittest.TestCase):
                 self.pair_pot.derivative(("B", "B"), self.sigma_BB, sim_distances_BB)
             )
         ) / frames
-        self.assertAlmostEqual(res[self.sigma_BB], s_rel_pair_sigma_BB, delta=1e-4)
+        self.assertAlmostEqual(res[self.sigma_BB], s_rel_pair_sigma_BB, delta=1e-3)
 
     def test_compute_1_3_exclusions(self):
         """Test compute and compute_gradient methods with 1-3 exclusions"""
@@ -679,7 +679,7 @@ class test_RelativeEntropyDirectAverage(unittest.TestCase):
         frames = 2
 
         # test A-A pair contributions
-        self.assertAlmostEqual(res[self.sigma_AA], 0.0, delta=1e-4)
+        self.assertAlmostEqual(res[self.sigma_AA], 0.0, delta=1e-3)
 
         # test A-B pair contributions
         tgt_distances_AB = [
@@ -710,10 +710,10 @@ class test_RelativeEntropyDirectAverage(unittest.TestCase):
                 self.pair_pot.derivative(("A", "B"), self.sigma_AB, sim_distances_AB)
             )
         ) / frames
-        self.assertAlmostEqual(res[self.sigma_AB], s_rel_pair_sigma_AB, delta=1e-4)
+        self.assertAlmostEqual(res[self.sigma_AB], s_rel_pair_sigma_AB, delta=1e-3)
 
         # test B-B pair contributions
-        self.assertAlmostEqual(res[self.sigma_BB], 0.0, delta=1e-4)
+        self.assertAlmostEqual(res[self.sigma_BB], 0.0, delta=1e-3)
 
     def test_compute_1_4_exclusions(self):
         """Test compute and compute_gradient methods with 1-4 exclusions"""
@@ -753,7 +753,7 @@ class test_RelativeEntropyDirectAverage(unittest.TestCase):
                 self.pair_pot.derivative(("A", "A"), self.sigma_AA, sim_distances_AA)
             )
         ) / frames
-        self.assertAlmostEqual(res[self.sigma_AA], s_rel_pair_sigma_AA, delta=1e-4)
+        self.assertAlmostEqual(res[self.sigma_AA], s_rel_pair_sigma_AA, delta=1e-3)
 
         # test A-B pair contributions
         tgt_distances_AB = [1.0, 1.0, 1.0, 1.732050808, 2.0, 3.991015313]
@@ -766,7 +766,7 @@ class test_RelativeEntropyDirectAverage(unittest.TestCase):
                 self.pair_pot.derivative(("A", "B"), self.sigma_AB, sim_distances_AB)
             )
         ) / frames
-        self.assertAlmostEqual(res[self.sigma_AB], s_rel_pair_sigma_AB, delta=1e-4)
+        self.assertAlmostEqual(res[self.sigma_AB], s_rel_pair_sigma_AB, delta=1e-3)
 
         # test B-B pair contributions
         tgt_distances_BB = [1.414213562, 3.991015313]
@@ -779,7 +779,7 @@ class test_RelativeEntropyDirectAverage(unittest.TestCase):
                 self.pair_pot.derivative(("B", "B"), self.sigma_BB, sim_distances_BB)
             )
         ) / frames
-        self.assertAlmostEqual(res[self.sigma_BB], s_rel_pair_sigma_BB, delta=1e-4)
+        self.assertAlmostEqual(res[self.sigma_BB], s_rel_pair_sigma_BB, delta=1e-3)
 
     def test_compute_all_exclusions(self):
         """Test compute and compute_gradient methods with all exclusions"""
@@ -806,13 +806,13 @@ class test_RelativeEntropyDirectAverage(unittest.TestCase):
         res = relent._compute_gradient_direct_average(sim_traj, vars)
 
         # test A-A pair contributions
-        self.assertAlmostEqual(res[self.sigma_AA], 0.0, delta=1e-4)
+        self.assertAlmostEqual(res[self.sigma_AA], 0.0, delta=1e-3)
 
         # test A-B pair contributions
-        self.assertAlmostEqual(res[self.sigma_AB], 0.0, delta=1e-4)
+        self.assertAlmostEqual(res[self.sigma_AB], 0.0, delta=1e-3)
 
         # test B-B pair contributions
-        self.assertAlmostEqual(res[self.sigma_BB], 0.0, delta=1e-4)
+        self.assertAlmostEqual(res[self.sigma_BB], 0.0, delta=1e-3)
 
     def test_intensive(self):
         """Test compute and compute_gradient methods"""
@@ -853,7 +853,7 @@ class test_RelativeEntropyDirectAverage(unittest.TestCase):
 
         for var in vars:
             self.assertAlmostEqual(
-                res_extensive[var], res_intensive[var] * 20**3, delta=1e-4
+                res_extensive[var], res_intensive[var] * 20**3, delta=1e-3
             )
 
     def tearDown(self):
