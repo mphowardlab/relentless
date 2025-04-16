@@ -413,16 +413,10 @@ class RelativeEntropy(ObjectiveFunction):
         traj_tgt = self.target
         dvars = variable.graph.check_variables_and_types(variables, variable.Variable)
 
-        with gsd.hoomd.open(traj_tgt, "r") as traj:
-            V_tgt = 0
-            for snap in traj:
-                Lx, Ly, Lz, xy, xz, yz = snap.configuration.box
-                V_tgt += extent.TriclinicBox(Lx, Ly, Lz, xy, xz, yz).extent / len(traj)
-
-        with gsd.hoomd.open(sim_traj, "r") as traj:
-            # calculate T if not provided
-            if self.T is None:
-                if snap.particles.mass is None or snap.particles.velocity is None:
+        # calculate T if not provided
+        if self.T is None:
+            with gsd.hoomd.open(sim_traj, "r") as traj:
+                if traj[0].particles.mass is None or traj[0].particles.velocity is None:
                     raise ValueError(
                         "Temperature not provided and cannot be calculated "
                         "from trajectory."
@@ -432,13 +426,22 @@ class RelativeEntropy(ObjectiveFunction):
                     T_avg += numpy.sum(
                         snap.particles.mass
                         * numpy.linalg.norm(snap.particles.velocity, axis=1) ** 2
-                        / (3 * snap.particles.N * self.potentials.kB)
-                    ) / len(traj)
-            else:
-                T_avg = self.T
+                    ) / (3 * snap.particles.N * self.potentials.kB)
+                T_avg /= len(traj)
+        else:
+            T_avg = self.T
 
         # normalization to extensive or intensive as specified
-        norm_factor = V_tgt if not self.extensive else 1.0
+        if not self.extensive:
+            with gsd.hoomd.open(traj_tgt, "r") as traj:
+                V_tgt = 0
+                for snap in traj:
+                    V_tgt += extent.TriclinicBox(*snap.configuration.box).extent
+                V_tgt /= len(traj)
+            norm_factor = V_tgt
+        else:
+            norm_factor = 1.0
+
         gradient = (
             self._calc_ensemble_average_dvar_gradient(traj_tgt, dvars)
             - self._calc_ensemble_average_dvar_gradient(sim_traj, dvars)
@@ -580,7 +583,10 @@ class RelativeEntropy(ObjectiveFunction):
                         # use einsum for row-wise dot product
                         dtheta = numpy.arccos(
                             -numpy.sum(r_12 * r_23, axis=1)
-                            / (numpy.linalg.norm(r_12) * numpy.linalg.norm(r_23))
+                            / (
+                                numpy.linalg.norm(r_12, axis=1)
+                                * numpy.linalg.norm(r_23, axis=1)
+                            )
                         )
 
                         for var in variables:
@@ -616,10 +622,15 @@ class RelativeEntropy(ObjectiveFunction):
                         dphi = numpy.arccos(
                             -numpy.sum(cross_12_23 * cross_23_34, axis=1)
                             / (
-                                numpy.linalg.norm(cross_12_23)
-                                * numpy.linalg.norm(cross_23_34)
+                                numpy.linalg.norm(cross_12_23, axis=1)
+                                * numpy.linalg.norm(cross_23_34, axis=1)
                             )
                         )
+
+                        # wrap dihedral angles to [-pi, pi]
+                        dphi[dphi > numpy.pi] -= 2 * numpy.pi
+                        dphi[dphi < -numpy.pi] += 2 * numpy.pi
+
                         for var in variables:
                             gradient[var] += numpy.sum(
                                 self.potentials.dihedral.derivative(i, var, x=dphi)
