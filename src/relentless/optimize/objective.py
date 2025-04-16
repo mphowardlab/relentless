@@ -628,6 +628,11 @@ class RelativeEntropy(ObjectiveFunction):
                         )
 
                         # wrap dihedral angles to [-pi, pi]
+                        print(
+                            "objetive.py trigger ",
+                            dphi[dphi > numpy.pi],
+                            dphi[dphi < -numpy.pi],
+                        )
                         dphi[dphi > numpy.pi] -= 2 * numpy.pi
                         dphi[dphi < -numpy.pi] += 2 * numpy.pi
 
