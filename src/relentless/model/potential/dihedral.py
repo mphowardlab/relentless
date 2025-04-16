@@ -93,13 +93,6 @@ class DihedralPotential(potential.BondedPotential):
         ValueError
             If any value in ``phi`` is not between -pi and pi.
         """
-        flags_close_pi = numpy.isclose(phi, numpy.pi, atol=1e-4)
-        flags_close_neg_pi = numpy.isclose(phi, -numpy.pi, atol=1e-4)
-
-        # set the flagged entries to the value of pi or neg pi
-        phi = numpy.where(flags_close_pi, numpy.pi, phi)
-        phi = numpy.where(flags_close_neg_pi, -numpy.pi, phi)
-
         if numpy.any(numpy.less(phi, -numpy.pi)) or numpy.any(
             numpy.greater(phi, numpy.pi)
         ):
