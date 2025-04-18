@@ -629,12 +629,18 @@ class RelativeEntropy(ObjectiveFunction):
 
                         # wrap dihedral angles to [-pi, pi]
                         print(
-                            "objetive.py trigger ",
+                            "objetive.py trigger before",
                             dphi[dphi > numpy.pi],
                             dphi[dphi < -numpy.pi],
                         )
                         dphi[dphi > numpy.pi] -= 2 * numpy.pi
                         dphi[dphi < -numpy.pi] += 2 * numpy.pi
+
+                        print(
+                            "objetive.py trigger after",
+                            dphi[dphi > numpy.pi],
+                            dphi[dphi < -numpy.pi],
+                        )
 
                         for var in variables:
                             gradient[var] += numpy.sum(
