@@ -580,8 +580,8 @@ class RelativeEntropy(ObjectiveFunction):
                         pos_3 = pos[angles[:, 2]]
 
                         # calculate angles
-                        r_12 = box.wrap(numpy.asarray(pos_2 - pos_1, dtype=float))
-                        r_23 = box.wrap(numpy.asarray(pos_3 - pos_2, dtype=float))
+                        r_12 = numpy.asarray(box.wrap(pos_2 - pos_1), dtype=float)
+                        r_23 = numpy.asarray(box.wrap(pos_3 - pos_2), dtype=float)
 
                         # use einsum for row-wise dot product
                         dtheta = numpy.arccos(
@@ -616,9 +616,9 @@ class RelativeEntropy(ObjectiveFunction):
                         pos_4 = pos[dihedrals[:, 3]]
 
                         # calculate dihedrals
-                        r_12 = box.wrap(numpy.asarray(pos_2 - pos_1, dtype=float))
-                        r_23 = box.wrap(numpy.asarray(pos_3 - pos_2, dtype=float))
-                        r_34 = box.wrap(numpy.asarray(pos_4 - pos_3, dtype=float))
+                        r_12 = numpy.asarray(box.wrap(pos_2 - pos_1), dtype=float)
+                        r_23 = numpy.asarray(box.wrap(pos_3 - pos_2), dtype=float)
+                        r_34 = numpy.asarray(box.wrap(pos_4 - pos_3), dtype=float)
 
                         cross_12_23 = numpy.cross(r_12, r_23)
                         cross_23_34 = numpy.cross(r_23, r_34)
