@@ -644,7 +644,7 @@ class RelativeEntropy(ObjectiveFunction):
                             dphi[dphi > numpy.pi],
                             dphi[dphi < -numpy.pi],
                         )
-
+                        print("objective.py phi before tabulator: ", dphi)
                         for var in variables:
                             gradient[var] += numpy.sum(
                                 self.potentials.dihedral.derivative(i, var, x=dphi)

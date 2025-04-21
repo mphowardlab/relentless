@@ -613,7 +613,7 @@ class PotentialTabulator:
         """
         if x is None:
             x = self.linear_space
-        d = numpy.zeros_like(x, dtype=numpy.float64)
+        d = numpy.zeros_like(x, dtype=float)
         for pot in self.potentials:
             try:
                 if key == "dihedralA":
