@@ -458,7 +458,7 @@ class RelativeEntropy(ObjectiveFunction):
             frames = len(traj)
             for snap in traj:
                 box = freud.box.Box.from_box(snap.configuration.box)
-                pos = box.wrap(snap.particles.position)
+                pos = numpy.asarray(box.wrap(snap.particles.position), dtype=float)
                 aq = freud.locality.AABBQuery(box, pos)
 
                 neighbors = aq.query(
@@ -554,7 +554,10 @@ class RelativeEntropy(ObjectiveFunction):
                         pos_2 = pos[bonds[:, 1]]
 
                         # Calculate distances
-                        dr = numpy.linalg.norm(box.wrap((pos_2 - pos_1)), axis=1)
+                        dr = numpy.linalg.norm(
+                            numpy.asarray(box.wrap((pos_2 - pos_1)), dtype=float),
+                            axis=1,
+                        )
 
                         for var in variables:
                             gradient[var] += numpy.sum(
@@ -577,8 +580,8 @@ class RelativeEntropy(ObjectiveFunction):
                         pos_3 = pos[angles[:, 2]]
 
                         # calculate angles
-                        r_12 = box.wrap(pos_2 - pos_1)
-                        r_23 = box.wrap(pos_3 - pos_2)
+                        r_12 = box.wrap(numpy.asarray(pos_2 - pos_1, dtype=float))
+                        r_23 = box.wrap(numpy.asarray(pos_3 - pos_2, dtype=float))
 
                         # use einsum for row-wise dot product
                         dtheta = numpy.arccos(
@@ -613,9 +616,9 @@ class RelativeEntropy(ObjectiveFunction):
                         pos_4 = pos[dihedrals[:, 3]]
 
                         # calculate dihedrals
-                        r_12 = box.wrap(pos_2 - pos_1)
-                        r_23 = box.wrap(pos_3 - pos_2)
-                        r_34 = box.wrap(pos_4 - pos_3)
+                        r_12 = box.wrap(numpy.asarray(pos_2 - pos_1, dtype=float))
+                        r_23 = box.wrap(numpy.asarray(pos_3 - pos_2, dtype=float))
+                        r_34 = box.wrap(numpy.asarray(pos_4 - pos_3, dtype=float))
 
                         cross_12_23 = numpy.cross(r_12, r_23)
                         cross_23_34 = numpy.cross(r_23, r_34)
