@@ -645,6 +645,7 @@ class RelativeEntropy(ObjectiveFunction):
                             dphi[dphi < -numpy.pi],
                         )
                         print(f"objective.py phi before tabulator: {dphi[0]:.20}")
+                        print(f"objective.py pi: {numpy.pi:.20}")
                         print("objective.py: gt ", numpy.greater(dphi[0], numpy.pi))
                         print("objective.py: lt", numpy.less(dphi[0], -numpy.pi))
                         for var in variables:
