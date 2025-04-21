@@ -614,6 +614,8 @@ class PotentialTabulator:
         if x is None:
             x = self.linear_space
         d = numpy.zeros_like(x, dtype=float)
+        if key == "dihedralA":
+            print("simulate.py tabulator: ", x)
         for pot in self.potentials:
             try:
                 d += pot.derivative(key, var, x)
