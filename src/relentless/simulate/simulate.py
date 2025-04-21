@@ -617,7 +617,11 @@ class PotentialTabulator:
         for pot in self.potentials:
             try:
                 if key == "dihedralA":
-                    print("simulate.py tabulator: ", key, x)
+                    print(
+                        "simulate.py tabulator before sent to potential derivative: ",
+                        key,
+                        x,
+                    )
                 d += pot.derivative(key, var, x)
             except KeyError:
                 pass

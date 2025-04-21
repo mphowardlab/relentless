@@ -632,7 +632,7 @@ class RelativeEntropy(ObjectiveFunction):
 
                         # wrap dihedral angles to [-pi, pi]
                         print(
-                            "objetive.py trigger before",
+                            "objetive.py out of range before wrapping: ",
                             dphi[dphi > numpy.pi],
                             dphi[dphi < -numpy.pi],
                         )
@@ -640,14 +640,20 @@ class RelativeEntropy(ObjectiveFunction):
                         dphi[dphi < -numpy.pi] += 2 * numpy.pi
 
                         print(
-                            "objetive.py trigger after",
+                            "objetive.py out of range after wrapping: ",
                             dphi[dphi > numpy.pi],
                             dphi[dphi < -numpy.pi],
                         )
-                        print(f"objective.py phi before tabulator: {dphi[0]:.20}")
+                        print(f"objective.py dphi b4 to tabulator: {dphi[0]:.20}")
                         print(f"objective.py pi: {numpy.pi:.20}")
-                        print("objective.py: gt ", numpy.greater(dphi[0], numpy.pi))
-                        print("objective.py: lt", numpy.less(dphi[0], -numpy.pi))
+                        print(
+                            "objective.py: numpy.greater(dphi, pi) ",
+                            numpy.greater(dphi, numpy.pi),
+                        )
+                        print(
+                            "objective.py: numpy.less(dhi, -pi)",
+                            numpy.less(dphi, -numpy.pi),
+                        )
                         for var in variables:
                             gradient[var] += numpy.sum(
                                 self.potentials.dihedral.derivative(i, var, x=dphi)
