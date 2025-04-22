@@ -351,7 +351,7 @@ class test_RelativeEntropyDirectAverage(unittest.TestCase):
 
         self.simulation = None
 
-    def create_gsd_two_4mers_sim(self):
+    def create_gsd_two_4mers_sim(self, thermalize=False):
         filename = self.directory.file("sim.gsd")
         if relentless.mpi.world.rank_is_root:
             with gsd.hoomd.open(name=filename, mode="w") as f:
@@ -364,6 +364,14 @@ class test_RelativeEntropyDirectAverage(unittest.TestCase):
                     0,
                     1,
                 ]
+                # set velocity such that T=1
+                if thermalize:
+                    s.particles.velocity = [
+                        [1.0, 1.0, 1.0],
+                        [1.0, 1.0, 1.0],
+                        [1.0, 1.0, 1.0],
+                        [1.0, 1.0, 1.0],
+                    ]
                 # bonds
                 s.bonds.N = 3
                 s.bonds.types = ["bondA", "bondB"]
@@ -855,6 +863,59 @@ class test_RelativeEntropyDirectAverage(unittest.TestCase):
             self.assertAlmostEqual(
                 res_extensive[var], res_intensive[var] * 20**3, delta=1e-3
             )
+
+    def test_compute_temperature(self):
+        """Test compute and compute_gradient methods with 1-2 exclusions"""
+        # check case where temperature cannot be computed
+        self.target = self.create_gsd_mers_tgt()
+
+        self.potentials.pair.exclusions = ["1-2"]
+
+        relent = relentless.optimize.RelativeEntropy(
+            self.target,
+            self.simulation,
+            self.potentials,
+            self.thermo,
+            extensive=True,
+        )
+        sim_traj = self.create_gsd_two_4mers_sim()
+
+        vars = (
+            self.sigma_AA,
+            self.sigma_AB,
+            self.sigma_BB,
+        )
+
+        with self.assertRaises(ValueError):
+            res = relent._compute_gradient_direct_average(sim_traj, vars)
+
+        # check case where temperature can be computed
+        self.sim = self.create_gsd_two_4mers_sim(thermalize=True)
+        relent = relentless.optimize.RelativeEntropy(
+            self.target,
+            self.simulation,
+            self.potentials,
+            self.thermo,
+            extensive=True,
+        )
+
+        res = relent._compute_gradient_direct_average(sim_traj, vars)
+
+        # number of frames
+        frames = 2
+
+        # test A-A pair contributions
+        tgt_distances_AA = [1.414213562, 1.732050808]
+        sim_distances_AA = [2.32594067, 2.945182781]
+        s_rel_pair_sigma_AA = (
+            numpy.sum(
+                self.pair_pot.derivative(("A", "A"), self.sigma_AA, tgt_distances_AA)
+            )
+            - numpy.sum(
+                self.pair_pot.derivative(("A", "A"), self.sigma_AA, sim_distances_AA)
+            )
+        ) / frames
+        self.assertAlmostEqual(res[self.sigma_AA], s_rel_pair_sigma_AA, delta=1e-3)
 
     def tearDown(self):
         relentless.mpi.world.barrier()

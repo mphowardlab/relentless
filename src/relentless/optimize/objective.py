@@ -416,7 +416,13 @@ class RelativeEntropy(ObjectiveFunction):
         # calculate T if not provided
         if self.T is None:
             with gsd.hoomd.open(sim_traj, "r") as traj:
-                if traj[0].particles.mass is None or traj[0].particles.velocity is None:
+                # check if mass and velocity are provided and non-zero
+                if (
+                    traj[0].particles.mass is None
+                    or not numpy.any(traj[0].particles.mass)
+                    or traj[0].particles.velocity is None
+                    or not numpy.any(traj[0].particles.velocity)
+                ):
                     raise ValueError(
                         "Temperature not provided and cannot be calculated "
                         "from trajectory."
