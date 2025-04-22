@@ -96,7 +96,6 @@ class DihedralPotential(potential.BondedPotential):
         if numpy.any(numpy.less(phi, -numpy.pi)) or numpy.any(
             numpy.greater(phi, numpy.pi)
         ):
-            print("dihedral.py trigger ", phi)
             raise ValueError("Angle must be between -pi and pi.")
 
 

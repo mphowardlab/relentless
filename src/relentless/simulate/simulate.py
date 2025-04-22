@@ -616,12 +616,6 @@ class PotentialTabulator:
         d = numpy.zeros_like(x, dtype=float)
         for pot in self.potentials:
             try:
-                if key == "dihedralA":
-                    print(
-                        "simulate.py tabulator before sent to potential derivative: ",
-                        key,
-                        x,
-                    )
                 d += pot.derivative(key, var, x)
             except KeyError:
                 pass
