@@ -261,7 +261,7 @@ class RelativeEntropy(ObjectiveFunction):
         \nabla_\mathbf{x} S_{\rm rel} = -\frac{1}{2} \sum_{i,j} \int dr 4\pi r^2
             \left[\frac{\beta N_i N_j}{V} g_{ij}(r) \right.
             \left. -\frac{\beta_0 N_{i,0} N_{j,0}}{V_0} g_{ij,0}(r)\right]
-            \nabla_\mathbf{x} u_{ij}(r)}
+            \nabla_\mathbf{x} u_{ij}(r)
 
     where :math:`\beta=1/(k_{\rm B}T)`, :math:`N_i` is the number of particles
     of type :math:`i`, :math:`V` is the extent, and :math:`u_{ij}(r)` is the pair
