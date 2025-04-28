@@ -674,7 +674,49 @@ class RelativeEntropy(ObjectiveFunction):
         for pair in g_tgt:
             if g_sim.get(pair, None) is None:
                 raise KeyError(f"RDF not computed for pair {pair}")
-
+        for var in variables:
+            if self.potentials.bond is not None:
+                for type in self.potentials.bond.types:
+                    if numpy.any(
+                        self.potentials.bond.derivative(
+                            type, var, self.potentials.bond.linear_space
+                        )
+                        != 0
+                    ):
+                        raise ValueError(
+                            "This RelativeEntropy calculation method is only "
+                            "suitable for pair potentials. "
+                            "A variable has a non-zero derivative "
+                            "with respect to a bond potential."
+                        )
+            if self.potentials.angle is not None:
+                for type in self.potentials.angle.types:
+                    if numpy.any(
+                        self.potentials.angle.derivative(
+                            type, var, self.potentials.angle.linear_space
+                        )
+                        != 0
+                    ):
+                        raise ValueError(
+                            "This RelativeEntropy calculation method is only "
+                            "suitable for pair potentials. "
+                            "A variable has a non-zero derivative "
+                            "with respect to an angle potential."
+                        )
+            if self.potentials.dihedral is not None:
+                for type in self.potentials.dihedral.types:
+                    if numpy.any(
+                        self.potentials.dihedral.derivative(
+                            type, var, self.potentials.dihedral.linear_space
+                        )
+                        != 0
+                    ):
+                        raise ValueError(
+                            "This RelativeEntropy calculation method is only "
+                            "suitable for pair potentials. "
+                            "A variable has a non-zero derivative "
+                            "with respect to a dihedral potential."
+                        )
         for var in dvars:
             update = 0
             for i, j in g_tgt:

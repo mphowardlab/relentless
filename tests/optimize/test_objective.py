@@ -239,6 +239,62 @@ class test_RelativeEntropy(unittest.TestCase):
         with self.assertRaises((ValueError, KeyError)):
             relent.compute((self.epsilon, self.sigma))
 
+    def test_compute_bonded_potential_variables(self):
+        # test compute with bond potentials dependent on variables
+        bond_pot = relentless.model.potential.HarmonicBond(("bondA",))
+        bond_pot.coeff["bondA"].update(
+            {
+                "k": self.epsilon,
+                "r0": 1.0,
+            }
+        )
+        self.potentials.bond = relentless.simulate.BondPotentialTabulator(
+            bond_pot, start=0.0, stop=6.0, num=1000
+        )
+        relent = relentless.optimize.RelativeEntropy(
+            self.target, self.simulation, self.potentials, self.thermo
+        )
+        with self.assertRaises(ValueError):
+            relent.compute((self.epsilon, self.sigma))
+        self.potentials.bond = None
+
+        # test compute with angle potentials dependent on variables
+        angle_pot = relentless.model.potential.HarmonicAngle(("angleA",))
+        angle_pot.coeff["angleA"].update(
+            {
+                "k": self.epsilon,
+                "theta0": 1.5,
+            }
+        )
+        self.potentials.angle = relentless.simulate.AnglePotentialTabulator(
+            angle_pot, num=1000
+        )
+        relent = relentless.optimize.RelativeEntropy(
+            self.target, self.simulation, self.potentials, self.thermo
+        )
+        with self.assertRaises(ValueError):
+            relent.compute((self.epsilon, self.sigma))
+        self.potentials.angle = None
+
+        # test compute with dihedral potentials dependent on variables
+        dihedral_pot = relentless.model.potential.OPLSDihedral(("dihedralA",))
+        dihedral_pot.coeff["dihedralA"].update(
+            {
+                "k1": self.epsilon,
+                "k2": 1.0,
+                "k3": 1.0,
+                "k4": 1.0,
+            }
+        )
+        self.potentials.dihedral = relentless.simulate.DihedralPotentialTabulator(
+            dihedral_pot, num=1000
+        )
+        relent = relentless.optimize.RelativeEntropy(
+            self.target, self.simulation, self.potentials, self.thermo
+        )
+        with self.assertRaises(ValueError):
+            relent.compute((self.epsilon, self.sigma))
+
     def test_directory(self):
         relent = relentless.optimize.RelativeEntropy(
             self.target, self.simulation, self.potentials, self.thermo
