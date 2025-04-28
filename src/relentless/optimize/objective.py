@@ -250,11 +250,36 @@ class RelativeEntropy(ObjectiveFunction):
     simulations, so this :class:`ObjectiveFunction` does not return a value.
     However, the gradient of the relative entropy with respect to the design
     variables :math:`\mathbf{x}` is much easier to compute as ensemble averages.
-    Currently, the :class:`RelativeEntropy` objective function supports only
-    :class:`~relentless.potential.pair.PairPotential` interactions. These interactions
-    are characterized by :math:`g_{ij}(r)`, an :class:`~relentless.ensemble.RDF`
-    for each pair of interacting types :math:`(i,j)` in each
-    :class:`~relentless.ensemble.Ensemble`. The gradient of :math:`S_{\rm rel}` is then:
+
+    The gradient of the relative entropy can be computed through direct ensemble
+    averaging or through integration of the radial distribution functions (RDFs)
+    of the target and model ensembles. When ``target`` is a :class:`str` and
+    ``thermo`` is a :class:`~relentless.simulate.analyze.WriteTrajectory`
+    object, the relative entropy is computed through direct ensemble averaging.
+    In this case, the relative entropy gradient is computed as:
+
+    .. math::
+
+        \nabla_\mathbf{x} S_{\rm rel} = \beta \left(
+        \left\langle  \frac{\partial U}{\partial \mathbf{x}} \right\rangle_0 -
+        \left\langle  \frac{\partial U}{\partial \mathbf{x}} \right\rangle
+        \right)
+
+    where :math:`\langle\cdot\rangle_0` and :math:`\langle\cdot\rangle` are ensemble
+    averages in the target and model ensembles, respectively,
+    :math:`\beta=1/(k_{\rm B}T)`, and :math:`U` is the total potential energy.
+
+    It is recommended to use the direct ensemble average method in most cases,
+    as it allows for design of :class:`~relentless.potential.pair.PairPotential` and
+    bonded interactions. This method also easily supports design of pair-potentials
+    with bonded exclusions.
+
+    The :class:`RelativeEntropy` objective function supports a method for designing
+    :class:`~relentless.potential.pair.PairPotential` only interactions. These
+    interactions are characterized by :math:`g_{ij}(r)`, an
+    :class:`~relentless.ensemble.RDF` for each pair of interacting types
+    :math:`(i,j)` in each :class:`~relentless.ensemble.Ensemble`.
+    The gradient of :math:`S_{\rm rel}` is then:
 
     .. math::
 
@@ -268,6 +293,14 @@ class RelativeEntropy(ObjectiveFunction):
     potential in the *model* ensemble. The corresponding properties of the *target*
     ensemble are denoted with subscript :math:`0`.
 
+    This method is performed when :class:`~relentless.ensemble.Ensemble` and
+    :class:`~relentless.simulate.analyze.EnsembleAverage` objects are provided
+    for the ``target`` and ``thermo`` parameters, respectively. It recommended
+    to use the direct ensemble average method in most cases. Note: it is possible
+    to use this method with bonded exclusions, but it requires the exclusions be
+    the same in both the target ensemble's rdf and the model ensemble's rdf calculation.
+    This method does not support design of bonded interactions.
+
     :math:`S_{\rm rel}` is extensive as written, meaning that it depends on the
     size of the system. This can be undesirable for optimization because it means
     certain hyperparameters are system-dependent, so the default behavior
@@ -276,15 +309,18 @@ class RelativeEntropy(ObjectiveFunction):
 
     Parameters
     ----------
-    target : :class:`~relentless.ensemble.Ensemble`
-        The target ensemble (must have specified ``V`` and ``N``).
+    target : :class:`~relentless.ensemble.Ensemble` or str
+        The target :class:`~relentless.ensemble.Ensemble` (must have specified
+        ``V`` and ``N``).
+        The str should be the path to a gsd trajectory file containing the
+        target ensemble.
     simulation : :class:`~relentless.simulate.simulate.Simulation`
         The simulation engine to use, with specified simulation operations.
     potentials : :class:`~relentless.simulate.simulate.Potentials`
         The pair potentials to use in the simulations.
-    thermo : :class:`~relentless.simulate.simulate.SimulationOperation`
-        The thermodynamic analyzer operation for the simulation ensemble and rdf
-        (usually :class:`~relentless.simulate.simulate.AddEnsembleAnalyzer`).
+    thermo : :class:`~relentless.simulate.simulate.SimulationOperation` or
+    :class:`~relentless.simulate.analyze.WriteTrajectory`
+        The thermodynamic analyzer operation for the simulation ensemble.
         The model ensemble will be extracted from this operation.
     extensive : bool
         Specification of whether the relative entropy is extensive (defaults to
