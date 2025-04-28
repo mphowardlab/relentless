@@ -727,8 +727,8 @@ class RelativeEntropy(ObjectiveFunction):
                         raise ValueError(
                             "This RelativeEntropy calculation method is only "
                             "suitable for pair potentials. "
-                            "A variable has a non-zero derivative "
-                            "with respect to a bond potential."
+                            "A bond potential has a non-zero derivative "
+                            "with respect to a variable"
                         )
             if self.potentials.angle is not None:
                 for type in self.potentials.angle.types:
@@ -741,8 +741,8 @@ class RelativeEntropy(ObjectiveFunction):
                         raise ValueError(
                             "This RelativeEntropy calculation method is only "
                             "suitable for pair potentials. "
-                            "A variable has a non-zero derivative "
-                            "with respect to an angle potential."
+                            "An angle potential has a non-zero derivative "
+                            "with respect to a variable"
                         )
             if self.potentials.dihedral is not None:
                 for type in self.potentials.dihedral.types:
@@ -755,8 +755,8 @@ class RelativeEntropy(ObjectiveFunction):
                         raise ValueError(
                             "This RelativeEntropy calculation method is only "
                             "suitable for pair potentials. "
-                            "A variable has a non-zero derivative "
-                            "with respect to a dihedral potential."
+                            "A dihedral potential has a non-zero derivative "
+                            "with respect to a variable"
                         )
         for var in dvars:
             update = 0

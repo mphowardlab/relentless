@@ -239,6 +239,10 @@ class test_RelativeEntropy(unittest.TestCase):
         with self.assertRaises((ValueError, KeyError)):
             relent.compute((self.epsilon, self.sigma))
 
+    @unittest.skipIf(
+        relentless.mpi.world.size > 1,
+        "This test will cause deadlock with the unittest framework.",
+    )
     def test_compute_bonded_potential_variables(self):
         # test compute with bond potentials dependent on variables
         bond_pot = relentless.model.potential.HarmonicBond(("bondA",))
