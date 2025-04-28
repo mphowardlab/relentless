@@ -561,7 +561,7 @@ class RelativeEntropy(ObjectiveFunction):
 
                         # Calculate distances
                         dr = numpy.linalg.norm(
-                            numpy.asarray(box.wrap((pos_2 - pos_1)), dtype=float),
+                            numpy.asarray(box.wrap(pos_2 - pos_1), dtype=float),
                             axis=1,
                         )
 
