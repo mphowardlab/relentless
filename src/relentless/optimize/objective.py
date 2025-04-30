@@ -253,8 +253,12 @@ class RelativeEntropy(ObjectiveFunction):
 
     The gradient of the relative entropy can be computed through direct ensemble
     averaging or through integration of the radial distribution function (rdf)
-    of the target and model ensembles. When ``target`` is a :class:`str` and
-    ``thermo`` is a :class:`~relentless.simulate.analyze.WriteTrajectory`
+    of the target and model ensembles.
+    
+    .. rubric:: Direct ensemble average
+    
+    When ``target`` is a :class:`str` and ``thermo`` is a
+    :class:`~relentless.simulate.analyze.WriteTrajectory`
     object, the relative entropy is computed through direct ensemble averaging.
     In this case, the relative entropy gradient is computed as:
 
