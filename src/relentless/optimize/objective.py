@@ -57,12 +57,16 @@ To implement your own objective function, create a class that derives from
 
 import abc
 import json
+import pathlib
 import tempfile
 
+import freud
+import gsd.hoomd
 import numpy
 
 from relentless import data, math, mpi
-from relentless.model import extent, variable
+from relentless.model import Ensemble, extent, variable
+from relentless.simulate.analyze import EnsembleAverage, WriteTrajectory
 
 
 class ObjectiveFunction(abc.ABC):
@@ -246,23 +250,62 @@ class RelativeEntropy(ObjectiveFunction):
     simulations, so this :class:`ObjectiveFunction` does not return a value.
     However, the gradient of the relative entropy with respect to the design
     variables :math:`\mathbf{x}` is much easier to compute as ensemble averages.
-    Currently, the :class:`RelativeEntropy` objective function supports only
-    :class:`~relentless.potential.pair.PairPotential` interactions. These interactions
-    are characterized by :math:`g_{ij}(r)`, an :class:`~relentless.ensemble.RDF`
-    for each pair of interacting types :math:`(i,j)` in each
-    :class:`~relentless.ensemble.Ensemble`. The gradient of :math:`S_{\rm rel}` is then:
+
+    The gradient of the relative entropy can be computed through direct ensemble
+    averaging or through integration of the radial distribution function (rdf)
+    of the target and model ensembles.
+
+    .. rubric:: Direct ensemble average
+
+    When ``target`` is a :class:`str` and ``thermo`` is a
+    :class:`~relentless.simulate.analyze.WriteTrajectory`
+    object, the relative entropy is computed through direct ensemble averaging.
+    In this case, the relative entropy gradient is computed as:
+
+    .. math::
+
+        \nabla_\mathbf{x} S_{\rm rel} = \beta \left(
+        \left\langle  \frac{\partial U}{\partial \mathbf{x}} \right\rangle_0 -
+        \left\langle  \frac{\partial U}{\partial \mathbf{x}} \right\rangle
+        \right)
+
+    where :math:`\langle\cdot\rangle_0` and :math:`\langle\cdot\rangle` are ensemble
+    averages in the target and model ensembles, respectively,
+    :math:`\beta=1/(k_{\rm B}T)`, and :math:`U` is the total potential energy.
+
+    It is recommended to use the direct ensemble average method in most cases,
+    as it allows for design of :class:`~relentless.potential.pair.PairPotential` and
+    bonded interactions. This method also easily supports design of pair potentials
+    with bonded exclusions.
+
+
+    .. rubric:: Radial distribution function
+
+    The :class:`RelativeEntropy` objective function supports a method for designing
+    :class:`~relentless.potential.pair.PairPotential` only interactions. These
+    interactions are characterized by :math:`g_{ij}(r)`, an
+    :class:`~relentless.ensemble.RDF` for each pair of interacting types
+    :math:`(i,j)` in each :class:`~relentless.ensemble.Ensemble`.
+    The gradient of :math:`S_{\rm rel}` is then:
 
     .. math::
 
         \nabla_\mathbf{x} S_{\rm rel} = -\frac{1}{2} \sum_{i,j} \int dr 4\pi r^2
             \left[\frac{\beta N_i N_j}{V} g_{ij}(r) \right.
             \left. -\frac{\beta_0 N_{i,0} N_{j,0}}{V_0} g_{ij,0}(r)\right]
-            \nabla_\mathbf{x} u_{ij}(r)}
+            \nabla_\mathbf{x} u_{ij}(r)
 
     where :math:`\beta=1/(k_{\rm B}T)`, :math:`N_i` is the number of particles
     of type :math:`i`, :math:`V` is the extent, and :math:`u_{ij}(r)` is the pair
     potential in the *model* ensemble. The corresponding properties of the *target*
     ensemble are denoted with subscript :math:`0`.
+
+    This method is performed when :class:`~relentless.ensemble.Ensemble` and
+    :class:`~relentless.simulate.analyze.EnsembleAverage` objects are provided
+    for the ``target`` and ``thermo`` parameters, respectively. While it is possible
+    to use this method with bonded exclusions by setting the target ensemble's
+    rdf and the model ensemble's rdf calculation to have the same exclusions and
+    sampling, in practice this proves to be difficult.
 
     :math:`S_{\rm rel}` is extensive as written, meaning that it depends on the
     size of the system. This can be undesirable for optimization because it means
@@ -272,28 +315,35 @@ class RelativeEntropy(ObjectiveFunction):
 
     Parameters
     ----------
-    target : :class:`~relentless.ensemble.Ensemble`
-        The target ensemble (must have specified ``V`` and ``N``).
+    target : :class:`~relentless.ensemble.Ensemble` or str
+        The target :class:`~relentless.ensemble.Ensemble` (must have specified
+        ``V`` and ``N``).
+        The str should be the path to a gsd trajectory file containing the
+        target ensemble.
     simulation : :class:`~relentless.simulate.simulate.Simulation`
         The simulation engine to use, with specified simulation operations.
     potentials : :class:`~relentless.simulate.simulate.Potentials`
         The pair potentials to use in the simulations.
-    thermo : :class:`~relentless.simulate.simulate.SimulationOperation`
-        The thermodynamic analyzer operation for the simulation ensemble and rdf
-        (usually :class:`~relentless.simulate.simulate.AddEnsembleAnalyzer`).
+    thermo : :class:`~relentless.simulate.analyze.EnsembleAverage` or
+            :class:`~relentless.simulate.analyze.WriteTrajectory`
+        The thermodynamic analyzer operation for the simulation ensemble.
         The model ensemble will be extracted from this operation.
     extensive : bool
         Specification of whether the relative entropy is extensive (defaults to
         ``False``).
+    T : float
+        Temperature of the simulation ensemble. If not specified with the direct
+        ensemble average method, it will be computed from the simulation trajectory.
 
     """
 
-    def __init__(self, target, simulation, potentials, thermo, extensive=False):
+    def __init__(self, target, simulation, potentials, thermo, extensive=False, T=None):
         self.target = target
         self.simulation = simulation
         self.potentials = potentials
         self.thermo = thermo
         self.extensive = extensive
+        self.T = T
 
     def compute(self, variables, directory=None):
         r"""Evaluate the value and gradient of the relative entropy function.
@@ -322,11 +372,12 @@ class RelativeEntropy(ObjectiveFunction):
             The result, which has unknown value ``None`` and known gradient.
 
         """
-        if self.thermo.rdf is None:
+        if self.thermo.rdf is None and not self._use_trajectory(
+            self.target, self.thermo
+        ):
             raise ValueError(
                 "EnsembleAverage needs to compute RDF, specify parameters."
             )
-
         # a directory is needed for the simulation, so create one if we don't have one
         if directory is None:
             # create directory and synchronize
@@ -353,7 +404,6 @@ class RelativeEntropy(ObjectiveFunction):
         # run simulation and use result to compute gradient
         try:
             sim = self.simulation.run(self.potentials, directory)
-            sim_ens = sim[self.thermo]["ensemble"]
         finally:
             mpi.world.barrier()
             if tmp is not None:
@@ -361,7 +411,20 @@ class RelativeEntropy(ObjectiveFunction):
 
         # compute gradient and result
         # relative entropy *value* is None
-        gradient = self.compute_gradient(sim_ens, variables)
+        if mpi.world.rank_is_root:
+            if self._use_trajectory(self.target, self.thermo):
+                gradient = self._compute_gradient_direct_average(
+                    sim.directory.file(self.thermo.filename), variables
+                )
+            else:
+                gradient = self.compute_gradient(
+                    sim[self.thermo]["ensemble"], variables
+                )
+            gradient_list = [gradient[var] for var in variables]
+        else:
+            gradient_list = None
+        gradient_list = mpi.world.bcast(gradient_list)
+        gradient = {var: gradient_list[i] for i, var in enumerate(variables)}
         result = ObjectiveFunctionResult(
             variables, None, gradient, directory if not directory_is_tmp else None
         )
@@ -373,6 +436,262 @@ class RelativeEntropy(ObjectiveFunction):
             mpi.world.barrier()
 
         return result
+
+    def _compute_gradient_direct_average(self, sim_traj, variables):
+        r"""Computes the relative entropy gradient for an ensemble.
+
+        Parameters
+        ----------
+        sim_traj : :class:`string`
+            Path to gsd trajectory file.
+        variables : :class:`~relentless.variable.Variable` or tuple
+            Variables with respect to which to compute gradient.
+
+        Returns
+        -------
+        :class:`~relentless.math.KeyedArray`
+            The gradient, keyed on the ``variables``.
+
+        """
+
+        # load the target ensemble trajectory file
+        traj_tgt = self.target
+        dvars = variable.graph.check_variables_and_types(variables, variable.Variable)
+
+        # calculate T if not provided
+        if self.T is None:
+            with gsd.hoomd.open(sim_traj, "r") as traj:
+                # check if mass and velocity are provided and non-zero
+                if (
+                    traj[0].particles.mass is None
+                    or not numpy.any(traj[0].particles.mass)
+                    or traj[0].particles.velocity is None
+                    or not numpy.any(traj[0].particles.velocity)
+                ):
+                    raise ValueError(
+                        "Temperature not provided and cannot be calculated "
+                        "from trajectory."
+                    )
+                T_avg = 0
+                for snap in traj:
+                    T_avg += numpy.sum(
+                        snap.particles.mass
+                        * numpy.linalg.norm(snap.particles.velocity, axis=1) ** 2
+                    ) / (3 * snap.particles.N * self.potentials.kB)
+                T_avg /= len(traj)
+        else:
+            T_avg = self.T
+
+        # normalization to extensive or intensive as specified
+        if not self.extensive:
+            with gsd.hoomd.open(traj_tgt, "r") as traj:
+                V_tgt = 0
+                for snap in traj:
+                    V_tgt += extent.TriclinicBox(*snap.configuration.box).extent
+                V_tgt /= len(traj)
+            norm_factor = V_tgt
+        else:
+            norm_factor = 1.0
+
+        gradient = (
+            self._calc_ensemble_average_dvar_gradient(traj_tgt, dvars)
+            - self._calc_ensemble_average_dvar_gradient(sim_traj, dvars)
+        ) / (norm_factor * self.potentials.kB * T_avg)
+        return gradient
+
+    def _calc_ensemble_average_dvar_gradient(self, trajectory, variables):
+        gradient = math.KeyedArray(keys=variables)
+        for var in variables:
+            gradient[var] = 0
+
+        with gsd.hoomd.open(trajectory, "r") as traj:
+            # loop through the trajectory and calculate ensemble average
+            frames = len(traj)
+            for snap in traj:
+                box = freud.box.Box.from_box(snap.configuration.box)
+                pos = numpy.asarray(box.wrap(snap.particles.position), dtype=float)
+                aq = freud.locality.AABBQuery(box, pos)
+
+                neighbors = aq.query(
+                    pos,
+                    dict(
+                        mode="ball",
+                        r_max=self.potentials.pair.stop,
+                        exclude_ii=True,
+                    ),
+                ).toNeighborList()
+                type_masks = {}
+                for i in self.potentials.pair.types:
+                    type_masks[i] = (
+                        snap.particles.typeid == self.potentials.pair.types.index(i)
+                    )
+
+                bonded_exclusions = self.potentials.pair.exclusions
+                if bonded_exclusions is not None:
+                    if (
+                        "1-2" in bonded_exclusions
+                        and snap.bonds.N != 0
+                        and len(neighbors[:]) > 0
+                    ):
+                        bonds = numpy.vstack(
+                            [snap.bonds.group, numpy.flip(snap.bonds.group, axis=1)],
+                        )
+
+                        bond_exclusion_filter = EnsembleAverage._cantor_pairing(
+                            self, bonds, neighbors
+                        )
+
+                        neighbors.filter(bond_exclusion_filter)
+                    if (
+                        "1-3" in bonded_exclusions
+                        and snap.angles.N != 0
+                        and len(neighbors[:]) > 0
+                    ):
+                        angles = numpy.vstack(
+                            [snap.angles.group, numpy.flip(snap.angles.group, axis=1)],
+                        )
+
+                        angle_exclusion_filter = EnsembleAverage._cantor_pairing(
+                            self, angles[:, (0, -1)], neighbors
+                        )
+
+                        neighbors.filter(angle_exclusion_filter)
+                    if (
+                        "1-4" in bonded_exclusions
+                        and snap.dihedrals.N != 0
+                        and len(neighbors[:]) > 0
+                    ):
+                        dihedrals = numpy.vstack(
+                            [
+                                snap.dihedrals.group,
+                                numpy.flip(snap.dihedrals.group, axis=1),
+                            ],
+                        )
+
+                        dihedral_exclusion_filter = EnsembleAverage._cantor_pairing(
+                            self, dihedrals[:, (0, -1)], neighbors
+                        )
+
+                        neighbors.filter(dihedral_exclusion_filter)
+
+                filter_j_gt_i = neighbors[:, 1] > neighbors[:, 0]
+                neighbors.filter(filter_j_gt_i)
+                # pair contributions to the gradient
+                for i in self.potentials.pair.types:
+                    for j in self.potentials.pair.types:
+                        filter_ij = numpy.logical_and(
+                            type_masks[i][neighbors[:, 0]],
+                            type_masks[j][neighbors[:, 1]],
+                        )
+                        for var in variables:
+                            gradient[var] += numpy.sum(
+                                self.potentials.pair.derivative(
+                                    (i, j), var, x=neighbors.distances[filter_ij]
+                                )
+                            )
+
+                # bond contributions to the gradient
+                if snap.bonds.N != 0:
+                    bond_type_map = {
+                        type: i for i, type in enumerate(self.potentials.bond.types)
+                    }
+                    for i in self.potentials.bond.types:
+                        bond_type_filter = bond_type_map[i] == snap.bonds.typeid
+
+                        bonds = snap.bonds.group[bond_type_filter]
+
+                        # Get positions for all pairs of bonded particles
+                        pos_1 = pos[bonds[:, 0]]
+                        pos_2 = pos[bonds[:, 1]]
+
+                        # Calculate distances
+                        dr = numpy.linalg.norm(
+                            numpy.asarray(box.wrap(pos_2 - pos_1), dtype=float),
+                            axis=1,
+                        )
+
+                        for var in variables:
+                            gradient[var] += numpy.sum(
+                                self.potentials.bond.derivative(i, var, x=dr)
+                            )
+
+                # angle contributions to the gradient
+                if snap.angles.N != 0:
+                    angle_type_map = {
+                        type: i for i, type in enumerate(self.potentials.angle.types)
+                    }
+                    for i in self.potentials.angle.types:
+                        angle_type_filter = angle_type_map[i] == snap.angles.typeid
+
+                        angles = snap.angles.group[angle_type_filter]
+
+                        # get positions for all triplets of bonded particles
+                        pos_1 = pos[angles[:, 0]]
+                        pos_2 = pos[angles[:, 1]]
+                        pos_3 = pos[angles[:, 2]]
+
+                        # calculate angles
+                        r_12 = numpy.asarray(box.wrap(pos_2 - pos_1), dtype=float)
+                        r_23 = numpy.asarray(box.wrap(pos_3 - pos_2), dtype=float)
+
+                        # use einsum for row-wise dot product
+                        dtheta = numpy.arccos(
+                            -numpy.sum(r_12 * r_23, axis=1)
+                            / (
+                                numpy.linalg.norm(r_12, axis=1)
+                                * numpy.linalg.norm(r_23, axis=1)
+                            )
+                        )
+
+                        for var in variables:
+                            gradient[var] += numpy.sum(
+                                self.potentials.angle.derivative(i, var, x=dtheta)
+                            )
+
+                # dihedral contributions to the gradient
+                if snap.dihedrals.N != 0:
+                    dihedral_type_map = {
+                        type: i for i, type in enumerate(self.potentials.dihedral.types)
+                    }
+                    for i in self.potentials.dihedral.types:
+                        dihedral_type_filter = (
+                            dihedral_type_map[i] == snap.dihedrals.typeid
+                        )
+
+                        dihedrals = snap.dihedrals.group[dihedral_type_filter]
+
+                        # get positions for all quadruplets of bonded particles
+                        pos_1 = pos[dihedrals[:, 0]]
+                        pos_2 = pos[dihedrals[:, 1]]
+                        pos_3 = pos[dihedrals[:, 2]]
+                        pos_4 = pos[dihedrals[:, 3]]
+
+                        # calculate dihedrals
+                        r_12 = numpy.asarray(box.wrap(pos_2 - pos_1), dtype=float)
+                        r_23 = numpy.asarray(box.wrap(pos_3 - pos_2), dtype=float)
+                        r_34 = numpy.asarray(box.wrap(pos_4 - pos_3), dtype=float)
+
+                        cross_12_23 = numpy.cross(r_12, r_23)
+                        cross_23_34 = numpy.cross(r_23, r_34)
+                        dphi = numpy.arccos(
+                            -numpy.sum(cross_12_23 * cross_23_34, axis=1)
+                            / (
+                                numpy.linalg.norm(cross_12_23, axis=1)
+                                * numpy.linalg.norm(cross_23_34, axis=1)
+                            )
+                        )
+
+                        # wrap dihedral angles to [-pi, pi]
+                        dphi[dphi > numpy.pi] -= 2 * numpy.pi
+                        dphi[dphi < -numpy.pi] += 2 * numpy.pi
+
+                        for var in variables:
+                            gradient[var] += numpy.sum(
+                                self.potentials.dihedral.derivative(i, var, x=dphi)
+                            )
+        for var in variables:
+            gradient[var] /= frames
+        return gradient
 
     def compute_gradient(self, ensemble, variables):
         r"""Computes the relative entropy gradient for an ensemble.
@@ -389,6 +708,12 @@ class RelativeEntropy(ObjectiveFunction):
         :class:`~relentless.math.KeyedArray`
             The gradient, keyed on the ``variables``.
 
+        Raises
+        ------
+        ValueError
+            If the variables have non-zero derivatives with respect to bonded
+            potentials.
+
         """
         # compute the relative entropy gradient by integration
         g_tgt = self.target.rdf
@@ -400,7 +725,49 @@ class RelativeEntropy(ObjectiveFunction):
         for pair in g_tgt:
             if g_sim.get(pair, None) is None:
                 raise KeyError(f"RDF not computed for pair {pair}")
-
+        for var in variables:
+            if self.potentials.bond is not None:
+                for type in self.potentials.bond.types:
+                    if numpy.any(
+                        self.potentials.bond.derivative(
+                            type, var, self.potentials.bond.linear_space
+                        )
+                        != 0
+                    ):
+                        raise ValueError(
+                            "This RelativeEntropy calculation method is only "
+                            "suitable for pair potentials. "
+                            "A bond potential has a non-zero derivative "
+                            "with respect to a variable"
+                        )
+            if self.potentials.angle is not None:
+                for type in self.potentials.angle.types:
+                    if numpy.any(
+                        self.potentials.angle.derivative(
+                            type, var, self.potentials.angle.linear_space
+                        )
+                        != 0
+                    ):
+                        raise ValueError(
+                            "This RelativeEntropy calculation method is only "
+                            "suitable for pair potentials. "
+                            "An angle potential has a non-zero derivative "
+                            "with respect to a variable"
+                        )
+            if self.potentials.dihedral is not None:
+                for type in self.potentials.dihedral.types:
+                    if numpy.any(
+                        self.potentials.dihedral.derivative(
+                            type, var, self.potentials.dihedral.linear_space
+                        )
+                        != 0
+                    ):
+                        raise ValueError(
+                            "This RelativeEntropy calculation method is only "
+                            "suitable for pair potentials. "
+                            "A dihedral potential has a non-zero derivative "
+                            "with respect to a variable"
+                        )
         for var in dvars:
             update = 0
             for i, j in g_tgt:
@@ -492,6 +859,49 @@ class RelativeEntropy(ObjectiveFunction):
 
     @target.setter
     def target(self, value):
-        if value.V is None or value.N is None:
-            raise ValueError("The target ensemble must have both V and N set.")
+        if isinstance(value, Ensemble):
+            if value.V is None or value.N is None:
+                raise ValueError("The target ensemble must have both V and N set.")
+        elif isinstance(value, str):
+            file_suffix = pathlib.Path(value).suffix
+
+            if not file_suffix == ".gsd":
+                raise ValueError("Target must be a gsd trajectory file.")
         self._target = value
+
+    def _use_trajectory(self, target, thermo):
+        r"""Check if the target and thermo are an ensemble and ensemble average
+        or string and WriteTrajectory.
+
+        Parameters
+        ----------
+        target : :class:`~relentless.ensemble.Ensemble` or `str`.
+            The target ensemble or trajectory file.
+
+        thermo : :class:`~relentless.simulate.analyze.EnsembleAverage` or
+            :class:`~relentless.simulate.analyze.WriteTrajectory`
+            The thermodynamic analyzer operation.
+
+        Returns
+        -------
+        bool
+            ``True`` if the target and thermo are string and WriteTrajectory,
+            ``False`` if the target and thermo are an ensemble and ensemble average,
+
+        Raises
+        ------
+        TypeError
+            If the target and thermo are not an ensemble and ensemble average or
+            string and WriteTrajectory.
+
+
+        """
+        if isinstance(target, str) and isinstance(thermo, WriteTrajectory):
+            return True
+        elif isinstance(target, Ensemble) and isinstance(thermo, EnsembleAverage):
+            return False
+        else:
+            raise TypeError(
+                "RelativeEntropy target and thermo must be either an Ensemble"
+                " and EnsembleAverage or a string and WriteTrajectory"
+            )

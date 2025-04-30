@@ -527,6 +527,17 @@ class PotentialTabulator:
             numpy.linspace(self.start**2, self.stop**2, self.num, dtype=float)
         )
 
+    @property
+    def types(self):
+        """tuple: The types of the potentials."""
+        if self.potentials is None:
+            return ()
+        type_set = set()
+        for pot in self.potentials:
+            for i in pot.coeff.types:
+                type_set.add(i)
+        return tuple(sorted(type_set))
+
     def energy(self, key, x=None):
         """Evaluates and accumulates energy for all potentials.
 
