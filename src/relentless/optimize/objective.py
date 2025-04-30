@@ -271,8 +271,11 @@ class RelativeEntropy(ObjectiveFunction):
 
     It is recommended to use the direct ensemble average method in most cases,
     as it allows for design of :class:`~relentless.potential.pair.PairPotential` and
-    bonded interactions. This method also easily supports design of pair-potentials
+    bonded interactions. This method also easily supports design of pair potentials
     with bonded exclusions.
+
+
+    .. rubric:: Radial distribution function
 
     The :class:`RelativeEntropy` objective function supports a method for designing
     :class:`~relentless.potential.pair.PairPotential` only interactions. These
