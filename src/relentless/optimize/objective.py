@@ -372,12 +372,11 @@ class RelativeEntropy(ObjectiveFunction):
             The result, which has unknown value ``None`` and known gradient.
 
         """
-        if self.thermo.rdf is None and not self._use_trajectory(
-            self.target, self.thermo
-        ):
-            raise ValueError(
-                "EnsembleAverage needs to compute RDF, specify parameters."
-            )
+        if not self._use_trajectory(self.target, self.thermo):
+            if self.thermo.rdf is None:
+                raise ValueError(
+                    "EnsembleAverage needs to compute RDF, specify parameters."
+                )
         # a directory is needed for the simulation, so create one if we don't have one
         if directory is None:
             # create directory and synchronize
