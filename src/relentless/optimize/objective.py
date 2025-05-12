@@ -372,12 +372,11 @@ class RelativeEntropy(ObjectiveFunction):
             The result, which has unknown value ``None`` and known gradient.
 
         """
-        if self.thermo.rdf is None and not self._use_trajectory(
-            self.target, self.thermo
-        ):
-            raise ValueError(
-                "EnsembleAverage needs to compute RDF, specify parameters."
-            )
+        if not self._use_trajectory(self.target, self.thermo):
+            if self.thermo.rdf is None:
+                raise ValueError(
+                    "EnsembleAverage needs to compute RDF, specify parameters."
+                )
         # a directory is needed for the simulation, so create one if we don't have one
         if directory is None:
             # create directory and synchronize
@@ -394,11 +393,20 @@ class RelativeEntropy(ObjectiveFunction):
         directory = data.Directory.cast(directory, create=mpi.world.rank_is_root)
         mpi.world.barrier()
 
-        # write the pair potential parameters *before* the run
+        # write the potentials parameters *before* the run
         if not directory_is_tmp:
             if mpi.world.rank_is_root:
                 for n, p in enumerate(self.potentials.pair.potentials):
                     p.save(directory.file("pair_potential.{}.json".format(n)))
+                if self.potentials.bond is not None:
+                    for n, p in enumerate(self.potentials.bond.potentials):
+                        p.save(directory.file("bond_potential.{}.json".format(n)))
+                if self.potentials.angle is not None:
+                    for n, p in enumerate(self.potentials.angle.potentials):
+                        p.save(directory.file("angle_potential.{}.json".format(n)))
+                if self.potentials.dihedral is not None:
+                    for n, p in enumerate(self.potentials.dihedral.potentials):
+                        p.save(directory.file("dihedral_potential.{}.json".format(n)))
             mpi.world.barrier()
 
         # run simulation and use result to compute gradient
