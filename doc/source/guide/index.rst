@@ -14,4 +14,3 @@ check the :doc:`/api/index`.
     release
     license
     credits
-    citing
