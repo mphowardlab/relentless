@@ -51,9 +51,9 @@ experiences all users and contributors bring to `relentless`.
 
 ## Citing relentless
 
-When using `relentless` in published work, please cite this paper:
+When using `relentless` in published work, please cite:
 
-Sreenivasan, A. N., Petix, C. L., Sherman, Z. M., & Howard, M. P. (2024).
+> A. N. Sreenivasan, C. L. Petix, Z. M. Sherman, and M. P. Howard.
 relentless: Transparent, reproducible molecular dynamics simulations for
-optimization. The Journal of Chemical Physics, 161(21).
-[10.1063/5.0233683](https://doi.org/10.1063/5.0233683)
+optimization. *The Journal of Chemical Physics* **161**, 212502 (2024).
+[doi:10.1063/5.0233683](https://doi.org/10.1063/5.0233683)
