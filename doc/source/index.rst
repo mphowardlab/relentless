@@ -79,7 +79,7 @@ of structural coarse-graining and materials design: with ``less`` code.
 
 .. rubric:: Citing relentless
 
-When using `relentless` in published work, please cite:
+When using ``relentless`` in published work, please cite:
 
 A. N. Sreenivasan, C. L. Petix, Z. M. Sherman, and M. P. Howard.
 relentless: Transparent, reproducible molecular dynamics simulations for
