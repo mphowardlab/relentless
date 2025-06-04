@@ -882,6 +882,42 @@ class test_RelativeEntropyDirectAverage(unittest.TestCase):
         # test B-B pair contributions
         self.assertAlmostEqual(res[self.sigma_BB], 0.0, delta=1e-3)
 
+    def test_compute_no_bonded_potentials(self):
+        self.potentials.bond = None
+        self.potentials.angle = None
+        self.potentials.dihedral = None
+
+        self.target = self.create_gsd_mers_tgt()
+
+        # add 1-2, 1-3, and 1-4 exclusions to the pair potential
+        self.potentials.pair.exclusions = ["1-2", "1-3", "1-4"]
+
+        relent = relentless.optimize.RelativeEntropy(
+            self.target,
+            self.simulation,
+            self.potentials,
+            self.thermo,
+            T=1.0,
+            extensive=True,
+        )
+        sim_traj = self.create_gsd_two_4mers_sim()
+
+        vars = (
+            self.sigma_AA,
+            self.sigma_AB,
+            self.sigma_BB,
+        )
+        res = relent._compute_gradient_direct_average(sim_traj, vars)
+
+        # test A-A pair contributions
+        self.assertAlmostEqual(res[self.sigma_AA], 0.0, delta=1e-3)
+
+        # test A-B pair contributions
+        self.assertAlmostEqual(res[self.sigma_AB], 0.0, delta=1e-3)
+
+        # test B-B pair contributions
+        self.assertAlmostEqual(res[self.sigma_BB], 0.0, delta=1e-3)
+
     def test_intensive(self):
         """Test compute and compute_gradient methods"""
         self.target = self.create_gsd_mers_tgt()
