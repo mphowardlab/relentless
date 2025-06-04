@@ -600,7 +600,7 @@ class RelativeEntropy(ObjectiveFunction):
                                 )
 
                 # bond contributions to the gradient
-                if self.potentials.bond is not None:
+                if self.potentials.bond is not None and snap.bonds.N != 0:
                     bond_type_map = {
                         type: i for i, type in enumerate(self.potentials.bond.types)
                     }
@@ -625,7 +625,7 @@ class RelativeEntropy(ObjectiveFunction):
                             )
 
                 # angle contributions to the gradient
-                if self.potentials.angle is not None:
+                if self.potentials.angle is not None and snap.angle.N != 0:
                     angle_type_map = {
                         type: i for i, type in enumerate(self.potentials.angle.types)
                     }
@@ -658,7 +658,7 @@ class RelativeEntropy(ObjectiveFunction):
                             )
 
                 # dihedral contributions to the gradient
-                if self.potentials.dihedral is not None:
+                if self.potentials.dihedral is not None and snap.dihedrals.N != 0:
                     dihedral_type_map = {
                         type: i for i, type in enumerate(self.potentials.dihedral.types)
                     }
