@@ -625,7 +625,7 @@ class RelativeEntropy(ObjectiveFunction):
                             )
 
                 # angle contributions to the gradient
-                if self.potentials.angle is not None and snap.angle.N != 0:
+                if self.potentials.angle is not None and snap.angles.N != 0:
                     angle_type_map = {
                         type: i for i, type in enumerate(self.potentials.angle.types)
                     }
