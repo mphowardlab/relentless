@@ -63,5 +63,5 @@ from .criteria import (
     Tolerance,
     ValueTest,
 )
-from .method import FixedStepDescent, LineSearch, Optimizer, SteepestDescent
+from .method import AdamOptimizer, FixedStepDescent, LineSearch, Optimizer, SteepestDescent
 from .objective import ObjectiveFunction, ObjectiveFunctionResult, RelativeEntropy

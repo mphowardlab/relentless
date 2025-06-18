@@ -591,3 +591,261 @@ class FixedStepDescent(SteepestDescent):
         for i in k:
             k[i] = self.step_size
         return k / gradient.norm()
+
+class AdamOptimizer(Optimizer):
+    r"""Adam optimization algorithm.
+
+    For an :class:`~relentless.optimize.objective.ObjectiveFunction`
+    :math:`f\left(\mathbf{x}\right)`, the Adam algorithm seeks to approach
+    a minimum of the function.
+
+    The optimization is performed using scaled variables :math:`\mathbf{y}`.
+    Define :math:`\mathbf{X}` as the scaling parameters for each variable such
+    that :math:`y_i=x_i/X_i`. (A variable can be left unscaled by setting
+    :math:`X_i=1`).
+
+    Adam maintains first and second moment estimates of the gradient to adapt
+    the step size for each parameter individually. Let :math:`\mathbf{g}_t`
+    be the gradient at iteration :math:`t`, and let :math:`\mathbf{m}_t` and
+    :math:`\mathbf{v}_t` be the first and second moment estimates, respectively.
+    The update equations for Adam are:
+
+    .. math::
+
+        \mathbf{m}_t &= \beta_1 \mathbf{m}_{t-1} + (1 - \beta_1) \mathbf{g}_t \\
+        \mathbf{v}_t &= \beta_2 \mathbf{v}_{t-1} + (1 - \beta_2) \mathbf{g}_t^2 \\
+        \hat{\mathbf{m}}_t &= \frac{\mathbf{m}_t}{1 - \beta_1^t} \\
+        \hat{\mathbf{v}}_t &= \frac{\mathbf{v}_t}{1 - \beta_2^t} \\
+        \mathbf{y}_t &= \mathbf{y}_{t-1} - \alpha \frac{\hat{\mathbf{m}}_t}{\sqrt{\hat{\mathbf{v}}_t} + \epsilon}
+
+    Parameters
+    ----------
+    stop : :class:`~relentless.optimize.criteria.ConvergenceTest`
+        The convergence test used as the stopping criterion for the optimizer.
+        Note that the result being tested will have *unscaled* variables and gradient.
+    max_iter : int
+        The maximum number of optimization iterations allowed.
+    step_size : float
+        The step size hyperparameter (:math:`\alpha`).
+    beta1 : float
+        Exponential decay rate for the first moment estimates (defaults to ``0.9``).
+    beta2 : float
+        Exponential decay rate for the second moment estimates (defaults to ``0.999``).
+    epsilon : float
+        A small constant for numerical stability (defaults to ``1e-8``).
+    scale : float or dict
+        A scalar scaling parameter or scaling parameters (:math:`\mathbf{X}`)
+        keyed on one or more :class:`~relentless.optimize.objective.ObjectiveFunction`
+        design variables (defaults to ``1.0``, so that the variables are unscaled).
+
+    """
+
+    def __init__(
+        self,
+        stop,
+        max_iter,
+        step_size,
+        beta1=0.9,
+        beta2=0.999,
+        epsilon=1e-8,
+        scale=1.0,
+    ):
+        super().__init__(stop)
+        self.max_iter = max_iter
+        self.step_size = step_size
+        self.beta1 = beta1
+        self.beta2 = beta2
+        self.epsilon = epsilon
+        self.scale = scale
+
+    def optimize(self, objective, variables, directory=None, overwrite=False):
+        r"""Perform the Adam optimization for the given objective function.
+
+        If ``directory`` is specified and ``overwrite`` is ``True``, ``directory``
+        will be cleared before the optimization begins. The output will be saved
+        into a directory created for each iteration of the optimization, e.g.,
+        ``directory/0``. To advance to the next iteration of the optimization
+        (e.g., from iteration 0 to iteration 1), a directory ``directory/0/.next``
+        is created at iteration 0 to hold the proposed result at iteration 1.
+
+        Parameters
+        ----------
+        objective : :class:`~relentless.optimize.objective.ObjectiveFunction`
+            The objective function to be optimized.
+        variables: :class:`~relentless.variable.IndependentVariable` or tuple
+            Design variable(s) to optimize.
+        directory : str or :class:`~relentless.data.Directory`
+            Directory for writing output during optimization. Default of `None`
+            requests no output is written.
+        overwrite : bool
+            If ``True``, overwrite the directory before beginning optimization.
+
+        Returns
+        -------
+        bool or None
+            ``True`` if converged, ``False`` if not converged, ``None`` if no
+            design variables are specified for the objective function.
+
+        Raises
+        ------
+        OSError
+            If ``directory`` is not empty and overwrite is ``False``.
+
+        """
+        variables = variable.graph.check_variables_and_types(
+            variables, variable.IndependentVariable
+        )
+        if len(variables) == 0:
+            return None
+
+        if directory is not None:
+            directory = self._setup_directory(directory, overwrite)
+
+        # fix scaling parameters
+        scale = math.KeyedArray(keys=variables)
+        for x in variables:
+            if numpy.isscalar(self.scale):
+                scale[x] = self.scale
+            else:
+                try:
+                    scale[x] = self.scale[x]
+                except KeyError:
+                    scale[x] = 1.0
+
+        # initialize moment estimates
+        m = math.KeyedArray(keys=variables)
+        v = math.KeyedArray(keys=variables)
+        for x in variables:
+            m[x] = 0.0
+            v[x] = 0.0
+
+        iter_num = 0
+        if directory is not None:
+            cur_dir = directory.directory(str(iter_num), create=mpi.world.rank_is_root)
+            mpi.world.barrier()
+        else:
+            cur_dir = None
+        cur_res = objective.compute(variables, cur_dir)
+        
+        while not self.stop.converged(cur_res) and iter_num < self.max_iter:
+            # compute scaled gradient
+            grad_y = scale * cur_res.gradient
+            
+            # update moment estimates
+            for x in variables:
+                m[x] = self.beta1 * m[x] + (1.0 - self.beta1) * grad_y[x]
+                v[x] = self.beta2 * v[x] + (1.0 - self.beta2) * grad_y[x]**2
+                
+                # bias correction
+                m_hat = m[x] / (1.0 - self.beta1**(iter_num + 1))
+                v_hat = v[x] / (1.0 - self.beta2**(iter_num + 1))
+                
+                # update variables
+                x.value = cur_res.variables[x] - self.step_size * m_hat / (numpy.sqrt(v_hat) + self.epsilon)
+            
+            # compute next result
+            if cur_dir is not None:
+                next_dir = cur_dir.directory(".next", create=mpi.world.rank_is_root)
+                mpi.world.barrier()
+            else:
+                next_dir = None
+            next_res = objective.compute(variables, next_dir)
+            
+            # move the contents of the "next" result to the new "current" result
+            if directory is not None:
+                cur_dir = directory.directory(
+                    str(iter_num + 1), create=mpi.world.rank_is_root
+                )
+                mpi.world.barrier()
+            else:
+                cur_dir = None
+            if next_res.directory is not None:
+                mpi.world.barrier()
+                if mpi.world.rank_is_root:
+                    next_res.directory.move_contents(cur_dir)
+                mpi.world.barrier()
+
+            # recycle next result, updating directory to new location
+            cur_res = next_res
+            cur_res.directory = cur_dir
+            iter_num += 1
+
+        return self.stop.converged(cur_res)
+
+    @property
+    def max_iter(self):
+        """int: The maximum number of optimization iterations allowed."""
+        return self._max_iter
+
+    @max_iter.setter
+    def max_iter(self, value):
+        if not isinstance(value, int):
+            raise TypeError("The maximum number of iterations must be an integer.")
+        if value < 1:
+            raise ValueError("The maximum number of iterations must be positive.")
+        self._max_iter = value
+
+    @property
+    def step_size(self):
+        r"""float: The step size hyperparameter (:math:`\alpha`). Must be positive."""
+        return self._step_size
+
+    @step_size.setter
+    def step_size(self, value):
+        if value <= 0:
+            raise ValueError("The step size must be positive.")
+        self._step_size = value
+
+    @property
+    def beta1(self):
+        """float: Exponential decay rate for the first moment estimates."""
+        return self._beta1
+
+    @beta1.setter
+    def beta1(self, value):
+        if not 0 <= value < 1:
+            raise ValueError("beta1 must be in the range [0, 1).")
+        self._beta1 = value
+
+    @property
+    def beta2(self):
+        """float: Exponential decay rate for the second moment estimates."""
+        return self._beta2
+
+    @beta2.setter
+    def beta2(self, value):
+        if not 0 <= value < 1:
+            raise ValueError("beta2 must be in the range [0, 1).")
+        self._beta2 = value
+
+    @property
+    def epsilon(self):
+        """float: A small constant for numerical stability."""
+        return self._epsilon
+
+    @epsilon.setter
+    def epsilon(self, value):
+        if value <= 0:
+            raise ValueError("epsilon must be positive.")
+        self._epsilon = value
+
+    @property
+    def scale(self):
+        r"""float or dict: Scaling parameter.
+
+        A scalar scaling parameter or scaling parameters (:math:`\mathbf{X}`)
+        keyed on one or more :class:`~relentless.optimize.objective.ObjectiveFunction`
+        design variables. Must be positive."""
+        return self._scale
+
+    @scale.setter
+    def scale(self, value):
+        try:
+            scale = dict(value)
+            err = any([s <= 0 for s in value.values()])
+        except TypeError:
+            scale = value
+            err = value <= 0
+        if err:
+            raise ValueError("The scaling parameters must be positive.")
+        self._scale = scale
