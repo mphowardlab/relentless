@@ -585,21 +585,22 @@ class RelativeEntropy(ObjectiveFunction):
                 filter_j_gt_i = neighbors[:, 1] > neighbors[:, 0]
                 neighbors.filter(filter_j_gt_i)
                 # pair contributions to the gradient
-                for i in self.potentials.pair.types:
-                    for j in self.potentials.pair.types:
-                        filter_ij = numpy.logical_and(
-                            type_masks[i][neighbors[:, 0]],
-                            type_masks[j][neighbors[:, 1]],
-                        )
-                        for var in variables:
-                            gradient[var] += numpy.sum(
-                                self.potentials.pair.derivative(
-                                    (i, j), var, x=neighbors.distances[filter_ij]
-                                )
+                if self.potentials.pair is not None:
+                    for i in self.potentials.pair.types:
+                        for j in self.potentials.pair.types:
+                            filter_ij = numpy.logical_and(
+                                type_masks[i][neighbors[:, 0]],
+                                type_masks[j][neighbors[:, 1]],
                             )
+                            for var in variables:
+                                gradient[var] += numpy.sum(
+                                    self.potentials.pair.derivative(
+                                        (i, j), var, x=neighbors.distances[filter_ij]
+                                    )
+                                )
 
                 # bond contributions to the gradient
-                if snap.bonds.N != 0:
+                if self.potentials.bond is not None and snap.bonds.N != 0:
                     bond_type_map = {
                         type: i for i, type in enumerate(self.potentials.bond.types)
                     }
@@ -624,7 +625,7 @@ class RelativeEntropy(ObjectiveFunction):
                             )
 
                 # angle contributions to the gradient
-                if snap.angles.N != 0:
+                if self.potentials.angle is not None and snap.angles.N != 0:
                     angle_type_map = {
                         type: i for i, type in enumerate(self.potentials.angle.types)
                     }
@@ -657,7 +658,7 @@ class RelativeEntropy(ObjectiveFunction):
                             )
 
                 # dihedral contributions to the gradient
-                if snap.dihedrals.N != 0:
+                if self.potentials.dihedral is not None and snap.dihedrals.N != 0:
                     dihedral_type_map = {
                         type: i for i, type in enumerate(self.potentials.dihedral.types)
                     }
