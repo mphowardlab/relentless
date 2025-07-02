@@ -1391,7 +1391,9 @@ class HOOMD(simulate.Simulation):
             device_class = hoomd.device.GPU
         else:
             raise ValueError("Unrecognized device type, must be in (auto, cpu, gpu)")
-        device = device_class(communicator=mpi.world.comm, notice_level=0)
+        device = device_class(
+            communicator=hoomd.communicator.Communicator(mpi.world.comm), notice_level=0
+        )
         sim["engine"]["_hoomd"] = hoomd.Simulation(device)
 
     # initialize
