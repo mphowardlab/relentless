@@ -592,6 +592,7 @@ class FixedStepDescent(SteepestDescent):
             k[i] = self.step_size
         return k / gradient.norm()
 
+
 class AdamOptimizer(Optimizer):
     r"""Adam optimization algorithm.
 
@@ -616,7 +617,8 @@ class AdamOptimizer(Optimizer):
         \mathbf{v}_t &= \beta_2 \mathbf{v}_{t-1} + (1 - \beta_2) \mathbf{g}_t^2 \\
         \hat{\mathbf{m}}_t &= \frac{\mathbf{m}_t}{1 - \beta_1^t} \\
         \hat{\mathbf{v}}_t &= \frac{\mathbf{v}_t}{1 - \beta_2^t} \\
-        \mathbf{y}_t &= \mathbf{y}_{t-1} - \alpha \frac{\hat{\mathbf{m}}_t}{\sqrt{\hat{\mathbf{v}}_t} + \epsilon}
+        \mathbf{y}_t &= \mathbf{y}_{t-1} - \alpha
+            \frac{\hat{\mathbf{m}}_t}{\sqrt{\hat{\mathbf{v}}_t} + \epsilon}
 
     Parameters
     ----------
@@ -726,23 +728,25 @@ class AdamOptimizer(Optimizer):
         else:
             cur_dir = None
         cur_res = objective.compute(variables, cur_dir)
-        
+
         while not self.stop.converged(cur_res) and iter_num < self.max_iter:
             # compute scaled gradient
             grad_y = scale * cur_res.gradient
-            
+
             # update moment estimates
             for x in variables:
                 m[x] = self.beta1 * m[x] + (1.0 - self.beta1) * grad_y[x]
-                v[x] = self.beta2 * v[x] + (1.0 - self.beta2) * grad_y[x]**2
-                
+                v[x] = self.beta2 * v[x] + (1.0 - self.beta2) * grad_y[x] ** 2
+
                 # bias correction
-                m_hat = m[x] / (1.0 - self.beta1**(iter_num + 1))
-                v_hat = v[x] / (1.0 - self.beta2**(iter_num + 1))
-                
+                m_hat = m[x] / (1.0 - self.beta1 ** (iter_num + 1))
+                v_hat = v[x] / (1.0 - self.beta2 ** (iter_num + 1))
+
                 # update variables
-                x.value = cur_res.variables[x] - self.step_size * m_hat / (numpy.sqrt(v_hat) + self.epsilon)
-            
+                x.value = cur_res.variables[x] - self.step_size * m_hat / (
+                    numpy.sqrt(v_hat) + self.epsilon
+                )
+
             # compute next result
             if cur_dir is not None:
                 next_dir = cur_dir.directory(".next", create=mpi.world.rank_is_root)
@@ -750,7 +754,7 @@ class AdamOptimizer(Optimizer):
             else:
                 next_dir = None
             next_res = objective.compute(variables, next_dir)
-            
+
             # move the contents of the "next" result to the new "current" result
             if directory is not None:
                 cur_dir = directory.directory(
