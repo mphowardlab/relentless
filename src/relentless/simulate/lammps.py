@@ -518,8 +518,8 @@ class InitializeFromFile(InitializationOperation):
                 # fix up 2d boxes that may not be compatible with lammps
                 if dimension == 2:
                     if frame.configuration.box[2] == 0:
-                        snap.low[2] = -0.5
-                        snap.high[2] = 0.5
+                        snap.box.low[2] = -0.5
+                        snap.box.high[2] = 0.5
                     if snap.box.tilt is not None:
                         snap.box.tilt[1:] = 0.0
                 lammpsio.DataFile.create(
