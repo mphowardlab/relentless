@@ -30,7 +30,7 @@ jobs:
         mpi: ["nompi", "mpich", "openmpi"]
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Setup MPI
         if: ${{ matrix.mpi != 'nompi' }}
         uses: mpi4py/setup-mpi@v1
@@ -78,7 +78,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Setup Python ${{ matrix.python-version }}
         uses: conda-incubator/setup-miniconda@v3
         with:
@@ -124,7 +124,7 @@ jobs:
             lammps-version: "2024.08.29"
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Setup Python ${{ matrix.python-version }}
         uses: conda-incubator/setup-miniconda@v3
         with:
@@ -166,7 +166,7 @@ jobs:
         shell: bash -el {0}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Setup Python 3.9
         uses: conda-incubator/setup-miniconda@v3
         with:
