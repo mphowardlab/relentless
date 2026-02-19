@@ -181,8 +181,25 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
         sim.masses = collections.FixedKeyDict(sim.types)
         masses = {}
         dim_safe = None
+        has_bonds = None
+        has_angles = None
+        has_dihedrals = None
+        has_impropers = None
+        bond_type_label = None
+        angle_type_label = None
+        dihedral_type_label = None
         if mpi.world.rank_is_root:
             snap = lammpsio.DataFile(sim[self]["_datafile"]).read()
+            has_bonds = snap.has_bonds()
+            if has_bonds:
+                bond_type_label = sim[self]["_bonds"].type_label
+            has_angles = snap.has_angles()
+            if has_angles:
+                angle_type_label = sim[self]["_angles"].type_label
+            has_dihedrals = snap.has_dihedrals()
+            if has_dihedrals:
+                dihedral_type_label = sim[self]["_dihedrals"].type_label
+            has_impropers = snap.has_impropers()
             for i in sim.types:
                 mi = snap.mass[snap.typeid == sim["engine"]["types"][i]]
                 if len(mi) == 0:
@@ -205,6 +222,14 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
         if not dim_safe:
             raise ValueError("Simulation initialized inconsistent with dimension")
 
+        has_bonds = mpi.world.bcast(has_bonds)
+        has_angles = mpi.world.bcast(has_angles)
+        has_dihedrals = mpi.world.bcast(has_dihedrals)
+        has_impropers = mpi.world.bcast(has_impropers)
+        bond_type_label = mpi.world.bcast(bond_type_label)
+        angle_type_label = mpi.world.bcast(angle_type_label)
+        dihedral_type_label = mpi.world.bcast(dihedral_type_label)
+
         # attach the potentials
         if sim.potentials.pair.start == 0:
             raise ValueError("LAMMPS requires start > 0 for pair potentials")
@@ -212,7 +237,51 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
             sim.types, x=sim.potentials.pair.squared_space, tight=True, minimum_num=2
         )
         Nr = len(r)
-        sim[self]["_potentials_rmax"] = r[-1]
+
+        if has_bonds:
+            uB = collections.FixedKeyDict(bond_type_label.types)
+            fB = collections.FixedKeyDict(bond_type_label.types)
+            for i in bond_type_label.types:
+                rB, uB[i], fB[i] = (
+                    sim.potentials.bond.linear_space,
+                    sim.potentials.bond.energy(key=i),
+                    sim.potentials.bond.force(key=i),
+                )
+                if numpy.any(numpy.isinf(uB[i])):
+                    raise ValueError("Bond potential/force is infinite at evaluated r")
+            NrB = len(rB)
+
+        if has_angles:
+            uA = collections.FixedKeyDict(angle_type_label.types)
+            fA = collections.FixedKeyDict(angle_type_label.types)
+            for i in angle_type_label.types:
+                thetaA, uA[i], fA[i] = (
+                    sim.potentials.angle.linear_space,
+                    sim.potentials.angle.energy(key=i),
+                    sim.potentials.angle.force(key=i),
+                )
+                if numpy.any(numpy.isinf(uA[i])):
+                    raise ValueError("Angle potential/force is infinite at evaluated r")
+            NthetaA = len(thetaA)
+
+        if has_dihedrals:
+            uD = collections.FixedKeyDict(dihedral_type_label.types)
+            fD = collections.FixedKeyDict(dihedral_type_label.types)
+            for i in dihedral_type_label.types:
+                phiD, uD[i], fD[i] = (
+                    sim.potentials.dihedral.linear_space,
+                    sim.potentials.dihedral.energy(key=i),
+                    sim.potentials.dihedral.force(key=i),
+                )
+                if numpy.any(numpy.isinf(uD[i])):
+                    raise ValueError(
+                        "Dihedral potential/force is infinite at evaluated r"
+                    )
+                if len(uD[i]) < 2:
+                    raise ValueError(
+                        "Dihedral potential must have at least 2 points for LAMMPS"
+                    )
+            NphiD = len(phiD)
 
         def pair_map(sim, pair):
             # Map lammps type indexes as a pair, lowest type first
@@ -257,16 +326,92 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
                         fw.write(
                             "{idx} {r} {u} {f}\n".format(idx=idx, r=r_, u=u_, f=f_)
                         )
+
+                # write bond potentials into the file
+                if has_bonds:
+                    fw.write("# LAMMPS tabulated bond potentials\n")
+                    for i in bond_type_label.types:
+                        fw.write("# bond BOND_TABLE_{}\n\n".format(i))
+                        fw.write("BOND_TABLE_{}\n".format(i))
+                        fw.write(
+                            "N {N} FP {f_low} {f_high} \n\n".format(
+                                N=NrB, f_low=fB[i][0], f_high=fB[i][-1]
+                            )
+                        )
+                        for idx, (rB_, uB_, fB_) in enumerate(
+                            zip(rB, uB[i], fB[i]), start=1
+                        ):
+                            fw.write(
+                                "{id} {rB} {uB} {fB}\n".format(
+                                    id=idx, rB=rB_, uB=uB_, fB=fB_
+                                )
+                            )
+
+                if has_angles:
+                    fw.write("# LAMMPS tabulated angle potentials\n")
+                    for i in angle_type_label.types:
+                        fw.write("# angle ANGLE_TABLE_{}\n\n".format(i))
+                        fw.write("ANGLE_TABLE_{}\n".format(i))
+                        fw.write(
+                            "N {N} FP {f_low} {f_high} \n\n".format(
+                                N=NthetaA, f_low=fA[i][0], f_high=fA[i][-1]
+                            )
+                        )
+                        for idx, (thetaA_, uA_, fA_) in enumerate(
+                            zip(thetaA * 180 / numpy.pi, uA[i], fA[i]), start=1
+                        ):
+                            fw.write(
+                                "{id} {thetaA} {uA} {fA}\n".format(
+                                    id=idx, thetaA=thetaA_, uA=uA_, fA=fA_
+                                )
+                            )
+
+                # write dihedral potentials into the file
+                if has_dihedrals:
+                    fw.write("# LAMMPS tabulated dihedral potentials\n")
+                    for i in dihedral_type_label.types:
+                        fw.write("# dihedral DIHEDRAL_TABLE_{}\n\n".format(i))
+                        fw.write("DIHEDRAL_TABLE_{}\n".format(i))
+                        # Discard the last point as it must be same as the first
+                        fw.write("N {N} RADIANS \n\n".format(N=NphiD - 1))
+                        for idx, (rD_, uD_, fD_) in enumerate(
+                            zip(phiD[:-1], uD[i][:-1], fD[i][:-1]), start=1
+                        ):
+                            fw.write(
+                                "{id} {rD} {uD} {fD}\n".format(
+                                    id=idx, rD=rD_, uD=uD_, fD=fD_
+                                )
+                            )
         else:
             file_ = None
         file_ = mpi.world.bcast(file_)
-
         # process all lammps commands
         cmds += [
             "neighbor {skin} multi".format(skin=sim.potentials.pair.neighbor_buffer),
             "neigh_modify delay 0 every 1 check yes",
         ]
         cmds += ["pair_style table linear {N}".format(N=Nr)]
+
+        # set exclusions if snap has topology
+        if has_bonds or has_angles or has_dihedrals:
+            excl_12, excl_13, excl_14 = 1.0, 1.0, 1.0
+            if sim.potentials.pair.exclusions is not None:
+                if "1-2" in sim.potentials.pair.exclusions:
+                    excl_12 = 0.0
+                if "1-3" in sim.potentials.pair.exclusions:
+                    excl_13 = 0.0
+                if "1-4" in sim.potentials.pair.exclusions:
+                    excl_14 = 0.0
+            cmds += [f"special_bonds lj/coul {excl_12} {excl_13} {excl_14}"]
+
+        if has_bonds:
+            cmds += ["bond_style table linear {Nb}".format(Nb=NrB)]
+
+        if has_angles:
+            cmds += ["angle_style table linear {Na}".format(Na=NthetaA)]
+
+        if has_dihedrals:
+            cmds += ["dihedral_style table linear {Na}".format(Na=NphiD)]
 
         for i, j in sim.pairs:
             # get lammps type indexes, lowest type first
@@ -277,6 +422,37 @@ class InitializationOperation(SimulationOperation, simulate.InitializationOperat
                 )
             ]
 
+        if has_bonds:
+            for id in bond_type_label.typeid:
+                cmds += [
+                    ("bond_coeff {typeid} {filename}" " BOND_TABLE_{id}").format(
+                        typeid=id,
+                        filename=file_,
+                        id=bond_type_label.__getitem__(id),
+                    )
+                ]
+
+        if has_angles:
+            for id in angle_type_label.typeid:
+                cmds += [
+                    ("angle_coeff {typeid} {filename}" " ANGLE_TABLE_{id}").format(
+                        typeid=id,
+                        filename=file_,
+                        id=angle_type_label.__getitem__(id),
+                    )
+                ]
+
+        if has_dihedrals:
+            for id in dihedral_type_label.typeid:
+                cmds += [
+                    (
+                        "dihedral_coeff {typeid} {filename}" " DIHEDRAL_TABLE_{id}"
+                    ).format(
+                        typeid=id,
+                        filename=file_,
+                        id=dihedral_type_label.__getitem__(id),
+                    )
+                ]
         return cmds
 
     @abc.abstractmethod
@@ -312,6 +488,26 @@ class InitializeFromFile(InitializationOperation):
                 snap, type_map = lammpsio.Snapshot.from_hoomd_gsd(frame)
                 type_map = {v: k for k, v in type_map.items()}
 
+                # check atom style is compatible with topology data if present
+                if (
+                    snap.has_bonds()
+                    or snap.has_angles()
+                    or snap.has_dihedrals()
+                    or snap.has_impropers()
+                ) and sim["engine"]["atom_style"] == "atomic":
+                    raise ValueError(
+                        "Atomic atom style is not compatible with topology data."
+                    )
+                # store topology data
+                sim[self]["_bonds"] = None
+                if snap.has_bonds():
+                    sim[self]["_bonds"] = snap.bonds
+                sim[self]["_angles"] = None
+                if snap.has_angles():
+                    sim[self]["_angles"] = snap.angles
+                sim[self]["_dihedrals"] = None
+                if snap.has_dihedrals():
+                    sim[self]["_dihedrals"] = snap.dihedrals
                 # figure out dimensions
                 dimension = self.dimension
                 if dimension is None:
@@ -322,14 +518,17 @@ class InitializeFromFile(InitializationOperation):
                 # fix up 2d boxes that may not be compatible with lammps
                 if dimension == 2:
                     if frame.configuration.box[2] == 0:
-                        snap.low[2] = -0.5
-                        snap.high[2] = 0.5
+                        snap.box.low[2] = -0.5
+                        snap.box.high[2] = 0.5
                     if snap.box.tilt is not None:
                         snap.box.tilt[1:] = 0.0
                 lammpsio.DataFile.create(
                     data_filename, snap, sim["engine"]["atom_style"]
                 )
             else:
+                sim[self]["_bonds"] = None
+                sim[self]["_angles"] = None
+                sim[self]["_dihedrals"] = None
                 data_filename = None
                 dimension = None
                 type_map = None
@@ -348,6 +547,49 @@ class InitializeFromFile(InitializationOperation):
                     ).read()
                     typeids = numpy.unique(snap.typeid)
                     type_map = {str(typeid): typeid for typeid in typeids}
+                    # store topology data
+                    sim[self]["_bonds"] = None
+                    if snap.has_bonds():
+                        sim[self]["_bonds"] = snap.bonds
+                        unique_bond_types = set()
+                        for pot in sim.potentials.bond.potentials:
+                            for i in pot.coeff.types:
+                                unique_bond_types.add(i)
+
+                        bond_type_map = {
+                            i + 1: t for i, t in enumerate(unique_bond_types)
+                        }
+                        sim[self]["_bonds"].type_label = lammpsio.LabelMap(
+                            bond_type_map
+                        )
+                    sim[self]["_angles"] = None
+                    if snap.has_angles():
+                        sim[self]["_angles"] = snap.angles
+                        unique_angle_types = set()
+                        for pot in sim.potentials.angle.potentials:
+                            for i in pot.coeff.types:
+                                unique_angle_types.add(i)
+
+                        angle_type_map = {
+                            i + 1: t for i, t in enumerate(unique_angle_types)
+                        }
+                        sim[self]["_angles"].type_label = lammpsio.LabelMap(
+                            angle_type_map
+                        )
+                    sim[self]["_dihedrals"] = None
+                    if snap.has_dihedrals():
+                        sim[self]["_dihedrals"] = snap.dihedrals
+                        unique_dihedral_types = set()
+                        for pot in sim.potentials.dihedral.potentials:
+                            for i in pot.coeff.types:
+                                unique_dihedral_types.add(i)
+
+                        dihedral_type_map = {
+                            i + 1: t for i, t in enumerate(unique_dihedral_types)
+                        }
+                        sim[self]["_dihedrals"].type_label = lammpsio.LabelMap(
+                            dihedral_type_map
+                        )
                 else:
                     type_map = None
                 type_map = mpi.world.bcast(type_map)
@@ -509,11 +751,13 @@ class MinimizeEnergy(SimulationOperation):
     def __init__(self, energy_tolerance, force_tolerance, max_iterations, options):
         self.energy_tolerance = energy_tolerance
         self.force_tolerance = force_tolerance
-        self.max_iterations = max_iterations
+        self.max_iterations = _to_int(max_iterations)
         self.options = options if options is not None else {}
 
     def _call_commands(self, sim):
-        max_eval = self.options.get("max_evaluations", 100 * self.max_iterations)
+        max_eval = _to_int(
+            self.options.get("max_evaluations", 100 * self.max_iterations)
+        )
         cmds = [
             "minimize {etol} {ftol} {maxiter} {maxeval}".format(
                 etol=self.energy_tolerance,
@@ -549,7 +793,7 @@ class _Integrator(SimulationOperation):
 
     def __init__(self, steps, timestep, analyzers):
         super().__init__(analyzers)
-        self.steps = steps
+        self.steps = _to_int(steps)
         self.timestep = timestep
 
     def __call__(self, sim):
@@ -619,11 +863,6 @@ class RunBrownianDynamics(_Integrator):
     def _call_commands(self, sim):
         if "BROWNIAN" not in sim["engine"]["packages"]:
             raise NotImplementedError("LAMMPS BROWNIAN package is not installed.")
-        elif sim["engine"]["version"] < 20220623:
-            raise NotImplementedError(
-                "LAMMPS versions prior to 23Jun2022 stable release do not"
-                " properly support Brownian dynamics."
-            )
 
         T = self._make_T(self.T)
         if T[0] != T[1]:
@@ -916,7 +1155,7 @@ class AnalysisOperation(simulate.AnalysisOperation):
 class EnsembleAverage(AnalysisOperation):
     def __init__(self, filename, every, rdf, assume_constraints):
         self.filename = filename
-        self.every = every
+        self.every = _to_int(every)
         self.rdf = rdf
         self.assume_constraints = assume_constraints
 
@@ -1175,6 +1414,76 @@ class EnsembleAverage(AnalysisOperation):
                             exclude_ii=True,
                         ),
                     ).toNeighborList()
+                    # filter bonds from the neighbor list if they are present
+                    # bond exclusions apply regardless of order, so
+                    # consider both (i,j) and (j,i) permutations
+                    if (
+                        sim[self]["_rdf_params"]["exclude"]
+                        and sim[sim.initializer]["_bonds"] is not None
+                        and len(neighbors[:]) > 0
+                    ):
+                        bonds = numpy.vstack(
+                            [
+                                sim[sim.initializer]["_bonds"].members,
+                                numpy.flip(
+                                    sim[sim.initializer]["_bonds"].members, axis=1
+                                ),
+                            ],
+                        )
+                        # Zero index bonds
+                        bonds -= 1
+
+                        bond_exclusion_filter = EnsembleAverage._cantor_pairing(
+                            self, bonds, neighbors
+                        )
+
+                        neighbors.filter(bond_exclusion_filter)
+
+                    # filter angles from the neighbor list if they are present
+                    if (
+                        sim[self]["_rdf_params"]["exclude"]
+                        and sim[sim.initializer]["_angles"] is not None
+                        and len(neighbors[:]) > 0
+                    ):
+                        angles = numpy.vstack(
+                            [
+                                sim[sim.initializer]["_angles"].members,
+                                numpy.flip(
+                                    sim[sim.initializer]["_angles"].members, axis=1
+                                ),
+                            ],
+                        )
+                        # Zero index angles
+                        angles -= 1
+
+                        angle_exclusion_filter = EnsembleAverage._cantor_pairing(
+                            self, angles[:, (0, -1)], neighbors
+                        )
+
+                        neighbors.filter(angle_exclusion_filter)
+                    # filter dihedral from the neighbor list if they are present
+                    if (
+                        sim[self]["_rdf_params"]["exclude"]
+                        and sim[sim.initializer]["_dihedrals"] is not None
+                        and len(neighbors[:]) > 0
+                    ):
+                        dihedrals = numpy.vstack(
+                            [
+                                sim[sim.initializer]["_dihedrals"].members,
+                                numpy.flip(
+                                    sim[sim.initializer]["_dihedrals"].members, axis=1
+                                ),
+                            ],
+                        )
+                        # Zero index dihedrals
+                        dihedrals -= 1
+
+                        dihedral_exclusion_filter = EnsembleAverage._cantor_pairing(
+                            self, dihedrals[:, (0, -1)], neighbors
+                        )
+
+                        neighbors.filter(dihedral_exclusion_filter)
+
                     for i in sim.types:
                         _rdf_density[i] += N[i] / box.volume
                         _rdf_num_origins[i] += N[i]
@@ -1296,7 +1605,7 @@ class EnsembleAverage(AnalysisOperation):
 class Record(AnalysisOperation):
     def __init__(self, filename, every, quantities):
         self.filename = filename
-        self.every = every
+        self.every = _to_int(every)
         self.quantities = quantities
 
     def _pre_run_commands(self, sim, sim_op):
@@ -1375,7 +1684,7 @@ class WriteTrajectory(AnalysisOperation):
 
     def __init__(self, filename, every, format, velocities, images, types, masses):
         self.filename = filename
-        self.every = every
+        self.every = _to_int(every)
         self.format = format
         self.velocities = velocities
         self.images = images
@@ -1457,7 +1766,7 @@ class LAMMPS(simulate.Simulation):
     GPUs, as a single process or with MPI parallelism. The launch configuration
     will be automatically selected for you when the simulation is run.
 
-    The version of LAMMPS must be 29 Sep 2021 or newer. It is recommended to build
+    The version of LAMMPS must be 02 Aug 2023 or newer. It is recommended to build
     LAMMPS with its `Python interface <https://docs.lammps.org/Python_head.html>`_.
     However, it is possible to run LAMMPS as a binary by specifying ``executable``::
 
@@ -1510,6 +1819,7 @@ class LAMMPS(simulate.Simulation):
         quiet=True,
         types=None,
         executable=None,
+        atom_style="atomic",
     ):
         # test executable if it is specified
         if executable is not None:
@@ -1566,12 +1876,13 @@ class LAMMPS(simulate.Simulation):
             self.version = lmp.version()
             self.packages = tuple(lmp.installed_packages)
             del lmp
-        if self.version < 20210929:
-            raise ImportError("Only LAMMPS 29 Sep 2021 or newer is supported.")
+        if self.version < 20230802:
+            raise ImportError("Only LAMMPS 02 Aug 2023 or newer is supported.")
 
         super().__init__(initializer, operations)
         self.quiet = quiet
         self.types = types
+        self.atom_style = atom_style
 
     def _post_run(self, sim):
         # force all the lammps commands to execute, since the operations did
@@ -1626,7 +1937,7 @@ class LAMMPS(simulate.Simulation):
 
         sim["engine"]["types"] = self.types
         sim["engine"]["units"] = "lj"
-        sim["engine"]["atom_style"] = "atomic"
+        sim["engine"]["atom_style"] = self.atom_style
 
     # initialize
     _InitializeFromFile = InitializeFromFile
@@ -1642,3 +1953,10 @@ class LAMMPS(simulate.Simulation):
     _EnsembleAverage = EnsembleAverage
     _Record = Record
     _WriteTrajectory = WriteTrajectory
+
+
+def _to_int(a):
+    b = int(a)
+    if b != (a):
+        raise ValueError("Unable to cast to integer")
+    return b

@@ -246,6 +246,9 @@ class MockPotential(relentless.model.potential.Potential):
     def derivative(self, key, var, x):
         pass
 
+    def _validate_coordinate(self, x):
+        return super()._validate_coordinate(x)
+
 
 class MockOneParameterPotential(MockPotential):
     def __init__(self, types, name=None):

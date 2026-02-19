@@ -1,7 +1,6 @@
 freud-analysis>=2
-gsd<3.3.0; python_version < '3.9'
-gsd; python_version >= '3.9'
-lammpsio>=0.6.1
+gsd
+lammpsio>=0.7.0
 networkx>=2.5
 numpy
 packaging
