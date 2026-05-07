@@ -22,7 +22,7 @@ Algorithms
     SteepestDescent
     FixedStepDescent
     LineSearch
-    AdamOptimizer
+    Adam
 
 Convergence criteria
 ====================
@@ -65,7 +65,7 @@ from .criteria import (
     ValueTest,
 )
 from .method import (
-    AdamOptimizer,
+    Adam,
     FixedStepDescent,
     LineSearch,
     Optimizer,

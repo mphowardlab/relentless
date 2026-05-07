@@ -593,7 +593,7 @@ class FixedStepDescent(SteepestDescent):
         return k / gradient.norm()
 
 
-class AdamOptimizer(Optimizer):
+class Adam(Optimizer):
     r"""Adam optimization algorithm.
 
     For an :class:`~relentless.optimize.objective.ObjectiveFunction`

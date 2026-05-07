@@ -334,8 +334,8 @@ class test_FixedStepDescent(unittest.TestCase):
         self.assertAlmostEqual(x.value, 1.0)
 
 
-class test_AdamOptimizer(unittest.TestCase):
-    """Unit tests for relentless.optimize.AdamOptimizer"""
+class test_Adam(unittest.TestCase):
+    """Unit tests for relentless.optimize.Adam"""
 
     def setUp(self):
         if relentless.mpi.world.rank_is_root:
@@ -351,7 +351,7 @@ class test_AdamOptimizer(unittest.TestCase):
         x = relentless.model.IndependentVariable(value=3.0)
         t = relentless.optimize.GradientTest(tolerance=1e-8, variables=x)
 
-        o = relentless.optimize.AdamOptimizer(stop=t, max_iter=1000, step_size=0.25)
+        o = relentless.optimize.Adam(stop=t, max_iter=1000, step_size=0.25)
         self.assertEqual(o.stop, t)
         self.assertEqual(o.max_iter, 1000)
         self.assertAlmostEqual(o.step_size, 0.25)
@@ -419,7 +419,7 @@ class test_AdamOptimizer(unittest.TestCase):
         x = relentless.model.IndependentVariable(value=3.0)
         q = QuadraticObjective(x=x)
         t = relentless.optimize.GradientTest(tolerance=1e-8, variables=x)
-        o = relentless.optimize.AdamOptimizer(stop=t, max_iter=1000, step_size=0.25)
+        o = relentless.optimize.Adam(stop=t, max_iter=1000, step_size=0.25)
 
         self.assertTrue(o.optimize(objective=q, variables=x))
         self.assertAlmostEqual(x.value, 1.0)
@@ -485,7 +485,7 @@ class test_AdamOptimizer(unittest.TestCase):
         x = relentless.model.IndependentVariable(value=1.5)
         q = QuadraticObjective(x=x)
         t = relentless.optimize.GradientTest(tolerance=1e-8, variables=x)
-        o = relentless.optimize.AdamOptimizer(stop=t, max_iter=1, step_size=0.25)
+        o = relentless.optimize.Adam(stop=t, max_iter=1, step_size=0.25)
         d = self.directory.path
 
         o.optimize(q, x, d, overwrite=True)
