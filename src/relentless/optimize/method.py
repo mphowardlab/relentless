@@ -605,20 +605,34 @@ class AdamOptimizer(Optimizer):
     that :math:`y_i=x_i/X_i`. (A variable can be left unscaled by setting
     :math:`X_i=1`).
 
-    Adam maintains first and second moment estimates of the gradient to adapt
-    the step size for each parameter individually. Let :math:`\mathbf{g}_t`
-    be the gradient at iteration :math:`t`, and let :math:`\mathbf{m}_t` and
-    :math:`\mathbf{v}_t` be the first and second moment estimates, respectively.
-    The update equations for Adam are:
+    Define :math:`\alpha` as the descent step size hyperparameter. Adam
+    iteratively minimizes the function by taking steps based on exponentially
+    weighted first and second moment estimates of the gradient. Let
+    :math:`\mathbf{g}_n` be the gradient at iteration :math:`n`, and let
+    :math:`\mathbf{m}_n` and :math:`\mathbf{v}_n` be the first and second moment
+    estimates. If the scaled variables are :math:`\mathbf{y}_n` at iteration
+    :math:`n`, the next value of the variables is:
 
     .. math::
 
-        \mathbf{m}_t &= \beta_1 \mathbf{m}_{t-1} + (1 - \beta_1) \mathbf{g}_t \\
-        \mathbf{v}_t &= \beta_2 \mathbf{v}_{t-1} + (1 - \beta_2) \mathbf{g}_t^2 \\
-        \hat{\mathbf{m}}_t &= \frac{\mathbf{m}_t}{1 - \beta_1^t} \\
-        \hat{\mathbf{v}}_t &= \frac{\mathbf{v}_t}{1 - \beta_2^t} \\
-        \mathbf{y}_t &= \mathbf{y}_{t-1} - \alpha
-            \frac{\hat{\mathbf{m}}_t}{\sqrt{\hat{\mathbf{v}}_t} + \epsilon}
+        \mathbf{m}_n &= \beta_1 \mathbf{m}_{n-1}
+            + \left(1-\beta_1\right)\mathbf{g}_n \\
+        \mathbf{v}_n &= \beta_2 \mathbf{v}_{n-1}
+            + \left(1-\beta_2\right){\mathbf{g}_n}^2 \\
+        \hat{\mathbf{m}}_n &= \frac{\mathbf{m}_n}{1-{\beta_1}^n} \\
+        \hat{\mathbf{v}}_n &= \frac{\mathbf{v}_n}{1-{\beta_2}^n} \\
+        \mathbf{y}_{n+1} &= \mathbf{y}_n-\alpha
+            \frac{\hat{\mathbf{m}}_n}
+            {\sqrt{\hat{\mathbf{v}}_n}+\epsilon}
+
+    The gradient of the function with respect to the scaled variables is:
+
+    .. math::
+
+        \nabla f\left(\mathbf{y}\right) =
+            \left[X_1 \frac{\partial f}{\partial x_1},
+            \cdots,
+            X_n \frac{\partial f}{\partial x_n}\right]
 
     Parameters
     ----------
@@ -630,11 +644,13 @@ class AdamOptimizer(Optimizer):
     step_size : float
         The step size hyperparameter (:math:`\alpha`).
     beta1 : float
-        Exponential decay rate for the first moment estimates (defaults to ``0.9``).
+        The exponential decay rate for the first moment estimates
+        (defaults to ``0.9``).
     beta2 : float
-        Exponential decay rate for the second moment estimates (defaults to ``0.999``).
+        The exponential decay rate for the second moment estimates
+        (defaults to ``0.999``).
     epsilon : float
-        A small constant for numerical stability (defaults to ``1e-8``).
+        A small constant added for numerical stability (defaults to ``1e-8``).
     scale : float or dict
         A scalar scaling parameter or scaling parameters (:math:`\mathbf{X}`)
         keyed on one or more :class:`~relentless.optimize.objective.ObjectiveFunction`
