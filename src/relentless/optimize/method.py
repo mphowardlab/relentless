@@ -746,8 +746,8 @@ class AdamOptimizer(Optimizer):
         cur_res = objective.compute(variables, cur_dir)
 
         while not self.stop.converged(cur_res) and iter_num < self.max_iter:
-            # compute scaled gradient
             grad_y = scale * cur_res.gradient
+            step_y = math.KeyedArray(keys=variables)
 
             # update moment estimates
             for x in variables:
@@ -758,10 +758,14 @@ class AdamOptimizer(Optimizer):
                 m_hat = m[x] / (1.0 - self.beta1 ** (iter_num + 1))
                 v_hat = v[x] / (1.0 - self.beta2 ** (iter_num + 1))
 
-                # update variables
-                x.value = cur_res.variables[x] - self.step_size * m_hat / (
-                    numpy.sqrt(v_hat) + self.epsilon
-                )
+                # Adam step in scaled variables
+                step_y[x] = self.step_size * m_hat / (numpy.sqrt(v_hat) + self.epsilon)
+
+            update = scale * step_y
+
+            # Adam update
+            for x in variables:
+                x.value = cur_res.variables[x] - update[x]
 
             # compute next result
             if cur_dir is not None:
