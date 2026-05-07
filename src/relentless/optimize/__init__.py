@@ -22,6 +22,7 @@ Algorithms
     SteepestDescent
     FixedStepDescent
     LineSearch
+    AdamOptimizer
 
 Convergence criteria
 ====================
