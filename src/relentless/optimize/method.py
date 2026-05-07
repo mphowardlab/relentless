@@ -594,7 +594,7 @@ class FixedStepDescent(SteepestDescent):
 
 
 class Adam(Optimizer):
-    r"""Adam optimization algorithm.
+    r"""`Adam optimization algorithm`_.
 
     For an :class:`~relentless.optimize.objective.ObjectiveFunction`
     :math:`f\left(\mathbf{x}\right)`, the Adam algorithm seeks to approach
@@ -603,7 +603,8 @@ class Adam(Optimizer):
     The optimization is performed using scaled variables :math:`\mathbf{y}`.
     Define :math:`\mathbf{X}` as the scaling parameters for each variable such
     that :math:`y_i=x_i/X_i`. (A variable can be left unscaled by setting
-    :math:`X_i=1`). The gradient of the function with respect to the scaled variables is:
+    :math:`X_i=1`). The gradient of the function with respect to the scaled
+    variables is:
 
     .. math::
 
@@ -655,6 +656,9 @@ class Adam(Optimizer):
         keyed on one or more :class:`~relentless.optimize.objective.ObjectiveFunction`
         design variables (defaults to ``1.0``, so that the variables are unscaled).
 
+
+    .. _Adam optimization algorithm: https://doi.org/10.48550/arXiv.1412.6980
+
     """
 
     def __init__(
@@ -662,16 +666,16 @@ class Adam(Optimizer):
         stop,
         max_iter,
         step_size,
-        beta1=0.9,
-        beta2=0.999,
+        beta_1=0.9,
+        beta_2=0.999,
         epsilon=1e-8,
         scale=1.0,
     ):
         super().__init__(stop)
         self.max_iter = max_iter
         self.step_size = step_size
-        self.beta1 = beta1
-        self.beta2 = beta2
+        self.beta_1 = beta_1
+        self.beta_2 = beta_2
         self.epsilon = epsilon
         self.scale = scale
 
@@ -750,12 +754,12 @@ class Adam(Optimizer):
 
             # update moment estimates
             for x in variables:
-                m[x] = self.beta1 * m[x] + (1.0 - self.beta1) * grad_y[x]
-                v[x] = self.beta2 * v[x] + (1.0 - self.beta2) * grad_y[x] ** 2
+                m[x] = self.beta_1 * m[x] + (1.0 - self.beta_1) * grad_y[x]
+                v[x] = self.beta_2 * v[x] + (1.0 - self.beta_2) * grad_y[x] ** 2
 
                 # bias correction
-                m_hat = m[x] / (1.0 - self.beta1 ** (iter_num + 1))
-                v_hat = v[x] / (1.0 - self.beta2 ** (iter_num + 1))
+                m_hat = m[x] / (1.0 - self.beta_1 ** (iter_num + 1))
+                v_hat = v[x] / (1.0 - self.beta_2 ** (iter_num + 1))
 
                 # Adam step in scaled variables
                 step_y[x] = self.step_size * m_hat / (numpy.sqrt(v_hat) + self.epsilon)
@@ -820,26 +824,26 @@ class Adam(Optimizer):
         self._step_size = value
 
     @property
-    def beta1(self):
+    def beta_1(self):
         """float: Exponential decay rate for the first moment estimates."""
-        return self._beta1
+        return self._beta_1
 
-    @beta1.setter
-    def beta1(self, value):
+    @beta_1.setter
+    def beta_1(self, value):
         if not 0 <= value < 1:
-            raise ValueError("beta1 must be in the range [0, 1).")
-        self._beta1 = value
+            raise ValueError("beta_1 must be in the range [0, 1).")
+        self._beta_1 = value
 
     @property
-    def beta2(self):
+    def beta_2(self):
         """float: Exponential decay rate for the second moment estimates."""
-        return self._beta2
+        return self._beta_2
 
-    @beta2.setter
-    def beta2(self, value):
+    @beta_2.setter
+    def beta_2(self, value):
         if not 0 <= value < 1:
-            raise ValueError("beta2 must be in the range [0, 1).")
-        self._beta2 = value
+            raise ValueError("beta_2 must be in the range [0, 1).")
+        self._beta_2 = value
 
     @property
     def epsilon(self):

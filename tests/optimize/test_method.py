@@ -355,8 +355,8 @@ class test_Adam(unittest.TestCase):
         self.assertEqual(o.stop, t)
         self.assertEqual(o.max_iter, 1000)
         self.assertAlmostEqual(o.step_size, 0.25)
-        self.assertAlmostEqual(o.beta1, 0.9)
-        self.assertAlmostEqual(o.beta2, 0.999)
+        self.assertAlmostEqual(o.beta_1, 0.9)
+        self.assertAlmostEqual(o.beta_2, 0.999)
         self.assertAlmostEqual(o.epsilon, 1e-8)
         self.assertAlmostEqual(o.scale, 1.0)
 
@@ -368,12 +368,12 @@ class test_Adam(unittest.TestCase):
         o.scale = {x: 0.3}
         self.assertEqual(o.scale, {x: 0.3})
 
-        # test setting beta1, beta2, epsilon
-        o.beta1 = 0.8
-        o.beta2 = 0.99
+        # test setting beta_1, beta_2, epsilon
+        o.beta_1 = 0.8
+        o.beta_2 = 0.99
         o.epsilon = 1e-7
-        self.assertAlmostEqual(o.beta1, 0.8)
-        self.assertAlmostEqual(o.beta2, 0.99)
+        self.assertAlmostEqual(o.beta_1, 0.8)
+        self.assertAlmostEqual(o.beta_2, 0.99)
         self.assertAlmostEqual(o.epsilon, 1e-7)
 
         # test invalid parameters
@@ -386,13 +386,13 @@ class test_Adam(unittest.TestCase):
         with self.assertRaises(ValueError):
             o.step_size = -0.25
         with self.assertRaises(ValueError):
-            o.beta1 = -0.1
+            o.beta_1 = -0.1
         with self.assertRaises(ValueError):
-            o.beta1 = 1.0
+            o.beta_1 = 1.0
         with self.assertRaises(ValueError):
-            o.beta2 = -0.1
+            o.beta_2 = -0.1
         with self.assertRaises(ValueError):
-            o.beta2 = 1.0
+            o.beta_2 = 1.0
         with self.assertRaises(ValueError):
             o.epsilon = -1e-9
         with self.assertRaises(ValueError):
@@ -430,10 +430,10 @@ class test_Adam(unittest.TestCase):
         self.assertTrue(o.optimize(objective=q, variables=x))
         self.assertAlmostEqual(x.value, 1.0)
 
-        # test with custom beta1, beta2, epsilon
+        # test with custom beta_1, beta_2, epsilon
         x.value = 3
-        o.beta1 = 0.8
-        o.beta2 = 0.99
+        o.beta_1 = 0.8
+        o.beta_2 = 0.99
         o.epsilon = 1e-7
         o.scale = 1.0
         self.assertTrue(o.optimize(objective=q, variables=x))
