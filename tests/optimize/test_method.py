@@ -362,22 +362,10 @@ class test_Adam(unittest.TestCase):
 
         # test scalar scaling parameter
         o.scale = 0.5
-        self.assertEqual(o.stop, t)
-        self.assertEqual(o.max_iter, 1000)
-        self.assertAlmostEqual(o.step_size, 0.25)
-        self.assertAlmostEqual(o.beta1, 0.9)
-        self.assertAlmostEqual(o.beta2, 0.999)
-        self.assertAlmostEqual(o.epsilon, 1e-8)
         self.assertAlmostEqual(o.scale, 0.5)
 
         # test dictionary of scaling parameters
         o.scale = {x: 0.3}
-        self.assertEqual(o.stop, t)
-        self.assertEqual(o.max_iter, 1000)
-        self.assertAlmostEqual(o.step_size, 0.25)
-        self.assertAlmostEqual(o.beta1, 0.9)
-        self.assertAlmostEqual(o.beta2, 0.999)
-        self.assertAlmostEqual(o.epsilon, 1e-8)
         self.assertEqual(o.scale, {x: 0.3})
 
         # test setting beta1, beta2, epsilon

@@ -603,7 +603,14 @@ class Adam(Optimizer):
     The optimization is performed using scaled variables :math:`\mathbf{y}`.
     Define :math:`\mathbf{X}` as the scaling parameters for each variable such
     that :math:`y_i=x_i/X_i`. (A variable can be left unscaled by setting
-    :math:`X_i=1`).
+    :math:`X_i=1`). The gradient of the function with respect to the scaled variables is:
+
+    .. math::
+
+        \mathbf{g} = \nabla f\left(\mathbf{y}\right) =
+            \left[X_1 \frac{\partial f}{\partial x_1},
+            \cdots,
+            X_n \frac{\partial f}{\partial x_n}\right]
 
     Define :math:`\alpha` as the descent step size hyperparameter. Adam
     iteratively minimizes the function by taking steps based on exponentially
@@ -625,14 +632,6 @@ class Adam(Optimizer):
             \frac{\hat{\mathbf{m}}_n}
             {\sqrt{\hat{\mathbf{v}}_n}+\epsilon}
 
-    The gradient of the function with respect to the scaled variables is:
-
-    .. math::
-
-        \nabla f\left(\mathbf{y}\right) =
-            \left[X_1 \frac{\partial f}{\partial x_1},
-            \cdots,
-            X_n \frac{\partial f}{\partial x_n}\right]
 
     Parameters
     ----------
@@ -643,10 +642,10 @@ class Adam(Optimizer):
         The maximum number of optimization iterations allowed.
     step_size : float
         The step size hyperparameter (:math:`\alpha`).
-    beta1 : float
+    beta_1 : float
         The exponential decay rate for the first moment estimates
         (defaults to ``0.9``).
-    beta2 : float
+    beta_2 : float
         The exponential decay rate for the second moment estimates
         (defaults to ``0.999``).
     epsilon : float
