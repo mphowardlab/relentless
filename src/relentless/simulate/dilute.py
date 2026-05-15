@@ -93,9 +93,10 @@ class _Integrator(simulate.SimulationOperation):
 
 
 class RunBrownianDynamics(_Integrator):
-    def __init__(self, steps, timestep, T, friction, seed, analyzers):
+    def __init__(self, steps, timestep, T, friction, seed, analyzers, barostat=None):
         super().__init__(steps, timestep, analyzers)
         self.T = T
+        self.barostat = barostat
 
     def _modify_ensemble(self, sim):
         thermostat = md.Thermostat(self.T)
