@@ -594,11 +594,11 @@ class FixedStepDescent(SteepestDescent):
 
 
 class Adam(Optimizer):
-    r"""`Adam optimization algorithm`_.
+    r"""Adam optimization algorithm.
 
     For an :class:`~relentless.optimize.objective.ObjectiveFunction`
-    :math:`f\left(\mathbf{x}\right)`, the Adam algorithm seeks to approach
-    a minimum of the function.
+    :math:`f\left(\mathbf{x}\right)`, the `Adam optimization algorithm`_ seeks
+    to approach a minimum of the function.
 
     The optimization is performed using scaled variables :math:`\mathbf{y}`.
     Define :math:`\mathbf{X}` as the scaling parameters for each variable such
