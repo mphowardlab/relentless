@@ -334,5 +334,157 @@ class test_FixedStepDescent(unittest.TestCase):
         self.assertAlmostEqual(x.value, 1.0)
 
 
+class test_Adam(unittest.TestCase):
+    """Unit tests for relentless.optimize.Adam"""
+
+    def setUp(self):
+        if relentless.mpi.world.rank_is_root:
+            self._tmp = tempfile.TemporaryDirectory()
+            directory = self._tmp.name
+        else:
+            directory = None
+        directory = relentless.mpi.world.bcast(directory)
+        self.directory = relentless.data.Directory(directory)
+
+    def test_init(self):
+        """Test creation with data."""
+        x = relentless.model.IndependentVariable(value=3.0)
+        t = relentless.optimize.GradientTest(tolerance=1e-8, variables=x)
+
+        o = relentless.optimize.Adam(stop=t, max_iter=1000, step_size=0.25)
+        self.assertEqual(o.stop, t)
+        self.assertEqual(o.max_iter, 1000)
+        self.assertAlmostEqual(o.step_size, 0.25)
+        self.assertAlmostEqual(o.beta_1, 0.9)
+        self.assertAlmostEqual(o.beta_2, 0.999)
+        self.assertAlmostEqual(o.epsilon, 1e-8)
+        self.assertAlmostEqual(o.scale, 1.0)
+
+        # test scalar scaling parameter
+        o.scale = 0.5
+        self.assertAlmostEqual(o.scale, 0.5)
+
+        # test dictionary of scaling parameters
+        o.scale = {x: 0.3}
+        self.assertEqual(o.scale, {x: 0.3})
+
+        # test setting beta_1, beta_2, epsilon
+        o.beta_1 = 0.8
+        o.beta_2 = 0.99
+        o.epsilon = 1e-7
+        self.assertAlmostEqual(o.beta_1, 0.8)
+        self.assertAlmostEqual(o.beta_2, 0.99)
+        self.assertAlmostEqual(o.epsilon, 1e-7)
+
+        # test invalid parameters
+        with self.assertRaises(TypeError):
+            o.stop = 1e-8
+        with self.assertRaises(ValueError):
+            o.max_iter = 0
+        with self.assertRaises(TypeError):
+            o.max_iter = 100.0
+        with self.assertRaises(ValueError):
+            o.step_size = -0.25
+        with self.assertRaises(ValueError):
+            o.beta_1 = -0.1
+        with self.assertRaises(ValueError):
+            o.beta_1 = 1.0
+        with self.assertRaises(ValueError):
+            o.beta_2 = -0.1
+        with self.assertRaises(ValueError):
+            o.beta_2 = 1.0
+        with self.assertRaises(ValueError):
+            o.epsilon = -1e-9
+        with self.assertRaises(ValueError):
+            o.epsilon = 0
+        with self.assertRaises(ValueError):
+            o.scale = -0.5
+        with self.assertRaises(ValueError):
+            o.scale = {x: -0.5}
+
+    def test_run(self):
+        """Test run method."""
+        x = relentless.model.IndependentVariable(value=3.0)
+        q = QuadraticObjective(x=x)
+        t = relentless.optimize.GradientTest(tolerance=1e-8, variables=x)
+        o = relentless.optimize.Adam(stop=t, max_iter=1000, step_size=0.25)
+
+        self.assertTrue(o.optimize(objective=q, variables=x))
+        self.assertAlmostEqual(x.value, 1.0)
+
+        # test insufficient maximum iterations
+        x.value = 1.5
+        o.max_iter = 1
+        self.assertFalse(o.optimize(objective=q, variables=x))
+
+        # test with nontrivial scalar scaling parameter
+        x.value = 35
+        o.scale = 0.85
+        o.max_iter = 1000
+        self.assertTrue(o.optimize(objective=q, variables=x))
+        self.assertAlmostEqual(x.value, 1.0)
+
+        # test with nontrivial dictionary of scaling parameters
+        x.value = -35
+        o.scale = {x: 1.5}
+        self.assertTrue(o.optimize(objective=q, variables=x))
+        self.assertAlmostEqual(x.value, 1.0)
+
+        # test with custom beta_1, beta_2, epsilon
+        x.value = 3
+        o.beta_1 = 0.8
+        o.beta_2 = 0.99
+        o.epsilon = 1e-7
+        o.scale = 1.0
+        self.assertTrue(o.optimize(objective=q, variables=x))
+        self.assertAlmostEqual(x.value, 1.0)
+
+    def test_directory(self):
+        x = relentless.model.IndependentVariable(value=1.5)
+        q = QuadraticObjective(x=x)
+        t = relentless.optimize.GradientTest(tolerance=1e-8, variables=x)
+        o = relentless.optimize.SteepestDescent(stop=t, max_iter=1, step_size=0.25)
+        d = self.directory
+
+        # test that overwrite raises error when False
+        with self.assertRaises(OSError):
+            o.optimize(q, x, d, overwrite=False)
+
+        # optimize with output
+        o.optimize(q, x, d, overwrite=True)
+
+        # 0/ holds the initial value
+        self.assertTrue(os.path.isdir(os.path.join(d.path, "0")))
+        self.assertTrue(os.path.isfile(os.path.join(d.path, "0", "x.log")))
+        with open(d.directory("0").file("x.log")) as f:
+            self.assertAlmostEqual(float(f.readline()), 1.5)
+
+        # 0/.next should be empty because it has been accepted to 1/
+        self.assertTrue(os.path.isdir(os.path.join(d.path, "0", ".next")))
+        self.assertEqual(len(os.listdir(d.directory("0/.next").path)), 0)
+
+        # 1/ holds the next output
+        self.assertTrue(os.path.isdir(os.path.join(d.path, "1")))
+        self.assertTrue(os.path.isfile(os.path.join(d.path, "1", "x.log")))
+        with open(d.directory("1").file("x.log")) as f:
+            self.assertAlmostEqual(float(f.readline()), 1.25)
+
+    def test_directory_str(self):
+        x = relentless.model.IndependentVariable(value=1.5)
+        q = QuadraticObjective(x=x)
+        t = relentless.optimize.GradientTest(tolerance=1e-8, variables=x)
+        o = relentless.optimize.Adam(stop=t, max_iter=1, step_size=0.25)
+        d = self.directory.path
+
+        o.optimize(q, x, d, overwrite=True)
+
+    def tearDown(self):
+        relentless.mpi.world.barrier()
+        if relentless.mpi.world.rank_is_root:
+            self._tmp.cleanup()
+            del self._tmp
+        del self.directory
+
+
 if __name__ == "__main__":
     unittest.main()
