@@ -91,7 +91,7 @@ jobs:
           conda install "numpy<2" "gsd<3.4"
       - name: Install test dependencies
         run: |
-          conda install hoomd=${{ matrix.hoomd-version }} --no-update-deps
+          conda install hoomd=${{ matrix.hoomd-version }} pip --no-update-deps
           pip install -r tests/requirements.txt --upgrade-strategy only-if-needed
       - name: Install
         run: |
@@ -133,7 +133,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install LAMMPS
         run: |
-          conda install "lammps=${{ matrix.lammps-version }}=*mpich*" mpi4py
+          conda install "lammps=${{ matrix.lammps-version }}=*mpich*" mpi4py pip
       - name: Force libpnetcdf version
         if: ${{ matrix.lammps-version == '2023.08.02' }}
         run: |
@@ -175,7 +175,7 @@ jobs:
           python-version: 3.9
       - name: Install test dependencies
         run: |
-          conda install hoomd=5
+          conda install hoomd=5 pip
           pip install -r doc/requirements.txt
       - name: Install
         run: |
