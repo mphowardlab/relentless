@@ -175,7 +175,7 @@ jobs:
           python-version: 3.9
       - name: Install test dependencies
         run: |
-          conda install hoomd=5
+          conda install hoomd=5 pip
           pip install -r doc/requirements.txt
       - name: Install
         run: |
