@@ -472,6 +472,62 @@ class _Integrator(simulate.SimulationOperation):
         else:
             return kB * thermostat.T
 
+    @staticmethod
+    def _make_box(sim, V):
+        """Cast an extent into a HOOMD box."""
+        box_array = V.as_array("HOOMD")
+        if sim.dimension == 2:
+            return hoomd.Box(Lx=box_array[0], Ly=box_array[1], xy=box_array[2])
+        else:
+            return hoomd.Box(
+                Lx=box_array[0],
+                Ly=box_array[1],
+                Lz=box_array[2],
+                xy=box_array[3],
+                xz=box_array[4],
+                yz=box_array[5],
+            )
+
+    def _make_box_resize(self, sim, barostat):
+        """Create a HOOMD box resize updater."""
+        if barostat is None:
+            return None
+        elif isinstance(barostat, extent.Extent):
+            box = self._make_box(sim, barostat)
+            hoomd.update.BoxResize.update(
+                sim["engine"]["_hoomd"].state, box, hoomd.filter.All()
+            )
+            return None
+        elif len(barostat) == 2 and all(isinstance(V, extent.Extent) for V in barostat):
+            box_1 = self._make_box(sim, barostat[0])
+            box_2 = self._make_box(sim, barostat[1])
+            if self.steps > 1:
+                variant = hoomd.variant.Ramp(
+                    A=0,
+                    B=1,
+                    t_start=sim["engine"]["_hoomd"].timestep,
+                    t_ramp=self.steps - 1,
+                )
+                trigger = hoomd.trigger.Periodic(1)
+                if _hoomd_version >= packaging.version.Version("4.6.0"):
+                    box = hoomd.variant.box.Interpolate(box_1, box_2, variant)
+                    box_resize = hoomd.update.BoxResize(trigger=trigger, box=box)
+                else:
+                    box_resize = hoomd.update.BoxResize(
+                        trigger=trigger,
+                        box1=box_1,
+                        box2=box_2,
+                        variant=variant,
+                    )
+                return box_resize
+            else:
+                hoomd.update.BoxResize.update(
+                    sim["engine"]["_hoomd"].state, box_2, hoomd.filter.All()
+                )
+                return None
+        else:
+            raise TypeError("barostat must be an Extent or a pair of Extent objects.")
+
 
 class RunBrownianDynamics(_Integrator):
     """Perform a Brownian dynamics simulation.
@@ -492,14 +548,18 @@ class RunBrownianDynamics(_Integrator):
         Seed used to randomly generate a uniform force.
     analyzers : :class:`~relentless.simulate.AnalysisOperation` or list
         Analysis operations to perform with run (defaults to ``None``).
+    barostat : :class:`~relentless.model.extent.Extent` or tuple
+        Target simulation extent, or pair of extents for linear box resizing.
+        None means no box resizing.
 
     """
 
-    def __init__(self, steps, timestep, T, friction, seed, analyzers):
+    def __init__(self, steps, timestep, T, friction, seed, analyzers, barostat=None):
         super().__init__(steps, timestep, analyzers)
         self.T = T
         self.friction = friction
         self.seed = seed
+        self.barostat = barostat
 
     def __call__(self, sim):
         kT = self._make_kT(sim, self.T, self.steps)
@@ -522,11 +582,16 @@ class RunBrownianDynamics(_Integrator):
         for analyzer in self.analyzers:
             analyzer.pre_run(sim, self)
 
+        box_resize = self._make_box_resize(sim, self.barostat)
+        if box_resize is not None:
+            sim["engine"]["_hoomd"].operations.updaters.append(box_resize)
         sim["engine"]["_hoomd"].run(self.steps, write_at_start=True)
 
         for analyzer in self.analyzers:
             analyzer.post_run(sim, self)
 
+        if box_resize is not None:
+            sim["engine"]["_hoomd"].operations.updaters.remove(box_resize)
         sim["engine"]["_hoomd"].operations.integrator = None
         del ig, bd
 
@@ -550,14 +615,18 @@ class RunLangevinDynamics(_Integrator):
         Seed used to randomly generate a uniform force.
     analyzers : :class:`~relentless.simulate.AnalysisOperation` or list
         Analysis operations to perform with run (defaults to ``None``).
+    barostat : :class:`~relentless.model.extent.Extent` or tuple
+        Target simulation extent, or pair of extents for linear box resizing.
+        None means no box resizing.
 
     """
 
-    def __init__(self, steps, timestep, T, friction, seed, analyzers):
+    def __init__(self, steps, timestep, T, friction, seed, analyzers, barostat=None):
         super().__init__(steps, timestep, analyzers)
         self.T = T
         self.friction = friction
         self.seed = seed
+        self.barostat = barostat
 
     def __call__(self, sim):
         kT = self._make_kT(sim, self.T, self.steps)
@@ -580,11 +649,16 @@ class RunLangevinDynamics(_Integrator):
         for analyzer in self.analyzers:
             analyzer.pre_run(sim, self)
 
+        box_resize = self._make_box_resize(sim, self.barostat)
+        if box_resize is not None:
+            sim["engine"]["_hoomd"].operations.updaters.append(box_resize)
         sim["engine"]["_hoomd"].run(self.steps, write_at_start=True)
 
         for analyzer in self.analyzers:
             analyzer.post_run(sim, self)
 
+        if box_resize is not None:
+            sim["engine"]["_hoomd"].operations.updaters.remove(box_resize)
         sim["engine"]["_hoomd"].operations.integrator = None
         del ig, ld
 
@@ -607,8 +681,10 @@ class RunMolecularDynamics(_Integrator):
         Simulation time step.
     thermostat : :class:`~relentless.simulate.Thermostat`
         Thermostat for temperature control. None means no thermostat.
-    barostat : :class:`~relentless.simulate.Barostat`
-        Barostat for pressure control. None means no barostat.
+    barostat : :class:`~relentless.simulate.Barostat`, \
+            :class:`~relentless.model.extent.Extent`, or tuple
+        Barostat for pressure control, target simulation extent, or pair of
+        extents for linear box resizing. None means no barostat or resizing.
     analyzers : :class:`~relentless.simulate.AnalysisOperation` or list
         Analysis operations to perform with run (defaults to ``None``).
 
@@ -630,7 +706,27 @@ class RunMolecularDynamics(_Integrator):
         else:
             kT = None
 
-        if self.thermostat is None and self.barostat is None:
+        # check if barostat is a box resize
+        if isinstance(self.barostat, extent.Extent):
+            self._is_box_resize = True
+        else:
+            try:
+                if len(self.barostat) == 2 and all(
+                    isinstance(V, extent.Extent) for V in self.barostat
+                ):
+                    self._is_box_resize = True
+            except TypeError:
+                self._is_box_resize = False
+
+        # distinguish pressure vs box resize barostat
+        if self._is_box_resize:
+            pressure_barostat = None
+            resize_barostat = self.barostat
+        else:
+            pressure_barostat = self.barostat
+            resize_barostat = None
+
+        if self.thermostat is None and pressure_barostat is None:
             if _hoomd_version.major >= 4:
                 ig_method = hoomd.md.methods.ConstantVolume(filter=hoomd.filter.All())
             else:
@@ -640,7 +736,7 @@ class RunMolecularDynamics(_Integrator):
                     ig_method = hoomd.md.methods.NVE(filter=hoomd.filter.All())
         elif (
             isinstance(self.thermostat, md.BerendsenThermostat)
-            and self.barostat is None
+            and pressure_barostat is None
         ):
             if _hoomd_version.major >= 4:
                 ig_method = hoomd.md.methods.ConstantVolume(
@@ -660,7 +756,7 @@ class RunMolecularDynamics(_Integrator):
                     )
         elif (
             isinstance(self.thermostat, md.NoseHooverThermostat)
-            and self.barostat is None
+            and pressure_barostat is None
         ):
             if _hoomd_version.major >= 4:
                 ig_method = hoomd.md.methods.ConstantVolume(
@@ -678,12 +774,12 @@ class RunMolecularDynamics(_Integrator):
                         kT=kT,
                         tau=self.thermostat.tau,
                     )
-        elif self.thermostat is None and isinstance(self.barostat, md.MTKBarostat):
+        elif self.thermostat is None and isinstance(pressure_barostat, md.MTKBarostat):
             if _hoomd_version.major >= 4:
                 ig_method = hoomd.md.methods.ConstantPressure(
                     filter=hoomd.filter.All(),
-                    S=self.barostat.P,
-                    tauS=self.barostat.tau,
+                    S=pressure_barostat.P,
+                    tauS=pressure_barostat.tau,
                     couple="xyz" if sim.dimension == 3 else "xy",
                 )
             else:
@@ -692,18 +788,18 @@ class RunMolecularDynamics(_Integrator):
                         warnings.simplefilter(action="ignore", category=FutureWarning)
                     ig_method = hoomd.md.methods.NPH(
                         filter=hoomd.filter.All(),
-                        S=self.barostat.P,
-                        tauS=self.barostat.tau,
+                        S=pressure_barostat.P,
+                        tauS=pressure_barostat.tau,
                         couple="xyz" if sim.dimension == 3 else "xy",
                     )
         elif isinstance(self.thermostat, md.NoseHooverThermostat) and isinstance(
-            self.barostat, md.MTKBarostat
+            pressure_barostat, md.MTKBarostat
         ):
             if _hoomd_version.major >= 4:
                 ig_method = hoomd.md.methods.ConstantPressure(
                     filter=hoomd.filter.All(),
-                    S=self.barostat.P,
-                    tauS=self.barostat.tau,
+                    S=pressure_barostat.P,
+                    tauS=pressure_barostat.tau,
                     couple="xyz" if sim.dimension == 3 else "xy",
                     thermostat=hoomd.md.methods.thermostats.MTTK(
                         kT=kT, tau=self.thermostat.tau
@@ -717,8 +813,8 @@ class RunMolecularDynamics(_Integrator):
                         filter=hoomd.filter.All(),
                         kT=kT,
                         tau=self.thermostat.tau,
-                        S=self.barostat.P,
-                        tauS=self.barostat.tau,
+                        S=pressure_barostat.P,
+                        tauS=pressure_barostat.tau,
                         couple="xyz" if sim.dimension == 3 else "xy",
                     )
         else:
@@ -737,11 +833,16 @@ class RunMolecularDynamics(_Integrator):
         for analyzer in self.analyzers:
             analyzer.pre_run(sim, self)
 
+        box_resize = self._make_box_resize(sim, resize_barostat)
+        if box_resize is not None:
+            sim["engine"]["_hoomd"].operations.updaters.append(box_resize)
         sim["engine"]["_hoomd"].run(self.steps, write_at_start=True)
 
         for analyzer in self.analyzers:
             analyzer.post_run(sim, self)
 
+        if box_resize is not None:
+            sim["engine"]["_hoomd"].operations.updaters.remove(box_resize)
         sim["engine"]["_hoomd"].operations.integrator = None
         del ig, ig_method
 
@@ -839,7 +940,7 @@ class EnsembleAverage(simulate.AnalysisOperation):
             if sim_op.thermostat is not None:
                 constraints["T"] = sim_op.thermostat
             # conjugate pair: one or the other is set
-            if sim_op.barostat is not None:
+            if isinstance(sim_op.barostat, md.MTKBarostat):
                 constraints["P"] = sim_op.barostat.P
             else:
                 constraints["V"] = True

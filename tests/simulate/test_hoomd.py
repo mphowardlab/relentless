@@ -80,6 +80,24 @@ class test_HOOMD(unittest.TestCase):
 
         return (ens, pots)
 
+    def resize_extents(self):
+        if self.dim == 3:
+            return (relentless.model.Cube(L=18.0), relentless.model.Cube(L=19.0))
+        elif self.dim == 2:
+            return (relentless.model.Square(L=18.0), relentless.model.Square(L=19.0))
+        else:
+            raise ValueError("HOOMD supports 2d and 3d simulations")
+
+    def assert_box(self, sim, V):
+        box = sim["engine"]["_hoomd"].state.box
+        if self.dim == 3:
+            box_array = numpy.array([box.Lx, box.Ly, box.Lz, box.xy, box.xz, box.yz])
+        elif self.dim == 2:
+            box_array = numpy.array([box.Lx, box.Ly, box.xy])
+        else:
+            raise ValueError("HOOMD supports 2d and 3d simulations")
+        numpy.testing.assert_allclose(box_array, V.as_array("HOOMD"))
+
     def ens_pot_bonds(self):
         if self.dim == 3:
             ens = relentless.model.Ensemble(
@@ -705,6 +723,20 @@ class test_HOOMD(unittest.TestCase):
         brn.T = (ens.T, 1.5 * ens.T)
         h.run(pot, self.directory)
 
+        # box resizing
+        V1, V2 = self.resize_extents()
+        brn.barostat = V1
+        h = relentless.simulate.HOOMD(init, brn)
+        sim = h.run(pot, self.directory)
+        self.assert_box(sim, V1)
+
+        brn.steps = 2
+        brn.barostat = (V1, V2)
+        sim = h.run(pot, self.directory)
+        self.assert_box(sim, V2)
+        brn.steps = 1
+        brn.barostat = None
+
     def test_langevin_dynamics(self):
         ens, pot = self.ens_pot()
         init = relentless.simulate.InitializeRandomly(seed=1, N=ens.N, V=ens.V, T=ens.T)
@@ -720,6 +752,19 @@ class test_HOOMD(unittest.TestCase):
         # temperature annealing
         lgv.T = (ens.T, 1.5 * ens.T)
         h.run(pot, self.directory)
+
+        # box resizing
+        V1, V2 = self.resize_extents()
+        lgv.barostat = V1
+        sim = h.run(pot, self.directory)
+        self.assert_box(sim, V1)
+
+        lgv.steps = 2
+        lgv.barostat = (V1, V2)
+        sim = h.run(pot, self.directory)
+        self.assert_box(sim, V2)
+        lgv.steps = 1
+        lgv.barostat = None
 
     def test_molecular_dynamics(self):
         # VerletIntegrator - NVE
@@ -745,6 +790,18 @@ class test_HOOMD(unittest.TestCase):
         # VerletIntegrator - NPH
         vrl.thermostat = None
         h.run(pot, self.directory)
+
+        # VerletIntegrator - box resizing
+        V1, V2 = self.resize_extents()
+        vrl.barostat = V1
+        sim = h.run(pot, self.directory)
+        self.assert_box(sim, V1)
+
+        vrl.steps = 2
+        vrl.barostat = (V1, V2)
+        sim = h.run(pot, self.directory)
+        self.assert_box(sim, V2)
+        vrl.steps = 1
 
         if relentless.mpi.world.size == 1:
             # VerletIntegrator - NVE (Berendsen)
