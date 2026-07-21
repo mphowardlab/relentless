@@ -6,7 +6,6 @@ import unittest
 import gsd
 import gsd.hoomd
 import numpy
-from packaging import version
 
 import relentless
 

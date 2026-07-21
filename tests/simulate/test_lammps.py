@@ -31,7 +31,6 @@ import lammpsio
 import numpy
 import parameterized
 import scipy.stats
-from packaging import version
 
 import relentless
 from tests.model.potential.test_angle import LinPotAngle

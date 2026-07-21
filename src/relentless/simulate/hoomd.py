@@ -2,7 +2,6 @@ import abc
 import enum
 import os
 import shutil
-import warnings
 
 import freud
 import gsd.hoomd
