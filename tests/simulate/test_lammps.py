@@ -38,7 +38,6 @@ from tests.model.potential.test_angle import LinPotAngle
 from tests.model.potential.test_bond import LinPotBond
 from tests.model.potential.test_pair import LinPot
 
-
 # parametrize testing fixture
 if _lammps_executable is not None:
     test_params = [(2, _lammps_executable), (3, _lammps_executable)]
