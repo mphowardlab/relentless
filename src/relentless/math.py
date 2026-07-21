@@ -209,6 +209,23 @@ class AkimaSpline(Interpolator):
                 x=self._table[:, 0], y=self._table[:, 1], k=1
             )
 
+    def __deepcopy__(self, memo):
+        """Deep copy of object.
+
+        Automatic deepcopy raises a module error with some versions of SciPy.
+        Making a new class from the data should be all that's needed to get the
+        object copied.
+
+        """
+        id_ = id(self)
+        if id_ in memo:
+            return memo[id_]
+
+        copy_ = self.__class__(self._table[:, 0], self._table[:, 1])
+        memo[id_] = copy_
+
+        return copy_
+
 
 class KeyedArray(FixedKeyDict):
     """Numerical array with fixed keys.

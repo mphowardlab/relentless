@@ -2,4 +2,5 @@ black
 bumpversion
 flake8
 isort
+parameterized
 pre-commit
