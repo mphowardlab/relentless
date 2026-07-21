@@ -1,7 +1,7 @@
-freud-analysis>=2
-gsd
-lammpsio>=0.7.0
-networkx>=2.5
-numpy
+freud-analysis>=3.2
+gsd>=3.3
+lammpsio>=0.7
+networkx>=3.4
+numpy>=2.1
 packaging
-scipy
+scipy>=1.15

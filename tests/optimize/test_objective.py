@@ -10,18 +10,6 @@ from packaging import version
 
 import relentless
 
-# silence warnings about Snapshot being deprecated
-try:
-    gsd_version = gsd.version.version
-except AttributeError:
-    gsd_version = gsd.__version__
-if version.Version(gsd_version) >= version.Version("2.8.0"):
-    HOOMDFrame = gsd.hoomd.Frame
-    gsd_write_mode = "w"
-else:
-    HOOMDFrame = gsd.hoomd.Snapshot
-    gsd_write_mode = "wb"
-
 
 class QuadraticObjective(relentless.optimize.ObjectiveFunction):
     """Mock objective function used to test relentless.optimize.ObjectiveFunction"""
