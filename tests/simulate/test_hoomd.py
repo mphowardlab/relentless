@@ -10,7 +10,6 @@ import gsd.hoomd
 import lammpsio
 import numpy
 import scipy.stats
-from packaging import version
 from parameterized import parameterized_class
 
 import relentless

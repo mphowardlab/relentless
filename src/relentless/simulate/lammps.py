@@ -8,7 +8,6 @@ import freud
 import gsd.hoomd
 import lammpsio
 import numpy
-import packaging.version
 
 from relentless import collections, mpi
 from relentless.model import ensemble, extent
