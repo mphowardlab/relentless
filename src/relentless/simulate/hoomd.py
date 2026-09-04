@@ -2,7 +2,6 @@ import abc
 import enum
 import os
 import shutil
-import warnings
 
 import freud
 import gsd.hoomd
@@ -24,30 +23,14 @@ except ImportError:
     _hoomd_found = False
 
 if _hoomd_found:
-    try:
-        _hoomd_version = hoomd.version.version
-    except AttributeError:
-        _hoomd_version = hoomd.__version__
-    _hoomd_version = packaging.version.parse(_hoomd_version)
-
+    _hoomd_version = packaging.version.parse(hoomd.version.version)
     from hoomd.custom import Action
-
 else:
     _hoomd_version = None
 
     class Action:
         class Flags(enum.IntEnum):
             PRESSURE_TENSOR = 0
-
-
-try:
-    _gsd_version = gsd.version.version
-except AttributeError:
-    _gsd_version = gsd.__version__
-if packaging.version.Version(_gsd_version) >= packaging.version.Version("2.8.0"):
-    _gsd_write_mode = "w"
-else:
-    _gsd_write_mode = "wb"
 
 
 # initializers
@@ -215,7 +198,7 @@ class InitializeFromFile(InitializationOperation):
                     frame.configuration.box[4:6] = 0.0
                     frame.configuration.box[2] = 0.0
                 gsd_filename = sim.directory.temporary_file(".gsd")
-                with gsd.hoomd.open(gsd_filename, _gsd_write_mode) as f:
+                with gsd.hoomd.open(gsd_filename, "w") as f:
                     f.append(frame)
             else:
                 gsd_filename = None
@@ -232,7 +215,7 @@ class InitializeFromFile(InitializationOperation):
                         # fix for HOOMD 2 style used in HOOMD 3
                         frame.configuration.box[2] = 0
                         gsd_filename = sim.directory.temporary_file(".gsd")
-                        with gsd.hoomd.open(gsd_filename, _gsd_write_mode) as f:
+                        with gsd.hoomd.open(gsd_filename, "w") as f:
                             f.append(frame)
             else:
                 gsd_filename = None
@@ -400,13 +383,7 @@ class MinimizeEnergy(simulate.SimulationOperation):
 
     def __call__(self, sim):
         # setup FIRE minimization
-        if _hoomd_version.major >= 4:
-            nve = hoomd.md.methods.ConstantVolume(filter=hoomd.filter.All())
-        else:
-            with warnings.catch_warnings():
-                if _hoomd_version >= packaging.version.Version("3.8"):
-                    warnings.simplefilter(action="ignore", category=FutureWarning)
-                nve = hoomd.md.methods.NVE(filter=hoomd.filter.All())
+        nve = hoomd.md.methods.ConstantVolume(filter=hoomd.filter.All())
         fire = hoomd.md.minimize.FIRE(
             dt=self.options["max_displacement"],
             force_tol=self.force_tolerance,
@@ -631,96 +608,46 @@ class RunMolecularDynamics(_Integrator):
             kT = None
 
         if self.thermostat is None and self.barostat is None:
-            if _hoomd_version.major >= 4:
-                ig_method = hoomd.md.methods.ConstantVolume(filter=hoomd.filter.All())
-            else:
-                with warnings.catch_warnings():
-                    if _hoomd_version >= packaging.version.Version("3.8"):
-                        warnings.simplefilter(action="ignore", category=FutureWarning)
-                    ig_method = hoomd.md.methods.NVE(filter=hoomd.filter.All())
+            ig_method = hoomd.md.methods.ConstantVolume(filter=hoomd.filter.All())
         elif (
             isinstance(self.thermostat, md.BerendsenThermostat)
             and self.barostat is None
         ):
-            if _hoomd_version.major >= 4:
-                ig_method = hoomd.md.methods.ConstantVolume(
-                    filter=hoomd.filter.All(),
-                    thermostat=hoomd.md.methods.thermostats.Berendsen(
-                        kT=kT, tau=self.thermostat.tau
-                    ),
-                )
-            else:
-                with warnings.catch_warnings():
-                    if _hoomd_version >= packaging.version.Version("3.8"):
-                        warnings.simplefilter(action="ignore", category=FutureWarning)
-                    ig_method = hoomd.md.methods.Berendsen(
-                        filter=hoomd.filter.All(),
-                        kT=kT,
-                        tau=self.thermostat.tau,
-                    )
+            ig_method = hoomd.md.methods.ConstantVolume(
+                filter=hoomd.filter.All(),
+                thermostat=hoomd.md.methods.thermostats.Berendsen(
+                    kT=kT, tau=self.thermostat.tau
+                ),
+            )
         elif (
             isinstance(self.thermostat, md.NoseHooverThermostat)
             and self.barostat is None
         ):
-            if _hoomd_version.major >= 4:
-                ig_method = hoomd.md.methods.ConstantVolume(
-                    filter=hoomd.filter.All(),
-                    thermostat=hoomd.md.methods.thermostats.MTTK(
-                        kT=kT, tau=self.thermostat.tau
-                    ),
-                )
-            else:
-                with warnings.catch_warnings():
-                    if _hoomd_version >= packaging.version.Version("3.8"):
-                        warnings.simplefilter(action="ignore", category=FutureWarning)
-                    ig_method = hoomd.md.methods.NVT(
-                        filter=hoomd.filter.All(),
-                        kT=kT,
-                        tau=self.thermostat.tau,
-                    )
+            ig_method = hoomd.md.methods.ConstantVolume(
+                filter=hoomd.filter.All(),
+                thermostat=hoomd.md.methods.thermostats.MTTK(
+                    kT=kT, tau=self.thermostat.tau
+                ),
+            )
         elif self.thermostat is None and isinstance(self.barostat, md.MTKBarostat):
-            if _hoomd_version.major >= 4:
-                ig_method = hoomd.md.methods.ConstantPressure(
-                    filter=hoomd.filter.All(),
-                    S=self.barostat.P,
-                    tauS=self.barostat.tau,
-                    couple="xyz" if sim.dimension == 3 else "xy",
-                )
-            else:
-                with warnings.catch_warnings():
-                    if _hoomd_version >= packaging.version.Version("3.8"):
-                        warnings.simplefilter(action="ignore", category=FutureWarning)
-                    ig_method = hoomd.md.methods.NPH(
-                        filter=hoomd.filter.All(),
-                        S=self.barostat.P,
-                        tauS=self.barostat.tau,
-                        couple="xyz" if sim.dimension == 3 else "xy",
-                    )
+            ig_method = hoomd.md.methods.ConstantPressure(
+                filter=hoomd.filter.All(),
+                S=self.barostat.P,
+                tauS=self.barostat.tau,
+                couple="xyz" if sim.dimension == 3 else "xy",
+            )
         elif isinstance(self.thermostat, md.NoseHooverThermostat) and isinstance(
             self.barostat, md.MTKBarostat
         ):
-            if _hoomd_version.major >= 4:
-                ig_method = hoomd.md.methods.ConstantPressure(
-                    filter=hoomd.filter.All(),
-                    S=self.barostat.P,
-                    tauS=self.barostat.tau,
-                    couple="xyz" if sim.dimension == 3 else "xy",
-                    thermostat=hoomd.md.methods.thermostats.MTTK(
-                        kT=kT, tau=self.thermostat.tau
-                    ),
-                )
-            else:
-                with warnings.catch_warnings():
-                    if _hoomd_version >= packaging.version.Version("3.8"):
-                        warnings.simplefilter(action="ignore", category=FutureWarning)
-                    ig_method = hoomd.md.methods.NPT(
-                        filter=hoomd.filter.All(),
-                        kT=kT,
-                        tau=self.thermostat.tau,
-                        S=self.barostat.P,
-                        tauS=self.barostat.tau,
-                        couple="xyz" if sim.dimension == 3 else "xy",
-                    )
+            ig_method = hoomd.md.methods.ConstantPressure(
+                filter=hoomd.filter.All(),
+                S=self.barostat.P,
+                tauS=self.barostat.tau,
+                couple="xyz" if sim.dimension == 3 else "xy",
+                thermostat=hoomd.md.methods.thermostats.MTTK(
+                    kT=kT, tau=self.thermostat.tau
+                ),
+            )
         else:
             raise TypeError(
                 "An appropriate combination of thermostat and barostat must be set."
@@ -1294,8 +1221,7 @@ class WriteTrajectory(simulate.AnalysisOperation):
         sim["engine"]["_hoomd"].operations.writers.append(sim[self]["_gsd"])
 
     def post_run(self, sim, sim_op):
-        if _hoomd_version.major >= 4:
-            sim[self]["_gsd"].flush()
+        sim[self]["_gsd"].flush()
         sim["engine"]["_hoomd"].operations.writers.remove(sim[self]["_gsd"])
         del sim[self]["_gsd"]
 
@@ -1321,16 +1247,10 @@ class WriteTrajectory(simulate.AnalysisOperation):
     def _get_dynamic(self):
         # property group is always made dyanmic since it logs box and position
         dynamic = ["property"]
-
-        if _hoomd_version.major >= 4:
-            if self.velocities is True:
-                dynamic.append("particles/velocity")
-            if self.images is True:
-                dynamic.append("particles/image")
-        else:
-            # momentum group makes particle velocities and particles images dynamic
-            if self.velocities is True or self.images is True:
-                dynamic.append("momentum")
+        if self.velocities is True:
+            dynamic.append("particles/velocity")
+        if self.images is True:
+            dynamic.append("particles/image")
         return dynamic
 
 
@@ -1342,7 +1262,7 @@ class HOOMD(simulate.Simulation):
     HOOMD-blue is a molecular dynamics program that can execute on both CPUs and
     GPUs, as a single process or with MPI parallelism. The launch configuration
     will be automatically selected for you when the simulation is run.
-    HOOMD 3.x, 4.x, and 5.x are supported.
+    HOOMD >= 4.x is supported.
 
     .. warning::
 
@@ -1375,8 +1295,8 @@ class HOOMD(simulate.Simulation):
         if not _hoomd_found:
             raise ImportError("HOOMD not found.")
 
-        if _hoomd_version.major < 3:
-            raise ImportError("HOOMD version 3 or later is required")
+        if _hoomd_version.major < 4:
+            raise ImportError("HOOMD version 4 or later is required")
 
         super().__init__(initializer, operations)
         self.device = device

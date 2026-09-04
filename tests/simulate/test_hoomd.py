@@ -10,7 +10,6 @@ import gsd.hoomd
 import lammpsio
 import numpy
 import scipy.stats
-from packaging import version
 from parameterized import parameterized_class
 
 import relentless
@@ -20,18 +19,6 @@ from tests.model.potential.test_dihedral import LinPotDihedral
 from tests.model.potential.test_pair import LinPot
 
 _has_modules = relentless.simulate.hoomd._hoomd_found
-
-# silence warnings about Snapshot being deprecated
-try:
-    gsd_version = gsd.version.version
-except AttributeError:
-    gsd_version = gsd.__version__
-if version.Version(gsd_version) >= version.Version("2.8.0"):
-    HOOMDFrame = gsd.hoomd.Frame
-    gsd_write_mode = "w"
-else:
-    HOOMDFrame = gsd.hoomd.Snapshot
-    gsd_write_mode = "wb"
 
 
 @unittest.skipIf(not _has_modules, "HOOMD dependencies not installed")
@@ -176,8 +163,8 @@ class test_HOOMD(unittest.TestCase):
     def create_gsd_file(self):
         filename = self.directory.file("test.gsd")
         if relentless.mpi.world.rank_is_root:
-            with gsd.hoomd.open(name=filename, mode=gsd_write_mode) as f:
-                s = HOOMDFrame()
+            with gsd.hoomd.open(name=filename, mode="w") as f:
+                s = gsd.hoomd.Frame()
                 s.particles.N = 5
                 s.particles.types = ["A", "B"]
                 s.particles.typeid = [0, 0, 1, 1, 1]
@@ -202,8 +189,8 @@ class test_HOOMD(unittest.TestCase):
     def create_gsd_file_bonds(self):
         filename = self.directory.file("test.gsd")
         if relentless.mpi.world.rank_is_root:
-            with gsd.hoomd.open(name=filename, mode=gsd_write_mode) as f:
-                s = HOOMDFrame()
+            with gsd.hoomd.open(name=filename, mode="w") as f:
+                s = gsd.hoomd.Frame()
                 s.particles.N = 4
                 s.particles.types = ["A", "B"]
                 s.particles.typeid = [0, 0, 1, 1]
@@ -237,8 +224,8 @@ class test_HOOMD(unittest.TestCase):
     def create_gsd_file_angles(self):
         filename = self.directory.file("test.gsd")
         if relentless.mpi.world.rank_is_root:
-            with gsd.hoomd.open(name=filename, mode=gsd_write_mode) as f:
-                s = HOOMDFrame()
+            with gsd.hoomd.open(name=filename, mode="w") as f:
+                s = gsd.hoomd.Frame()
                 s.particles.N = 6
                 s.particles.types = ["A", "B"]
                 s.particles.typeid = [0, 0, 0, 1, 1, 1]
@@ -276,8 +263,8 @@ class test_HOOMD(unittest.TestCase):
     def create_gsd_file_dihedrals(self):
         filename = self.directory.file("test.gsd")
         if relentless.mpi.world.rank_is_root:
-            with gsd.hoomd.open(name=filename, mode=gsd_write_mode) as f:
-                s = HOOMDFrame()
+            with gsd.hoomd.open(name=filename, mode="w") as f:
+                s = gsd.hoomd.Frame()
                 s.particles.N = 8
                 s.particles.types = ["A", "B"]
                 s.particles.typeid = [0, 0, 0, 0, 1, 1, 1, 1]
@@ -1052,8 +1039,8 @@ class test_HOOMD(unittest.TestCase):
         # create gsd file
         filename = self.directory.file("test.gsd")
         if relentless.mpi.world.rank_is_root:
-            with gsd.hoomd.open(name=filename, mode=gsd_write_mode) as f:
-                s = HOOMDFrame()
+            with gsd.hoomd.open(name=filename, mode="w") as f:
+                s = gsd.hoomd.Frame()
                 s.particles.N = 5
                 s.particles.types = ["A", "B"]
                 s.particles.typeid = [0, 0, 1, 1, 1]
@@ -1145,8 +1132,8 @@ class test_HOOMD(unittest.TestCase):
 
         filename = self.directory.file("mock.gsd")
         if relentless.mpi.world.rank_is_root:
-            with gsd.hoomd.open(name=filename, mode=gsd_write_mode) as f:
-                s = HOOMDFrame()
+            with gsd.hoomd.open(name=filename, mode="w") as f:
+                s = gsd.hoomd.Frame()
                 s.particles.N = 4
                 s.particles.types = ["A", "B"]
                 s.particles.typeid = [0, 1, 0, 1]

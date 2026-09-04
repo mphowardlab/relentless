@@ -8,7 +8,6 @@ import freud
 import gsd.hoomd
 import lammpsio
 import numpy
-import packaging.version
 
 from relentless import collections, mpi
 from relentless.model import ensemble, extent
@@ -21,15 +20,6 @@ try:
     _lammps_found = True
 except ImportError:
     _lammps_found = False
-
-try:
-    _gsd_version = gsd.version.version
-except AttributeError:
-    _gsd_version = gsd.__version__
-if packaging.version.Version(_gsd_version) >= packaging.version.Version("2.8.0"):
-    _gsd_write_mode = "w"
-else:
-    _gsd_write_mode = "wb"
 
 
 class Counters:
@@ -1749,7 +1739,7 @@ class WriteTrajectory(AnalysisOperation):
             if mpi.world.rank_is_root:
                 gsd_file = sim.directory.temporary_file(".gsd")
                 type_map = {v: k for k, v in sim["engine"]["types"].items()}
-                with gsd.hoomd.open(gsd_file, _gsd_write_mode) as t:
+                with gsd.hoomd.open(gsd_file, "w") as t:
                     for snap in lammpsio.DumpFile(filename, sort_ids=True):
                         frame = snap.to_hoomd_gsd(type_map)
                         t.append(frame)
@@ -1765,7 +1755,7 @@ class LAMMPS(simulate.Simulation):
     GPUs, as a single process or with MPI parallelism. The launch configuration
     will be automatically selected for you when the simulation is run.
 
-    The version of LAMMPS must be 02 Aug 2023 or newer. It is recommended to build
+    The version of LAMMPS must be 29 Aug 2024 or newer. It is recommended to build
     LAMMPS with its `Python interface <https://docs.lammps.org/Python_head.html>`_.
     However, it is possible to run LAMMPS as a binary by specifying ``executable``::
 
@@ -1875,8 +1865,8 @@ class LAMMPS(simulate.Simulation):
             self.version = lmp.version()
             self.packages = tuple(lmp.installed_packages)
             del lmp
-        if self.version < 20230802:
-            raise ImportError("Only LAMMPS 02 Aug 2023 or newer is supported.")
+        if self.version < 20240829:
+            raise ImportError("Only LAMMPS 29 Aug 2024 or newer is supported.")
 
         super().__init__(initializer, operations)
         self.quiet = quiet

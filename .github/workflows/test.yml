@@ -26,7 +26,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+        python-version: ["3.12", "3.13", "3.14"]
         mpi: ["nompi", "mpich", "openmpi"]
     steps:
       - name: Checkout code
@@ -68,13 +68,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
-        hoomd-version: ["3.11.0", "4.9.1", "5.0.1"]
+        python-version: ["3.12", "3.13", "3.14"]
+        hoomd-version: ["4.9.1", "5.4.0", "6.1.1", "7.1.0"]
         exclude:
-          - python-version: "3.12"
-            hoomd-version: "3.11.0"
-          - python-version: "3.13"
-            hoomd-version: "3.11.0"
+          - python-version: "3.14"
+            hoomd-version: "4.9.1"
+          - python-version: "3.14"
+            hoomd-version: "5.4.0"
 
     steps:
       - name: Checkout code
@@ -85,10 +85,6 @@ jobs:
           channels: conda-forge,defaults
           channel-priority: strict
           python-version: ${{ matrix.python-version }}
-      - name: Force HOOMD 3 NumPy version
-        if: ${{ matrix.hoomd-version == '3.11.0' }}
-        run: |
-          conda install "numpy<2" "gsd<3.4"
       - name: Install test dependencies
         run: |
           conda install hoomd=${{ matrix.hoomd-version }} pip --no-update-deps
@@ -113,15 +109,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
-        lammps-version: ["2023.08.02", "2024.08.29"]
-        exclude:
-          - python-version: "3.12"
-            lammps-version: "2023.08.02"
-          - python-version: "3.13"
-            lammps-version: "2023.08.02"
-          - python-version: "3.13"
-            lammps-version: "2024.08.29"
+        python-version: ["3.12", "3.13", "3.14"]
+        lammps-version: ["2024.08.29", "2025.07.22"]
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
@@ -134,10 +123,6 @@ jobs:
       - name: Install LAMMPS
         run: |
           conda install "lammps=${{ matrix.lammps-version }}=*mpich*" mpi4py pip
-      - name: Force libpnetcdf version
-        if: ${{ matrix.lammps-version == '2023.08.02' }}
-        run: |
-          conda install "libpnetcdf<1.13.0"
       - name: Install test dependencies
         run: |
           pip install -r tests/requirements.txt
@@ -167,15 +152,15 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
-      - name: Setup Python 3.9
+      - name: Setup Python 3.14
         uses: conda-incubator/setup-miniconda@v4
         with:
           channels: conda-forge,defaults
           channel-priority: strict
-          python-version: 3.9
+          python-version: 3.14
       - name: Install test dependencies
         run: |
-          conda install hoomd=5 pip
+          conda install hoomd=7 pip
           pip install -r doc/requirements.txt
       - name: Install
         run: |
