@@ -821,6 +821,56 @@ class _Integrator(SimulationOperation):
         else:
             return (thermostat.T, thermostat.T)
 
+    @staticmethod
+    def _make_box(sim, V):
+        """Cast an extent into LAMMPS box arguments."""
+        box_array = V.as_array("LAMMPS")
+        lo = V.low
+        if sim.dimension == 2:
+            Lx, Ly, xy = box_array
+            hi = lo + [Lx, Ly]
+            dims = ("x", "y")
+            tilt = {"xy": xy}
+        else:
+            Lx, Ly, Lz, xy, xz, yz = box_array
+            hi = lo + [Lx, Ly, Lz]
+            dims = ("x", "y", "z")
+            tilt = {"xy": xy, "xz": xz, "yz": yz}
+        args = [f"{d} final {lo[i]} {hi[i]}" for i, d in enumerate(dims)]
+        args += [f"{t} final {v}" for t, v in tilt.items()]
+        return " ".join(args)
+
+    def _make_box_resize(self, sim, barostat):
+        """Create LAMMPS box resize commands and fix ID."""
+        if barostat is None:
+            return [], None
+        elif isinstance(barostat, extent.Extent):
+            box = self._make_box(sim, barostat)
+            cmds = [
+                "change_box all triclinic",
+                f"change_box all {box} remap units box",
+            ]
+            return cmds, None
+        elif len(barostat) == 2 and all(isinstance(V, extent.Extent) for V in barostat):
+            box_1 = self._make_box(sim, barostat[0])
+            box_2 = self._make_box(sim, barostat[1])
+            if self.steps > 1:
+                fixid = Counters.new_fix_id()
+                cmds = [
+                    "change_box all triclinic",
+                    f"change_box all {box_1} remap units box",
+                    f"fix {fixid} all deform 1 {box_2} remap x units box",
+                ]
+                return cmds, fixid
+            else:
+                cmds = [
+                    "change_box all triclinic",
+                    f"change_box all {box_2} remap units box",
+                ]
+                return cmds, None
+        else:
+            raise TypeError("barostat must be an Extent or a pair of Extent objects.")
+
 
 class RunBrownianDynamics(_Integrator):
     """Perform a Brownian dynamics simulation.
@@ -841,14 +891,18 @@ class RunBrownianDynamics(_Integrator):
         Seed used to randomly generate a uniform force.
     analyzers : :class:`~relentless.simulate.AnalysisOperation` or list
         Analysis operations to perform with run (defaults to ``None``).
+    barostat : :class:`~relentless.model.extent.Extent` or tuple
+        Target simulation extent, or pair of extents for linear box resizing.
+        None means no box resizing.
 
     """
 
-    def __init__(self, steps, timestep, T, friction, seed, analyzers):
+    def __init__(self, steps, timestep, T, friction, seed, analyzers, barostat=None):
         super().__init__(steps, timestep, analyzers)
         self.T = T
         self.friction = friction
         self.seed = seed
+        self.barostat = barostat
 
     def _call_commands(self, sim):
         if "BROWNIAN" not in sim["engine"]["packages"]:
@@ -896,6 +950,10 @@ class RunBrownianDynamics(_Integrator):
                     ),
                 )
                 fix_ids.append(fixid)
+        box_cmds, box_fix = self._make_box_resize(sim, self.barostat)
+        cmds += box_cmds
+        if box_fix is not None:
+            fix_ids.append(box_fix)
         cmds += self._run_commands(sim)
         cmds += ["unfix {}".format(idx) for idx in fix_ids]
         return cmds
@@ -920,10 +978,13 @@ class RunLangevinDynamics(_Integrator):
         Seed used to randomly generate a uniform force.
     analyzers : :class:`~relentless.simulate.AnalysisOperation` or list
         Analysis operations to perform with run (defaults to ``None``).
+    barostat : :class:`~relentless.model.extent.Extent` or tuple
+        Target simulation extent, or pair of extents for linear box resizing.
+        None means no box resizing.
 
     """
 
-    def __init__(self, steps, timestep, T, friction, seed, analyzers, barostat):
+    def __init__(self, steps, timestep, T, friction, seed, analyzers, barostat=None):
         super().__init__(steps, timestep, analyzers)
         self.T = T
         self.barostat = barostat
@@ -975,6 +1036,10 @@ class RunLangevinDynamics(_Integrator):
                 scaling=scale_str,
             ),
         ]
+        box_cmds, box_fix = self._make_box_resize(sim, self.barostat)
+        cmds += box_cmds
+        if box_fix is not None:
+            fix_ids["box_resize"] = box_fix
         cmds += self._run_commands(sim)
         cmds += ["unfix {}".format(idx) for idx in fix_ids.values()]
         return cmds
@@ -999,8 +1064,10 @@ class RunMolecularDynamics(_Integrator):
         Simulation time step.
     thermostat : :class:`~relentless.simulate.Thermostat`
         Thermostat for temperature control. None means no thermostat.
-    barostat : :class:`~relentless.simulate.Barostat`
-        Barostat for pressure control. None means no barostat.
+    barostat : :class:`~relentless.simulate.Barostat`, \
+            :class:`~relentless.model.extent.Extent`, or tuple
+        Barostat for pressure control, target simulation extent, or pair of
+        extents for linear box resizing. None means no barostat or resizing.
     analyzers : :class:`~relentless.simulate.AnalysisOperation` or list
         Analysis operations to perform with run (defaults to ``None``).
 
@@ -1024,18 +1091,28 @@ class RunMolecularDynamics(_Integrator):
         else:
             T = None
 
+        # distinguish pressure vs box resize barostat
+        if self.barostat is None or isinstance(self.barostat, md.Barostat):
+            pressure_barostat = self.barostat
+            resize_barostat = None
+        else:
+            pressure_barostat = None
+            resize_barostat = self.barostat
+
         cmds = ["timestep {}".format(self.timestep)]
         if (
             self.thermostat is None
             or isinstance(self.thermostat, md.BerendsenThermostat)
         ) and (
-            self.barostat is None or isinstance(self.barostat, md.BerendsenBarostat)
+            pressure_barostat is None
+            or isinstance(pressure_barostat, md.BerendsenBarostat)
         ):
             cmds += [
                 "fix {idx} {group_idx} nve".format(idx=fix_ids["ig"], group_idx="all")
             ]
         elif isinstance(self.thermostat, md.NoseHooverThermostat) and (
-            self.barostat is None or isinstance(self.barostat, md.BerendsenBarostat)
+            pressure_barostat is None
+            or isinstance(pressure_barostat, md.BerendsenBarostat)
         ):
             cmds += [
                 "fix {idx} {group_idx} nvt temp {Tstart} {Tstop} {Tdamp}".format(
@@ -1049,18 +1126,18 @@ class RunMolecularDynamics(_Integrator):
         elif (
             self.thermostat is None
             or isinstance(self.thermostat, md.BerendsenThermostat)
-        ) and isinstance(self.barostat, md.MTKBarostat):
+        ) and isinstance(pressure_barostat, md.MTKBarostat):
             cmds += [
                 "fix {idx} {group_idx} nph iso {Pstart} {Pstop} {Pdamp}".format(
                     idx=fix_ids["ig"],
                     group_idx="all",
-                    Pstart=self.barostat.P,
-                    Pstop=self.barostat.P,
-                    Pdamp=self.barostat.tau,
+                    Pstart=pressure_barostat.P,
+                    Pstop=pressure_barostat.P,
+                    Pdamp=pressure_barostat.tau,
                 )
             ]
         elif isinstance(self.thermostat, md.NoseHooverThermostat) and isinstance(
-            self.barostat, md.MTKBarostat
+            pressure_barostat, md.MTKBarostat
         ):
             cmds += [
                 (
@@ -1072,9 +1149,9 @@ class RunMolecularDynamics(_Integrator):
                     Tstart=T[0],
                     Tstop=T[1],
                     Tdamp=self.thermostat.tau,
-                    Pstart=self.barostat.P,
-                    Pstop=self.barostat.P,
-                    Pdamp=self.barostat.tau,
+                    Pstart=pressure_barostat.P,
+                    Pstop=pressure_barostat.P,
+                    Pdamp=pressure_barostat.tau,
                 )
             ]
         else:
@@ -1093,7 +1170,7 @@ class RunMolecularDynamics(_Integrator):
                     Tdamp=self.thermostat.tau,
                 )
             ]
-        if isinstance(self.barostat, md.BerendsenBarostat):
+        if isinstance(pressure_barostat, md.BerendsenBarostat):
             fix_ids["berendsen_press"] = Counters.new_fix_id()
             cmds += [
                 (
@@ -1102,12 +1179,16 @@ class RunMolecularDynamics(_Integrator):
                 ).format(
                     idx=fix_ids["berendsen_press"],
                     group_idx="all",
-                    Pstart=self.barostat.P,
-                    Pstop=self.barostat.P,
-                    Pdamp=self.barostat.tau,
+                    Pstart=pressure_barostat.P,
+                    Pstop=pressure_barostat.P,
+                    Pdamp=pressure_barostat.tau,
                 )
             ]
 
+        box_cmds, box_fix = self._make_box_resize(sim, resize_barostat)
+        cmds += box_cmds
+        if box_fix is not None:
+            fix_ids["box_resize"] = box_fix
         cmds += self._run_commands(sim)
         cmds += ["unfix {}".format(idx) for idx in fix_ids.values()]
         return cmds
@@ -1574,7 +1655,7 @@ class EnsembleAverage(AnalysisOperation):
             if sim_op.thermostat is not None:
                 constraints["T"] = sim_op.thermostat
             # conjugate pair: one or the other is set
-            if sim_op.barostat is not None:
+            if isinstance(sim_op.barostat, md.Barostat):
                 constraints["P"] = sim_op.barostat.P
             else:
                 constraints["V"] = True
