@@ -95,6 +95,28 @@ class test_LAMMPS(unittest.TestCase):
 
         return (ens, pots)
 
+    def resize_extents(self):
+        if self.dim == 3:
+            return (relentless.model.Cube(L=10.0), relentless.model.Cube(L=5.0))
+        elif self.dim == 2:
+            return (relentless.model.Square(L=10.0), relentless.model.Square(L=5.0))
+        else:
+            raise ValueError("LAMMPS supports 2d and 3d simulations")
+
+    def assert_box(self, sim, V):
+        # box can only be inspected through the python interface
+        if not sim["engine"]["use_python"]:
+            return
+        lo, hi, xy, yz, xz, _, _ = sim["engine"]["_lammps"].extract_box()
+        L = numpy.array(hi) - numpy.array(lo)
+        if self.dim == 3:
+            box_array = numpy.array([L[0], L[1], L[2], xy, xz, yz])
+        elif self.dim == 2:
+            box_array = numpy.array([L[0], L[1], xy])
+        else:
+            raise ValueError("LAMMPS supports 2d and 3d simulations")
+        numpy.testing.assert_allclose(box_array, V.as_array("LAMMPS"))
+
     def ens_pot_bonds(self):
         if self.dim == 3:
             ens = relentless.model.Ensemble(
@@ -778,6 +800,20 @@ class test_LAMMPS(unittest.TestCase):
         brn.T = (ens.T, 1.5 * ens.T)
         with self.assertRaises(NotImplementedError):
             h.run(pot, self.directory)
+        brn.T = ens.T
+
+        # box resizing
+        V1, V2 = self.resize_extents()
+        brn.barostat = V1
+        sim = h.run(pot, self.directory)
+        self.assert_box(sim, V1)
+
+        brn.steps = 2
+        brn.barostat = (V1, V2)
+        sim = h.run(pot, self.directory)
+        self.assert_box(sim, V2)
+        brn.steps = 1
+        brn.barostat = None
 
     def test_langevin_dynamics(self):
         ens, pot = self.ens_pot()
@@ -809,6 +845,19 @@ class test_LAMMPS(unittest.TestCase):
         # temperature annealing
         lgv.T = (ens.T, 1.5 * ens.T)
         lmp.run(pot, self.directory)
+
+        # box resizing
+        V1, V2 = self.resize_extents()
+        lgv.barostat = V1
+        sim = lmp.run(pot, self.directory)
+        self.assert_box(sim, V1)
+
+        lgv.steps = 2
+        lgv.barostat = (V1, V2)
+        sim = lmp.run(pot, self.directory)
+        self.assert_box(sim, V2)
+        lgv.steps = 1
+        lgv.barostat = None
 
         # invalid-type friction
         lgv.friction = {"B": 5.0, "C": 2.0}
@@ -891,6 +940,18 @@ class test_LAMMPS(unittest.TestCase):
         # NPH - MTK
         vrl.thermostat = None
         lmp.run(pot, self.directory)
+
+        # box resizing
+        V1, V2 = self.resize_extents()
+        vrl.barostat = V1
+        sim = lmp.run(pot, self.directory)
+        self.assert_box(sim, V1)
+
+        vrl.steps = 2
+        vrl.barostat = (V1, V2)
+        sim = lmp.run(pot, self.directory)
+        self.assert_box(sim, V2)
+        vrl.steps = 1
 
     def test_bond_run(self):
         ens, pot = self.ens_pot_bonds()
