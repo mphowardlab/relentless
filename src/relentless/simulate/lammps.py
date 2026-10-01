@@ -787,6 +787,16 @@ class _Integrator(SimulationOperation):
         self.timestep = timestep
 
     def __call__(self, sim):
+        # resize the box before analyzers
+        # LAMMPS cannot change the box to triclinic after dumps are defined
+        cmds, sim[self]["_box_fix"] = self._make_box_resize(
+            sim, self._get_resize_barostat()
+        )
+        if len(cmds) > 0:
+            sim["engine"]["_lammps_commands"] += cmds
+            if sim["engine"]["use_python"]:
+                sim["engine"]["_lammps"].commands_list(cmds)
+
         for analyzer in self.analyzers:
             analyzer.pre_run(sim, self)
 
@@ -821,8 +831,12 @@ class _Integrator(SimulationOperation):
         else:
             return (thermostat.T, thermostat.T)
 
+    def _get_resize_barostat(self):
+        """Get the extent(s) used to resize the box, if any."""
+        return getattr(self, "barostat", None)
+
     @staticmethod
-    def _make_box(sim, V):
+    def _make_box(sim, V, triclinic):
         """Cast an extent into LAMMPS box arguments."""
         box_array = V.as_array("LAMMPS")
         lo = V.low
@@ -837,36 +851,44 @@ class _Integrator(SimulationOperation):
             dims = ("x", "y", "z")
             tilt = {"xy": xy, "xz": xz, "yz": yz}
         args = [f"{d} final {lo[i]} {hi[i]}" for i, d in enumerate(dims)]
-        args += [f"{t} final {v}" for t, v in tilt.items()]
+        # tilt factors can only be set on a triclinic box
+        if triclinic:
+            args += [f"{t} final {v}" for t, v in tilt.items()]
         return " ".join(args)
+
+    @staticmethod
+    def _is_triclinic(V):
+        """Check if an extent has nonzero tilt factors."""
+        if isinstance(V, extent.TriclinicBox):
+            tilt = V.as_array("LAMMPS")[3:]
+        else:
+            tilt = V.as_array("LAMMPS")[2:]
+        return not numpy.all(numpy.isclose(tilt, 0))
 
     def _make_box_resize(self, sim, barostat):
         """Create LAMMPS box resize commands and fix ID."""
         if barostat is None:
             return [], None
         elif isinstance(barostat, extent.Extent):
-            box = self._make_box(sim, barostat)
-            cmds = [
-                "change_box all triclinic",
-                f"change_box all {box} remap units box",
-            ]
+            triclinic = self._is_triclinic(barostat)
+            box = self._make_box(sim, barostat, triclinic)
+            cmds = ["change_box all triclinic"] if triclinic else []
+            cmds += [f"change_box all {box} remap units box"]
             return cmds, None
         elif len(barostat) == 2 and all(isinstance(V, extent.Extent) for V in barostat):
-            box_1 = self._make_box(sim, barostat[0])
-            box_2 = self._make_box(sim, barostat[1])
+            triclinic = any(self._is_triclinic(V) for V in barostat)
+            box_1 = self._make_box(sim, barostat[0], triclinic)
+            box_2 = self._make_box(sim, barostat[1], triclinic)
+            cmds = ["change_box all triclinic"] if triclinic else []
             if self.steps > 1:
                 fixid = Counters.new_fix_id()
-                cmds = [
-                    "change_box all triclinic",
+                cmds += [
                     f"change_box all {box_1} remap units box",
                     f"fix {fixid} all deform 1 {box_2} remap x units box",
                 ]
                 return cmds, fixid
             else:
-                cmds = [
-                    "change_box all triclinic",
-                    f"change_box all {box_2} remap units box",
-                ]
+                cmds += [f"change_box all {box_2} remap units box"]
                 return cmds, None
         else:
             raise TypeError("barostat must be an Extent or a pair of Extent objects.")
@@ -950,10 +972,8 @@ class RunBrownianDynamics(_Integrator):
                     ),
                 )
                 fix_ids.append(fixid)
-        box_cmds, box_fix = self._make_box_resize(sim, self.barostat)
-        cmds += box_cmds
-        if box_fix is not None:
-            fix_ids.append(box_fix)
+        if sim[self]["_box_fix"] is not None:
+            fix_ids.append(sim[self]["_box_fix"])
         cmds += self._run_commands(sim)
         cmds += ["unfix {}".format(idx) for idx in fix_ids]
         return cmds
@@ -1036,10 +1056,8 @@ class RunLangevinDynamics(_Integrator):
                 scaling=scale_str,
             ),
         ]
-        box_cmds, box_fix = self._make_box_resize(sim, self.barostat)
-        cmds += box_cmds
-        if box_fix is not None:
-            fix_ids["box_resize"] = box_fix
+        if sim[self]["_box_fix"] is not None:
+            fix_ids["box_resize"] = sim[self]["_box_fix"]
         cmds += self._run_commands(sim)
         cmds += ["unfix {}".format(idx) for idx in fix_ids.values()]
         return cmds
@@ -1083,6 +1101,12 @@ class RunMolecularDynamics(_Integrator):
         self.thermostat = thermostat
         self.barostat = barostat
 
+    def _get_resize_barostat(self):
+        if self.barostat is None or isinstance(self.barostat, md.Barostat):
+            return None
+        else:
+            return self.barostat
+
     def _call_commands(self, sim):
         fix_ids = {"ig": Counters.new_fix_id()}
 
@@ -1092,12 +1116,10 @@ class RunMolecularDynamics(_Integrator):
             T = None
 
         # distinguish pressure vs box resize barostat
-        if self.barostat is None or isinstance(self.barostat, md.Barostat):
+        if self._get_resize_barostat() is None:
             pressure_barostat = self.barostat
-            resize_barostat = None
         else:
             pressure_barostat = None
-            resize_barostat = self.barostat
 
         cmds = ["timestep {}".format(self.timestep)]
         if (
@@ -1185,10 +1207,8 @@ class RunMolecularDynamics(_Integrator):
                 )
             ]
 
-        box_cmds, box_fix = self._make_box_resize(sim, resize_barostat)
-        cmds += box_cmds
-        if box_fix is not None:
-            fix_ids["box_resize"] = box_fix
+        if sim[self]["_box_fix"] is not None:
+            fix_ids["box_resize"] = sim[self]["_box_fix"]
         cmds += self._run_commands(sim)
         cmds += ["unfix {}".format(idx) for idx in fix_ids.values()]
         return cmds
