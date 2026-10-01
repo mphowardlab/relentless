@@ -704,13 +704,7 @@ class RunMolecularDynamics(_Integrator):
             resize_barostat = None
 
         if self.thermostat is None and pressure_barostat is None:
-            if _hoomd_version.major >= 4:
-                ig_method = hoomd.md.methods.ConstantVolume(filter=hoomd.filter.All())
-            else:
-                with warnings.catch_warnings():
-                    if _hoomd_version >= packaging.version.Version("3.8"):
-                        warnings.simplefilter(action="ignore", category=FutureWarning)
-                    ig_method = hoomd.md.methods.NVE(filter=hoomd.filter.All())
+            ig_method = hoomd.md.methods.ConstantVolume(filter=hoomd.filter.All())
         elif (
             isinstance(self.thermostat, md.BerendsenThermostat)
             and pressure_barostat is None
