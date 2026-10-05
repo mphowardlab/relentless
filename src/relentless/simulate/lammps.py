@@ -1007,9 +1007,9 @@ class RunLangevinDynamics(_Integrator):
     def __init__(self, steps, timestep, T, friction, seed, analyzers, barostat=None):
         super().__init__(steps, timestep, analyzers)
         self.T = T
-        self.barostat = barostat
         self.friction = friction
         self.seed = seed
+        self.barostat = barostat
 
     def _call_commands(self, sim):
         # obtain per-type friction factor
@@ -1102,10 +1102,24 @@ class RunMolecularDynamics(_Integrator):
         self.barostat = barostat
 
     def _get_resize_barostat(self):
-        if self.barostat is None or isinstance(self.barostat, md.Barostat):
-            return None
+        # check if barostat is a box resize
+        if isinstance(self.barostat, extent.Extent):
+            self._is_box_resize = True
         else:
+            try:
+                if len(self.barostat) == 2 and all(
+                    isinstance(V, extent.Extent) for V in self.barostat
+                ):
+                    self._is_box_resize = True
+                else:
+                    self._is_box_resize = False
+            except TypeError:
+                self._is_box_resize = False
+
+        if self._is_box_resize:
             return self.barostat
+        else:
+            return None
 
     def _call_commands(self, sim):
         fix_ids = {"ig": Counters.new_fix_id()}
@@ -1116,10 +1130,10 @@ class RunMolecularDynamics(_Integrator):
             T = None
 
         # distinguish pressure vs box resize barostat
-        if self._get_resize_barostat() is None:
-            pressure_barostat = self.barostat
-        else:
+        if self._is_box_resize:
             pressure_barostat = None
+        else:
+            pressure_barostat = self.barostat
 
         cmds = ["timestep {}".format(self.timestep)]
         if (
