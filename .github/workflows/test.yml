@@ -23,7 +23,6 @@ jobs:
     env:
       MPIEXEC_TIMEOUT: 300
       RDMAV_FORK_SAFE: 1
-      UCX_TLS: self,sm,tcp
     strategy:
       fail-fast: false
       matrix:
@@ -104,7 +103,6 @@ jobs:
     env:
       MPIEXEC_TIMEOUT: 300
       RDMAV_FORK_SAFE: 1
-      UCX_TLS: self,sm,tcp
     defaults:
       run:
         shell: bash -el {0}
