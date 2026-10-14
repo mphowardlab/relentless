@@ -658,12 +658,13 @@ class RunMolecularDynamics(_Integrator):
         Simulation time step.
     thermostat : :class:`~relentless.simulate.Thermostat`
         Thermostat for temperature control. None means no thermostat.
-    barostat : :class:`~relentless.simulate.Barostat`, \
-            :class:`~relentless.model.extent.Extent`, or tuple
-        Barostat for pressure control, target simulation extent, or pair of
-        extents for linear box resizing. None means no barostat or resizing.
+    barostat : :class:`~relentless.simulate.Barostat`
+        Barostat for pressure control. None means no barostat.
     analyzers : :class:`~relentless.simulate.AnalysisOperation` or list
         Analysis operations to perform with run (defaults to ``None``).
+    box : :class:`~relentless.model.extent.Extent` or tuple
+        Target simulation extent, or pair of extents for linear box resizing.
+        None means no box resizing. Cannot be used with ``barostat``.
 
     Raises
     ------
@@ -672,42 +673,25 @@ class RunMolecularDynamics(_Integrator):
 
     """
 
-    def __init__(self, steps, timestep, thermostat, barostat, analyzers):
+    def __init__(self, steps, timestep, thermostat, barostat, analyzers, box=None):
         super().__init__(steps, timestep, analyzers)
         self.thermostat = thermostat
         self.barostat = barostat
+        self.box = box
 
     def __call__(self, sim):
+        if self.barostat is not None and self.box is not None:
+            raise ValueError("Cannot resize the box with a barostat.")
         if self.thermostat is not None:
             kT = self._make_kT(sim, self.thermostat, self.steps)
         else:
             kT = None
 
-        # check if barostat is a box resize
-        if isinstance(self.barostat, extent.Extent):
-            self._is_box_resize = True
-        else:
-            try:
-                if len(self.barostat) == 2 and all(
-                    isinstance(V, extent.Extent) for V in self.barostat
-                ):
-                    self._is_box_resize = True
-            except TypeError:
-                self._is_box_resize = False
-
-        # distinguish pressure vs box resize barostat
-        if self._is_box_resize:
-            pressure_barostat = None
-            resize_barostat = self.barostat
-        else:
-            pressure_barostat = self.barostat
-            resize_barostat = None
-
-        if self.thermostat is None and pressure_barostat is None:
+        if self.thermostat is None and self.barostat is None:
             ig_method = hoomd.md.methods.ConstantVolume(filter=hoomd.filter.All())
         elif (
             isinstance(self.thermostat, md.BerendsenThermostat)
-            and pressure_barostat is None
+            and self.barostat is None
         ):
             ig_method = hoomd.md.methods.ConstantVolume(
                 filter=hoomd.filter.All(),
@@ -717,7 +701,7 @@ class RunMolecularDynamics(_Integrator):
             )
         elif (
             isinstance(self.thermostat, md.NoseHooverThermostat)
-            and pressure_barostat is None
+            and self.barostat is None
         ):
             ig_method = hoomd.md.methods.ConstantVolume(
                 filter=hoomd.filter.All(),
@@ -733,7 +717,7 @@ class RunMolecularDynamics(_Integrator):
                 couple="xyz" if sim.dimension == 3 else "xy",
             )
         elif isinstance(self.thermostat, md.NoseHooverThermostat) and isinstance(
-            pressure_barostat, md.MTKBarostat
+            self.barostat, md.MTKBarostat
         ):
             ig_method = hoomd.md.methods.ConstantPressure(
                 filter=hoomd.filter.All(),
@@ -760,7 +744,7 @@ class RunMolecularDynamics(_Integrator):
         for analyzer in self.analyzers:
             analyzer.pre_run(sim, self)
 
-        box_resize = self._make_box_resize(sim, resize_barostat)
+        box_resize = self._make_box_resize(sim, self.box)
         if box_resize is not None:
             sim["engine"]["_hoomd"].operations.updaters.append(box_resize)
         sim["engine"]["_hoomd"].run(self.steps, write_at_start=True)

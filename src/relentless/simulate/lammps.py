@@ -1082,12 +1082,13 @@ class RunMolecularDynamics(_Integrator):
         Simulation time step.
     thermostat : :class:`~relentless.simulate.Thermostat`
         Thermostat for temperature control. None means no thermostat.
-    barostat : :class:`~relentless.simulate.Barostat`, \
-            :class:`~relentless.model.extent.Extent`, or tuple
-        Barostat for pressure control, target simulation extent, or pair of
-        extents for linear box resizing. None means no barostat or resizing.
+    barostat : :class:`~relentless.simulate.Barostat`
+        Barostat for pressure control. None means no barostat.
     analyzers : :class:`~relentless.simulate.AnalysisOperation` or list
         Analysis operations to perform with run (defaults to ``None``).
+    box : :class:`~relentless.model.extent.Extent` or tuple
+        Target simulation extent, or pair of extents for linear box resizing.
+        None means no box resizing. Cannot be used with ``barostat``.
 
     Raises
     ------
@@ -1096,30 +1097,16 @@ class RunMolecularDynamics(_Integrator):
 
     """
 
-    def __init__(self, steps, timestep, thermostat, barostat, analyzers):
+    def __init__(self, steps, timestep, thermostat, barostat, analyzers, box=None):
         super().__init__(steps, timestep, analyzers)
         self.thermostat = thermostat
         self.barostat = barostat
+        self.box = box
 
-    def _get_resize_barostat(self):
-        # check if barostat is a box resize
-        if isinstance(self.barostat, extent.Extent):
-            self._is_box_resize = True
-        else:
-            try:
-                if len(self.barostat) == 2 and all(
-                    isinstance(V, extent.Extent) for V in self.barostat
-                ):
-                    self._is_box_resize = True
-                else:
-                    self._is_box_resize = False
-            except TypeError:
-                self._is_box_resize = False
-
-        if self._is_box_resize:
-            return self.barostat
-        else:
-            return None
+    def __call__(self, sim):
+        if self.barostat is not None and self.box is not None:
+            raise ValueError("Cannot resize the box with a barostat.")
+        super().__call__(sim)
 
     def _call_commands(self, sim):
         fix_ids = {"ig": Counters.new_fix_id()}
@@ -1129,26 +1116,18 @@ class RunMolecularDynamics(_Integrator):
         else:
             T = None
 
-        # distinguish pressure vs box resize barostat
-        if self._is_box_resize:
-            pressure_barostat = None
-        else:
-            pressure_barostat = self.barostat
-
         cmds = ["timestep {}".format(self.timestep)]
         if (
             self.thermostat is None
             or isinstance(self.thermostat, md.BerendsenThermostat)
         ) and (
-            pressure_barostat is None
-            or isinstance(pressure_barostat, md.BerendsenBarostat)
+            self.barostat is None or isinstance(self.barostat, md.BerendsenBarostat)
         ):
             cmds += [
                 "fix {idx} {group_idx} nve".format(idx=fix_ids["ig"], group_idx="all")
             ]
         elif isinstance(self.thermostat, md.NoseHooverThermostat) and (
-            pressure_barostat is None
-            or isinstance(pressure_barostat, md.BerendsenBarostat)
+            self.barostat is None or isinstance(self.barostat, md.BerendsenBarostat)
         ):
             cmds += [
                 "fix {idx} {group_idx} nvt temp {Tstart} {Tstop} {Tdamp}".format(
@@ -1162,18 +1141,18 @@ class RunMolecularDynamics(_Integrator):
         elif (
             self.thermostat is None
             or isinstance(self.thermostat, md.BerendsenThermostat)
-        ) and isinstance(pressure_barostat, md.MTKBarostat):
+        ) and isinstance(self.barostat, md.MTKBarostat):
             cmds += [
                 "fix {idx} {group_idx} nph iso {Pstart} {Pstop} {Pdamp}".format(
                     idx=fix_ids["ig"],
                     group_idx="all",
-                    Pstart=pressure_barostat.P,
-                    Pstop=pressure_barostat.P,
-                    Pdamp=pressure_barostat.tau,
+                    Pstart=self.barostat.P,
+                    Pstop=self.barostat.P,
+                    Pdamp=self.barostat.tau,
                 )
             ]
         elif isinstance(self.thermostat, md.NoseHooverThermostat) and isinstance(
-            pressure_barostat, md.MTKBarostat
+            self.barostat, md.MTKBarostat
         ):
             cmds += [
                 (
@@ -1185,9 +1164,9 @@ class RunMolecularDynamics(_Integrator):
                     Tstart=T[0],
                     Tstop=T[1],
                     Tdamp=self.thermostat.tau,
-                    Pstart=pressure_barostat.P,
-                    Pstop=pressure_barostat.P,
-                    Pdamp=pressure_barostat.tau,
+                    Pstart=self.barostat.P,
+                    Pstop=self.barostat.P,
+                    Pdamp=self.barostat.tau,
                 )
             ]
         else:
@@ -1206,7 +1185,7 @@ class RunMolecularDynamics(_Integrator):
                     Tdamp=self.thermostat.tau,
                 )
             ]
-        if isinstance(pressure_barostat, md.BerendsenBarostat):
+        if isinstance(self.barostat, md.BerendsenBarostat):
             fix_ids["berendsen_press"] = Counters.new_fix_id()
             cmds += [
                 (
@@ -1215,9 +1194,9 @@ class RunMolecularDynamics(_Integrator):
                 ).format(
                     idx=fix_ids["berendsen_press"],
                     group_idx="all",
-                    Pstart=pressure_barostat.P,
-                    Pstop=pressure_barostat.P,
-                    Pdamp=pressure_barostat.tau,
+                    Pstart=self.barostat.P,
+                    Pstop=self.barostat.P,
+                    Pdamp=self.barostat.tau,
                 )
             ]
 
@@ -1689,7 +1668,7 @@ class EnsembleAverage(AnalysisOperation):
             if sim_op.thermostat is not None:
                 constraints["T"] = sim_op.thermostat
             # conjugate pair: one or the other is set
-            if isinstance(sim_op.barostat, md.Barostat):
+            if sim_op.barostat is not None:
                 constraints["P"] = sim_op.barostat.P
             else:
                 constraints["V"] = True
