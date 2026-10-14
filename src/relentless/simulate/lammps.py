@@ -865,20 +865,39 @@ class _Integrator(SimulationOperation):
             tilt = V.as_array("LAMMPS")[2:]
         return not numpy.all(numpy.isclose(tilt, 0))
 
-    def _make_box_resize(self, sim, barostat):
-        """Create LAMMPS box resize commands and fix ID."""
-        if barostat is None:
+    def _make_box_resize(self, sim, box):
+        """Create LAMMPS box resize commands.
+
+        Parameters
+        ----------
+        sim : :class:`~relentless.simulate.SimulationInstance`
+            Simulation instance.
+        box : :class:`~relentless.model.extent.Extent` or tuple
+            Extent to resize to immediately, or pair of extents to linearly
+            resize between over the run. ``None`` means no resizing.
+
+        Returns
+        -------
+        list
+            LAMMPS commands to run before the analyzers are set up.
+        str or None
+            ID of the ``fix deform`` that must be unfixed after the run if
+            ``box`` is a pair and there is more than 1 step. Otherwise,
+            ``None``.
+
+        """
+        if box is None:
             return [], None
-        elif isinstance(barostat, extent.Extent):
-            triclinic = self._is_triclinic(barostat)
-            box = self._make_box(sim, barostat, triclinic)
+        elif isinstance(box, extent.Extent):
+            triclinic = self._is_triclinic(box)
+            box = self._make_box(sim, box, triclinic)
             cmds = ["change_box all triclinic"] if triclinic else []
             cmds += [f"change_box all {box} remap units box"]
             return cmds, None
-        elif len(barostat) == 2 and all(isinstance(V, extent.Extent) for V in barostat):
-            triclinic = any(self._is_triclinic(V) for V in barostat)
-            box_1 = self._make_box(sim, barostat[0], triclinic)
-            box_2 = self._make_box(sim, barostat[1], triclinic)
+        elif len(box) == 2 and all(isinstance(V, extent.Extent) for V in box):
+            triclinic = any(self._is_triclinic(V) for V in box)
+            box_1 = self._make_box(sim, box[0], triclinic)
+            box_2 = self._make_box(sim, box[1], triclinic)
             cmds = ["change_box all triclinic"] if triclinic else []
             if self.steps > 1:
                 fixid = Counters.new_fix_id()
@@ -891,7 +910,7 @@ class _Integrator(SimulationOperation):
                 cmds += [f"change_box all {box_2} remap units box"]
                 return cmds, None
         else:
-            raise TypeError("barostat must be an Extent or a pair of Extent objects.")
+            raise TypeError("box must be an Extent or a pair of Extent objects.")
 
 
 class RunBrownianDynamics(_Integrator):

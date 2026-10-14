@@ -465,19 +465,36 @@ class _Integrator(simulate.SimulationOperation):
                 yz=box_array[5],
             )
 
-    def _make_box_resize(self, sim, barostat):
-        """Create a HOOMD box resize updater."""
-        if barostat is None:
+    def _make_box_resize(self, sim, box):
+        """Resize the HOOMD box.
+
+        Parameters
+        ----------
+        sim : :class:`~relentless.simulate.SimulationInstance`
+            Simulation instance.
+        box : :class:`~relentless.model.extent.Extent` or tuple
+            Extent to resize to immediately, or pair of extents to linearly
+            resize between over the run. ``None`` means no resizing.
+
+        Returns
+        -------
+        :class:`hoomd.update.BoxResize` or None
+            Updater to attach for the run if ``box`` is a pair and there is
+            more than 1 step. Otherwise, the box is resized immediately and
+            ``None`` is returned.
+
+        """
+        if box is None:
             return None
-        elif isinstance(barostat, extent.Extent):
-            box = self._make_box(sim, barostat)
+        elif isinstance(box, extent.Extent):
+            box = self._make_box(sim, box)
             hoomd.update.BoxResize.update(
                 sim["engine"]["_hoomd"].state, box, hoomd.filter.All()
             )
             return None
-        elif len(barostat) == 2 and all(isinstance(V, extent.Extent) for V in barostat):
-            box_1 = self._make_box(sim, barostat[0])
-            box_2 = self._make_box(sim, barostat[1])
+        elif len(box) == 2 and all(isinstance(V, extent.Extent) for V in box):
+            box_1 = self._make_box(sim, box[0])
+            box_2 = self._make_box(sim, box[1])
             if self.steps > 1:
                 variant = hoomd.variant.Ramp(
                     A=0,
@@ -486,6 +503,7 @@ class _Integrator(simulate.SimulationOperation):
                     t_ramp=self.steps - 1,
                 )
                 trigger = hoomd.trigger.Periodic(1)
+                # box variants were added and box1/box2 deprecated in HOOMD 4.6
                 if _hoomd_version >= packaging.version.Version("4.6.0"):
                     box = hoomd.variant.box.Interpolate(box_1, box_2, variant)
                     box_resize = hoomd.update.BoxResize(trigger=trigger, box=box)
@@ -503,7 +521,7 @@ class _Integrator(simulate.SimulationOperation):
                 )
                 return None
         else:
-            raise TypeError("barostat must be an Extent or a pair of Extent objects.")
+            raise TypeError("box must be an Extent or a pair of Extent objects.")
 
 
 class RunBrownianDynamics(_Integrator):
