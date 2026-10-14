@@ -804,16 +804,16 @@ class test_LAMMPS(unittest.TestCase):
 
         # box resizing
         V1, V2 = self.resize_extents()
-        brn.barostat = V1
+        brn.box = V1
         sim = h.run(pot, self.directory)
         self.assert_box(sim, V1)
 
         brn.steps = 2
-        brn.barostat = (V1, V2)
+        brn.box = (V1, V2)
         sim = h.run(pot, self.directory)
         self.assert_box(sim, V2)
         brn.steps = 1
-        brn.barostat = None
+        brn.box = None
 
     def test_langevin_dynamics(self):
         ens, pot = self.ens_pot()
@@ -848,16 +848,16 @@ class test_LAMMPS(unittest.TestCase):
 
         # box resizing
         V1, V2 = self.resize_extents()
-        lgv.barostat = V1
+        lgv.box = V1
         sim = lmp.run(pot, self.directory)
         self.assert_box(sim, V1)
 
         lgv.steps = 2
-        lgv.barostat = (V1, V2)
+        lgv.box = (V1, V2)
         sim = lmp.run(pot, self.directory)
         self.assert_box(sim, V2)
         lgv.steps = 1
-        lgv.barostat = None
+        lgv.box = None
 
         # invalid-type friction
         lgv.friction = {"B": 5.0, "C": 2.0}
@@ -943,15 +943,23 @@ class test_LAMMPS(unittest.TestCase):
 
         # box resizing
         V1, V2 = self.resize_extents()
-        vrl.barostat = V1
+        vrl.barostat = None
+        vrl.box = V1
         sim = lmp.run(pot, self.directory)
         self.assert_box(sim, V1)
 
         vrl.steps = 2
-        vrl.barostat = (V1, V2)
+        vrl.box = (V1, V2)
         sim = lmp.run(pot, self.directory)
         self.assert_box(sim, V2)
         vrl.steps = 1
+
+        # box resizing is not allowed with a barostat
+        vrl.barostat = relentless.simulate.MTKBarostat(P=1, tau=0.5)
+        with self.assertRaises(ValueError):
+            lmp.run(pot, self.directory)
+        vrl.barostat = None
+        vrl.box = None
 
     def test_bond_run(self):
         ens, pot = self.ens_pot_bonds()
