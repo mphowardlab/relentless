@@ -789,9 +789,7 @@ class _Integrator(SimulationOperation):
     def __call__(self, sim):
         # resize the box before analyzers
         # LAMMPS cannot change the box to triclinic after dumps are defined
-        cmds, sim[self]["_box_fix"] = self._make_box_resize(
-            sim, self._get_resize_barostat()
-        )
+        cmds, sim[self]["_box_fix"] = self._make_box_resize(sim, self.box)
         if len(cmds) > 0:
             sim["engine"]["_lammps_commands"] += cmds
             if sim["engine"]["use_python"]:
@@ -831,10 +829,6 @@ class _Integrator(SimulationOperation):
         else:
             return (thermostat.T, thermostat.T)
 
-    def _get_resize_barostat(self):
-        """Get the extent(s) used to resize the box, if any."""
-        return getattr(self, "barostat", None)
-
     @staticmethod
     def _make_box(sim, V, triclinic):
         """Cast an extent into LAMMPS box arguments."""
@@ -859,10 +853,13 @@ class _Integrator(SimulationOperation):
     @staticmethod
     def _is_triclinic(V):
         """Check if an extent has nonzero tilt factors."""
+        # tilt factors follow the box lengths: Lx, Ly, Lz in 3D or Lx, Ly in 2D
         if isinstance(V, extent.TriclinicBox):
             tilt = V.as_array("LAMMPS")[3:]
-        else:
+        elif isinstance(V, extent.ObliqueArea):
             tilt = V.as_array("LAMMPS")[2:]
+        else:
+            raise TypeError("Extent must be a TriclinicBox or ObliqueArea.")
         return not numpy.all(numpy.isclose(tilt, 0))
 
     def _make_box_resize(self, sim, box):
