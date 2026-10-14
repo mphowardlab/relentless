@@ -626,7 +626,7 @@ class RunLangevinDynamics(_Integrator):
         for analyzer in self.analyzers:
             analyzer.pre_run(sim, self)
 
-        box_resize = self._make_box_resize(sim, self.barostat)
+        box_resize = self._make_box_resize(sim, self.box)
         if box_resize is not None:
             sim["engine"]["_hoomd"].operations.updaters.append(box_resize)
         sim["engine"]["_hoomd"].run(self.steps, write_at_start=True)
@@ -851,7 +851,7 @@ class EnsembleAverage(simulate.AnalysisOperation):
             if sim_op.thermostat is not None:
                 constraints["T"] = sim_op.thermostat
             # conjugate pair: one or the other is set
-            if isinstance(sim_op.barostat, md.MTKBarostat):
+            if sim_op.barostat is not None:
                 constraints["P"] = sim_op.barostat.P
             else:
                 constraints["V"] = True
