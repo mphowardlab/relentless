@@ -712,17 +712,17 @@ class test_HOOMD(unittest.TestCase):
 
         # box resizing
         V1, V2 = self.resize_extents()
-        brn.barostat = V1
+        brn.box = V1
         h = relentless.simulate.HOOMD(init, brn)
         sim = h.run(pot, self.directory)
         self.assert_box(sim, V1)
 
         brn.steps = 2
-        brn.barostat = (V1, V2)
+        brn.box = (V1, V2)
         sim = h.run(pot, self.directory)
         self.assert_box(sim, V2)
         brn.steps = 1
-        brn.barostat = None
+        brn.box = None
 
     def test_langevin_dynamics(self):
         ens, pot = self.ens_pot()
@@ -742,16 +742,16 @@ class test_HOOMD(unittest.TestCase):
 
         # box resizing
         V1, V2 = self.resize_extents()
-        lgv.barostat = V1
+        lgv.box = V1
         sim = h.run(pot, self.directory)
         self.assert_box(sim, V1)
 
         lgv.steps = 2
-        lgv.barostat = (V1, V2)
+        lgv.box = (V1, V2)
         sim = h.run(pot, self.directory)
         self.assert_box(sim, V2)
         lgv.steps = 1
-        lgv.barostat = None
+        lgv.box = None
 
     def test_molecular_dynamics(self):
         # VerletIntegrator - NVE
@@ -780,15 +780,23 @@ class test_HOOMD(unittest.TestCase):
 
         # VerletIntegrator - box resizing
         V1, V2 = self.resize_extents()
-        vrl.barostat = V1
+        vrl.barostat = None
+        vrl.box = V1
         sim = h.run(pot, self.directory)
         self.assert_box(sim, V1)
 
         vrl.steps = 2
-        vrl.barostat = (V1, V2)
+        vrl.box = (V1, V2)
         sim = h.run(pot, self.directory)
         self.assert_box(sim, V2)
         vrl.steps = 1
+
+        # box resizing is not allowed with a barostat
+        vrl.barostat = relentless.simulate.MTKBarostat(P=1, tau=0.5)
+        with self.assertRaises(ValueError):
+            h.run(pot, self.directory)
+        vrl.barostat = None
+        vrl.box = None
 
         if relentless.mpi.world.size == 1:
             # VerletIntegrator - NVE (Berendsen)
