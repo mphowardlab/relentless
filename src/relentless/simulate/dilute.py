@@ -93,10 +93,10 @@ class _Integrator(simulate.SimulationOperation):
 
 
 class RunBrownianDynamics(_Integrator):
-    def __init__(self, steps, timestep, T, friction, seed, analyzers, barostat=None):
+    def __init__(self, steps, timestep, T, friction, seed, analyzers, box=None):
         super().__init__(steps, timestep, analyzers)
         self.T = T
-        self.barostat = barostat
+        self.box = box
 
     def _modify_ensemble(self, sim):
         thermostat = md.Thermostat(self.T)
@@ -112,19 +112,20 @@ class RunBrownianDynamics(_Integrator):
 
 
 class RunLangevinDynamics(_Integrator):
-    def __init__(self, steps, timestep, T, friction, seed, analyzers, barostat):
+    def __init__(self, steps, timestep, T, friction, seed, analyzers, box=None):
         super().__init__(steps, timestep, analyzers)
         self.T = T
-        self.barostat = barostat
+        self.box = box
 
     _modify_ensemble = RunBrownianDynamics._modify_ensemble
 
 
 class RunMolecularDynamics(_Integrator):
-    def __init__(self, steps, timestep, thermostat, barostat, analyzers):
+    def __init__(self, steps, timestep, thermostat, barostat, analyzers, box=None):
         super().__init__(steps, timestep, analyzers)
         self.thermostat = thermostat
         self.barostat = barostat
+        self.box = box
 
     def _modify_ensemble(self, sim):
         if self.thermostat is not None:
