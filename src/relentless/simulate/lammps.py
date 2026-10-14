@@ -913,18 +913,18 @@ class RunBrownianDynamics(_Integrator):
         Seed used to randomly generate a uniform force.
     analyzers : :class:`~relentless.simulate.AnalysisOperation` or list
         Analysis operations to perform with run (defaults to ``None``).
-    barostat : :class:`~relentless.model.extent.Extent` or tuple
+    box : :class:`~relentless.model.extent.Extent` or tuple
         Target simulation extent, or pair of extents for linear box resizing.
         None means no box resizing.
 
     """
 
-    def __init__(self, steps, timestep, T, friction, seed, analyzers, barostat=None):
+    def __init__(self, steps, timestep, T, friction, seed, analyzers, box=None):
         super().__init__(steps, timestep, analyzers)
         self.T = T
         self.friction = friction
         self.seed = seed
-        self.barostat = barostat
+        self.box = box
 
     def _call_commands(self, sim):
         if "BROWNIAN" not in sim["engine"]["packages"]:
@@ -998,18 +998,18 @@ class RunLangevinDynamics(_Integrator):
         Seed used to randomly generate a uniform force.
     analyzers : :class:`~relentless.simulate.AnalysisOperation` or list
         Analysis operations to perform with run (defaults to ``None``).
-    barostat : :class:`~relentless.model.extent.Extent` or tuple
+    box : :class:`~relentless.model.extent.Extent` or tuple
         Target simulation extent, or pair of extents for linear box resizing.
         None means no box resizing.
 
     """
 
-    def __init__(self, steps, timestep, T, friction, seed, analyzers, barostat=None):
+    def __init__(self, steps, timestep, T, friction, seed, analyzers, box=None):
         super().__init__(steps, timestep, analyzers)
         self.T = T
         self.friction = friction
         self.seed = seed
-        self.barostat = barostat
+        self.box = box
 
     def _call_commands(self, sim):
         # obtain per-type friction factor

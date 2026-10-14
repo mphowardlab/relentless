@@ -525,18 +525,18 @@ class RunBrownianDynamics(_Integrator):
         Seed used to randomly generate a uniform force.
     analyzers : :class:`~relentless.simulate.AnalysisOperation` or list
         Analysis operations to perform with run (defaults to ``None``).
-    barostat : :class:`~relentless.model.extent.Extent` or tuple
+    box : :class:`~relentless.model.extent.Extent` or tuple
         Target simulation extent, or pair of extents for linear box resizing.
         None means no box resizing.
 
     """
 
-    def __init__(self, steps, timestep, T, friction, seed, analyzers, barostat=None):
+    def __init__(self, steps, timestep, T, friction, seed, analyzers, box=None):
         super().__init__(steps, timestep, analyzers)
         self.T = T
         self.friction = friction
         self.seed = seed
-        self.barostat = barostat
+        self.box = box
 
     def __call__(self, sim):
         kT = self._make_kT(sim, self.T, self.steps)
@@ -559,7 +559,7 @@ class RunBrownianDynamics(_Integrator):
         for analyzer in self.analyzers:
             analyzer.pre_run(sim, self)
 
-        box_resize = self._make_box_resize(sim, self.barostat)
+        box_resize = self._make_box_resize(sim, self.box)
         if box_resize is not None:
             sim["engine"]["_hoomd"].operations.updaters.append(box_resize)
         sim["engine"]["_hoomd"].run(self.steps, write_at_start=True)
@@ -592,18 +592,18 @@ class RunLangevinDynamics(_Integrator):
         Seed used to randomly generate a uniform force.
     analyzers : :class:`~relentless.simulate.AnalysisOperation` or list
         Analysis operations to perform with run (defaults to ``None``).
-    barostat : :class:`~relentless.model.extent.Extent` or tuple
+    box : :class:`~relentless.model.extent.Extent` or tuple
         Target simulation extent, or pair of extents for linear box resizing.
         None means no box resizing.
 
     """
 
-    def __init__(self, steps, timestep, T, friction, seed, analyzers, barostat=None):
+    def __init__(self, steps, timestep, T, friction, seed, analyzers, box=None):
         super().__init__(steps, timestep, analyzers)
         self.T = T
         self.friction = friction
         self.seed = seed
-        self.barostat = barostat
+        self.box = box
 
     def __call__(self, sim):
         kT = self._make_kT(sim, self.T, self.steps)
