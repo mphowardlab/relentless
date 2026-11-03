@@ -75,14 +75,18 @@ class RunBrownianDynamics(_Integrator):
         Seed used to randomly generate a uniform force.
     analyzers : :class:`~relentless.simulate.AnalysisOperation` or list
         Analysis operations to perform with run (defaults to ``None``).
+    box : :class:`~relentless.model.extent.Extent` or tuple
+        Extent to resize the simulation box to, or pair of extents to linearly
+        resize between over the run (defaults to ``None``, no resizing).
 
     """
 
-    def __init__(self, steps, timestep, T, friction, seed, analyzers=None):
+    def __init__(self, steps, timestep, T, friction, seed, analyzers=None, box=None):
         super().__init__(steps, timestep, analyzers)
         self.T = T
         self.friction = friction
         self.seed = seed
+        self.box = box
 
     def _make_delegate(self, sim):
         return self._get_delegate(
@@ -93,6 +97,7 @@ class RunBrownianDynamics(_Integrator):
             friction=self.friction,
             seed=self.seed,
             analyzers=self.analyzers,
+            box=self.box,
         )
 
 
@@ -115,12 +120,25 @@ class RunLangevinDynamics(_Integrator):
         Seed used to randomly generate a uniform force.
     analyzers : :class:`~relentless.simulate.AnalysisOperation` or list
         Analysis operations to perform with run (defaults to ``None``).
+    box : :class:`~relentless.model.extent.Extent` or tuple
+        Extent to resize the simulation box to, or pair of extents to linearly
+        resize between over the run (defaults to ``None``, no resizing).
 
     """
 
-    def __init__(self, steps, timestep, T, friction, seed, analyzers=None):
+    def __init__(
+        self,
+        steps,
+        timestep,
+        T,
+        friction,
+        seed,
+        analyzers=None,
+        box=None,
+    ):
         super().__init__(steps, timestep, analyzers)
         self.T = T
+        self.box = box
         self.friction = friction
         self.seed = seed
 
@@ -133,6 +151,7 @@ class RunLangevinDynamics(_Integrator):
             friction=self.friction,
             seed=self.seed,
             analyzers=self.analyzers,
+            box=self.box,
         )
 
 
@@ -159,13 +178,26 @@ class RunMolecularDynamics(_Integrator):
         Barostat used for integration (defaults to ``None``).
     analyzers : :class:`~relentless.simulate.AnalysisOperation` or list
         Analysis operations to perform with run (defaults to ``None``).
+    box : :class:`~relentless.model.extent.Extent` or tuple
+        Extent to resize the simulation box to, or pair of extents to linearly
+        resize between over the run (defaults to ``None``, no resizing).
+        Cannot be used with ``barostat``.
 
     """
 
-    def __init__(self, steps, timestep, thermostat=None, barostat=None, analyzers=None):
+    def __init__(
+        self,
+        steps,
+        timestep,
+        thermostat=None,
+        barostat=None,
+        analyzers=None,
+        box=None,
+    ):
         super().__init__(steps, timestep, analyzers)
         self.thermostat = thermostat
         self.barostat = barostat
+        self.box = box
 
     def _make_delegate(self, sim):
         return self._get_delegate(
@@ -175,6 +207,7 @@ class RunMolecularDynamics(_Integrator):
             thermostat=self.thermostat,
             barostat=self.barostat,
             analyzers=self.analyzers,
+            box=self.box,
         )
 
 

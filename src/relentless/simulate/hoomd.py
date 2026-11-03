@@ -449,6 +449,80 @@ class _Integrator(simulate.SimulationOperation):
         else:
             return kB * thermostat.T
 
+    @staticmethod
+    def _make_box(sim, V):
+        """Cast an extent into a HOOMD box."""
+        box_array = V.as_array("HOOMD")
+        if sim.dimension == 2:
+            return hoomd.Box(Lx=box_array[0], Ly=box_array[1], xy=box_array[2])
+        else:
+            return hoomd.Box(
+                Lx=box_array[0],
+                Ly=box_array[1],
+                Lz=box_array[2],
+                xy=box_array[3],
+                xz=box_array[4],
+                yz=box_array[5],
+            )
+
+    def _make_box_resize(self, sim, box):
+        """Resize the HOOMD box.
+
+        Parameters
+        ----------
+        sim : :class:`~relentless.simulate.SimulationInstance`
+            Simulation instance.
+        box : :class:`~relentless.model.extent.Extent` or tuple
+            Extent to resize to immediately, or pair of extents to linearly
+            resize between over the run. ``None`` means no resizing.
+
+        Returns
+        -------
+        :class:`hoomd.update.BoxResize` or None
+            Updater to attach for the run if ``box`` is a pair and there is
+            more than 1 step. Otherwise, the box is resized immediately and
+            ``None`` is returned.
+
+        """
+        if box is None:
+            return None
+        elif isinstance(box, extent.Extent):
+            box = self._make_box(sim, box)
+            hoomd.update.BoxResize.update(
+                sim["engine"]["_hoomd"].state, box, hoomd.filter.All()
+            )
+            return None
+        elif len(box) == 2 and all(isinstance(V, extent.Extent) for V in box):
+            box_1 = self._make_box(sim, box[0])
+            box_2 = self._make_box(sim, box[1])
+            if self.steps > 1:
+                variant = hoomd.variant.Ramp(
+                    A=0,
+                    B=1,
+                    t_start=sim["engine"]["_hoomd"].timestep,
+                    t_ramp=self.steps - 1,
+                )
+                trigger = hoomd.trigger.Periodic(1)
+                # box variants were added and box1/box2 deprecated in HOOMD 4.6
+                if _hoomd_version >= packaging.version.Version("4.6.0"):
+                    box = hoomd.variant.box.Interpolate(box_1, box_2, variant)
+                    box_resize = hoomd.update.BoxResize(trigger=trigger, box=box)
+                else:
+                    box_resize = hoomd.update.BoxResize(
+                        trigger=trigger,
+                        box1=box_1,
+                        box2=box_2,
+                        variant=variant,
+                    )
+                return box_resize
+            else:
+                hoomd.update.BoxResize.update(
+                    sim["engine"]["_hoomd"].state, box_2, hoomd.filter.All()
+                )
+                return None
+        else:
+            raise TypeError("box must be an Extent or a pair of Extent objects.")
+
 
 class RunBrownianDynamics(_Integrator):
     """Perform a Brownian dynamics simulation.
@@ -469,14 +543,18 @@ class RunBrownianDynamics(_Integrator):
         Seed used to randomly generate a uniform force.
     analyzers : :class:`~relentless.simulate.AnalysisOperation` or list
         Analysis operations to perform with run (defaults to ``None``).
+    box : :class:`~relentless.model.extent.Extent` or tuple
+        Target simulation extent, or pair of extents for linear box resizing.
+        None means no box resizing.
 
     """
 
-    def __init__(self, steps, timestep, T, friction, seed, analyzers):
+    def __init__(self, steps, timestep, T, friction, seed, analyzers, box=None):
         super().__init__(steps, timestep, analyzers)
         self.T = T
         self.friction = friction
         self.seed = seed
+        self.box = box
 
     def __call__(self, sim):
         kT = self._make_kT(sim, self.T, self.steps)
@@ -499,11 +577,16 @@ class RunBrownianDynamics(_Integrator):
         for analyzer in self.analyzers:
             analyzer.pre_run(sim, self)
 
+        box_resize = self._make_box_resize(sim, self.box)
+        if box_resize is not None:
+            sim["engine"]["_hoomd"].operations.updaters.append(box_resize)
         sim["engine"]["_hoomd"].run(self.steps, write_at_start=True)
 
         for analyzer in self.analyzers:
             analyzer.post_run(sim, self)
 
+        if box_resize is not None:
+            sim["engine"]["_hoomd"].operations.updaters.remove(box_resize)
         sim["engine"]["_hoomd"].operations.integrator = None
         del ig, bd
 
@@ -527,14 +610,18 @@ class RunLangevinDynamics(_Integrator):
         Seed used to randomly generate a uniform force.
     analyzers : :class:`~relentless.simulate.AnalysisOperation` or list
         Analysis operations to perform with run (defaults to ``None``).
+    box : :class:`~relentless.model.extent.Extent` or tuple
+        Target simulation extent, or pair of extents for linear box resizing.
+        None means no box resizing.
 
     """
 
-    def __init__(self, steps, timestep, T, friction, seed, analyzers):
+    def __init__(self, steps, timestep, T, friction, seed, analyzers, box=None):
         super().__init__(steps, timestep, analyzers)
         self.T = T
         self.friction = friction
         self.seed = seed
+        self.box = box
 
     def __call__(self, sim):
         kT = self._make_kT(sim, self.T, self.steps)
@@ -557,11 +644,16 @@ class RunLangevinDynamics(_Integrator):
         for analyzer in self.analyzers:
             analyzer.pre_run(sim, self)
 
+        box_resize = self._make_box_resize(sim, self.box)
+        if box_resize is not None:
+            sim["engine"]["_hoomd"].operations.updaters.append(box_resize)
         sim["engine"]["_hoomd"].run(self.steps, write_at_start=True)
 
         for analyzer in self.analyzers:
             analyzer.post_run(sim, self)
 
+        if box_resize is not None:
+            sim["engine"]["_hoomd"].operations.updaters.remove(box_resize)
         sim["engine"]["_hoomd"].operations.integrator = None
         del ig, ld
 
@@ -588,6 +680,9 @@ class RunMolecularDynamics(_Integrator):
         Barostat for pressure control. None means no barostat.
     analyzers : :class:`~relentless.simulate.AnalysisOperation` or list
         Analysis operations to perform with run (defaults to ``None``).
+    box : :class:`~relentless.model.extent.Extent` or tuple
+        Target simulation extent, or pair of extents for linear box resizing.
+        None means no box resizing. Cannot be used with ``barostat``.
 
     Raises
     ------
@@ -596,12 +691,15 @@ class RunMolecularDynamics(_Integrator):
 
     """
 
-    def __init__(self, steps, timestep, thermostat, barostat, analyzers):
+    def __init__(self, steps, timestep, thermostat, barostat, analyzers, box=None):
         super().__init__(steps, timestep, analyzers)
         self.thermostat = thermostat
         self.barostat = barostat
+        self.box = box
 
     def __call__(self, sim):
+        if self.barostat is not None and self.box is not None:
+            raise ValueError("Cannot resize the box with a barostat.")
         if self.thermostat is not None:
             kT = self._make_kT(sim, self.thermostat, self.steps)
         else:
@@ -664,11 +762,16 @@ class RunMolecularDynamics(_Integrator):
         for analyzer in self.analyzers:
             analyzer.pre_run(sim, self)
 
+        box_resize = self._make_box_resize(sim, self.box)
+        if box_resize is not None:
+            sim["engine"]["_hoomd"].operations.updaters.append(box_resize)
         sim["engine"]["_hoomd"].run(self.steps, write_at_start=True)
 
         for analyzer in self.analyzers:
             analyzer.post_run(sim, self)
 
+        if box_resize is not None:
+            sim["engine"]["_hoomd"].operations.updaters.remove(box_resize)
         sim["engine"]["_hoomd"].operations.integrator = None
         del ig, ig_method
 
